@@ -1,0 +1,93 @@
+# Decision log
+
+Each entry: the decision, the alternatives, why. Add new entries at the bottom. Reversing a decision
+gets a new entry that references the old one.
+
+## D001. Greenfield, not a Webstudio fork
+
+**Alternatives.** Fork Webstudio (AGPL) and change output, hosting and agent layer.
+
+**Why.** Webstudio's architecture is coupled to Remix, Postgres and their Cloudflare cloud, and the
+builder is not built for self-hosting. The parts we would keep, the data model shape and the MCP
+design, are ideas rather than code. The cost of unwinding the rest exceeds building the core. We
+borrow the shape of their model and ship an importer for their clipboard format.
+
+## D002. A typed JSON document is the source of truth, Astro is a compile target
+
+**Alternatives.** Astro files as the source with a visual editor that round-trips them (Onlook
+model). Arbitrary HTML as the source (GrapesJS model).
+
+**Why.** Bidirectional sync between a visual editor and arbitrary code is the hardest problem in
+this space and never feels solid. A schema-defined document gives reliable agent edits, clean
+diffs, and a swappable output target. Custom code enters through code components and embeds,
+never by editing generated files.
+
+## D003. Class-based styling with a breakpoint cascade, not per-element styles
+
+**Alternatives.** Per-element styles (Framer). Utility classes (Tailwind as the model).
+
+**Why.** Classes produce readable CSS, teach the box model, and keep large sites consistent.
+Tailwind is supported as an import format, not as the internal model.
+
+## D004. Static output by default
+
+**Alternatives.** SSR app output.
+
+**Why.** Marketing sites, blogs and docs are the target. Static HTML on a CDN is faster, cheaper
+and safer. Form submissions are the one runtime endpoint and live on the Freeflow instance. Islands
+cover interactivity. Dynamic per-request rendering is out of scope.
+
+## D005. Sites are git repositories
+
+**Alternatives.** Document rows in a database with a homegrown history table.
+
+**Why.** Versioning, branches, proposals, previews and rollback come for free and are already
+trusted. Agent proposals become branches. Leaving Freeflow is a clone. The database holds
+accounts, CMS content and form submissions; the design document lives in git. CMS content is
+also exported to the repository on publish so the repository is always a complete site.
+
+## D006. Yjs CRDT for the live document
+
+**Alternatives.** Plain state with an operation log; add multiplayer later.
+
+**Why.** Undo and redo, multiplayer and agent co-editing all fall out of one mechanism.
+Retrofitting a CRDT is painful. The Yjs document is serialized to JSON for git commits.
+
+## D007. React for the editor
+
+**Alternatives.** SolidJS, Svelte.
+
+**Why.** The editor ecosystem lives in React: dnd-kit, Radix, Tiptap, Yjs bindings, and the
+contributor pool. Performance is managed with an iframe canvas, virtualized trees and careful
+subscriptions rather than by framework choice.
+
+## D008. SQLite first, Postgres optional
+
+**Alternatives.** Postgres only.
+
+**Why.** One container with no external services is the self-host promise. Drizzle keeps the
+schema portable so Postgres is a config switch for larger deployments.
+
+## D009. Agents are users with proposals
+
+**Alternatives.** Agent edits apply directly. Agent edits require per-mutation confirmation.
+
+**Why.** Direct edits are unsafe; per-mutation confirmation is unusable for real work. Proposals
+let an agent do a whole task, then a human reviews a rendered diff and accepts, edits or rejects.
+The same mechanism serves human branches. Direct mode exists behind an explicit opt-in.
+
+## D010. AGPL-3.0-or-later for everything, no open core
+
+**Alternatives.** MIT or Apache. Open core with proprietary hosting features.
+
+**Why.** AGPL keeps hosted forks contributing back while leaving self-hosting and commercial use
+free. No open core because the split is what makes people distrust open source builders. A paid
+hosted offering can exist as a service, not as withheld features.
+
+## D011. MCP ships in the first phase, before the editor is good
+
+**Alternatives.** Add agent features after the editor is complete.
+
+**Why.** The MCP server is a thin layer over the document schema, so it is cheap early. It lets
+agents build the first templates, tests the schema under real use, and makes agent-native a
+property of the foundation rather than a feature added later.
