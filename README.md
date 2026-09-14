@@ -19,6 +19,7 @@ with one command.
 | [docs/AGENTS.md](docs/AGENTS.md) | The agent layer: in-app agent, MCP, skills, proposals, safety |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Phases and milestones |
 | [docs/LANDSCAPE.md](docs/LANDSCAPE.md) | What Webstudio, Webflow, Framer, Onlook, Plasmic and Puck do, and where we differ |
+| [docs/STACK.md](docs/STACK.md) | Pinned technology choices with reasons and fallbacks |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Decision log. Every big call, the alternatives, and why |
 
 ## The pitch in five lines
@@ -32,3 +33,25 @@ with one command.
 ## License
 
 AGPL-3.0-or-later for the whole project. See [docs/DECISIONS.md](docs/DECISIONS.md) for the reasoning.
+
+## Working on Freeflow
+
+```sh
+pnpm install
+pnpm check        # lint, typecheck, tests
+pnpm test         # tests only
+```
+
+Node 22 and pnpm 10. The stack and the reasons behind it are in [docs/STACK.md](docs/STACK.md).
+
+### Repository layout
+
+```
+packages/schema   The document schema (Zod), validation, fixtures. Everything else depends on it
+packages/css      Document to stylesheet. The one place CSS is generated
+apps/             Server, editor and CLI arrive in later phases
+docs/             Vision, features, architecture, agents, roadmap, decisions
+```
+
+Phase 0 status: schema and CSS generator done. Next up: the Astro compiler and the MCP server.
+See [docs/ROADMAP.md](docs/ROADMAP.md).

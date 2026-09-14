@@ -1,0 +1,130 @@
+import { z } from 'zod'
+import { AssetId, ClassId, CollectionId, ComponentId, FieldId, NodeId, TokenId } from './ids.js'
+
+/**
+ * The element tree. One flat map for the whole site; pages and components point at root nodes.
+ * A node's children are ordered ids. Parents are stored on the child for O(1) lookup and for
+ * CRDT-friendly moves.
+ */
+
+/** A value that can be static or bound to content. */
+export const Binding = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('static'), value: z.union([z.string(), z.number(), z.boolean()]) }),
+  z.object({ type: z.literal('field'), field: FieldId }),
+  z.object({ type: z.literal('token'), token: TokenId }),
+  z.object({ type: z.literal('asset'), asset: AssetId }),
+  z.object({ type: z.literal('prop'), prop: z.string().min(1) }),
+])
+export type Binding = z.infer<typeof Binding>
+
+/** Rich text stored as a Tiptap/ProseMirror JSON document. Kept opaque here. */
+export const RichText = z.object({
+  type: z.literal('doc'),
+  content: z.array(z.record(z.string(), z.unknown())).optional(),
+})
+export type RichText = z.infer<typeof RichText>
+
+/** Optional annotations that give agents and the linter a vocabulary above CSS. */
+export const Semantic = z.object({
+  role: z.string().optional(),
+  archetype: z.string().optional(),
+  constraints: z
+    .array(z.enum(['above-fold', 'keep-order', 'no-restyle', 'content-only']))
+    .optional(),
+})
+
+const Base = {
+  id: NodeId,
+  parent: NodeId.nullable(),
+  children: z.array(NodeId),
+  classes: z.array(ClassId),
+  attrs: z.record(z.string(), Binding).optional(),
+  semantic: Semantic.optional(),
+  meta: z
+    .object({
+      label: z.string().optional(),
+      locked: z.boolean().optional(),
+      hidden: z.boolean().optional(),
+    })
+    .optional(),
+}
+
+export const ElementNode = z.object({
+  ...Base,
+  type: z.literal('element'),
+  /** Always explicit. Freeflow never infers a tag from a component name. */
+  tag: z.string().regex(/^[a-z][a-z0-9-]*$/),
+})
+
+export const TextNode = z.object({
+  ...Base,
+  type: z.literal('text'),
+  tag: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  text: z.union([RichText, Binding]),
+})
+
+export const ComponentInstanceNode = z.object({
+  ...Base,
+  type: z.literal('component'),
+  component: ComponentId,
+  props: z.record(z.string(), Binding).optional(),
+  /** Nodes inside the instance that override the component's own subtree. */
+  overrides: z.array(NodeId).optional(),
+})
+
+export const SlotNode = z.object({
+  ...Base,
+  type: z.literal('slot'),
+  name: z.string().min(1),
+})
+
+export const CollectionListNode = z.object({
+  ...Base,
+  type: z.literal('collection-list'),
+  tag: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  collection: CollectionId,
+  query: z
+    .object({
+      filter: z
+        .array(
+          z.object({
+            field: FieldId,
+            op: z.enum(['eq', 'ne', 'in', 'contains']),
+            value: z.unknown(),
+          }),
+        )
+        .optional(),
+      sort: z.array(z.object({ field: FieldId, direction: z.enum(['asc', 'desc']) })).optional(),
+      limit: z.number().int().positive().optional(),
+      offset: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
+})
+
+export const EmbedNode = z.object({
+  ...Base,
+  type: z.literal('embed'),
+  html: z.string(),
+})
+
+export const CodeComponentNode = z.object({
+  ...Base,
+  type: z.literal('code-component'),
+  /** Path relative to the site's code/ directory, e.g. `Map.astro`. */
+  source: z.string().min(1),
+  props: z.record(z.string(), Binding).optional(),
+  client: z.enum(['none', 'load', 'idle', 'visible']).optional(),
+})
+
+export const Node = z.discriminatedUnion('type', [
+  ElementNode,
+  TextNode,
+  ComponentInstanceNode,
+  SlotNode,
+  CollectionListNode,
+  EmbedNode,
+  CodeComponentNode,
+])
+export type Node = z.infer<typeof Node>
+export type ElementNode = z.infer<typeof ElementNode>
+export type TextNode = z.infer<typeof TextNode>

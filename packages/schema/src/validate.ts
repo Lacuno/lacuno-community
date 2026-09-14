@@ -1,0 +1,127 @@
+import { Document } from './document.js'
+import { BASE_BREAKPOINT_ID, parseStyleKey, styleKey } from './styles.js'
+
+export type Issue = { path: string; message: string }
+
+/**
+ * Referential checks Zod cannot express: every id that points somewhere must land, every tree
+ * must be consistent, exactly one default mode, and style keys must match their declarations.
+ * Returns issues instead of throwing so tools can report all of them at once.
+ */
+export function checkReferences(doc: Document): Issue[] {
+  const issues: Issue[] = []
+  const add = (path: string, message: string) => issues.push({ path, message })
+
+  const defaults = doc.site.modes.filter((m) => m.default)
+  if (defaults.length !== 1)
+    add('site.modes', `expected exactly one default mode, found ${defaults.length}`)
+  const modeIds = new Set(doc.site.modes.map((m) => m.id))
+
+  if (!doc.breakpoints[BASE_BREAKPOINT_ID])
+    add('breakpoints', `missing base breakpoint "${BASE_BREAKPOINT_ID}"`)
+
+  for (const [key, decl] of Object.entries(doc.styles)) {
+    if (styleKey(decl) !== key)
+      add(`styles.${key}`, `key does not match declaration ${styleKey(decl)}`)
+    if (!doc.classes[decl.class]) add(`styles.${key}`, `unknown class ${decl.class}`)
+    if (!doc.breakpoints[decl.breakpoint])
+      add(`styles.${key}`, `unknown breakpoint ${decl.breakpoint}`)
+    try {
+      parseStyleKey(key)
+    } catch (e) {
+      add(`styles.${key}`, (e as Error).message)
+    }
+  }
+
+  for (const [id, cls] of Object.entries(doc.classes)) {
+    if (cls.kind === 'class' && !cls.name) add(`classes.${id}`, 'named class without a name')
+    for (const parent of cls.combo ?? []) {
+      if (!doc.classes[parent]) add(`classes.${id}`, `unknown combo parent ${parent}`)
+      if (parent === id) add(`classes.${id}`, 'class cannot be its own combo parent')
+    }
+  }
+
+  for (const [id, token] of Object.entries(doc.tokens)) {
+    for (const mode of Object.keys(token.values)) {
+      if (!modeIds.has(mode)) add(`tokens.${id}`, `unknown mode ${mode}`)
+    }
+  }
+
+  for (const [id, node] of Object.entries(doc.nodes)) {
+    if (node.id !== id) add(`nodes.${id}`, `node id mismatch ${node.id}`)
+    if (node.parent !== null) {
+      const parent = doc.nodes[node.parent]
+      if (!parent) add(`nodes.${id}`, `unknown parent ${node.parent}`)
+      else if (!parent.children.includes(id))
+        add(`nodes.${id}`, `parent ${node.parent} does not list it as a child`)
+    }
+    for (const child of node.children) {
+      const c = doc.nodes[child]
+      if (!c) add(`nodes.${id}`, `unknown child ${child}`)
+      else if (c.parent !== id) add(`nodes.${id}`, `child ${child} has parent ${c.parent}`)
+    }
+    for (const cls of node.classes) {
+      if (!doc.classes[cls]) add(`nodes.${id}`, `unknown class ${cls}`)
+    }
+    if (node.type === 'component' && !doc.components[node.component])
+      add(`nodes.${id}`, `unknown component ${node.component}`)
+    if (node.type === 'collection-list' && !doc.collections[node.collection])
+      add(`nodes.${id}`, `unknown collection ${node.collection}`)
+  }
+
+  const paths = new Map<string, string>()
+  for (const [id, page] of Object.entries(doc.pages)) {
+    const root = doc.nodes[page.root]
+    if (!root) add(`pages.${id}`, `unknown root node ${page.root}`)
+    else if (root.parent !== null) add(`pages.${id}`, 'root node must have no parent')
+    if (page.collection && !doc.collections[page.collection])
+      add(`pages.${id}`, `unknown collection ${page.collection}`)
+    if (page.collection && !page.path.includes('['))
+      add(`pages.${id}`, 'collection page path needs a [param]')
+    if (page.folder && !doc.folders[page.folder])
+      add(`pages.${id}`, `unknown folder ${page.folder}`)
+    const prev = paths.get(page.path)
+    if (prev) add(`pages.${id}`, `path ${page.path} already used by ${prev}`)
+    paths.set(page.path, id)
+  }
+
+  for (const [id, comp] of Object.entries(doc.components)) {
+    const root = doc.nodes[comp.root]
+    if (!root) add(`components.${id}`, `unknown root node ${comp.root}`)
+    else if (root.parent !== null) add(`components.${id}`, 'component root must have no parent')
+  }
+
+  for (const [id, col] of Object.entries(doc.collections)) {
+    if (!col.fields.some((f) => f.id === col.slugField))
+      add(`collections.${id}`, `slugField ${col.slugField} is not a field`)
+    for (const f of col.fields) {
+      if (
+        (f.type === 'reference' || f.type === 'multi-reference') &&
+        (!f.reference || !doc.collections[f.reference])
+      )
+        add(`collections.${id}.fields.${f.name}`, 'reference field needs a known target collection')
+    }
+  }
+
+  return issues
+}
+
+export class DocumentError extends Error {
+  constructor(public issues: Issue[]) {
+    super(`invalid document:\n${issues.map((i) => `  ${i.path}: ${i.message}`).join('\n')}`)
+    this.name = 'DocumentError'
+  }
+}
+
+/** Parse unknown JSON into a Document, running both Zod and referential checks. Throws. */
+export function parseDocument(input: unknown): Document {
+  const result = Document.safeParse(input)
+  if (!result.success) {
+    throw new DocumentError(
+      result.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+    )
+  }
+  const issues = checkReferences(result.data)
+  if (issues.length) throw new DocumentError(issues)
+  return result.data
+}
