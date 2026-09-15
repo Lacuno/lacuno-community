@@ -37,7 +37,7 @@ freeflow/
     doc/           Yjs document wrapper, operations, undo, JSON (de)serialization
     css/           The one CSS generator. Document → stylesheet. Used by renderer and compiler
     renderer/      React renderer for the canvas iframe. Document → DOM, same CSS as compiler
-    compiler/      Document + CMS content → Astro project on disk
+    compiler/      Document + content → static site, using Astro as an internal engine
     cms/           Collection schema, storage, queries, export to content collections
     mcp/           MCP server: tool definitions over the document API
     agent/         Agent runtime: proposals, skills, providers, jobs
@@ -105,6 +105,9 @@ Design choices that matter:
 - **Collections are schema in the document, data in the database.** The design of a collection is
   part of the design. Entries are content and live in SQLite. On publish, entries are exported into
   the repository so the repository is a complete site.
+- **Entries live in the document for now.** Until the server and its database exist, collection
+  entries are a map in the document keyed by collection id. Phase 2 moves them out with a
+  migration. Nothing else in the design depends on where they live.
 - **Semantic annotations are optional and cheap.** Role and archetype like `hero`, `pricing`,
   `testimonial`, and constraints like `above-fold` give the agent and the linter a vocabulary
   above raw CSS without affecting output.
@@ -126,11 +129,12 @@ and written back on the next commit.
 
 ```
 site/
-  freeflow.json            the document
-  content/<collection>/<slug>.json
-  assets.json              asset metadata; bytes in storage, addressed by content hash
+  freeflow.json            the document, including collection entries for now
+  assets/<hash>            asset bytes, addressed by content hash, no extension
   skills/*.md              agent skills for this site
-  dist/                    optional, committed only when the user wants a static repo
+  .freeflow/               build cache, ignored by git, owned by the build
+  dist/                    static output, owned by the build
+  node_modules/sharp       symlink the build creates so Astro's image step can load sharp
 ```
 
 - The repository can be local to the instance or a remote the user controls. Push on commit is a
@@ -165,24 +169,29 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
 
 ## Compiler
 
-Document plus CMS content in, Astro project out.
+Document plus content in, static site out. Astro is the engine, not the product: nothing it
+generates is meant to be read, edited or kept.
 
-- Pages become `src/pages/**/*.astro`. Collection templates become dynamic routes with
-  `getStaticPaths` reading exported content.
-- Components become `src/components/*.astro` with typed props. Slots map to Astro slots.
-- The generated stylesheet goes to `src/styles/site.css`, one file, imported once. Astro handles
-  minification and hashing.
-- Images use Astro's image service with sharp for responsive sizes and modern formats.
-- Code components are copied from the site's `code/` directory and receive props. Interactive ones
-  declare a client directive and become islands.
-- Embeds and custom head or body code are emitted verbatim.
-- SEO, sitemap, redirects, robots and OG images are emitted through small Astro integrations we
-  own.
-- The output is a normal Astro project a developer can open, run and modify. Regeneration
-  overwrites generated files and leaves `code/` and anything under `custom/` alone.
+- A pure renderer turns a document and a page into head and body HTML. It resolves bindings,
+  components, slots, collection lists and rich text, and never touches the filesystem, so it is
+  tested with plain snapshots.
+- The build writes a fixed scaffold into `.freeflow/astro`: one catch-all route, the generated
+  stylesheet, the document as JSON, copied assets, and a `node_modules` directory holding
+  symlinks to the installed Astro and compiler packages. The route enumerates every output path
+  through `getStaticPaths`, calls the renderer, and wraps the result in real html, head and body
+  tags so Astro can inline or link the stylesheet as it sees fit.
+- Astro's programmatic build then produces `dist/`: compressed HTML, one minified stylesheet
+  inlined when small, images optimized to AVIF and WebP with a width set, hashed asset names,
+  redirects as meta-refresh pages, robots and a sitemap when the site URL is known.
+- Every route is rendered once before Astro runs, so reference errors and warnings surface with
+  node and page ids instead of being buried in bundler output.
+- The build changes the process working directory for the duration of the Astro call, because
+  Astro places its prerender bundle relative to the working directory. Builds must therefore run
+  one at a time per process; the server's build queue runs them in a child process.
+- Custom code enters through embeds today and code components later. Code components are inputs
+  to the build, never files a developer edits in place.
 
-The compiler is a pure function from inputs to a directory tree. It has no knowledge of the server.
-The CLI exposes it as `freeflow compile` and `freeflow build`.
+The compiler has no knowledge of the server. The CLI exposes it as `freeflow build`.
 
 ## Server
 

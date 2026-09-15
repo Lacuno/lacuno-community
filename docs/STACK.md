@@ -14,7 +14,7 @@ a time, with the test suite green.
 | Lint and format | Biome 2 | One fast tool instead of ESLint plus Prettier plus a dozen plugins | |
 | Tests | Vitest 5 | Vite-native, workspaces, snapshot support, browser mode when we need DOM | |
 | E2E | Playwright | Editor flows and canvas parity tests. Chromium is preinstalled in our CI image | |
-| Package builds | tsdown | Rolldown-based, fast, produces ESM plus types. Only the CLI and server are bundled; workspace packages are consumed from source | tsup |
+| Package builds | tsdown | Rolldown-based, fast, produces ESM plus types. Only the CLI and server are bundled; workspace packages are inlined into those bundles and consumed from source everywhere else. Astro, sharp and other runtime engines stay external dependencies of the bundle | tsup |
 
 ## Core packages
 

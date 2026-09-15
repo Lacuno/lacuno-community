@@ -8,7 +8,8 @@ Goal: the document, the compiler and an agent can produce a real site before the
 
 - `packages/schema`: document schema, validation, migrations, fixtures.
 - `packages/css`: deterministic CSS generator with snapshot tests.
-- `packages/compiler`: document to Astro project. `freeflow build` produces static output.
+- `packages/compiler` and `apps/cli`: document to static output through Astro as an internal
+  engine. `freeflow build <dir>` builds a site folder; a Lighthouse script guards the score.
 - `packages/mcp` and `freeflow mcp`: discovery, pages, nodes, classes, styles, tokens, components,
   dry run, version pinning, operating on a document in a local folder.
 - Default template documents written by an agent through the MCP server.
@@ -39,7 +40,7 @@ Goal: the reasons people pay for Webflow.
 - Content editor mode and roles.
 - Forms with submissions, notifications, webhooks.
 - Import from Webflow clipboard, Webstudio JSON, HTML plus CSS, Tailwind HTML, CSV.
-- Export the Astro project to a git remote. Deploy hooks for external hosts.
+- Export the static output to a git remote. Deploy hooks for external hosts.
 
 **Exit:** a blog with fifty posts and a contact form, imported from a Webflow export, published
 and receiving submissions.

@@ -91,3 +91,16 @@ hosted offering can exist as a service, not as withheld features.
 **Why.** The MCP server is a thin layer over the document schema, so it is cheap early. It lets
 agents build the first templates, tests the schema under real use, and makes agent-native a
 property of the foundation rather than a feature added later.
+
+## D012. Astro is an internal engine, not an editable output
+
+**Alternatives.** Generate a normal Astro project a developer can open and modify, as D002 and
+the first architecture draft described. Generate `.astro` source from the document.
+
+**Why.** An editable Astro project promises two-way ownership we cannot honor: the next build
+overwrites it, and every generated file becomes API surface. Treating Astro as an engine keeps
+the renderer a pure function over the document, tested without a bundler, and leaves Astro to do
+what it is good at: image optimization, CSS bundling, compressed HTML, sitemaps and redirects.
+Developers extend a site through embeds and code components, which are inputs, not outputs.
+Reverses the "normal Astro project" language in D002 and the architecture doc; the JSON document
+remains the source of truth.
