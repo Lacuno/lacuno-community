@@ -5,4 +5,5 @@ export { type ImageResolver, plainImageResolver, type ResolvedImage } from './im
 export { type RenderState, renderChildren, renderNode, type Warning } from './nodes.js'
 export { applyQuery } from './query.js'
 export { richTextInlineHtml, richTextToHtml } from './richtext.js'
+export { entrySlug, enumerateRoutes, type Route, routePath } from './routes.js'
 export { type Frame, type Resolved, resolveBinding, type Scope } from './scope.js'
