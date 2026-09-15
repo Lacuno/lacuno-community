@@ -103,6 +103,33 @@ export function checkReferences(doc: Document): Issue[] {
     }
   }
 
+  for (const [colId, entries] of Object.entries(doc.entries)) {
+    const col = doc.collections[colId]
+    if (!col) {
+      add(`entries.${colId}`, `unknown collection ${colId}`)
+      continue
+    }
+    const slugs = new Map<string, string>()
+    entries.forEach((entry, index) => {
+      const path = `entries.${colId}.${index}`
+      for (const f of col.fields) {
+        if (f.required && entry.fields[f.id] === undefined)
+          add(path, `missing required field ${f.name}`)
+      }
+      for (const fieldId of Object.keys(entry.fields)) {
+        if (!col.fields.some((f) => f.id === fieldId)) add(path, `unknown field ${fieldId}`)
+      }
+      const slug = entry.fields[col.slugField]
+      if (typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug)) {
+        add(path, `slug must be a lower-case string, got ${JSON.stringify(slug)}`)
+      } else if (slugs.has(slug)) {
+        add(path, `duplicate slug ${slug}`)
+      } else {
+        slugs.set(slug, entry.id)
+      }
+    })
+  }
+
   return issues
 }
 

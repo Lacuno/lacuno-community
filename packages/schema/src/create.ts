@@ -41,6 +41,7 @@ export function createEmptyDocument(name = 'Untitled'): Document {
     tokens: {},
     components: {},
     collections: {},
+    entries: {},
     assets: {},
     redirects: [],
   }

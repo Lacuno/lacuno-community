@@ -84,6 +84,32 @@ describe('document schema', () => {
       expect((e as DocumentError).issues[0]!.path).toBe('version')
     }
   })
+
+  it('accepts entries and exposes them in the fixture', () => {
+    const doc = fixtureDocument()
+    expect(doc.entries['col-posts']).toHaveLength(3)
+    expect(doc.entries['col-posts']![0]!.fields['f-slug']).toBe('hello-world')
+    expect(checkReferences(doc)).toEqual([])
+    expect(createEmptyDocument().entries).toEqual({})
+  })
+
+  it('rejects entries with unknown collections, missing required fields and duplicate slugs', () => {
+    const doc = fixtureDocument()
+    doc.entries['col-missing'] = [{ id: 'e-x', fields: {} }]
+    doc.entries['col-posts']!.push({ id: 'e-4', fields: { 'f-slug': 'hello-world' } })
+    const msgs = checkReferences(doc).map((i) => i.message)
+    expect(msgs).toContain('unknown collection col-missing')
+    expect(msgs).toContain('missing required field title')
+    expect(msgs).toContain('duplicate slug hello-world')
+  })
+
+  it('accepts an optional site url and rejects a malformed one', () => {
+    const doc = fixtureDocument()
+    doc.site.url = 'https://example.com'
+    expect(parseDocument(doc).site.url).toBe('https://example.com')
+    doc.site.url = 'not a url'
+    expect(() => parseDocument(doc)).toThrow(DocumentError)
+  })
 })
 
 describe('helpers', () => {

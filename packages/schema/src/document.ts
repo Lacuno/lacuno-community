@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { AssetRef, Font } from './assets.js'
 import { CollectionSchema } from './collections.js'
 import { Component } from './components.js'
+import { Entry } from './entries.js'
 import {
   AssetId,
   BreakpointId,
@@ -26,6 +27,7 @@ export const SiteSettings = z.object({
   modes: z.array(Mode).min(1),
   fonts: z.array(Font).default([]),
   favicon: AssetId.optional(),
+  url: z.url().optional(),
   headCode: z.string().optional(),
   bodyCode: z.string().optional(),
 })
@@ -46,6 +48,7 @@ export const Document = z.object({
   tokens: z.record(TokenId, Token).default({}),
   components: z.record(ComponentId, Component).default({}),
   collections: z.record(CollectionId, CollectionSchema).default({}),
+  entries: z.record(CollectionId, z.array(Entry)).default({}),
   assets: z.record(AssetId, AssetRef).default({}),
   redirects: z.array(Redirect).default([]),
 })

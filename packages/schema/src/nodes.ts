@@ -128,3 +128,5 @@ export const Node = z.discriminatedUnion('type', [
 export type Node = z.infer<typeof Node>
 export type ElementNode = z.infer<typeof ElementNode>
 export type TextNode = z.infer<typeof TextNode>
+export type CollectionListNode = z.infer<typeof CollectionListNode>
+export type ComponentInstanceNode = z.infer<typeof ComponentInstanceNode>

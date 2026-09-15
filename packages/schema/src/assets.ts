@@ -22,3 +22,4 @@ export const Font = z.object({
   weights: z.array(z.number().int()).optional(),
   fallback: z.string().optional(),
 })
+export type Font = z.infer<typeof Font>

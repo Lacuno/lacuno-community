@@ -20,6 +20,7 @@ export const CollectionId = id('CollectionId')
 export const FieldId = id('FieldId')
 export const AssetId = id('AssetId')
 export const FolderId = id('FolderId')
+export const EntryId = id('EntryId')
 
 export type NodeId = z.infer<typeof NodeId>
 export type PageId = z.infer<typeof PageId>
@@ -32,6 +33,7 @@ export type CollectionId = z.infer<typeof CollectionId>
 export type FieldId = z.infer<typeof FieldId>
 export type AssetId = z.infer<typeof AssetId>
 export type FolderId = z.infer<typeof FolderId>
+export type EntryId = z.infer<typeof EntryId>
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 

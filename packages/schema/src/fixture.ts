@@ -319,7 +319,7 @@ export function fixtureDocument(): Document {
         type: 'element',
         tag: 'div',
         parent: 'n-hero',
-        children: ['n-hero-title', 'n-hero-cta'],
+        children: ['n-hero-title', 'n-hero-image', 'n-hero-cta'],
         classes: [],
       },
       'n-hero-title': {
@@ -337,6 +337,19 @@ export function fixtureDocument(): Document {
               content: [{ type: 'text', text: 'Design it. Publish it. Own it.' }],
             },
           ],
+        },
+      },
+      'n-hero-image': {
+        id: 'n-hero-image',
+        type: 'element',
+        tag: 'img',
+        parent: 'n-hero-inner',
+        children: [],
+        classes: [],
+        attrs: {
+          src: { type: 'asset', asset: 'a-hero' },
+          alt: { type: 'static', value: 'A blue rectangle standing in for a hero image' },
+          loading: { type: 'static', value: 'eager' },
         },
       },
       'n-hero-cta': {
@@ -403,7 +416,7 @@ export function fixtureDocument(): Document {
         type: 'element',
         tag: 'main',
         parent: null,
-        children: ['n-post-title'],
+        children: ['n-post-title', 'n-post-body'],
         classes: ['c-page', 'c-container'],
       },
       'n-post-title': {
@@ -414,6 +427,15 @@ export function fixtureDocument(): Document {
         children: [],
         classes: ['c-heading'],
         text: { type: 'field', field: 'f-title' },
+      },
+      'n-post-body': {
+        id: 'n-post-body',
+        type: 'text',
+        tag: 'div',
+        parent: 'n-post',
+        children: [],
+        classes: [],
+        text: { type: 'field', field: 'f-body' },
       },
     },
     classes: {
@@ -524,7 +546,45 @@ export function fixtureDocument(): Document {
         ],
       },
     },
-    assets: {},
+    assets: {
+      'a-hero': {
+        id: 'a-hero',
+        name: 'hero.png',
+        kind: 'image',
+        hash: 'fixture-hero',
+        mime: 'image/png',
+        size: 0,
+        width: 1200,
+        height: 800,
+        alt: 'Hero image',
+      },
+    },
+    entries: {
+      'col-posts': [
+        {
+          id: 'e-1',
+          fields: {
+            'f-title': 'Hello world',
+            'f-slug': 'hello-world',
+            'f-date': '2026-09-01',
+            'f-body': {
+              type: 'doc',
+              content: [
+                { type: 'paragraph', content: [{ type: 'text', text: 'The first post.' }] },
+              ],
+            },
+          },
+        },
+        {
+          id: 'e-2',
+          fields: { 'f-title': 'Second post', 'f-slug': 'second-post', 'f-date': '2026-09-05' },
+        },
+        {
+          id: 'e-3',
+          fields: { 'f-title': 'Third post', 'f-slug': 'third-post', 'f-date': '2026-09-10' },
+        },
+      ],
+    },
     redirects: [{ from: '/old-blog', to: '/blog', status: 301 }],
   }
   return doc
