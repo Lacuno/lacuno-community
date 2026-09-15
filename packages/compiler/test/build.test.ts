@@ -1,0 +1,66 @@
+import { existsSync } from 'node:fs'
+import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import { build } from '../src/build.js'
+import { writeFixtureSite } from '../src/fixture-site.js'
+
+const dirs: string[] = []
+async function tmp(): Promise<string> {
+  const d = await mkdtemp(path.join(os.tmpdir(), 'freeflow-build-'))
+  dirs.push(d)
+  return d
+}
+afterEach(async () => {
+  for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true })
+})
+
+describe.skipIf(process.env.FREEFLOW_FAST_TESTS)('build (runs Astro, slow)', () => {
+  it('builds the fixture site to static output and is idempotent', async () => {
+    const dir = await tmp()
+    await writeFixtureSite(dir)
+    const result = await build(dir, { siteUrl: 'https://example.com', quiet: true })
+    expect(result.pages).toBe(4)
+    expect(result.warnings).toEqual([])
+    expect(result.outDir).toBe(path.join(dir, 'dist'))
+
+    const home = await readFile(path.join(dir, 'dist/index.html'), 'utf8')
+    expect(home).toContain('<picture>')
+    expect(home).toContain('type="image/avif"')
+    expect(home).toMatch(/\.webp \d+w/)
+    // Astro inlines the stylesheet when it is small and links it otherwise. Either is fine.
+    const inlined = home.includes('--color-brand:#3b5bdb')
+    const linked = /<link rel="stylesheet" href="\/_astro\/[^"]+\.css">/.test(home)
+    expect(inlined || linked).toBe(true)
+    expect(home).toContain('<link rel="canonical" href="https://example.com/">')
+    expect(existsSync(path.join(dir, 'dist/blog/hello-world/index.html'))).toBe(true)
+    expect(existsSync(path.join(dir, 'dist/blog/third-post/index.html'))).toBe(true)
+    expect(existsSync(path.join(dir, 'dist/old-blog/index.html'))).toBe(true)
+    expect(existsSync(path.join(dir, 'dist/sitemap-index.xml'))).toBe(true)
+    expect(await readFile(path.join(dir, 'dist/robots.txt'), 'utf8')).toContain(
+      'Sitemap: https://example.com/sitemap-index.xml',
+    )
+
+    const again = await build(dir, { siteUrl: 'https://example.com', quiet: true })
+    expect(again.pages).toBe(4)
+    expect(await readFile(path.join(dir, 'dist/index.html'), 'utf8')).toBe(home)
+  })
+
+  it('classifies document and render errors before running Astro', async () => {
+    const dir = await tmp()
+    await expect(build(dir, { quiet: true })).rejects.toMatchObject({ kind: 'document' })
+    await writeFile(path.join(dir, 'freeflow.json'), '{')
+    await expect(build(dir, { quiet: true })).rejects.toMatchObject({
+      kind: 'document',
+      message: expect.stringContaining('not valid JSON'),
+    })
+    const doc = await writeFixtureSite(dir)
+    await unlink(path.join(dir, 'assets', doc.assets['a-hero']!.hash))
+    await expect(build(dir, { quiet: true })).rejects.toMatchObject({
+      kind: 'render',
+      message: expect.stringContaining('a-hero'),
+    })
+    expect(existsSync(path.join(dir, 'dist'))).toBe(false)
+  })
+})
