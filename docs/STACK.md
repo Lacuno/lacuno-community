@@ -36,7 +36,7 @@ a time, with the test suite green.
 | Auth | better-auth | Email and password, magic links, OIDC, sessions, all self-hosted |
 | Realtime | ws plus y-websocket protocol | Yjs sync and presence over one WebSocket per open site |
 | Git | isomorphic-git or a thin wrapper around the git binary | Sites are repositories. Start with the binary in the container for correctness, revisit if we need pure JS |
-| Build queue | In-process worker threads | Runs the compiler and `astro build`. A separate worker process is a config option later |
+| Build queue | Child process per build | The compiler changes the working directory for Astro, so builds cannot share a process. A separate build worker service is a config option later |
 | Email | Nodemailer with SMTP, Resend as an adapter | Form notifications, magic links |
 | TLS and domains | Caddy | Automatic certificates and host-based routing, configured through its admin API from the server |
 | Container | Distroless-style Node image, single process, one volume | `docker run -v data:/data -p 80:80 freeflow` |

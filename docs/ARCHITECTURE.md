@@ -200,8 +200,9 @@ The compiler has no knowledge of the server. The CLI exposes it as `freeflow bui
 - **Storage** through Drizzle. SQLite by default with WAL. Postgres via config.
 - **Tables** cover accounts, workspaces, sites, memberships, CMS entries, form submissions, builds,
   proposals, jobs, audit log, and the Yjs update buffer.
-- **Build queue.** A small in-process queue runs the compiler and `astro build` in a worker. Output
-  goes to `builds/<site>/<build-id>/`. Publishing atomically repoints a symlink for the environment.
+- **Build queue.** A small in-process queue runs each build in a child process, one at a time per
+  site, because the build changes its working directory for Astro. Output goes to
+  `builds/<site>/<build-id>/`. Publishing atomically repoints a symlink for the environment.
 - **Serving.** Published output is served with immutable caching for hashed assets and short
   caching for HTML. Caddy in front adds TLS and routes custom domains to the right site by host.
 - **Forms.** A published form posts to the instance, which validates, stores, notifies and
@@ -214,7 +215,7 @@ The compiler has no knowledge of the server. The CLI exposes it as `freeflow bui
 `freeflow` is a single binary with the same packages:
 
 - `freeflow dev` runs the server locally against a folder.
-- `freeflow compile` and `freeflow build` produce the Astro project and the static output.
+- `freeflow build` produces the static output for a site folder.
 - `freeflow mcp` runs the MCP server over stdio for local agents and proxies to a remote instance
   when configured.
 - `freeflow export` and `freeflow import` move sites between instances and formats.
