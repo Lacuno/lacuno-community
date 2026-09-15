@@ -14,11 +14,16 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
-    "freeflow": "tsx apps/cli/src/main.ts"
+    "freeflow": "tsx apps/cli/src/main.ts",
+    "lighthouse": "tsx scripts/lighthouse.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
+    "@freeflow/compiler": "workspace:*",
     "@types/node": "^22.20.2",
+    "chrome-launcher": "^1.2.1",
+    "lighthouse": "^13.4.1",
+    "playwright": "^1.63.0",
     "turbo": "^2.10.13",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",
