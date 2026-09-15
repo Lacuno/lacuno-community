@@ -12,7 +12,9 @@ import { isOptimizedImage, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { type AttrMap, escapeHtml, renderAttrs, VOID_TAGS } from './html.js'
 import type { ImageResolver } from './images.js'
+import { applyQuery } from './query.js'
 import { richTextInlineHtml, richTextToHtml } from './richtext.js'
+import type { Frame } from './scope.js'
 import { type Resolved, resolveBinding, type Scope } from './scope.js'
 
 export type Warning = { node: string; message: string }
@@ -57,6 +59,7 @@ function resolveAttrs(
   const out: AttrMap = {}
   let imageAsset: AssetRef | undefined
   for (const [name, binding] of Object.entries(attrs ?? {})) {
+    if (name === 'slot') continue
     const v = resolveBinding(state.doc, binding, scope, nodeId)
     if (v === undefined || v === false) continue
     if (v === true) {
@@ -131,6 +134,70 @@ function renderText(
   return `<${node.tag}${renderAttrs(attrs)}>${inner}</${node.tag}>`
 }
 
+/** Group an instance's children by the slot named in their static `slot` attribute. */
+function slotContent(children: readonly NodeId[], state: RenderState): Map<string, NodeId[]> {
+  const slots = new Map<string, NodeId[]>()
+  for (const id of children) {
+    const child = getNode(state, id)
+    const slotAttr = child.attrs?.slot
+    const name = slotAttr?.type === 'static' ? String(slotAttr.value) : 'default'
+    const list = slots.get(name) ?? []
+    list.push(id)
+    slots.set(name, list)
+  }
+  return slots
+}
+
+function renderInstance(
+  node: Extract<Node, { type: 'component' }>,
+  scope: Scope,
+  state: RenderState,
+): string {
+  const component = state.doc.components[node.component]
+  if (!component) throw new RenderError(`unknown component ${node.component}`, node.id, state.page)
+  if (node.overrides?.length)
+    state.warnings.push({
+      node: node.id,
+      message: 'instance overrides are not supported yet and were ignored',
+    })
+  const values: Record<string, unknown> = {}
+  for (const [name, binding] of Object.entries(node.props ?? {})) {
+    values[name] = resolveBinding(state.doc, binding, scope, node.id)
+  }
+  const frame: Frame = { component, values, slots: slotContent(node.children, state), outer: scope }
+  const inner: Scope = { ...scope, frames: [...scope.frames, frame] }
+  return renderNode(component.root, inner, state)
+}
+
+function renderSlot(
+  node: Extract<Node, { type: 'slot' }>,
+  scope: Scope,
+  state: RenderState,
+): string {
+  const frame = scope.frames[scope.frames.length - 1]
+  if (!frame) throw new RenderError('slot outside a component', node.id, state.page)
+  const content = frame.slots.get(node.name)
+  if (content?.length) return renderChildren(content, frame.outer, state)
+  return renderChildren(node.children, scope, state)
+}
+
+function renderList(
+  node: Extract<Node, { type: 'collection-list' }>,
+  scope: Scope,
+  state: RenderState,
+): string {
+  const collection = state.doc.collections[node.collection]
+  if (!collection)
+    throw new RenderError(`unknown collection ${node.collection}`, node.id, state.page)
+  const { attrs } = resolveAttrs(node.attrs, scope, state, node.id)
+  if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
+  const entries = applyQuery(state.doc.entries[node.collection] ?? [], node.query)
+  const items = entries
+    .map((entry) => renderChildren(node.children, { ...scope, entry, collection }, state))
+    .join('')
+  return `<${node.tag}${renderAttrs(attrs)}>${items}</${node.tag}>`
+}
+
 export function renderChildren(ids: readonly NodeId[], scope: Scope, state: RenderState): string {
   return ids.map((id) => renderNode(id, scope, state)).join('')
 }
@@ -143,9 +210,15 @@ export function renderNode(id: NodeId, scope: Scope, state: RenderState): string
       return renderElement(node, scope, state)
     case 'text':
       return renderText(node, scope, state)
+    case 'component':
+      return renderInstance(node, scope, state)
+    case 'slot':
+      return renderSlot(node, scope, state)
+    case 'collection-list':
+      return renderList(node, scope, state)
+    case 'embed':
+      return node.html
     case 'code-component':
       throw new RenderError('code components are not supported yet', node.id, state.page)
-    default:
-      throw new RenderError(`node type ${node.type} is not implemented`, node.id, state.page)
   }
 }

@@ -129,3 +129,151 @@ describe('renderNode: elements and text', () => {
     )
   })
 })
+
+describe('renderNode: components, slots, lists, embeds', () => {
+  it('renders an instance with props, slot content and fallback', () => {
+    const doc = fixtureDocument()
+    // Component: <article class="card"><h3>{title}</h3><slot name="body">fallback</slot></article>
+    doc.nodes['n-card-slot']!.children = ['n-fallback']
+    doc.nodes['n-fallback'] = {
+      id: 'n-fallback',
+      type: 'text',
+      tag: 'p',
+      parent: 'n-card-slot',
+      children: [],
+      classes: [],
+      text: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'fallback' }] }],
+      },
+    }
+    doc.nodes.inst = {
+      id: 'inst',
+      type: 'component',
+      parent: null,
+      children: ['filled'],
+      classes: [],
+      component: 'cmp-card',
+      props: { title: { type: 'static', value: 'Filled' } },
+    }
+    doc.nodes.filled = {
+      id: 'filled',
+      type: 'text',
+      tag: 'p',
+      parent: 'inst',
+      children: [],
+      classes: [],
+      attrs: { slot: { type: 'static', value: 'body' } },
+      text: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'from page' }] }],
+      },
+    }
+    doc.nodes.bare = {
+      id: 'bare',
+      type: 'component',
+      parent: null,
+      children: [],
+      classes: [],
+      component: 'cmp-card',
+      props: { title: { type: 'static', value: 'Bare' } },
+    }
+    const s = state(doc)
+    expect(renderNode('inst', empty, s)).toBe(
+      '<article class="card"><h3>Filled</h3><p>from page</p></article>',
+    )
+    expect(renderNode('bare', empty, s)).toBe(
+      '<article class="card"><h3>Bare</h3><p>fallback</p></article>',
+    )
+  })
+
+  it('renders slot content in the outer scope and nests instances', () => {
+    const doc = fixtureDocument()
+    const scope: Scope = {
+      entry: doc.entries['col-posts']![0]!,
+      collection: doc.collections['col-posts']!,
+      frames: [],
+    }
+    doc.nodes.outer = {
+      id: 'outer',
+      type: 'component',
+      parent: null,
+      children: ['inner'],
+      classes: [],
+      component: 'cmp-card',
+      props: { title: { type: 'static', value: 'Outer' } },
+    }
+    doc.nodes.inner = {
+      id: 'inner',
+      type: 'component',
+      parent: 'outer',
+      children: ['deep'],
+      classes: [],
+      component: 'cmp-card',
+      attrs: { slot: { type: 'static', value: 'body' } },
+      props: { title: { type: 'field', field: 'f-title' } },
+    }
+    doc.nodes.deep = {
+      id: 'deep',
+      type: 'text',
+      tag: 'span',
+      parent: 'inner',
+      children: [],
+      classes: [],
+      attrs: { slot: { type: 'static', value: 'body' } },
+      text: { type: 'field', field: 'f-slug' },
+    }
+    expect(renderNode('outer', scope, state(doc))).toBe(
+      '<article class="card"><h3>Outer</h3><article class="card"><h3>Hello world</h3><span>hello-world</span></article></article>',
+    )
+  })
+
+  it('warns on overrides and rejects unknown components', () => {
+    const doc = fixtureDocument()
+    doc.nodes.inst = {
+      id: 'inst',
+      type: 'component',
+      parent: null,
+      children: [],
+      classes: [],
+      component: 'cmp-card',
+      props: { title: { type: 'static', value: 'x' } },
+      overrides: ['n-card-title'],
+    }
+    const s = state(doc)
+    renderNode('inst', empty, s)
+    expect(s.warnings).toEqual([
+      { node: 'inst', message: 'instance overrides are not supported yet and were ignored' },
+    ])
+    doc.nodes.inst.component = 'cmp-nope'
+    expect(() => renderNode('inst', empty, state(doc))).toThrow('unknown component cmp-nope')
+  })
+
+  it('renders a collection list once per queried entry', () => {
+    const doc = fixtureDocument()
+    expect(renderNode('n-posts', empty, state(doc))).toBe(
+      '<div class="container post-grid">' +
+        '<article class="card"><h3>Third post</h3></article>' +
+        '<article class="card"><h3>Second post</h3></article>' +
+        '<article class="card"><h3>Hello world</h3></article>' +
+        '</div>',
+    )
+    const posts = doc.nodes['n-posts'] as Extract<Node, { type: 'collection-list' }>
+    posts.collection = 'col-nope'
+    expect(() => renderNode('n-posts', empty, state(doc))).toThrow('unknown collection col-nope')
+  })
+
+  it('emits embeds verbatim', () => {
+    const doc = withNodes([
+      {
+        id: 'e',
+        type: 'embed',
+        parent: null,
+        children: [],
+        classes: [],
+        html: '<script>1<2</script>',
+      },
+    ])
+    expect(renderNode('e', empty, state(doc))).toBe('<script>1<2</script>')
+  })
+})
