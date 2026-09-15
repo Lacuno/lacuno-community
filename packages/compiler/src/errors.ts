@@ -13,7 +13,8 @@ export class RenderError extends Error {
 /** Anything that stops a build, classified for the CLI. */
 export class BuildError extends Error {
   constructor(
-    public kind: 'document' | 'render' | 'engine',
+    // 'options' is an invalid caller-supplied BuildOptions value, rejected before any write.
+    public kind: 'document' | 'render' | 'engine' | 'options',
     message: string,
     public detail?: string,
   ) {

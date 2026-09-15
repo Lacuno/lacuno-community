@@ -20,7 +20,9 @@ describe.skipIf(process.env.FREEFLOW_FAST_TESTS)('build (runs Astro, slow)', () 
   it('builds the fixture site to static output and is idempotent', async () => {
     const dir = await tmp()
     await writeFixtureSite(dir)
+    const cwdBefore = process.cwd()
     const result = await build(dir, { siteUrl: 'https://example.com', quiet: true })
+    expect(process.cwd()).toBe(cwdBefore)
     expect(result.pages).toBe(4)
     expect(result.warnings).toEqual([])
     expect(result.outDir).toBe(path.join(dir, 'dist'))
@@ -62,5 +64,14 @@ describe.skipIf(process.env.FREEFLOW_FAST_TESTS)('build (runs Astro, slow)', () 
       message: expect.stringContaining('a-hero'),
     })
     expect(existsSync(path.join(dir, 'dist'))).toBe(false)
+  })
+})
+
+describe('build option validation', () => {
+  it('rejects an outDir outside the site directory', async () => {
+    const dir = await tmp()
+    await expect(build(dir, { outDir: '/somewhere/else' })).rejects.toMatchObject({
+      kind: 'options',
+    })
   })
 })

@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, rm, symlink } from 'node:fs/promises'
+import { lstat, mkdir, readFile, realpath, rm, stat, symlink } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -72,27 +72,82 @@ function renderMessage(e: RenderError): string {
 }
 
 /**
+ * sharp's package.json does not expose an `./package.json` export, so `require.resolve` on it
+ * (the trick `packageDir` uses for astro and the compiler) always throws. Resolve the main entry
+ * instead and walk up to the directory whose package.json actually names it "sharp".
+ */
+async function sharpDir(): Promise<string> {
+  let entry: string
+  try {
+    entry = require.resolve('sharp')
+  } catch {
+    throw new BuildError('engine', 'sharp is not installed; run pnpm install')
+  }
+  let dir = path.dirname(entry)
+  for (;;) {
+    try {
+      const pkg: unknown = JSON.parse(await readFile(path.join(dir, 'package.json'), 'utf8'))
+      if (pkg && typeof pkg === 'object' && (pkg as { name?: unknown }).name === 'sharp') break
+    } catch {
+      // No package.json here (or it's unrelated/malformed): keep walking up.
+    }
+    const parent = path.dirname(dir)
+    if (parent === dir) throw new BuildError('engine', 'sharp is not installed; run pnpm install')
+    dir = parent
+  }
+  try {
+    await stat(dir)
+  } catch {
+    throw new BuildError('engine', 'sharp is not installed; run pnpm install')
+  }
+  return dir
+}
+
+/**
  * Astro's bundled image-generation step imports `sharp` as a bare specifier from a chunk file
  * written under `outDir/.prerender/`, a sibling of the scaffold root (`site/.freeflow/astro`),
  * not a descendant of it. Node resolves that bare specifier by walking up from the chunk's own
  * location, so the symlink has to sit where both `outDir` and the scaffold root can reach it:
  * directly under the site directory itself.
+ *
+ * Never touches a real (non-symlink) `node_modules/sharp` the site folder might already have.
  */
 async function linkSharp(site: string): Promise<void> {
-  const target = packageDir('sharp', new URL('../node_modules/sharp/', import.meta.url))
   const at = path.join(site, 'node_modules', 'sharp')
+  let existing: Awaited<ReturnType<typeof lstat>> | undefined
+  try {
+    existing = await lstat(at)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
+  }
+  if (existing && !existing.isSymbolicLink()) return
+  const target = await sharpDir()
   await mkdir(path.dirname(at), { recursive: true })
-  await rm(at, { recursive: true, force: true })
+  if (existing) await rm(at, { force: true })
   await symlink(target, at, process.platform === 'win32' ? 'junction' : 'dir')
 }
 
-/** Site folder in, static output out. Every failure is a BuildError. */
+/**
+ * Site folder in, static output out. Every failure is a BuildError.
+ *
+ * Side effects: creates or updates a `node_modules/sharp` symlink inside the site directory so
+ * Astro's image pipeline can resolve it, and temporarily changes the process's working directory
+ * for the duration of the Astro build call (restored afterward) — so this function is not safe
+ * to call concurrently with another `build()` in the same process.
+ */
 export async function build(siteDir: string, options: BuildOptions = {}): Promise<BuildResult> {
   const started = Date.now()
   const site = path.resolve(siteDir)
   const outDir = path.resolve(options.outDir ?? path.join(site, 'dist'))
   const root = path.join(site, '.freeflow', 'astro')
   const cacheDir = path.join(site, '.freeflow', 'cache')
+
+  // Reject before any filesystem write: astroBuild's outDir must live inside the site directory
+  // (see the comment further down on canonicalizing paths for the Astro call), otherwise nothing
+  // guarantees the output ends up somewhere we clear or even somewhere we report back correctly.
+  const outDirRel = path.relative(site, outDir)
+  if (outDirRel.startsWith('..') || path.isAbsolute(outDirRel))
+    throw new BuildError('options', 'outDir must be inside the site directory')
 
   const doc = await loadDocument(site)
   if (options.siteUrl) doc.site.url = options.siteUrl.replace(/\/+$/, '')
