@@ -1,4 +1,5 @@
 import type { AssetRef } from '@freeflow/schema'
+import { publicAssetPath } from './assets.js'
 
 export type ResolvedImage = {
   src: string
@@ -14,7 +15,7 @@ export type ImageResolver = (asset: AssetRef) => ResolvedImage
 /** For tests and dry runs: the asset's public path with no optimization. */
 export function plainImageResolver(asset: AssetRef): ResolvedImage {
   return {
-    src: `/assets/${asset.hash}.${asset.mime === 'image/jpeg' ? 'jpg' : (asset.mime.split('/')[1] ?? 'bin')}`,
+    src: publicAssetPath(asset),
     width: asset.width ?? 0,
     height: asset.height ?? 0,
   }
