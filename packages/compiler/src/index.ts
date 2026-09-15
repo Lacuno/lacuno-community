@@ -2,6 +2,7 @@ export { assetFileName, extensionForMime, isOptimizedImage, publicAssetPath } fr
 export { BuildError, RenderError } from './errors.js'
 export { type AttrMap, escapeAttr, escapeHtml, renderAttrs, VOID_TAGS, type Warn } from './html.js'
 export { type ImageResolver, plainImageResolver, type ResolvedImage } from './images.js'
+export { type RenderState, renderChildren, renderNode, type Warning } from './nodes.js'
 export { applyQuery } from './query.js'
 export { richTextInlineHtml, richTextToHtml } from './richtext.js'
 export { type Frame, type Resolved, resolveBinding, type Scope } from './scope.js'
