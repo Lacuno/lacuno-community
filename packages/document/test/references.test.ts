@@ -121,6 +121,20 @@ describe('reference scanners', () => {
     expect(referencesToDesignToken(d, 't-brand')).toContain('nodes.n-code')
     expect(referencesToAsset(d, 'a-hero')).toContain('nodes.n-code')
   })
+  it('finds field bindings in code component props', () => {
+    const d = fixtureDocument()
+    d.nodes['n-code'] = {
+      id: 'n-code',
+      type: 'code-component',
+      source: 'Map.astro',
+      parent: 'n-home',
+      children: [],
+      classes: [],
+      props: { title: { type: 'field', field: 'f-title' } },
+    }
+    d.nodes['n-home']!.children.push('n-code')
+    expect(referencesToField(d, 'f-title')).toContain('nodes.n-code')
+  })
 })
 
 describe('partialPatches', () => {

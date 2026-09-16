@@ -167,7 +167,7 @@ export function referencesToField(doc: Document, fieldId: string): string[] {
       usesField(node.text as Binding)
     )
       out.add(`nodes.${node.id}`)
-    if (node.type === 'component')
+    if (node.type === 'component' || node.type === 'code-component')
       for (const b of Object.values(node.props ?? {})) if (usesField(b)) out.add(`nodes.${node.id}`)
     if (node.type === 'collection-list') {
       const q = node.query
