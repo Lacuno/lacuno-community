@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AssetHash,
   checkReferences,
   createEmptyDocument,
   DocumentError,
   fixtureDocument,
+  hashAsset,
   newId,
   parseDocument,
   parseStyleKey,
@@ -101,6 +103,23 @@ describe('document schema', () => {
     expect(msgs).toContain('unknown collection col-missing')
     expect(msgs).toContain('missing required field title')
     expect(msgs).toContain('duplicate slug hello-world')
+  })
+
+  it('requires asset hashes to be lower-case sha256 hex', () => {
+    const doc = fixtureDocument()
+    expect(doc.assets['a-hero']!.hash).toMatch(/^[a-f0-9]{64}$/)
+    doc.assets['a-hero']!.hash = 'fixture-hero'
+    expect(() => parseDocument(doc)).toThrow(DocumentError)
+    doc.assets['a-hero']!.hash = 'A'.repeat(64)
+    expect(() => parseDocument(doc)).toThrow(DocumentError)
+  })
+
+  it('hashes asset bytes to the same digest every producer must use', async () => {
+    const bytes = new TextEncoder().encode('hello')
+    expect(await hashAsset(bytes)).toBe(
+      '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
+    )
+    expect(AssetHash.safeParse(await hashAsset(new Uint8Array())).success).toBe(true)
   })
 
   it('accepts an optional site url and rejects a malformed one', () => {

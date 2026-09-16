@@ -1,7 +1,6 @@
-import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { type Document, fixtureDocument } from '@freeflow/schema'
+import { type Document, fixtureDocument, hashAsset } from '@freeflow/schema'
 import sharp from 'sharp'
 
 /**
@@ -15,7 +14,7 @@ export async function writeFixtureSite(dir: string): Promise<Document> {
   })
     .png()
     .toBuffer()
-  const hash = createHash('sha256').update(png).digest('hex')
+  const hash = await hashAsset(png)
   const doc = fixtureDocument()
   const hero = doc.assets['a-hero']
   if (!hero) throw new Error('fixture has no a-hero asset')

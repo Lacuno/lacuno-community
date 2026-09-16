@@ -33,7 +33,7 @@ describe('renderHead', () => {
     expect(head).toContain('<meta property="og:url" content="https://example.com/blog/x">')
     expect(head).toContain('<meta property="og:title" content="Fixture Co">')
     expect(head).toContain(
-      '<meta property="og:image" content="https://example.com/assets/fixture-hero.png">',
+      `<meta property="og:image" content="https://example.com/assets/${input.doc.assets['a-hero']!.hash}.png">`,
     )
     expect(head).toContain('<meta name="robots" content="noindex">')
     input.page.seo.canonical = 'https://other.example/x'

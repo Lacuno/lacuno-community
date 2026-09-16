@@ -84,7 +84,7 @@ describe('renderNode: elements and text', () => {
     img.attrs = { src: { type: 'asset', asset: 'a-hero' } }
     s.resolveImage = plainImageResolver
     expect(renderNode('n-hero-image', empty, s)).toBe(
-      '<img alt="Hero image" decoding="async" height="800" loading="lazy" sizes="100vw" src="/assets/fixture-hero.png" width="1200">',
+      `<img alt="Hero image" decoding="async" height="800" loading="lazy" sizes="100vw" src="/assets/${doc.assets['a-hero']!.hash}.png" width="1200">`,
     )
   })
 
@@ -99,7 +99,9 @@ describe('renderNode: elements and text', () => {
       classes: [],
       attrs: { href: { type: 'asset', asset: 'a-hero' } },
     }
-    expect(renderNode('link', empty, state(doc))).toBe('<a href="/assets/fixture-hero.png"></a>')
+    expect(renderNode('link', empty, state(doc))).toBe(
+      `<a href="/assets/${doc.assets['a-hero']!.hash}.png"></a>`,
+    )
     const s = state(doc)
     s.resolveImage = () => ({ src: '/_astro/h.webp', width: 1200, height: 800 })
     expect(renderNode('link', empty, s)).toBe('<a href="/_astro/h.webp"></a>')

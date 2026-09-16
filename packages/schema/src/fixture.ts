@@ -551,7 +551,7 @@ export function fixtureDocument(): Document {
         id: 'a-hero',
         name: 'hero.png',
         kind: 'image',
-        hash: 'fixture-hero',
+        hash: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
         mime: 'image/png',
         size: 0,
         width: 1200,
