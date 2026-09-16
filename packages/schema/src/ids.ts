@@ -7,7 +7,22 @@ import { z } from 'zod'
  */
 export const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/
 
-const id = (name: string) => z.string().regex(ID_PATTERN, `${name}: invalid id`)
+/**
+ * True for strings that would silently pass through as Object.prototype property names
+ * (`constructor`, `toString`, `hasOwnProperty`, `valueOf`, ...), which the `in` operator finds
+ * on any plain object even when no own property was ever set. Code that tests existence with
+ * `map[id]` truthiness instead of `id in map` or `Object.hasOwn` would treat such an id as
+ * always present, so we refuse them at the id schema itself.
+ */
+export function isReservedId(id: string): boolean {
+  return id in Object.prototype
+}
+
+const id = (name: string) =>
+  z
+    .string()
+    .regex(ID_PATTERN, `${name}: invalid id`)
+    .refine((s) => !isReservedId(s), `${name}: reserved id`)
 
 export const NodeId = id('NodeId')
 export const PageId = id('PageId')

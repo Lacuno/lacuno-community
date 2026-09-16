@@ -1,5 +1,5 @@
 import type { Document } from '@freeflow/schema'
-import { ID_PATTERN, newId } from '@freeflow/schema'
+import { ID_PATTERN, isReservedId, newId } from '@freeflow/schema'
 import { OperationError } from './errors.js'
 
 export type Warning = { operation: number; message: string }
@@ -35,7 +35,7 @@ export function createContext(input: {
     type,
     id(kind, supplied) {
       if (supplied !== undefined) {
-        if (!ID_PATTERN.test(supplied))
+        if (!ID_PATTERN.test(supplied) || isReservedId(supplied))
           fail(`${supplied} is not a valid id for a ${kind}`, { id: supplied })
         if (ids.has(supplied)) fail(`id ${supplied} is already in use`, { id: supplied })
         ids.add(supplied)

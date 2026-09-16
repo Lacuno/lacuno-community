@@ -89,6 +89,11 @@ describe('planBatch', () => {
     )
     expectError([{ type: 'test.create', id: 'bad id!', name: 'x' }], 0, /not a valid id/)
     expectError(
+      [{ type: 'test.create', id: 'constructor', name: 'x' }],
+      0,
+      /reserved id|not a valid id/,
+    )
+    expectError(
       [
         { type: 'test.create', id: 'twice', name: 'a' },
         { type: 'test.create', id: 'twice', name: 'b' },

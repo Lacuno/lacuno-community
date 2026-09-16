@@ -40,6 +40,14 @@ describe('document schema', () => {
     expect(msgs.some((m) => m.includes('does not list it as a child'))).toBe(true)
   })
 
+  it('rejects an id that shadows an Object.prototype property name', () => {
+    const doc = fixtureDocument() as unknown as Record<string, unknown>
+    const classes = doc.classes as Record<string, unknown>
+    const template = classes['c-button']
+    classes.constructor = template
+    expect(() => parseDocument(doc)).toThrow(DocumentError)
+  })
+
   it('rejects unknown classes, design token modes and combo parents', () => {
     const doc = fixtureDocument()
     doc.nodes['n-hero']!.classes.push('c-missing')

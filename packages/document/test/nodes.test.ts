@@ -116,6 +116,19 @@ describe('node.create', () => {
       /invalid input: node.tag/,
     )
   })
+
+  it('refuses a class id that shadows an Object.prototype property name', () => {
+    failing(
+      [
+        {
+          type: 'node.create',
+          parent: 'n-home',
+          node: { type: 'element', tag: 'p', classes: ['toString'] },
+        },
+      ],
+      /./,
+    )
+  })
 })
 
 describe('node.update', () => {
