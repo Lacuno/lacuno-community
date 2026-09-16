@@ -12,6 +12,7 @@ import {
   referencesToAsset,
   referencesToCollection,
   referencesToDesignToken,
+  referencesToField,
   stylesUsingBreakpoint,
   subtreeIds,
 } from '../src/references.js'
@@ -96,6 +97,11 @@ describe('reference scanners', () => {
       't-fg',
       't-surface-muted',
     ])
+  })
+  it('finds field bindings and query uses', () => {
+    expect(referencesToField(doc, 'f-title')).toEqual(['nodes.n-post-card', 'nodes.n-post-title'])
+    expect(referencesToField(doc, 'f-date')).toEqual(['nodes.n-posts'])
+    expect(referencesToField(doc, 'f-status')).toEqual([])
   })
   it('finds design token and asset references in code component props', () => {
     const d = fixtureDocument()

@@ -156,6 +156,28 @@ export function referencesToCollection(doc: Document, id: string): string[] {
   return out.sort()
 }
 
+export function referencesToField(doc: Document, fieldId: string): string[] {
+  const out = new Set<string>()
+  const usesField = (b: Binding | undefined) => b?.type === 'field' && b.field === fieldId
+  for (const node of Object.values(doc.nodes)) {
+    for (const b of Object.values(node.attrs ?? {})) if (usesField(b)) out.add(`nodes.${node.id}`)
+    if (
+      node.type === 'text' &&
+      !('type' in node.text && node.text.type === 'doc') &&
+      usesField(node.text as Binding)
+    )
+      out.add(`nodes.${node.id}`)
+    if (node.type === 'component')
+      for (const b of Object.values(node.props ?? {})) if (usesField(b)) out.add(`nodes.${node.id}`)
+    if (node.type === 'collection-list') {
+      const q = node.query
+      if (q?.filter?.some((f) => f.field === fieldId) || q?.sort?.some((s) => s.field === fieldId))
+        out.add(`nodes.${node.id}`)
+    }
+  }
+  return [...out].sort()
+}
+
 export function designTokensUsingMode(doc: Document, modeId: string): string[] {
   return Object.values(doc.designTokens)
     .filter((t) => t.values[modeId] !== undefined)
