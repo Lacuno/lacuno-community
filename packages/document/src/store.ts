@@ -79,15 +79,9 @@ export class DocumentStore {
     await mkdir(dir, { recursive: true })
     const key = await realpath(dir)
     const persistence = new FolderPersistence(dir)
-    // A file that fails to parse is not a readable document either; create() may still claim
-    // the folder in that case. Only a document persistence can actually load blocks the create.
-    let existing: unknown
-    try {
-      existing = await persistence.load()
-    } catch (e) {
-      if (!(e instanceof DocumentError)) throw e
-      existing = undefined
-    }
+    // A file that fails to parse is still a file the user may want to recover by hand; let
+    // load()'s DocumentError propagate rather than silently overwriting it.
+    const existing = await persistence.load()
     if (existing !== undefined)
       throw new DocumentError([
         { path: 'freeflow.json', message: 'a document already exists in this folder' },

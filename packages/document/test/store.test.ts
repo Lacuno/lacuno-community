@@ -178,11 +178,15 @@ describe('DocumentStore on a folder', () => {
     await expect(DocumentStore.open(dir)).rejects.toBeInstanceOf(DocumentError)
     await writeFile(path.join(dir, 'freeflow.json'), '{')
     await expect(DocumentStore.open(dir)).rejects.toBeInstanceOf(DocumentError)
-    const store = await DocumentStore.create(dir, 'Site')
+    const freshDir = await tmp()
+    const store = await DocumentStore.create(freshDir, 'Site')
     await store.apply({ expectedRevision: 0, operations: [] })
-    const text = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
-    await writeFile(path.join(dir, 'freeflow.json'), text.replace('"revision": 1', '"revision": 0'))
-    await expect(DocumentStore.open(dir)).rejects.toBeInstanceOf(RevisionRewoundError)
+    const text = await readFile(path.join(freshDir, 'freeflow.json'), 'utf8')
+    await writeFile(
+      path.join(freshDir, 'freeflow.json'),
+      text.replace('"revision": 1', '"revision": 0'),
+    )
+    await expect(DocumentStore.open(freshDir)).rejects.toBeInstanceOf(RevisionRewoundError)
   })
 
   it('refuses to create over a folder that already holds a document', async () => {
