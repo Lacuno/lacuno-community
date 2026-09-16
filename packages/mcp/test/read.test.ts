@@ -8,14 +8,15 @@ afterEach(async () => {
   await close?.()
 })
 const setup = async () => {
-  const c = await connect(DocumentStore.inMemory(fixtureDocument()))
+  const store = DocumentStore.inMemory(fixtureDocument())
+  const c = await connect(store)
   close = c.close
-  return c.client
+  return { client: c.client, store }
 }
 
 describe('read tools', () => {
   it('document.read gives an overview without nodes, styles or entries', async () => {
-    const client = await setup()
+    const { client } = await setup()
     const doc = jsonOf<Record<string, unknown>>(
       await client.callTool({ name: 'document.read', arguments: {} }),
     )
@@ -35,7 +36,7 @@ describe('read tools', () => {
   })
 
   it('page.outline renders an indented tree with classes and text snippets', async () => {
-    const client = await setup()
+    const { client } = await setup()
     const out = textOf(
       await client.callTool({ name: 'page.outline', arguments: { page: 'p-home' } }),
     )
@@ -59,7 +60,7 @@ describe('read tools', () => {
   })
 
   it('node.get returns a nested subtree', async () => {
-    const client = await setup()
+    const { client } = await setup()
     const tree = jsonOf<{ id: string; children: { id: string; children: unknown[] }[] }>(
       await client.callTool({ name: 'node.get', arguments: { id: 'n-hero' } }),
     )
@@ -72,14 +73,34 @@ describe('read tools', () => {
   })
 
   it('styles.get groups declarations and entries.list lists entries', async () => {
-    const client = await setup()
+    const { client, store } = await setup()
     const styles = jsonOf<Record<string, Record<string, Record<string, Record<string, unknown>>>>>(
       await client.callTool({ name: 'styles.get', arguments: { class: 'c-button' } }),
     )
     expect(Object.keys(styles)).toEqual(['c-button'])
     expect(styles['c-button']!.base!.hover!['background-color']).toEqual({
-      type: 'designToken',
-      ref: 't-surface-muted',
+      value: { type: 'designToken', ref: 't-surface-muted' },
+    })
+    await store.apply({
+      expectedRevision: store.read().revision,
+      operations: [
+        {
+          type: 'style.set',
+          class: 'c-button',
+          breakpoint: 'base',
+          state: 'none',
+          property: 'color',
+          value: { type: 'color', value: 'red' },
+          important: true,
+        },
+      ],
+    })
+    const withImportant = jsonOf<
+      Record<string, Record<string, Record<string, Record<string, unknown>>>>
+    >(await client.callTool({ name: 'styles.get', arguments: { class: 'c-button' } }))
+    expect(withImportant['c-button']!.base!.none!.color).toEqual({
+      value: { type: 'color', value: 'red' },
+      important: true,
     })
     const all = jsonOf<Record<string, unknown>>(
       await client.callTool({ name: 'styles.get', arguments: {} }),

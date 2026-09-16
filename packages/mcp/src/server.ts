@@ -14,6 +14,11 @@ import { documentJsonSchema, operationsJsonSchema } from './schemas.js'
 
 export type ServerOptions = { siteDir?: string }
 
+function ensure<V>(map: Record<string, V>, key: string, make: () => V): V {
+  if (!(key in map)) map[key] = make()
+  return map[key] as V
+}
+
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: 'freeflow', version: '0.0.0' })
 
@@ -198,13 +203,21 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       const out: Record<string, Record<string, Record<string, Record<string, unknown>>>> = {}
       for (const decl of Object.values(d.styles)) {
         if (cls !== undefined && decl.class !== cls) continue
-        const value = decl.important ? { ...decl.value, important: true } : decl.value
-        if (!out[decl.class]) out[decl.class] = {}
-        const byClass = out[decl.class] as Record<string, Record<string, Record<string, unknown>>>
-        if (!byClass[decl.breakpoint]) byClass[decl.breakpoint] = {}
-        const byBreakpoint = byClass[decl.breakpoint] as Record<string, Record<string, unknown>>
-        if (!byBreakpoint[decl.state]) byBreakpoint[decl.state] = {}
-        byBreakpoint[decl.state]![decl.property] = value
+        const value = decl.important
+          ? { value: decl.value, important: true }
+          : { value: decl.value }
+        const byClass = ensure<Record<string, Record<string, Record<string, unknown>>>>(
+          out,
+          decl.class,
+          () => ({}),
+        )
+        const byBreakpoint = ensure<Record<string, Record<string, unknown>>>(
+          byClass,
+          decl.breakpoint,
+          () => ({}),
+        )
+        const byState = ensure<Record<string, unknown>>(byBreakpoint, decl.state, () => ({}))
+        byState[decl.property] = value
       }
       return ok(out)
     },
