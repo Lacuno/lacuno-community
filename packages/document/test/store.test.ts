@@ -83,12 +83,10 @@ describe('DocumentStore in memory', () => {
     expect(empty.patches).toEqual([])
   })
 
-  it('runs the full referential check on the result', async () => {
+  it('refuses a batch whose later operation would leave a dangling reference', async () => {
     const store = DocumentStore.inMemory(fixtureDocument())
-    // A node literal with a parent link to a slot of another component is valid per operation
-    // but a page root with a parent is not; simulate by forging a raw operation the planner
-    // accepts and the validator rejects: an entry whose slug field is fine but a design token
-    // whose value references a mode that is deleted later in the same batch.
+    // mode.delete's own planner guard (designTokensUsingMode) catches the design token still
+    // pointing at "sepia" before the batch ever reaches the post-batch referential check.
     await expect(
       store.apply({
         expectedRevision: 0,
