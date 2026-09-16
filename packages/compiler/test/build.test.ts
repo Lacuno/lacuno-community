@@ -74,4 +74,20 @@ describe('build option validation', () => {
       kind: 'options',
     })
   })
+
+  it('rejects an outDir equal to the site directory without touching it', async () => {
+    const dir = await tmp()
+    await writeFixtureSite(dir)
+    await expect(build(dir, { outDir: dir })).rejects.toMatchObject({ kind: 'options' })
+    expect(existsSync(path.join(dir, 'freeflow.json'))).toBe(true)
+  })
+
+  it('rejects an outDir that is a reserved subdirectory without touching it', async () => {
+    const dir = await tmp()
+    await writeFixtureSite(dir)
+    await expect(build(dir, { outDir: path.join(dir, 'assets') })).rejects.toMatchObject({
+      kind: 'options',
+    })
+    expect(existsSync(path.join(dir, 'freeflow.json'))).toBe(true)
+  })
 })

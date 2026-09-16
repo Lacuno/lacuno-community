@@ -56,6 +56,14 @@ describe('main', () => {
     expect(await runBuild([dir, '--json'], b.io)).toBe(1)
     expect(JSON.parse(b.out.join(''))).toMatchObject({ error: { kind: 'document' } })
   })
+
+  it('rejects an --out equal to the site directory', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-cli-'))
+    dirs.push(dir)
+    const a = io()
+    expect(await runBuild([dir, '--out', dir, '--json'], a.io)).toBe(1)
+    expect(JSON.parse(a.out.join(''))).toMatchObject({ error: { kind: 'options' } })
+  })
 })
 
 describe.skipIf(process.env.FREEFLOW_FAST_TESTS)('build command (runs Astro, slow)', () => {

@@ -148,6 +148,11 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
   const outDirRel = path.relative(site, outDir)
   if (outDirRel.startsWith('..') || path.isAbsolute(outDirRel))
     throw new BuildError('options', 'outDir must be inside the site directory')
+  if (outDirRel === '')
+    throw new BuildError('options', 'outDir must be a subdirectory of the site directory')
+  const firstSegment = outDirRel.split(path.sep)[0]
+  if (firstSegment && ['assets', '.freeflow', 'node_modules', 'skills'].includes(firstSegment))
+    throw new BuildError('options', 'outDir must not be assets, .freeflow, node_modules or skills')
 
   const doc = await loadDocument(site)
   if (options.siteUrl) doc.site.url = options.siteUrl.replace(/\/+$/, '')
