@@ -268,6 +268,16 @@ describe('entries', () => {
       /missing required field title/,
     )
     failing(
+      [
+        {
+          type: 'entry.create',
+          collection: 'col-posts',
+          fields: { 'f-title': null, 'f-slug': 'zzz' },
+        },
+      ],
+      /missing required field title/,
+    )
+    failing(
       [{ type: 'entry.move', collection: 'col-posts', id: 'e-1', index: 3 }],
       /index 3 out of range/,
     )

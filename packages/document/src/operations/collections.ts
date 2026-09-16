@@ -270,7 +270,12 @@ const entryCreate = defineOperation(
   }),
   (op, ctx) => {
     const col = requireCollection(ctx, op.collection)
-    checkEntryFields(ctx, col, op.fields)
+    // An explicit null on create means "no value", same as omitting the key, so a null on a
+    // required field is reported as missing rather than committed as a literal null.
+    const fields = Object.fromEntries(
+      Object.entries(op.fields).filter(([, value]) => value !== null),
+    )
+    checkEntryFields(ctx, col, fields)
     const entries = ctx.doc.entries[op.collection] ?? []
     const index = op.index ?? entries.length
     if (index > entries.length) ctx.fail(`index ${index} out of range (0..${entries.length})`)
@@ -282,7 +287,7 @@ const entryCreate = defineOperation(
       op: 'insert',
       path: ['entries', op.collection],
       index,
-      value: { id, fields: op.fields },
+      value: { id, fields },
     })
     return patches
   },
