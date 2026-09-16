@@ -12,8 +12,9 @@ Goal: the document, the compiler and an agent can produce a real site before the
   revision counter, dry runs and atomic persistence to a site folder.
 - `packages/compiler` and `apps/cli`: document to static output through Astro as an internal
   engine. `freeflow build <dir>` builds a site folder; a Lighthouse script guards the score.
-- `packages/mcp` and `freeflow mcp`: discovery, pages, nodes, classes, styles, design tokens, components,
-  dry run, version pinning, operating on a document in a local folder.
+- `packages/mcp` and `freeflow mcp`: stdio server with `guide`, `document.read`, `page.outline`,
+  `node.get`, `styles.get`, `entries.list`, atomic `document.apply` with dry run and version
+  pinning, `asset.import`, `site.build`, and JSON Schema resources, operating on a site folder.
 - Default template documents written by an agent through the MCP server.
 
 **Exit:** Claude Code builds a three-page marketing site with a blog layout through MCP alone, and

@@ -39,9 +39,12 @@ A chat panel inside the editor.
 The same tool set, exposed for external agents such as Claude Code, Cursor and Codex.
 
 - Available over streamable HTTP on the instance and over stdio through the CLI.
-- **Progressive discovery.** Agents start with `index` and `guide`, then load tool groups on
-  demand: pages, nodes, styles, design tokens, components, collections, assets, preview, publish, proposals.
-  Keeps context small for the agent.
+- **Progressive discovery.** Agents start with `guide` for the document model and workflow, then
+  call it again with a `group` argument for the operation schemas in one group at a time, instead
+  of loading every operation schema up front.
+- **Phase 0 tools.** `guide`, `document.read`, `page.outline`, `node.get`, `styles.get`,
+  `entries.list`, `document.apply`, `asset.import` and `site.build`, plus the document schema and
+  operations schema resources.
 - **Version-pinned mutations.** Every write names the document version it read. A stale write is
   rejected with the current version so the agent re-reads and retries instead of overwriting.
 - **Dry run** on every mutating tool returns the resulting diff without applying it.
