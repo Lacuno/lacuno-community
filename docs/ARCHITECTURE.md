@@ -34,7 +34,7 @@ freeflow/
     cli/           `freeflow` binary: local dev, MCP stdio bridge, export, import
   packages/
     schema/        Zod schema for the document. Types, validation, migrations. Zero deps beyond zod
-    doc/           Yjs document wrapper, operations, undo, JSON (de)serialization
+    document/      Operations over the document: typed mutations compiled to patches, revision, dry run, persistence
     css/           The one CSS generator. Document → stylesheet. Used by renderer and compiler
     renderer/      React renderer for the canvas iframe. Document → DOM, same CSS as compiler
     compiler/      Document + content → static site, using Astro as an internal engine
@@ -122,6 +122,13 @@ and written back on the next commit.
   Yjs UndoManager with origin tagging so one agent proposal or one drag is one undo step.
 - The server keeps the Yjs doc in memory per open site, syncs over WebSocket, and persists updates
   to SQLite as they arrive so a crash loses nothing.
+- **Operations and revision.** Every change, from the editor or an agent, is a named operation
+  (`node.create`, `style.set`, `designToken.setValue` and so on) with a Zod schema. Operations
+  compile to five primitive patches (set, delete, insert, remove, move) that a plain-object
+  applier runs today and a Yjs transaction runs in Phase 1. A document store owns the revision
+  counter: a batch names the revision it read, a stale batch is rejected, a dry run returns the
+  patches without committing, and the whole result is validated before commit. Nothing outside
+  the store's commit path can bump the revision.
 - **Commits.** On publish, on accepted proposal, or on explicit save, the document is serialized to
   JSON and committed to the site's git repository along with exported CMS entries and assets
   metadata. Git is the durable history; SQLite is the live buffer.

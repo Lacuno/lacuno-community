@@ -8,6 +8,8 @@ Goal: the document, the compiler and an agent can produce a real site before the
 
 - `packages/schema`: document schema, validation, migrations, fixtures.
 - `packages/css`: deterministic CSS generator with snapshot tests.
+- `packages/document`: named operations over the document, primitive patches, a store with a
+  revision counter, dry runs and atomic persistence to a site folder.
 - `packages/compiler` and `apps/cli`: document to static output through Astro as an internal
   engine. `freeflow build <dir>` builds a site folder; a Lighthouse script guards the score.
 - `packages/mcp` and `freeflow mcp`: discovery, pages, nodes, classes, styles, design tokens, components,
