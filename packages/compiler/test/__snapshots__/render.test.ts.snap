@@ -12,9 +12,6 @@ exports[`render > renders a collection page for an entry with the entry path in 
 <meta property="og:title" content="Post">
 <meta property="og:site_name" content="Fixture Co">
 <meta property="og:url" content="https://example.com/blog/hello-world">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap">
 </head>
 <body><main class="page container"><h1 class="heading">Hello world</h1><div><p>The first post.</p></div></main></body>
 </html>
@@ -33,9 +30,6 @@ exports[`render > renders the fixture home page 1`] = `
 <meta property="og:title" content="Fixture Co">
 <meta property="og:site_name" content="Fixture Co">
 <meta property="og:description" content="A fixture site.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap">
 </head>
 <body><main class="page"><section class="container hero"><div><h1 class="heading ff-l-hero-title">Design it. Publish it. Own it.</h1><img alt="A blue rectangle standing in for a hero image" decoding="async" height="800" loading="eager" sizes="100vw" src="/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.png" width="1200"><a class="button primary" href="/blog">Read the blog</a></div></section><div class="container post-grid"><article class="card"><h3>Third post</h3></article><article class="card"><h3>Second post</h3></article><article class="card"><h3>Hello world</h3></article></div></main></body>
 </html>

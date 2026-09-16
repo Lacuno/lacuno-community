@@ -269,14 +269,7 @@ export function fixtureDocument(): Document {
           media: '(prefers-color-scheme: dark)',
         },
       ],
-      fonts: [
-        {
-          family: 'Inter',
-          source: 'google',
-          weights: [400, 600],
-          fallback: 'system-ui, sans-serif',
-        },
-      ],
+      fonts: [{ family: 'system-ui', source: 'system', fallback: 'sans-serif' }],
     },
     pages: {
       'p-home': {

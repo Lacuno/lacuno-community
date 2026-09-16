@@ -104,3 +104,16 @@ what it is good at: image optimization, CSS bundling, compressed HTML, sitemaps 
 Developers extend a site through embeds and code components, which are inputs, not outputs.
 Reverses the "normal Astro project" language in D002 and the architecture doc; the JSON document
 remains the source of truth.
+
+## D013. No third-party font hosting
+
+**Alternatives.** A `google` font source that links the Google Fonts stylesheet, as the first
+schema draft had. A generic remote-stylesheet source for any provider.
+
+**Why.** Loading a font from a third party sends every visitor's IP address to that party on
+every page view. The Munich Regional Court ruled in 2022 that doing so with Google Fonts without
+consent violates the GDPR, and a self-hostable tool aimed at European users cannot ship that as a
+default path. Self-hosting is also faster: no cross-origin connection, no render-blocking
+stylesheet. Fonts are therefore either uploaded assets served from the site or system font stacks.
+A font picker that downloads open-licensed fonts into the asset library at design time gives the
+same convenience without the runtime request, and belongs in the editor phase.

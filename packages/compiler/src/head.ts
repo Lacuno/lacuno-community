@@ -1,4 +1,4 @@
-import type { Document, Font, Page } from '@freeflow/schema'
+import type { Document, Page } from '@freeflow/schema'
 import { extensionForMime, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { escapeAttr, escapeHtml } from './html.js'
@@ -38,25 +38,9 @@ function cssString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/</g, '\\3c ')
 }
 
-function googleFontsHref(fonts: Font[]): string {
-  const families = fonts.map((f) => {
-    const family = encodeURIComponent(f.family).replace(/%20/g, '+')
-    const weights = f.weights?.length
-      ? `:wght@${[...f.weights].sort((a, b) => a - b).join(';')}`
-      : ''
-    return `family=${family}${weights}`
-  })
-  return `https://fonts.googleapis.com/css2?${families.join('&')}&display=swap`
-}
-
+/** Asset fonts get a preload and a font-face rule. System fonts need nothing. No third parties. */
 function renderFonts(doc: Document, page: Page): string[] {
   const out: string[] = []
-  const google = doc.site.fonts.filter((f) => f.source === 'google')
-  if (google.length) {
-    out.push('<link rel="preconnect" href="https://fonts.googleapis.com">')
-    out.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>')
-    out.push(`<link rel="stylesheet" href="${escapeAttr(googleFontsHref(google))}">`)
-  }
   const faces: string[] = []
   for (const f of doc.site.fonts) {
     if (f.source !== 'asset') continue

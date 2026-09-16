@@ -56,7 +56,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Email notifications and webhooks on submission | MVP | SMTP or Resend |
 | Asset library with folders, upload, drag onto canvas, alt text | MVP | Local disk or S3-compatible |
 | Image optimization: responsive sizes, AVIF and WebP, lazy loading | MVP | Astro image pipeline with sharp |
-| Font management: Google Fonts, self-hosted uploads, variable fonts | MVP | Self-hosted by default for privacy and speed |
+| Font management: self-hosted uploads, system stacks, variable fonts | MVP | Self-hosted only; no third-party font hosts, see D013 |
 | SVG and icon sets | Next | |
 
 ## Publishing

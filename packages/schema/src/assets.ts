@@ -29,9 +29,14 @@ export const AssetRef = z.object({
 })
 export type AssetRef = z.infer<typeof AssetRef>
 
+/**
+ * Fonts are self-hosted (`asset`) or system stacks (`system`). There is deliberately no hosted
+ * provider option: a font loaded from a third party sends every visitor's IP address to that
+ * party, which the Munich Regional Court ruled a GDPR violation for Google Fonts in 2022. See D013.
+ */
 export const Font = z.object({
   family: z.string().min(1),
-  source: z.enum(['google', 'asset', 'system']),
+  source: z.enum(['asset', 'system']),
   asset: AssetId.optional(),
   weights: z.array(z.number().int()).optional(),
   fallback: z.string().optional(),

@@ -10,17 +10,14 @@ const base = () => {
 }
 
 describe('renderHead', () => {
-  it('emits charset, viewport, title, description and google fonts', () => {
+  it('emits charset, viewport, title and description, and no third-party requests', () => {
     const head = renderHead(base())
     expect(head).toContain('<meta charset="utf-8">')
     expect(head).toContain('<meta name="viewport" content="width=device-width, initial-scale=1">')
     expect(head).toContain('<title>Fixture Co</title>')
     expect(head).toContain('<meta name="description" content="A fixture site.">')
-    expect(head).toContain('<link rel="preconnect" href="https://fonts.googleapis.com">')
-    expect(head).toContain('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>')
-    expect(head).toContain(
-      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap">',
-    )
+    // A system font emits nothing, and nothing in the head may point at another origin.
+    expect(head).not.toMatch(/https?:\/\//)
     expect(head).not.toContain('canonical')
     expect(head).not.toContain('og:url')
   })
@@ -87,13 +84,6 @@ describe('renderHead', () => {
     )
     // Exactly one </style>: the real closing tag. None sneaked in from the family name.
     expect(head.split('</style>')).toHaveLength(2)
-  })
-
-  it('percent-encodes a google font family with characters that would corrupt the query string', () => {
-    const input = base()
-    input.doc.site.fonts = [{ family: 'A&B Sans', source: 'google' }]
-    const head = renderHead(input)
-    expect(head).toContain('family=A%26B+Sans')
   })
 
   it('inserts site and page head code verbatim, site first, and falls back to the page name', () => {
