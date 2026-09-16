@@ -45,6 +45,24 @@ describe('components', () => {
     expect(e.referencedBy).toEqual(['nodes.n-post-card'])
     failing([{ type: 'component.update', id: 'nope', name: 'x' }], /unknown component nope/)
   })
+  it('rejects an unknown key on a prop definition instead of silently dropping it', () => {
+    failing(
+      [
+        {
+          type: 'component.create',
+          name: 'CTA',
+          props: [
+            { name: 'label', type: 'string', labl: 'Label' } as unknown as {
+              name: string
+              type: 'string'
+            },
+          ],
+          root: { type: 'element', tag: 'div' },
+        },
+      ],
+      /invalid input: props/,
+    )
+  })
   it('extracts a subtree into a component and replaces it with an instance', () => {
     const { document, created } = run([
       {

@@ -6,13 +6,16 @@ import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
 import { designTokensUsingMode } from '../references.js'
 
+// Strict so a typo (e.g. `wieght`) is rejected instead of silently dropped.
+const StrictFont = Font.strict()
+
 const siteUpdate = defineOperation(
   z.strictObject({
     type: z.literal('site.update'),
     name: z.string().min(1).optional(),
     locale: z.string().min(1).optional(),
     url: z.url().nullable().optional(),
-    fonts: z.array(Font).optional(),
+    fonts: z.array(StrictFont).optional(),
     favicon: AssetId.nullable().optional(),
     headCode: z.string().nullable().optional(),
     bodyCode: z.string().nullable().optional(),

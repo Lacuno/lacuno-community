@@ -7,6 +7,8 @@ import type { Patch } from '../patch.js'
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 
 const PagePath = Page.shape.path
+// Strict so a typo (e.g. `descripton`) is rejected instead of silently dropped.
+const StrictSeo = Seo.strict()
 
 function checkPath(ctx: PlanContext, path: string, except?: string): void {
   const clash = Object.values(ctx.doc.pages).find((p) => p.path === path && p.id !== except)
@@ -35,7 +37,7 @@ const pageCreate = defineOperation(
     path: PagePath,
     folder: FolderId.optional(),
     collection: CollectionId.optional(),
-    seo: Seo.optional(),
+    seo: StrictSeo.optional(),
     headCode: z.string().optional(),
     bodyCode: z.string().optional(),
     root: NodeLiteral.optional(),
@@ -60,7 +62,7 @@ const pageUpdate = defineOperation(
     path: PagePath.optional(),
     folder: FolderId.nullable().optional(),
     collection: CollectionId.nullable().optional(),
-    seo: Seo.nullable().optional(),
+    seo: StrictSeo.nullable().optional(),
     headCode: z.string().nullable().optional(),
     bodyCode: z.string().nullable().optional(),
   }),

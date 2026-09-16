@@ -5,6 +5,7 @@ import {
   CollectionId,
   CollectionListNode,
   ComponentId,
+  FieldId,
   NodeId as NodeIdSchema,
   RichText,
   Semantic,
@@ -17,18 +18,38 @@ import type { Patch } from '../patch.js'
 import { isDescendant, isRootNode, parentIndex, subtreeIds } from '../references.js'
 
 const Tag = z.string().regex(/^[a-z][a-z0-9-]*$/, 'tag must be a lower-case html tag')
-const NodeMeta = z.object({
+const NodeMeta = z.strictObject({
   label: z.string().optional(),
   locked: z.boolean().optional(),
   hidden: z.boolean().optional(),
 })
+// Strict so a typo is rejected instead of silently dropped; also strictens the nested filter
+// and sort element objects, which the document schema leaves as plain objects.
 const Query = CollectionListNode.shape.query
+  .unwrap()
+  .extend({
+    filter: z
+      .array(
+        z.strictObject({
+          field: FieldId,
+          op: z.enum(['eq', 'ne', 'in', 'contains']),
+          value: z.unknown(),
+        }),
+      )
+      .optional(),
+    sort: z
+      .array(z.strictObject({ field: FieldId, direction: z.enum(['asc', 'desc']) }))
+      .optional(),
+  })
+  .strict()
+// Strict so an unknown key on a node literal's semantic/meta block is rejected, not dropped.
+const StrictSemantic = Semantic.strict()
 
 const literalBase = {
   id: NodeIdSchema.optional(),
   classes: z.array(ClassId).optional(),
   attrs: z.record(z.string(), Binding).optional(),
-  semantic: Semantic.optional(),
+  semantic: StrictSemantic.optional(),
   meta: NodeMeta.optional(),
 }
 
@@ -85,7 +106,7 @@ export const NodeLiteral: z.ZodType<NodeLiteral> = z.lazy(() =>
       type: z.literal('collection-list'),
       tag: Tag,
       collection: CollectionId,
-      query: Query,
+      query: Query.optional(),
       children: z.array(NodeLiteral).optional(),
     }),
     z.strictObject({
@@ -225,7 +246,7 @@ const nodeUpdate = defineOperation(
     text: z.union([RichText, Binding]).optional(),
     props: z.record(z.string(), Binding).nullable().optional(),
     query: Query.nullable().optional(),
-    semantic: Semantic.nullable().optional(),
+    semantic: StrictSemantic.nullable().optional(),
     meta: NodeMeta.nullable().optional(),
   }),
   (op, ctx) => {

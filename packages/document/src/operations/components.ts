@@ -5,12 +5,15 @@ import { partialPatches } from '../partial.js'
 import { instancesOfComponent, isRootNode, parentIndex } from '../references.js'
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 
+// Strict so a typo on a prop definition is rejected instead of silently dropped.
+const StrictPropDef = PropDef.strict()
+
 const componentCreate = defineOperation(
   z.strictObject({
     type: z.literal('component.create'),
     id: ComponentId.optional(),
     name: z.string().min(1),
-    props: z.array(PropDef).optional(),
+    props: z.array(StrictPropDef).optional(),
     description: z.string().optional(),
     root: NodeLiteral,
   }),
@@ -33,7 +36,7 @@ const componentUpdate = defineOperation(
     type: z.literal('component.update'),
     id: ComponentId,
     name: z.string().min(1).optional(),
-    props: z.array(PropDef).optional(),
+    props: z.array(StrictPropDef).optional(),
     description: z.string().nullable().optional(),
   }),
   (op, ctx) => {
@@ -67,7 +70,7 @@ const componentExtract = defineOperation(
     id: ComponentId.optional(),
     instance: NodeId.optional(),
     name: z.string().min(1),
-    props: z.array(PropDef).optional(),
+    props: z.array(StrictPropDef).optional(),
     description: z.string().optional(),
   }),
   (op, ctx) => {

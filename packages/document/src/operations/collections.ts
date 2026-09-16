@@ -7,6 +7,9 @@ import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
 import { referencesToCollection, referencesToField } from '../references.js'
 
+// Strict so a typo on an option choice (e.g. `lable`) is rejected instead of silently dropped.
+const StrictOptionChoice = OptionChoice.strict()
+
 // Mirrors packages/schema/src/collections.ts's FieldDef, with `id` optional: the discriminated
 // union built from FieldDef.options.map((o) => o.extend({ id: FieldId.optional() })) loses its
 // per-branch literal types under Zod 4 (z.infer collapses to `unknown` on type-specific
@@ -25,7 +28,7 @@ export const FieldLiteral = z.discriminatedUnion('type', [
   z.strictObject({
     ...FieldLiteralBase,
     type: z.literal('option'),
-    options: z.array(OptionChoice).min(1),
+    options: z.array(StrictOptionChoice).min(1),
   }),
   z.strictObject({ ...FieldLiteralBase, type: z.literal('reference'), reference: CollectionId }),
   z.strictObject({
@@ -170,7 +173,7 @@ const fieldUpdate = defineOperation(
     label: z.string().min(1).optional(),
     required: z.boolean().nullable().optional(),
     help: z.string().nullable().optional(),
-    options: z.array(OptionChoice).min(1).optional(),
+    options: z.array(StrictOptionChoice).min(1).optional(),
     reference: CollectionId.optional(),
   }),
   (op, ctx) => {
