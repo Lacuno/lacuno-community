@@ -3,9 +3,15 @@ import { type OperationDef, operationMap } from '../define.js'
 import { nodeOperations } from './nodes.js'
 import { pageOperations } from './pages.js'
 import { siteOperations } from './site.js'
+import { styleOperations } from './styles.js'
 
 /** Every operation the document layer understands, in catalog order. Later groups append here. */
-export const OPERATIONS = [...siteOperations, ...nodeOperations, ...pageOperations]
+export const OPERATIONS = [
+  ...siteOperations,
+  ...nodeOperations,
+  ...pageOperations,
+  ...styleOperations,
+]
 
 export const OPERATIONS_BY_TYPE = operationMap(OPERATIONS as readonly OperationDef[])
 
