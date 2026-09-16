@@ -104,7 +104,12 @@ export class DocumentStore {
 
   /** Queues onto any batch already in flight, so overlapping callers never race the revision. */
   apply(batch: Batch): Promise<ApplyResult> {
-    const run = this.queue.then(() => this.applyNow(batch))
+    return this.enqueue(() => this.applyNow(batch))
+  }
+
+  /** Runs `fn` after any batch already in flight, serializing overlapping callers. */
+  private enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(fn)
     this.queue = run.catch(() => undefined)
     return run
   }
@@ -147,10 +152,9 @@ export class DocumentStore {
       ...(input.height !== undefined ? { height: input.height } : {}),
       ...(input.alt !== undefined ? { alt: input.alt } : {}),
     }
-    const result = await this.apply({
-      expectedRevision: this.document.revision,
-      operations: [operation],
-    })
+    const result = await this.enqueue(() =>
+      this.applyNow({ expectedRevision: this.document.revision, operations: [operation] }),
+    )
     const id = result.created[0]?.[0]
     if (id === undefined) throw new Error('asset.create did not register an asset')
     const asset = this.document.assets[id]

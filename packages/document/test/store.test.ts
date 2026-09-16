@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { DocumentError, fixtureDocument } from '@freeflow/schema'
+import { type Document, DocumentError, fixtureDocument } from '@freeflow/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { OperationError, RevisionRewoundError, StaleRevisionError } from '../src/errors.js'
 import { MemoryPersistence } from '../src/persistence.js'
@@ -141,6 +141,26 @@ describe('DocumentStore in memory', () => {
     expect(second.status).toBe('rejected')
     if (second.status === 'rejected') expect(second.reason).toBeInstanceOf(StaleRevisionError)
     expect(store.revision).toBe(1)
+  })
+
+  it('queues importAsset behind a batch already in flight instead of racing its revision read', async () => {
+    class SlowPersistence extends MemoryPersistence {
+      override async save(document: Document): Promise<void> {
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        await super.save(document)
+      }
+    }
+    const persistence = new SlowPersistence(fixtureDocument())
+    const store = await DocumentStore.withPersistence(persistence)
+    const first = store.apply({ expectedRevision: 0, operations: [] })
+    const asset = await store.importAsset({
+      name: 'note.txt',
+      mime: 'text/plain',
+      bytes: new TextEncoder().encode('hi'),
+    })
+    await expect(first).resolves.toMatchObject({ revision: 1 })
+    expect(store.revision).toBe(2)
+    expect(store.read().document.assets[asset.id]).toEqual(asset)
   })
 })
 
