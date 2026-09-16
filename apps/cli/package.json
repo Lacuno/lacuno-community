@@ -15,11 +15,14 @@
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
     "@freeflow/compiler": "workspace:*",
+    "@freeflow/mcp": "workspace:*",
     "@freeflow/schema": "workspace:*",
     "astro": "^7.3.2",
     "sharp": "^0.35.4"
   },
   "devDependencies": {
+    "@freeflow/document": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "tsdown": "^0.23.0",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",

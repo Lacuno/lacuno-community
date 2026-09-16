@@ -47,6 +47,9 @@ importers:
       '@freeflow/compiler':
         specifier: workspace:*
         version: link:../../packages/compiler
+      '@freeflow/mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
       '@freeflow/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -57,6 +60,12 @@ importers:
         specifier: ^0.35.4
         version: 0.35.4(@types/node@24.13.4)
     devDependencies:
+      '@freeflow/document':
+        specifier: workspace:*
+        version: link:../../packages/document
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.30.0
+        version: 1.30.0(zod@4.6.5)
       tsdown:
         specifier: ^0.23.0
         version: 0.23.0(tsx@4.23.13)(typescript@5.9.3)(unrun@0.3.1)
