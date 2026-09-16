@@ -1,7 +1,5 @@
 export { assetFileName, extensionForMime, isOptimizedImage, publicAssetPath } from './assets.js'
-export { type BuildOptions, type BuildResult, build } from './build.js'
 export { BuildError, RenderError } from './errors.js'
-export { writeFixtureSite } from './fixture-site.js'
 export { type HeadInput, renderHead } from './head.js'
 export { type AttrMap, escapeAttr, escapeHtml, renderAttrs, VOID_TAGS, type Warn } from './html.js'
 export {

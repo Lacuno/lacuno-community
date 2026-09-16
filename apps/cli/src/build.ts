@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util'
-import { BuildError, build } from '@freeflow/compiler'
+import { BuildError } from '@freeflow/compiler'
+import { build } from '@freeflow/compiler/build'
 
 export const BUILD_USAGE = 'Usage: freeflow build [dir] [--out <dir>] [--site-url <url>] [--json]'
 
