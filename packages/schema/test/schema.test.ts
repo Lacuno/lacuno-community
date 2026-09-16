@@ -122,6 +122,47 @@ describe('document schema', () => {
     expect(AssetHash.safeParse(await hashAsset(new Uint8Array())).success).toBe(true)
   })
 
+  it('types option and reference fields by their discriminator', () => {
+    const doc = fixtureDocument()
+    const col = doc.collections['col-posts']!
+    expect(col.fields.find((f) => f.id === 'f-status')).toEqual({
+      id: 'f-status',
+      name: 'status',
+      label: 'Status',
+      type: 'option',
+      options: [{ value: 'draft', label: 'Draft' }, { value: 'published' }],
+    })
+    const raw = JSON.parse(JSON.stringify(doc)) as {
+      collections: { 'col-posts': { fields: unknown[] } }
+    }
+    const fields = raw.collections['col-posts'].fields as Record<string, unknown>[]
+    // An option field must list its choices.
+    fields.push({ id: 'f-x', name: 'x', label: 'X', type: 'option' })
+    expect(() => parseDocument(raw)).toThrow(DocumentError)
+    // A text field must not carry choices or a reference.
+    fields[fields.length - 1] = { id: 'f-x', name: 'x', label: 'X', type: 'text', options: [] }
+    expect(() => parseDocument(raw)).toThrow(DocumentError)
+    fields[fields.length - 1] = { id: 'f-x', name: 'x', label: 'X', type: 'reference' }
+    expect(() => parseDocument(raw)).toThrow(DocumentError)
+    fields.pop()
+    expect(() => parseDocument(raw)).not.toThrow()
+  })
+
+  it('checks reference targets and option values', () => {
+    const doc = fixtureDocument()
+    doc.collections['col-posts']!.fields.push({
+      id: 'f-rel',
+      name: 'rel',
+      label: 'Related',
+      type: 'reference',
+      reference: 'col-nope',
+    })
+    doc.entries['col-posts']![0]!.fields['f-status'] = 'archived'
+    const msgs = checkReferences(doc).map((i) => i.message)
+    expect(msgs).toContain('reference field rel points at unknown collection col-nope')
+    expect(msgs).toContain('"archived" is not an option of field status')
+  })
+
   it('accepts an optional site url and rejects a malformed one', () => {
     const doc = fixtureDocument()
     doc.site.url = 'https://example.com'

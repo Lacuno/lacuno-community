@@ -95,11 +95,11 @@ export function checkReferences(doc: Document): Issue[] {
     if (!col.fields.some((f) => f.id === col.slugField))
       add(`collections.${id}`, `slugField ${col.slugField} is not a field`)
     for (const f of col.fields) {
-      if (
-        (f.type === 'reference' || f.type === 'multi-reference') &&
-        (!f.reference || !doc.collections[f.reference])
-      )
-        add(`collections.${id}.fields.${f.name}`, 'reference field needs a known target collection')
+      if ((f.type === 'reference' || f.type === 'multi-reference') && !doc.collections[f.reference])
+        add(
+          `collections.${id}.fields.${f.name}`,
+          `reference field ${f.name} points at unknown collection ${f.reference}`,
+        )
     }
   }
 
@@ -113,8 +113,10 @@ export function checkReferences(doc: Document): Issue[] {
     entries.forEach((entry, index) => {
       const path = `entries.${colId}.${index}`
       for (const f of col.fields) {
-        if (f.required && entry.fields[f.id] === undefined)
-          add(path, `missing required field ${f.name}`)
+        const value = entry.fields[f.id]
+        if (f.required && value === undefined) add(path, `missing required field ${f.name}`)
+        if (f.type === 'option' && value !== undefined && !f.options.some((o) => o.value === value))
+          add(path, `${JSON.stringify(value)} is not an option of field ${f.name}`)
       }
       for (const fieldId of Object.keys(entry.fields)) {
         if (!col.fields.some((f) => f.id === fieldId)) add(path, `unknown field ${fieldId}`)

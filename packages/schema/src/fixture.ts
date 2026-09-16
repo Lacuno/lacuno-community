@@ -536,6 +536,13 @@ export function fixtureDocument(): Document {
           { id: 'f-slug', name: 'slug', label: 'Slug', type: 'slug', required: true },
           { id: 'f-date', name: 'date', label: 'Date', type: 'date' },
           { id: 'f-body', name: 'body', label: 'Body', type: 'richtext' },
+          {
+            id: 'f-status',
+            name: 'status',
+            label: 'Status',
+            type: 'option',
+            options: [{ value: 'draft', label: 'Draft' }, { value: 'published' }],
+          },
         ],
       },
     },
@@ -560,6 +567,7 @@ export function fixtureDocument(): Document {
             'f-title': 'Hello world',
             'f-slug': 'hello-world',
             'f-date': '2026-09-01',
+            'f-status': 'published',
             'f-body': {
               type: 'doc',
               content: [
@@ -570,11 +578,21 @@ export function fixtureDocument(): Document {
         },
         {
           id: 'e-2',
-          fields: { 'f-title': 'Second post', 'f-slug': 'second-post', 'f-date': '2026-09-05' },
+          fields: {
+            'f-title': 'Second post',
+            'f-slug': 'second-post',
+            'f-date': '2026-09-05',
+            'f-status': 'published',
+          },
         },
         {
           id: 'e-3',
-          fields: { 'f-title': 'Third post', 'f-slug': 'third-post', 'f-date': '2026-09-10' },
+          fields: {
+            'f-title': 'Third post',
+            'f-slug': 'third-post',
+            'f-date': '2026-09-10',
+            'f-status': 'draft',
+          },
         },
       ],
     },
