@@ -25,8 +25,11 @@ describe('guide and resources', () => {
       'styles.get',
     ])
     const guide = textOf(await c.client.callTool({ name: 'guide', arguments: {} }))
-    for (const op of OPERATIONS) expect(guide).toContain(`### ${op.type}`)
+    for (const op of OPERATIONS) expect(guide).toContain(op.type)
     expect(guide).toContain('expectedRevision')
+    expect(guide).toContain('Call guide with a group to get the schemas.')
+    expect(guide).toContain('bulletList')
+    expect(guide).toContain('attrs.href')
     const nodesOnly = textOf(
       await c.client.callTool({ name: 'guide', arguments: { group: 'node' } }),
     )
@@ -35,6 +38,13 @@ describe('guide and resources', () => {
     const bad = await c.client.callTool({ name: 'guide', arguments: { group: 'nope' } })
     expect(bad.isError).toBe(true)
     expect(JSON.parse(textOf(bad))).toMatchObject({ kind: 'input' })
+  })
+
+  it('keeps the declared tool schemas small', async () => {
+    const c = await connect(DocumentStore.inMemory(fixtureDocument()))
+    close = c.close
+    const size = Buffer.byteLength(JSON.stringify(await c.client.listTools()), 'utf8')
+    expect(size).toBeLessThan(4000)
   })
 
   it('serves the document and operation schemas as resources', async () => {

@@ -7,7 +7,7 @@ import type { Node } from '@freeflow/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { fail, InputError } from './errors.js'
-import { catalog, GUIDE_INTRO, operationGroups } from './guide.js'
+import { catalog, GUIDE_INTRO, index, operationGroups } from './guide.js'
 import { outlineLines } from './outline.js'
 import { ok, text } from './result.js'
 import { documentJsonSchema, operationsJsonSchema } from './schemas.js'
@@ -30,8 +30,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
     async ({ group }) => {
       try {
-        const body = group === undefined ? catalog() : catalog(group)
-        return text(group === undefined ? `${GUIDE_INTRO}\n${body}` : body)
+        return text(group === undefined ? `${GUIDE_INTRO}\n${index()}` : catalog(group))
       } catch (e) {
         return fail(e instanceof RangeError ? new InputError(e.message) : e)
       }
@@ -45,16 +44,24 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         'Apply a batch of operations atomically. Pass the revision you read; use dryRun to preview patches.',
       inputSchema: {
         expectedRevision: z.number().int().nonnegative(),
-        operations: z.array(Operation),
+        operations: z.array(z.looseObject({ type: z.string() })),
         dryRun: z.boolean().optional(),
       },
     },
     async ({ expectedRevision, operations, dryRun }) => {
       try {
+        const parsed = z.array(Operation).safeParse(operations)
+        if (!parsed.success) {
+          const issues = parsed.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          }))
+          return fail(new InputError('invalid operations', issues))
+        }
         return ok(
           await store.apply({
             expectedRevision,
-            operations: operations as Operation[],
+            operations: parsed.data as Operation[],
             ...(dryRun ? { dryRun } : {}),
           }),
         )

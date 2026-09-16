@@ -72,4 +72,18 @@ describe('document.apply', () => {
     expect(dry.patches).toHaveLength(6)
     expect(store.read().document.nodes['n-hero']).toBeDefined()
   })
+
+  it('rejects an operation that fails schema validation with structured issues', async () => {
+    const store = DocumentStore.inMemory(fixtureDocument())
+    const c = await connect(store)
+    close = c.close
+    const bad = await c.client.callTool({
+      name: 'document.apply',
+      arguments: { expectedRevision: 0, operations: [{ type: 'node.create' }] },
+    })
+    expect(bad.isError).toBe(true)
+    const described = jsonOf<{ kind: string; issues: { path: string; message: string }[] }>(bad)
+    expect(described.kind).toBe('input')
+    expect(described.issues.length).toBeGreaterThan(0)
+  })
 })
