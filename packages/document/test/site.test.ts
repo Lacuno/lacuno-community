@@ -4,6 +4,14 @@ import { planBatch } from '../src/engine.js'
 import { OperationError } from '../src/errors.js'
 import { OPERATIONS_BY_TYPE, type Operation } from '../src/operations/index.js'
 
+// Compile-time guard: Operation must stay a discriminated union, not a loose record.
+// @ts-expect-error unknown operation type
+const _badType: Operation = { type: 'nonsense.op' }
+// @ts-expect-error mode.create requires a label
+const _missingField: Operation = { type: 'mode.create' }
+void _badType
+void _missingField
+
 const run = (ops: Operation[], doc = fixtureDocument()) => planBatch(doc, ops, OPERATIONS_BY_TYPE)
 const failing = (ops: Operation[], pattern: RegExp, doc = fixtureDocument()) => {
   try {
