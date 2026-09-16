@@ -1,4 +1,3 @@
-import { classNames } from '@freeflow/css'
 import type { Document, Node, NodeId } from '@freeflow/schema'
 
 function snippet(node: Node): string {
@@ -43,12 +42,11 @@ export function outlineLines(
   rootId: NodeId,
   depth = Number.POSITIVE_INFINITY,
 ): string[] {
-  const names = classNames(doc)
   const out: string[] = []
   const visit = (id: NodeId, level: number) => {
     const node = doc.nodes[id]
     if (!node || level > depth) return
-    const cls = node.classes.map((c) => `.${names.get(c) ?? c}`).join('')
+    const cls = node.classes.map((c) => `.${c}`).join('')
     const snip = snippet(node)
     out.push(
       `${'  '.repeat(level)}${id} ${label(node)}${cls ? ` ${cls}` : ''}${snip ? ` "${snip}"` : ''}`,

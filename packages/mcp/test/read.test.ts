@@ -41,10 +41,10 @@ describe('read tools', () => {
     const out = textOf(
       await client.callTool({ name: 'page.outline', arguments: { page: 'p-home' } }),
     )
-    expect(out.split('\n')[0]).toBe('n-home main .page')
-    expect(out).toContain('  n-hero section .container.hero')
+    expect(out.split('\n')[0]).toBe('n-home main .c-page')
+    expect(out).toContain('  n-hero section .c-container.c-hero')
     expect(out).toContain(
-      '      n-hero-title h1 .heading.ff-l-hero-title "Design it. Publish it. Own it."',
+      '      n-hero-title h1 .c-heading.l-hero-title "Design it. Publish it. Own it."',
     )
     expect(out).toContain('    n-post-card [component cmp-card]')
     const shallow = textOf(

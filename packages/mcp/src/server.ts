@@ -156,7 +156,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'page.outline',
     {
-      description: 'Indented node tree of a page or a component: id, tag, classes, text snippet.',
+      description:
+        'Indented node tree of a page or a component: id, tag, classes, text snippet. Classes are shown by id, usable with styles.get and style.set.',
       inputSchema: {
         page: z.string().optional(),
         component: z.string().optional(),
