@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { type OperationDef, operationMap } from '../define.js'
+import { designTokenOperations } from './design-tokens.js'
 import { nodeOperations } from './nodes.js'
 import { pageOperations } from './pages.js'
 import { siteOperations } from './site.js'
@@ -11,6 +12,7 @@ export const OPERATIONS = [
   ...nodeOperations,
   ...pageOperations,
   ...styleOperations,
+  ...designTokenOperations,
 ]
 
 export const OPERATIONS_BY_TYPE = operationMap(OPERATIONS as readonly OperationDef[])
