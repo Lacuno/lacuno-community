@@ -141,6 +141,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         components: d.components,
         collections: d.collections,
         assets: d.assets,
+        redirects: d.redirects,
       })
     },
   )

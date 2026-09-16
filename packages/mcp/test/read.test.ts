@@ -30,6 +30,7 @@ describe('read tools', () => {
       'designTokens',
       'folders',
       'pages',
+      'redirects',
       'revision',
       'site',
     ])
