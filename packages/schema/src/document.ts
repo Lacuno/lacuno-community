@@ -31,6 +31,7 @@ export const SiteSettings = z.object({
   headCode: z.string().optional(),
   bodyCode: z.string().optional(),
 })
+export type SiteSettings = z.infer<typeof SiteSettings>
 
 /**
  * The whole design of one site, normalized. Maps are JSON objects keyed by id so the document
@@ -38,6 +39,8 @@ export const SiteSettings = z.object({
  */
 export const Document = z.object({
   version: z.literal(DOCUMENT_VERSION),
+  /** Bumped by the document store on every committed batch. Never set by an operation. */
+  revision: z.number().int().nonnegative().default(0),
   site: SiteSettings,
   pages: z.record(PageId, Page),
   folders: z.record(FolderId, Folder).default({}),

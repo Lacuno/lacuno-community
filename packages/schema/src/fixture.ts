@@ -257,6 +257,7 @@ export function fixtureDocument(): Document {
 
   const doc: Document = {
     version: DOCUMENT_VERSION,
+    revision: 0,
     site: {
       name: 'Fixture Co',
       locale: 'en',

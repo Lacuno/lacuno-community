@@ -8,6 +8,7 @@ export const Seo = z.object({
   noindex: z.boolean().optional(),
   ogImage: AssetId.optional(),
 })
+export type Seo = z.infer<typeof Seo>
 
 export const Page = z.object({
   id: PageId,
@@ -29,6 +30,7 @@ export const Folder = z.object({
   name: z.string().min(1),
   parent: FolderId.optional(),
 })
+export type Folder = z.infer<typeof Folder>
 
 export const Redirect = z.object({
   from: z.string().min(1),

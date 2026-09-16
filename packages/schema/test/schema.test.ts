@@ -170,6 +170,20 @@ describe('document schema', () => {
     doc.site.url = 'not a url'
     expect(() => parseDocument(doc)).toThrow(DocumentError)
   })
+
+  it('carries a revision that defaults to zero and must be a non-negative integer', () => {
+    expect(createEmptyDocument().revision).toBe(0)
+    expect(fixtureDocument().revision).toBe(0)
+    const raw = JSON.parse(JSON.stringify(fixtureDocument())) as Record<string, unknown>
+    raw.revision = undefined
+    expect(parseDocument(raw).revision).toBe(0)
+    raw.revision = 7
+    expect(parseDocument(raw).revision).toBe(7)
+    raw.revision = -1
+    expect(() => parseDocument(raw)).toThrow(DocumentError)
+    raw.revision = 1.5
+    expect(() => parseDocument(raw)).toThrow(DocumentError)
+  })
 })
 
 describe('helpers', () => {

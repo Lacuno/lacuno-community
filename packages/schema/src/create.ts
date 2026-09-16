@@ -21,6 +21,7 @@ export function createEmptyDocument(name = 'Untitled'): Document {
   }
   return {
     version: DOCUMENT_VERSION,
+    revision: 0,
     site: {
       name,
       locale: 'en',
