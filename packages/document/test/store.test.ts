@@ -209,6 +209,13 @@ describe('DocumentStore on a folder', () => {
     await expect(DocumentStore.open(freshDir)).rejects.toBeInstanceOf(RevisionRewoundError)
   })
 
+  it('refuses a site directory that does not exist with a DocumentError, not a raw ENOENT', async () => {
+    const dir = await tmp()
+    await expect(DocumentStore.open(path.join(dir, 'does-not-exist'))).rejects.toBeInstanceOf(
+      DocumentError,
+    )
+  })
+
   it('refuses to create over a folder that already holds a document', async () => {
     const dir = await tmp()
     await DocumentStore.create(dir, 'Site')

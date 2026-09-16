@@ -70,7 +70,14 @@ export class DocumentStore {
 
   static async open(siteDir: string): Promise<DocumentStore> {
     const dir = path.resolve(siteDir)
-    const key = await realpath(dir)
+    let key: string
+    try {
+      key = await realpath(dir)
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT')
+        throw new DocumentError([{ path: 'freeflow.json', message: 'no document found' }])
+      throw e
+    }
     return DocumentStore.withPersistence(new FolderPersistence(dir), key)
   }
 
