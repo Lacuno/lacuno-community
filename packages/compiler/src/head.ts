@@ -29,9 +29,18 @@ function og(property: string, content: string): string {
   return `<meta property="${escapeAttr(property)}" content="${escapeAttr(content)}">`
 }
 
+/**
+ * Escapes a font family name for use inside a double-quoted CSS string embedded in a `<style>`
+ * element: backslash-escapes `\` and `"`, and neutralizes `<` (as the CSS escape `\3c `) so a
+ * family name cannot break out of the string or close the surrounding `<style>` tag.
+ */
+function cssString(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/</g, '\\3c ')
+}
+
 function googleFontsHref(fonts: Font[]): string {
   const families = fonts.map((f) => {
-    const family = f.family.replace(/ /g, '+')
+    const family = encodeURIComponent(f.family).replace(/%20/g, '+')
     const weights = f.weights?.length
       ? `:wght@${[...f.weights].sort((a, b) => a - b).join(';')}`
       : ''
@@ -60,7 +69,7 @@ function renderFonts(doc: Document, page: Page): string[] {
       `<link rel="preload" as="font" type="${escapeAttr(asset.mime)}" href="${escapeAttr(href)}" crossorigin>`,
     )
     faces.push(
-      `@font-face{font-family:"${f.family}";src:url("${href}") format("${format}");font-display:swap}`,
+      `@font-face{font-family:"${cssString(f.family)}";src:url("${href}") format("${format}");font-display:swap}`,
     )
   }
   if (faces.length) out.push(`<style>${faces.join('')}</style>`)

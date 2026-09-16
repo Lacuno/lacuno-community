@@ -68,6 +68,34 @@ describe('renderHead', () => {
     expect(() => renderHead(input)).toThrow(RenderError)
   })
 
+  it('escapes a font family that could break out of the font-face string or the style tag', () => {
+    const input = base()
+    input.doc.assets['a-font'] = {
+      id: 'a-font',
+      name: 'x.woff2',
+      kind: 'font',
+      hash: 'ff',
+      mime: 'font/woff2',
+      size: 1,
+    }
+    input.doc.site.fonts = [
+      { family: 'Bad "Sans</style>', source: 'asset', asset: 'a-font', fallback: 'sans-serif' },
+    ]
+    const head = renderHead(input)
+    expect(head).toContain(
+      '@font-face{font-family:"Bad \\"Sans\\3c /style>";src:url("/assets/ff.woff2") format("woff2");font-display:swap}',
+    )
+    // Exactly one </style>: the real closing tag. None sneaked in from the family name.
+    expect(head.split('</style>')).toHaveLength(2)
+  })
+
+  it('percent-encodes a google font family with characters that would corrupt the query string', () => {
+    const input = base()
+    input.doc.site.fonts = [{ family: 'A&B Sans', source: 'google' }]
+    const head = renderHead(input)
+    expect(head).toContain('family=A%26B+Sans')
+  })
+
   it('inserts site and page head code verbatim, site first, and falls back to the page name', () => {
     const input = base()
     input.doc.site.headCode = '<script>site()</script>'
