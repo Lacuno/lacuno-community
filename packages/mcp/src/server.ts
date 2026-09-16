@@ -1,20 +1,17 @@
 import type { DocumentStore } from '@freeflow/document'
+import type { Node } from '@freeflow/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { fail, InputError } from './errors.js'
 import { catalog, GUIDE_INTRO, operationGroups } from './guide.js'
-import { text } from './result.js'
+import { outlineLines } from './outline.js'
+import { ok, text } from './result.js'
 import { documentJsonSchema, operationsJsonSchema } from './schemas.js'
 
 export type ServerOptions = { siteDir?: string }
 
 const PLACEHOLDER_TOOLS: { name: string; description: string }[] = [
-  { name: 'document.read', description: 'Read the document revision and an overview.' },
   { name: 'document.apply', description: 'Apply a batch of operations to the document.' },
-  { name: 'page.outline', description: "Show a page's node tree." },
-  { name: 'node.get', description: 'Read one node and its subtree.' },
-  { name: 'styles.get', description: 'Read the style declarations for a class.' },
-  { name: 'entries.list', description: 'List entries in a collection.' },
   { name: 'asset.import', description: 'Import an asset from a path or base64 payload.' },
   { name: 'site.build', description: 'Compile the site to static output.' },
 ]
@@ -41,6 +38,114 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   for (const { name, description } of PLACEHOLDER_TOOLS) {
     server.registerTool(name, { description }, async () => fail(new InputError('not implemented')))
   }
+
+  server.registerTool(
+    'document.read',
+    {
+      description:
+        'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, components, collections, assets. No nodes, styles or entries.',
+    },
+    async () => {
+      const { document: d, revision } = store.read()
+      return ok({
+        revision,
+        site: d.site,
+        pages: d.pages,
+        folders: d.folders,
+        classes: d.classes,
+        breakpoints: d.breakpoints,
+        designTokens: d.designTokens,
+        components: d.components,
+        collections: d.collections,
+        assets: d.assets,
+      })
+    },
+  )
+
+  server.registerTool(
+    'page.outline',
+    {
+      description: 'Indented node tree of a page or a component: id, tag, classes, text snippet.',
+      inputSchema: {
+        page: z.string().optional(),
+        component: z.string().optional(),
+        depth: z.number().int().nonnegative().optional(),
+      },
+    },
+    async ({ page, component, depth }) => {
+      try {
+        const d = store.read().document
+        if ((page === undefined) === (component === undefined))
+          throw new InputError('pass exactly one of page or component')
+        const root =
+          page !== undefined ? d.pages[page]?.root : d.components[component as string]?.root
+        if (!root)
+          throw new InputError(
+            `unknown ${page !== undefined ? 'page' : 'component'} ${page ?? component}`,
+          )
+        return text(outlineLines(d, root, depth).join('\n'))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'node.get',
+    {
+      description: 'One node and its subtree as a nested tree.',
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      const d = store.read().document
+      if (!d.nodes[id]) return fail(new InputError(`unknown node ${id}`))
+      const tree = (nid: string): unknown => {
+        const n = d.nodes[nid] as Node
+        return { ...n, children: n.children.map(tree) }
+      }
+      return ok(tree(id))
+    },
+  )
+
+  server.registerTool(
+    'styles.get',
+    {
+      description:
+        'Style declarations grouped by class, breakpoint and state. All classes when class is omitted.',
+      inputSchema: { class: z.string().optional() },
+    },
+    async ({ class: cls }) => {
+      const d = store.read().document
+      if (cls !== undefined && !d.classes[cls]) return fail(new InputError(`unknown class ${cls}`))
+      const out: Record<string, Record<string, Record<string, Record<string, unknown>>>> = {}
+      for (const decl of Object.values(d.styles)) {
+        if (cls !== undefined && decl.class !== cls) continue
+        const value = decl.important ? { ...decl.value, important: true } : decl.value
+        if (!out[decl.class]) out[decl.class] = {}
+        const byClass = out[decl.class] as Record<string, Record<string, Record<string, unknown>>>
+        if (!byClass[decl.breakpoint]) byClass[decl.breakpoint] = {}
+        const byBreakpoint = byClass[decl.breakpoint] as Record<string, Record<string, unknown>>
+        if (!byBreakpoint[decl.state]) byBreakpoint[decl.state] = {}
+        byBreakpoint[decl.state]![decl.property] = value
+      }
+      return ok(out)
+    },
+  )
+
+  server.registerTool(
+    'entries.list',
+    {
+      description: 'Entries of a collection in order.',
+      inputSchema: { collection: z.string(), limit: z.number().int().positive().optional() },
+    },
+    async ({ collection, limit }) => {
+      const d = store.read().document
+      if (!d.collections[collection])
+        return fail(new InputError(`unknown collection ${collection}`))
+      const entries = d.entries[collection] ?? []
+      return ok(limit === undefined ? entries : entries.slice(0, limit))
+    },
+  )
 
   server.registerResource(
     'document-schema',
@@ -71,7 +176,6 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     }),
   )
 
-  void store
   void options
   return server
 }

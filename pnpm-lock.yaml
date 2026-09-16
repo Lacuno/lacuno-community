@@ -138,6 +138,9 @@ importers:
       '@freeflow/compiler':
         specifier: workspace:*
         version: link:../compiler
+      '@freeflow/css':
+        specifier: workspace:*
+        version: link:../css
       '@freeflow/document':
         specifier: workspace:*
         version: link:../document

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@freeflow/compiler": "workspace:*",
+    "@freeflow/css": "workspace:*",
     "@freeflow/document": "workspace:*",
     "@freeflow/schema": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.0",
