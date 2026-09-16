@@ -49,12 +49,22 @@ function isRichText(v: Resolved): v is RichText {
   return typeof v === 'object' && v !== null && (v as RichText).type === 'doc'
 }
 
-/** Attributes from bindings. Booleans toggle the attribute; assets become paths. */
+/**
+ * Attributes from bindings. Booleans toggle the attribute; assets become paths.
+ *
+ * An image asset bound to `src` on an `<img>` is held back as `imageAsset` so the caller can
+ * hand it to `renderImage` (which emits a full `<picture>`/`<img>` with dimensions and a
+ * srcset). An image asset on any other attribute — including `src` on any other tag — is
+ * resolved to its optimized `src` directly: the scaffold only copies an optimized image's
+ * original bytes to `public/` when a stylesheet references it, so `publicAssetPath` would
+ * otherwise point at a file that does not exist in dist.
+ */
 function resolveAttrs(
   attrs: Record<string, Binding> | undefined,
   scope: Scope,
   state: RenderState,
   nodeId: string,
+  tag?: string,
 ): { attrs: AttrMap; imageAsset?: AssetRef } {
   const out: AttrMap = {}
   let imageAsset: AssetRef | undefined
@@ -65,7 +75,8 @@ function resolveAttrs(
     if (v === true) {
       out[name] = true
     } else if (isAsset(v)) {
-      if (name === 'src' && isOptimizedImage(v)) imageAsset = v
+      if (name === 'src' && tag === 'img' && isOptimizedImage(v)) imageAsset = v
+      else if (isOptimizedImage(v)) out[name] = state.resolveImage(v).src
       else out[name] = publicAssetPath(v)
     } else if (isRichText(v)) {
       throw new RenderError(`attribute ${name} cannot hold rich text`, nodeId, state.page)
@@ -105,7 +116,7 @@ function renderImage(
 }
 
 function renderElement(node: ElementNode, scope: Scope, state: RenderState): string {
-  const { attrs, imageAsset } = resolveAttrs(node.attrs, scope, state, node.id)
+  const { attrs, imageAsset } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
   if (node.tag === 'img' && imageAsset) return renderImage(node, attrs, imageAsset, state)
   if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
   const open = `<${node.tag}${renderAttrs(attrs)}>`
@@ -118,7 +129,7 @@ function renderText(
   scope: Scope,
   state: RenderState,
 ): string {
-  const { attrs } = resolveAttrs(node.attrs, scope, state, node.id)
+  const { attrs } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
   if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
   const warn = (message: string) => state.warnings.push({ node: node.id, message })
   let inner: string
@@ -128,7 +139,8 @@ function renderText(
     const v = resolveBinding(state.doc, node.text as Binding, scope, node.id)
     if (v === undefined || v === null) inner = ''
     else if (isRichText(v)) inner = richTextToHtml(v, warn)
-    else if (isAsset(v)) inner = escapeHtml(publicAssetPath(v))
+    else if (isAsset(v))
+      inner = escapeHtml(isOptimizedImage(v) ? state.resolveImage(v).src : publicAssetPath(v))
     else inner = escapeHtml(String(v))
   }
   return `<${node.tag}${renderAttrs(attrs)}>${inner}</${node.tag}>`
@@ -189,7 +201,7 @@ function renderList(
   const collection = state.doc.collections[node.collection]
   if (!collection)
     throw new RenderError(`unknown collection ${node.collection}`, node.id, state.page)
-  const { attrs } = resolveAttrs(node.attrs, scope, state, node.id)
+  const { attrs } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
   if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
   const entries = applyQuery(state.doc.entries[node.collection] ?? [], node.query)
   const items = entries

@@ -88,6 +88,39 @@ describe('renderNode: elements and text', () => {
     )
   })
 
+  it('links an image asset bound to a non-src attribute through the resolver, not a dead public path', () => {
+    const doc = fixtureDocument()
+    doc.nodes.link = {
+      id: 'link',
+      type: 'element',
+      tag: 'a',
+      parent: null,
+      children: [],
+      classes: [],
+      attrs: { href: { type: 'asset', asset: 'a-hero' } },
+    }
+    expect(renderNode('link', empty, state(doc))).toBe('<a href="/assets/fixture-hero.png"></a>')
+    const s = state(doc)
+    s.resolveImage = () => ({ src: '/_astro/h.webp', width: 1200, height: 800 })
+    expect(renderNode('link', empty, s)).toBe('<a href="/_astro/h.webp"></a>')
+  })
+
+  it('links an image asset bound to src on a non-img tag instead of dropping the attribute', () => {
+    const doc = fixtureDocument()
+    doc.nodes.source = {
+      id: 'source',
+      type: 'element',
+      tag: 'source',
+      parent: null,
+      children: [],
+      classes: [],
+      attrs: { src: { type: 'asset', asset: 'a-hero' } },
+    }
+    const s = state(doc)
+    s.resolveImage = () => ({ src: '/_astro/h.webp', width: 1200, height: 800 })
+    expect(renderNode('source', empty, s)).toBe('<source src="/_astro/h.webp">')
+  })
+
   it('links non-image assets by public path and rejects unknown classes', () => {
     const doc = fixtureDocument()
     doc.assets['a-pdf'] = {
