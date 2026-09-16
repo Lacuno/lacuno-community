@@ -1,7 +1,7 @@
 export {
   type GenerateOptions,
+  generateDesignTokens,
   generateStylesheet,
-  generateTokens,
   RESET,
   type Stylesheet,
 } from './generate.js'

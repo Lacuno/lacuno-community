@@ -8,7 +8,7 @@ import type {
   NodeId,
   RichText,
 } from '@freeflow/schema'
-import { tokenCssName } from '@freeflow/schema'
+import { designTokenCssName } from '@freeflow/schema'
 import { RenderError } from './errors.js'
 
 /** One component instance being rendered. Slot children render in the outer scope. */
@@ -31,10 +31,10 @@ export function resolveBinding(doc: Document, b: Binding, scope: Scope, nodeId: 
   switch (b.type) {
     case 'static':
       return b.value
-    case 'token': {
-      const t = doc.tokens[b.token]
-      if (!t) throw new RenderError(`unknown token ${b.token}`, nodeId)
-      return `var(${tokenCssName(t.name)})`
+    case 'designToken': {
+      const t = doc.designTokens[b.designToken]
+      if (!t) throw new RenderError(`unknown design token ${b.designToken}`, nodeId)
+      return `var(${designTokenCssName(t.name)})`
     }
     case 'asset': {
       const a = doc.assets[b.asset]

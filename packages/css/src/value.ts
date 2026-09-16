@@ -1,8 +1,8 @@
 import type { CssValue, Document } from '@freeflow/schema'
-import { tokenCssName } from '@freeflow/schema'
+import { designTokenCssName } from '@freeflow/schema'
 
 export type ValueContext = {
-  tokenName: (id: string) => string | undefined
+  designTokenName: (id: string) => string | undefined
   assetUrl: (id: string) => string | undefined
 }
 
@@ -11,7 +11,7 @@ export function contextFromDocument(
   assetUrl: (id: string) => string | undefined = () => undefined,
 ): ValueContext {
   return {
-    tokenName: (id) => doc.tokens[id]?.name,
+    designTokenName: (id) => doc.designTokens[id]?.name,
     assetUrl,
   }
 }
@@ -38,10 +38,10 @@ export function serializeValue(value: CssValue, ctx: ValueContext): string {
       return value.value
     case 'raw':
       return value.value
-    case 'token': {
-      const name = ctx.tokenName(value.ref)
-      if (!name) throw new Error(`unknown token ${value.ref}`)
-      return `var(${tokenCssName(name)})`
+    case 'designToken': {
+      const name = ctx.designTokenName(value.ref)
+      if (!name) throw new Error(`unknown design token ${value.ref}`)
+      return `var(${designTokenCssName(name)})`
     }
     case 'image': {
       const url = ctx.assetUrl(value.asset)

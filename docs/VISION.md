@@ -18,7 +18,7 @@ a real self-host story, and an agent that is a first-class collaborator rather t
 
 Freeflow is a self-hostable, open source web design and publishing tool.
 
-- You design visually with a real CSS model: classes, combo classes, breakpoints, states, tokens.
+- You design visually with a real CSS model: classes, combo classes, breakpoints, states, design tokens.
 - Your site is a typed JSON document that lives in a git repository you own.
 - Publishing compiles that document to an Astro project and serves the static output. Zero JavaScript
   by default, islands when a component needs interactivity.
@@ -68,6 +68,6 @@ An island can embed an app, but Freeflow will not become one.
   in ten minutes.
 - A founder types "build me a landing page for a bookkeeping SaaS, use our brand skill" and gets a
   proposal on the canvas they can accept, tweak or reject section by section.
-- Claude Code, pointed at the MCP server, adds a pricing page that respects the site's tokens and
+- Claude Code, pointed at the MCP server, adds a pricing page that respects the site's design tokens and
   components, screenshots it, and opens a proposal branch for review.
 - A published page scores 100 on Lighthouse performance with no effort from the user.

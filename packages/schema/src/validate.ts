@@ -41,9 +41,9 @@ export function checkReferences(doc: Document): Issue[] {
     }
   }
 
-  for (const [id, token] of Object.entries(doc.tokens)) {
-    for (const mode of Object.keys(token.values)) {
-      if (!modeIds.has(mode)) add(`tokens.${id}`, `unknown mode ${mode}`)
+  for (const [id, designToken] of Object.entries(doc.designTokens)) {
+    for (const mode of Object.keys(designToken.values)) {
+      if (!modeIds.has(mode)) add(`designTokens.${id}`, `unknown mode ${mode}`)
     }
   }
 

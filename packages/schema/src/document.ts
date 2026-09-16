@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { AssetRef, Font } from './assets.js'
 import { CollectionSchema } from './collections.js'
 import { Component } from './components.js'
+import { DesignToken, Mode } from './design-tokens.js'
 import { Entry } from './entries.js'
 import {
   AssetId,
@@ -9,15 +10,14 @@ import {
   ClassId,
   CollectionId,
   ComponentId,
+  DesignTokenId,
   FolderId,
   NodeId,
   PageId,
-  TokenId,
 } from './ids.js'
 import { Node } from './nodes.js'
 import { Folder, Page, Redirect } from './pages.js'
 import { Breakpoint, Class, StyleDecl } from './styles.js'
-import { Mode, Token } from './tokens.js'
 
 export const DOCUMENT_VERSION = 1
 
@@ -45,7 +45,7 @@ export const Document = z.object({
   classes: z.record(ClassId, Class),
   styles: z.record(z.string(), StyleDecl),
   breakpoints: z.record(BreakpointId, Breakpoint),
-  tokens: z.record(TokenId, Token).default({}),
+  designTokens: z.record(DesignTokenId, DesignToken).default({}),
   components: z.record(ComponentId, Component).default({}),
   collections: z.record(CollectionId, CollectionSchema).default({}),
   entries: z.record(CollectionId, z.array(Entry)).default({}),

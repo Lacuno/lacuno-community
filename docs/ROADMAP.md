@@ -10,7 +10,7 @@ Goal: the document, the compiler and an agent can produce a real site before the
 - `packages/css`: deterministic CSS generator with snapshot tests.
 - `packages/compiler` and `apps/cli`: document to static output through Astro as an internal
   engine. `freeflow build <dir>` builds a site folder; a Lighthouse script guards the score.
-- `packages/mcp` and `freeflow mcp`: discovery, pages, nodes, classes, styles, tokens, components,
+- `packages/mcp` and `freeflow mcp`: discovery, pages, nodes, classes, styles, design tokens, components,
   dry run, version pinning, operating on a document in a local folder.
 - Default template documents written by an agent through the MCP server.
 
@@ -23,13 +23,13 @@ Goal: a designer can build and publish a site without touching the terminal.
 
 - Server with auth, workspaces, sites, SQLite, Yjs sync, git commits.
 - Editor: canvas iframe, layer tree, element palette, style panel, classes, breakpoints, states,
-  tokens, pages, page settings and SEO, assets, fonts, undo and redo, version history.
+  design tokens, pages, page settings and SEO, assets, fonts, undo and redo, version history.
 - Components with props and slots.
 - Publish to staging and production from the instance, build history, rollback.
 - Docker image and `npx freeflow`.
 - Preview, screenshot and diff tools in MCP.
 
-**Exit:** a five-page site with components, tokens and dark mode, built in the editor, published on
+**Exit:** a five-page site with components, design tokens and dark mode, built in the editor, published on
 a custom domain with TLS from a single container.
 
 ## Phase 2. Content and forms
@@ -54,7 +54,7 @@ Goal: the differentiator.
 - Skills in the repository, default skills, semantic annotations, design linter.
 - Model providers with BYO keys and Ollama.
 
-**Exit:** "build a pricing page using our brand skill" produces a proposal that respects tokens and
+**Exit:** "build a pricing page using our brand skill" produces a proposal that respects design tokens and
 components, passes the linter, and is accepted from the review UI with one section edited by hand.
 
 ## Phase 4. Collaboration and scale

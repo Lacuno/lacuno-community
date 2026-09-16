@@ -12,10 +12,10 @@ const withEntry: Scope = {
 }
 
 describe('resolveBinding', () => {
-  it('resolves static, token and asset bindings', () => {
+  it('resolves static, design token and asset bindings', () => {
     expect(resolveBinding(doc, { type: 'static', value: 'x' }, empty, 'n')).toBe('x')
     expect(resolveBinding(doc, { type: 'static', value: 3 }, empty, 'n')).toBe(3)
-    expect(resolveBinding(doc, { type: 'token', token: 't-brand' }, empty, 'n')).toBe(
+    expect(resolveBinding(doc, { type: 'designToken', designToken: 't-brand' }, empty, 'n')).toBe(
       'var(--color-brand)',
     )
     expect(resolveBinding(doc, { type: 'asset', asset: 'a-hero' }, empty, 'n')).toBe(
@@ -56,9 +56,9 @@ describe('resolveBinding', () => {
     )
   })
 
-  it('rejects unknown tokens and assets with the node id', () => {
+  it('rejects unknown design tokens and assets with the node id', () => {
     try {
-      resolveBinding(doc, { type: 'token', token: 't-nope' }, empty, 'n-x')
+      resolveBinding(doc, { type: 'designToken', designToken: 't-nope' }, empty, 'n-x')
       expect.unreachable()
     } catch (e) {
       expect(e).toBeInstanceOf(RenderError)

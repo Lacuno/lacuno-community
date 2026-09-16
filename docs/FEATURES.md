@@ -15,7 +15,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Breakpoint cascade | MVP | Desktop-first base with tablet, mobile landscape, mobile portrait. Custom breakpoints. Container queries as a per-element option |
 | States: hover, focus, focus-visible, active, visited, disabled, checked, first, last, nth, placeholder, before, after | MVP | |
 | Design tokens: color, spacing, typography, radius, shadow, with modes such as light and dark | MVP | Compiled to CSS custom properties |
-| Fluid typography and spacing with clamp | MVP | Token can be a scale, not just a value |
+| Fluid typography and spacing with clamp | MVP | A design token can be a scale, not just a value |
 | Components with props, slots and variants | MVP | Instance overrides are explicit and visible in the tree |
 | Rich text editing on canvas | MVP | Tiptap. Same editor used in CMS rich fields |
 | Copy and paste of HTML plus CSS, Tailwind HTML, Webflow clipboard, Webstudio JSON, SVG, images | Next | Import is how people switch. Tailwind paste is how AI output gets in |

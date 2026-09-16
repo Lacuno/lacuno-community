@@ -26,7 +26,7 @@ with one command.
 
 1. **Self-hosted.** One Docker image, SQLite, local or S3 assets, Caddy for TLS. `docker run` and you are live.
 2. **Open source.** The builder, the compiler, the CMS, the agent, the publishing pipeline. No open-core trapdoor.
-3. **Great UX.** A real CSS editor with classes, breakpoints, states and tokens. It teaches the box model instead of hiding it.
+3. **Great UX.** A real CSS editor with classes, breakpoints, states and design tokens. It teaches the box model instead of hiding it.
 4. **Agentic.** An agent on the canvas that proposes changes you can see, plus an MCP server so Claude Code or any agent edits the same document.
 5. **Blazing fast.** The document compiles to an Astro project. Static HTML, zero JavaScript by default, islands when you need them.
 

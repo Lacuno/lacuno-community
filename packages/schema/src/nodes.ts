@@ -1,5 +1,13 @@
 import { z } from 'zod'
-import { AssetId, ClassId, CollectionId, ComponentId, FieldId, NodeId, TokenId } from './ids.js'
+import {
+  AssetId,
+  ClassId,
+  CollectionId,
+  ComponentId,
+  DesignTokenId,
+  FieldId,
+  NodeId,
+} from './ids.js'
 
 /**
  * The element tree. One flat map for the whole site; pages and components point at root nodes.
@@ -11,7 +19,7 @@ import { AssetId, ClassId, CollectionId, ComponentId, FieldId, NodeId, TokenId }
 export const Binding = z.discriminatedUnion('type', [
   z.object({ type: z.literal('static'), value: z.union([z.string(), z.number(), z.boolean()]) }),
   z.object({ type: z.literal('field'), field: FieldId }),
-  z.object({ type: z.literal('token'), token: TokenId }),
+  z.object({ type: z.literal('designToken'), designToken: DesignTokenId }),
   z.object({ type: z.literal('asset'), asset: AssetId }),
   z.object({ type: z.literal('prop'), prop: z.string().min(1) }),
 ])

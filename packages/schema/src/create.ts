@@ -38,7 +38,7 @@ export function createEmptyDocument(name = 'Untitled'): Document {
       'mobile-l': { id: 'mobile-l', label: 'Mobile landscape', maxWidth: 767 },
       'mobile-p': { id: 'mobile-p', label: 'Mobile portrait', maxWidth: 479 },
     },
-    tokens: {},
+    designTokens: {},
     components: {},
     collections: {},
     entries: {},

@@ -1,5 +1,5 @@
 import type { Breakpoint, Document, State, StyleDecl } from '@freeflow/schema'
-import { BASE_BREAKPOINT_ID, State as StateSchema, tokenCssName } from '@freeflow/schema'
+import { BASE_BREAKPOINT_ID, designTokenCssName, State as StateSchema } from '@freeflow/schema'
 import { compareProperties } from './order.js'
 import { type ClassNames, classNames, selectorFor } from './selector.js'
 import { contextFromDocument, serializeValue, type ValueContext } from './value.js'
@@ -29,28 +29,28 @@ img, video, svg { display: block; max-width: 100%; height: auto; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; }`
 
-/** Emit `:root` tokens for the default mode and overrides per extra mode. */
-export function generateTokens(doc: Document, ctx: ValueContext): string {
+/** Emit `:root` design tokens for the default mode and overrides per extra mode. */
+export function generateDesignTokens(doc: Document, ctx: ValueContext): string {
   const modes = doc.site.modes
   const def = modes.find((m) => m.default) ?? modes[0]
   if (!def) return ''
-  const tokens = Object.values(doc.tokens).sort((a, b) => (a.name < b.name ? -1 : 1))
+  const designTokens = Object.values(doc.designTokens).sort((a, b) => (a.name < b.name ? -1 : 1))
   const blocks: string[] = []
 
-  const rootLines = tokens
+  const rootLines = designTokens
     .map((t) => {
       const v = t.values[def.id]
-      return v ? `  ${tokenCssName(t.name)}: ${serializeValue(v, ctx)};` : undefined
+      return v ? `  ${designTokenCssName(t.name)}: ${serializeValue(v, ctx)};` : undefined
     })
     .filter((l): l is string => !!l)
   if (rootLines.length) blocks.push(`:root {\n${rootLines.join('\n')}\n}`)
 
   for (const mode of modes) {
     if (mode === def) continue
-    const lines = tokens
+    const lines = designTokens
       .map((t) => {
         const v = t.values[mode.id]
-        return v ? `  ${tokenCssName(t.name)}: ${serializeValue(v, ctx)};` : undefined
+        return v ? `  ${designTokenCssName(t.name)}: ${serializeValue(v, ctx)};` : undefined
       })
       .filter((l): l is string => !!l)
     if (!lines.length) continue
@@ -149,8 +149,8 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
   const sections: string[] = []
 
   if (options.reset !== false) sections.push(RESET)
-  const tokens = generateTokens(doc, ctx)
-  if (tokens) sections.push(tokens)
+  const designTokens = generateDesignTokens(doc, ctx)
+  if (designTokens) sections.push(designTokens)
 
   const decls = Object.values(doc.styles)
   for (const bp of breakpointOrder(doc)) {

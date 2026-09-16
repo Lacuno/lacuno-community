@@ -1,10 +1,10 @@
 import type { Document } from './document.js'
 import { DOCUMENT_VERSION } from './document.js'
 import { BASE_BREAKPOINT_ID, type StyleDecl, styleKey } from './styles.js'
-import { color, fn, kw, list, px, rem, token } from './values.js'
+import { color, designToken, fn, kw, list, px, rem } from './values.js'
 
 /**
- * A small but complete marketing page used by tests across packages: tokens with a dark mode,
+ * A small but complete marketing page used by tests across packages: design tokens with a dark mode,
  * classes, a combo class, breakpoints, states, a component with a slot, and a collection list.
  */
 export function fixtureDocument(): Document {
@@ -15,21 +15,21 @@ export function fixtureDocument(): Document {
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'font-family',
-      value: token('t-font-body'),
+      value: designToken('t-font-body'),
     },
     {
       class: 'c-page',
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'color',
-      value: token('t-fg'),
+      value: designToken('t-fg'),
     },
     {
       class: 'c-page',
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'background-color',
-      value: token('t-bg'),
+      value: designToken('t-bg'),
     },
     // container
     {
@@ -51,7 +51,7 @@ export function fixtureDocument(): Document {
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'padding',
-      value: list([px(0), token('t-space-md')]),
+      value: list([px(0), designToken('t-space-md')]),
     },
     // hero
     {
@@ -76,7 +76,7 @@ export function fixtureDocument(): Document {
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'gap',
-      value: token('t-space-lg'),
+      value: designToken('t-space-lg'),
     },
     {
       class: 'c-hero',
@@ -134,14 +134,14 @@ export function fixtureDocument(): Document {
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'padding',
-      value: list([token('t-space-sm'), token('t-space-md')]),
+      value: list([designToken('t-space-sm'), designToken('t-space-md')]),
     },
     {
       class: 'c-button',
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'border-radius',
-      value: token('t-radius'),
+      value: designToken('t-radius'),
     },
     {
       class: 'c-button',
@@ -162,21 +162,21 @@ export function fixtureDocument(): Document {
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'hover',
       property: 'background-color',
-      value: token('t-surface-muted'),
+      value: designToken('t-surface-muted'),
     },
     {
       class: 'c-button',
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'focus-visible',
       property: 'outline',
-      value: list([px(2), kw('solid'), token('t-brand')]),
+      value: list([px(2), kw('solid'), designToken('t-brand')]),
     },
     {
       class: 'c-button-primary',
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'background-color',
-      value: token('t-brand'),
+      value: designToken('t-brand'),
     },
     {
       class: 'c-button-primary',
@@ -190,7 +190,7 @@ export function fixtureDocument(): Document {
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'hover',
       property: 'background-color',
-      value: token('t-brand-hover'),
+      value: designToken('t-brand-hover'),
     },
     // local override on the hero heading
     {
@@ -206,21 +206,21 @@ export function fixtureDocument(): Document {
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'border',
-      value: list([px(1), kw('solid'), token('t-border')]),
+      value: list([px(1), kw('solid'), designToken('t-border')]),
     },
     {
       class: 'c-card',
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'border-radius',
-      value: token('t-radius'),
+      value: designToken('t-radius'),
     },
     {
       class: 'c-card',
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'padding',
-      value: token('t-space-md'),
+      value: designToken('t-space-md'),
     },
     {
       class: 'c-card',
@@ -251,7 +251,7 @@ export function fixtureDocument(): Document {
       breakpoint: BASE_BREAKPOINT_ID,
       state: 'none',
       property: 'gap',
-      value: token('t-space-md'),
+      value: designToken('t-space-md'),
     },
   ]
 
@@ -454,7 +454,7 @@ export function fixtureDocument(): Document {
       'mobile-l': { id: 'mobile-l', label: 'Mobile landscape', maxWidth: 767 },
       'mobile-p': { id: 'mobile-p', label: 'Mobile portrait', maxWidth: 479 },
     },
-    tokens: {
+    designTokens: {
       't-font-body': {
         id: 't-font-body',
         name: 'font.body',

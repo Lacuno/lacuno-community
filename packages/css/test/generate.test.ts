@@ -1,6 +1,7 @@
 import {
   color,
   createEmptyDocument,
+  designToken,
   fixtureDocument,
   fn,
   kw,
@@ -8,7 +9,6 @@ import {
   px,
   rem,
   styleKey,
-  token,
 } from '@freeflow/schema'
 import { describe, expect, it } from 'vitest'
 import {
@@ -21,7 +21,7 @@ import {
 } from '../src/index.js'
 
 const ctx = {
-  tokenName: (id: string) => ({ 't-brand': 'color.brand' })[id],
+  designTokenName: (id: string) => ({ 't-brand': 'color.brand' })[id],
   assetUrl: (id: string) => ({ 'a-1': '/assets/a1.png' })[id],
 }
 
@@ -35,8 +35,8 @@ describe('serializeValue', () => {
     expect(serializeValue({ type: 'unit', value: 0.33333333, unit: 'fr' }, ctx)).toBe('0.3333fr')
     expect(serializeValue({ type: 'unit', value: -0.0000001, unit: 'em' }, ctx)).toBe('0')
   })
-  it('formats tokens, images, lists and functions', () => {
-    expect(serializeValue(token('t-brand'), ctx)).toBe('var(--color-brand)')
+  it('formats design tokens, images, lists and functions', () => {
+    expect(serializeValue(designToken('t-brand'), ctx)).toBe('var(--color-brand)')
     expect(serializeValue({ type: 'image', asset: 'a-1' }, ctx)).toBe('url("/assets/a1.png")')
     expect(serializeValue(list([px(0), kw('auto')]), ctx)).toBe('0 auto')
     expect(serializeValue(list([kw('Inter'), kw('sans-serif')], ', '), ctx)).toBe(
@@ -57,7 +57,7 @@ describe('serializeValue', () => {
     expect(serializeValue(color('oklch(70% 0.1 200)'), ctx)).toBe('oklch(70% 0.1 200)')
   })
   it('throws on unknown references', () => {
-    expect(() => serializeValue(token('nope'), ctx)).toThrow('unknown token nope')
+    expect(() => serializeValue(designToken('nope'), ctx)).toThrow('unknown design token nope')
     expect(() => serializeValue({ type: 'image', asset: 'nope' }, ctx)).toThrow(
       'unknown asset nope',
     )
@@ -105,11 +105,11 @@ describe('generateStylesheet', () => {
     const b = fixtureDocument()
     b.styles = Object.fromEntries(Object.entries(b.styles).reverse())
     b.classes = Object.fromEntries(Object.entries(b.classes).reverse())
-    b.tokens = Object.fromEntries(Object.entries(b.tokens).reverse())
+    b.designTokens = Object.fromEntries(Object.entries(b.designTokens).reverse())
     expect(generateStylesheet(a).css).toBe(generateStylesheet(b).css)
   })
 
-  it('emits tokens for the default mode on :root and overrides per mode', () => {
+  it('emits design tokens for the default mode on :root and overrides per mode', () => {
     const { css } = generateStylesheet(fixtureDocument(), { reset: false })
     expect(css).toContain(':root {\n  --color-bg: #fff;')
     expect(css).toContain(

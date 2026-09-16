@@ -1,9 +1,9 @@
 import { z } from 'zod'
-import { AssetId, TokenId } from './ids.js'
+import { AssetId, DesignTokenId } from './ids.js'
 
 /**
  * A typed CSS value. The style panel, the agent and the CSS generator all agree on this shape,
- * so a value can be edited structurally (drag a length, pick a token) and still serialize to
+ * so a value can be edited structurally (drag a length, pick a design token) and still serialize to
  * exactly one CSS string.
  */
 export const Unit = z.enum([
@@ -40,8 +40,8 @@ export const KeywordValue = z.object({ type: z.literal('keyword'), value: z.stri
 /** Any CSS color notation. Normalization happens in the editor, not the schema. */
 export const ColorValue = z.object({ type: z.literal('color'), value: z.string().min(1) })
 
-/** Reference to a design token. Compiles to var(--token-name). */
-export const TokenRef = z.object({ type: z.literal('token'), ref: TokenId })
+/** Reference to a design token. Compiles to var(--design-token-name). */
+export const DesignTokenRef = z.object({ type: z.literal('designToken'), ref: DesignTokenId })
 
 /** url() pointing at an asset in the library. */
 export const ImageValue = z.object({ type: z.literal('image'), asset: AssetId })
@@ -53,7 +53,7 @@ export const ScalarValue = z.discriminatedUnion('type', [
   UnitValue,
   KeywordValue,
   ColorValue,
-  TokenRef,
+  DesignTokenRef,
   ImageValue,
   RawValue,
 ])
@@ -98,7 +98,7 @@ export const rem = (value: number): CssValue => ({ type: 'unit', value, unit: 'r
 export const num = (value: number): CssValue => ({ type: 'unit', value, unit: 'number' })
 export const kw = (value: string): CssValue => ({ type: 'keyword', value })
 export const color = (value: string): CssValue => ({ type: 'color', value })
-export const token = (ref: TokenId): CssValue => ({ type: 'token', ref })
+export const designToken = (ref: DesignTokenId): CssValue => ({ type: 'designToken', ref })
 export const raw = (value: string): CssValue => ({ type: 'raw', value })
 export const list = (values: CssValue[], separator: ' ' | ', ' | ' / ' = ' '): CssValue => ({
   type: 'list',

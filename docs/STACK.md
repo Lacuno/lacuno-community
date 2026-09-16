@@ -48,7 +48,7 @@ a time, with the test suite green.
 | Framework | React 19 with Vite | The editor tooling ecosystem lives here: Radix, dnd-kit, Tiptap, Yjs bindings |
 | State | Yjs document plus small Zustand stores for UI state | Document state is the CRDT, UI state stays local |
 | UI primitives | Radix UI | Accessible panels, menus, popovers, dialogs |
-| Styling | CSS modules with our own tokens | The editor should dogfood a token system. No Tailwind in the editor |
+| Styling | CSS modules with our own design tokens | The editor should dogfood a design token system. No Tailwind in the editor |
 | Drag and drop | dnd-kit | Layer tree and canvas insertion |
 | Rich text | Tiptap 3 | Canvas text editing and CMS rich fields from one editor with a JSON document model |
 | Canvas | Iframe running the renderer package | Style isolation and honest media queries |

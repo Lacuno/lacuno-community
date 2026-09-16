@@ -9,7 +9,7 @@ in practice and what we build to make it true.
    under the permissions of the user who invoked it, with every change in the audit log.
 2. **Show, don't apply.** Agent work lands as a proposal the human can see rendered on the canvas
    and accept, edit or reject. Direct mode exists behind an explicit opt-in per site.
-3. **Vocabulary above CSS.** The agent works with roles, archetypes, tokens and components before
+3. **Vocabulary above CSS.** The agent works with roles, archetypes, design tokens and components before
    it works with pixels. The document supports that vocabulary natively.
 4. **The agent can look.** Every agent surface has screenshot and diff tools. An agent that cannot
    see its result will produce worse results.
@@ -22,7 +22,7 @@ in practice and what we build to make it true.
 
 A chat panel inside the editor.
 
-- **Context it always has:** the current page, breakpoint, selection, the site's tokens and
+- **Context it always has:** the current page, breakpoint, selection, the site's design tokens and
   components, the site's skills, and a compact outline of the page.
 - **Context it can ask for:** any node subtree, any collection schema and sample entries, the
   generated CSS for a node, a screenshot of any node or viewport, comments on any element.
@@ -40,7 +40,7 @@ The same tool set, exposed for external agents such as Claude Code, Cursor and C
 
 - Available over streamable HTTP on the instance and over stdio through the CLI.
 - **Progressive discovery.** Agents start with `index` and `guide`, then load tool groups on
-  demand: pages, nodes, styles, tokens, components, collections, assets, preview, publish, proposals.
+  demand: pages, nodes, styles, design tokens, components, collections, assets, preview, publish, proposals.
   Keeps context small for the agent.
 - **Version-pinned mutations.** Every write names the document version it read. A stale write is
   rejected with the current version so the agent re-reads and retries instead of overwriting.
@@ -51,7 +51,7 @@ The same tool set, exposed for external agents such as Claude Code, Cursor and C
 - **Preview and vision.** `preview.start` builds the current proposal and serves it. `screenshot`
   captures a page or node at a viewport. `screenshot.diff` compares against the base branch and
   returns changed regions and text.
-- **Resources.** The document schema, the site's skills, the component catalog and the token set
+- **Resources.** The document schema, the site's skills, the component catalog and the design token set
   are exposed as MCP resources so agents can read them without tool calls.
 
 ### Background jobs
@@ -59,7 +59,7 @@ The same tool set, exposed for external agents such as Claude Code, Cursor and C
 Long-running agent work that no human is watching in real time.
 
 - Examples: generate entries for a collection from a brief, translate all pages into a locale,
-  nightly accessibility and performance audit with a report, regenerate OG images after a token
+  nightly accessibility and performance audit with a report, regenerate OG images after a design token
   change, rewrite alt text for every image.
 - Jobs run on the server with the instance's configured provider, produce a proposal or a report,
   and notify through email or webhook.
@@ -133,7 +133,7 @@ Proposals are the unit of agent work and of human branching.
 
 | | When |
 | --- | --- |
-| MCP server with discovery, nodes, styles, tokens, pages, dry run, version pinning | MVP |
+| MCP server with discovery, nodes, styles, design tokens, pages, dry run, version pinning | MVP |
 | Preview, screenshot, screenshot diff | MVP |
 | Proposals as branches, review in the editor | Next |
 | In-app agent panel with selection context | Next |

@@ -4,13 +4,13 @@ import {
   checkReferences,
   createEmptyDocument,
   DocumentError,
+  designTokenCssName,
   fixtureDocument,
   hashAsset,
   newId,
   parseDocument,
   parseStyleKey,
   styleKey,
-  tokenCssName,
 } from '../src/index.js'
 
 describe('document schema', () => {
@@ -40,10 +40,10 @@ describe('document schema', () => {
     expect(msgs.some((m) => m.includes('does not list it as a child'))).toBe(true)
   })
 
-  it('rejects unknown classes, tokens modes and combo parents', () => {
+  it('rejects unknown classes, design token modes and combo parents', () => {
     const doc = fixtureDocument()
     doc.nodes['n-hero']!.classes.push('c-missing')
-    doc.tokens['t-fg']!.values.sepia = { type: 'color', value: '#000' }
+    doc.designTokens['t-fg']!.values.sepia = { type: 'color', value: '#000' }
     doc.classes['c-button-primary']!.combo = ['c-gone']
     const msgs = checkReferences(doc).map((i) => i.message)
     expect(msgs).toContain('unknown class c-missing')
@@ -185,8 +185,8 @@ describe('helpers', () => {
     expect(() => parseStyleKey('a|b')).toThrow()
   })
 
-  it('token css names are custom properties', () => {
-    expect(tokenCssName('color.brand.hover')).toBe('--color-brand-hover')
+  it('design token css names are custom properties', () => {
+    expect(designTokenCssName('color.brand.hover')).toBe('--color-brand-hover')
   })
 
   it('ids are unique and well formed', () => {

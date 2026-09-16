@@ -63,7 +63,7 @@ type Document = {
   classes: Map<ClassId, Class>          // named style sources
   styles: Map<StyleKey, StyleDecl>      // (class, breakpoint, state, property) → value
   breakpoints: Map<BreakpointId, Breakpoint>
-  tokens: Map<TokenId, Token>           // design tokens with per-mode values
+  designTokens: Map<DesignTokenId, DesignToken>  // per-mode values
   components: Map<ComponentId, Component>
   collections: Map<CollectionId, CollectionSchema>   // CMS schemas live in the document
   assets: Map<AssetId, AssetRef>        // metadata only, bytes live in storage
@@ -78,7 +78,7 @@ type Node = {
   children: NodeId[]
   classes: ClassId[]                    // ordered; later classes win, like combo classes
   localStyles?: StyleKey[]              // per-instance overrides, discouraged but allowed
-  attrs: Record<string, AttrValue>      // static or bound to a CMS field or token
+  attrs: Record<string, AttrValue>      // static or bound to a CMS field or design token
   text?: RichText                       // for text nodes, Tiptap JSON
   component?: { ref: ComponentId; props: Record<string, PropValue>; overrides: NodeId[] }
   semantic?: { role?: string; archetype?: string; constraints?: Constraint[] }  // agent vocabulary
@@ -90,7 +90,7 @@ type StyleDecl = {
   breakpoint: BreakpointId              // 'base' is desktop-first
   state: State                          // 'none' | 'hover' | 'focus' | ... | '::before'
   property: string                      // real CSS property
-  value: CssValue                       // typed: length, color, token ref, keyword, raw
+  value: CssValue                       // typed: length, color, design token ref, keyword, raw
 }
 ```
 
@@ -98,8 +98,8 @@ Design choices that matter:
 
 - **Classes are the unit of style.** A node lists classes in order. Styles are keyed by class,
   breakpoint, state and property. This is the Webflow model and it compiles to real CSS.
-- **Tokens are values, not classes.** A token is a named value with per-mode variants. It compiles
-  to a custom property. Any style value can reference a token.
+- **Design tokens are values, not classes.** A design token is a named value with per-mode variants. It compiles
+  to a custom property. Any style value can reference a design token.
 - **Components are subtrees with a props schema.** An instance references a component and carries
   prop values plus explicit override nodes. Slots are nodes of type slot inside the component.
 - **Collections are schema in the document, data in the database.** The design of a collection is
@@ -144,7 +144,7 @@ site/
 
 One package turns the document into a stylesheet. It is the only place CSS is produced.
 
-- Tokens become custom properties on `:root`, with mode variants on `[data-theme]` or a media
+- Design tokens become custom properties on `:root`, with mode variants on `[data-theme]` or a media
   query.
 - Each class becomes one selector. Combo classes are emitted as compound selectors in node order,
   so `.button.primary` styles only apply where both are present, matching Webflow semantics.
