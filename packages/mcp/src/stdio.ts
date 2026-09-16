@@ -15,8 +15,16 @@ export async function serveStdio(
   const store = await DocumentStore.open(siteDir)
   const server = createServer(store, { siteDir })
   await server.connect(transport)
+  const prevClose = transport.onclose
+  const prevError = transport.onerror
   await new Promise<void>((resolve, reject) => {
-    transport.onclose = () => resolve()
-    transport.onerror = (e) => reject(e)
+    transport.onclose = () => {
+      prevClose?.()
+      resolve()
+    }
+    transport.onerror = (e) => {
+      prevError?.(e)
+      reject(e)
+    }
   })
 }

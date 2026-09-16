@@ -32,12 +32,18 @@ async function siteDir(): Promise<string> {
 }
 
 describe('serveStdio', () => {
-  it('resolves when the transport closes', async () => {
+  it('resolves when the transport closes, still invoking a previously installed onclose', async () => {
     const transport = fakeTransport()
+    let prevCloseCalled = false
+    const originalOnClose = () => {
+      prevCloseCalled = true
+    }
+    transport.onclose = originalOnClose
     const running = serveStdio(await siteDir(), transport)
-    await waitUntil(() => transport.onclose !== undefined)
+    await waitUntil(() => transport.onclose !== originalOnClose)
     transport.onclose?.()
     await expect(running).resolves.toBeUndefined()
+    expect(prevCloseCalled).toBe(true)
   })
 
   it('rejects when the transport errors', async () => {
