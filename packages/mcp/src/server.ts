@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { resolve, sep } from 'node:path'
 import { build } from '@freeflow/compiler/build'
 import type { DocumentStore } from '@freeflow/document'
 import { Operation } from '@freeflow/document'
@@ -75,7 +75,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'asset.import',
     {
-      description: 'Import an asset from a file path or base64 bytes; returns the asset reference.',
+      description:
+        'Import an asset from a file path or base64 bytes; returns the asset reference. path is relative to the site folder and must stay inside it.',
       inputSchema: {
         name: z.string().min(1),
         mime: z.string().min(1),
@@ -90,10 +91,19 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       try {
         if ((file === undefined) === (base64 === undefined))
           throw new InputError('pass exactly one of path or base64')
-        const bytes =
-          file !== undefined
-            ? new Uint8Array(await readFile(resolve(file)))
-            : new Uint8Array(Buffer.from(base64 as string, 'base64'))
+        let bytes: Uint8Array
+        if (file !== undefined) {
+          if (!options.siteDir) throw new InputError('this server has no site folder')
+          const root = resolve(options.siteDir)
+          const resolved = resolve(root, file)
+          if (resolved !== root && !resolved.startsWith(root + sep))
+            throw new InputError('path must be inside the site folder')
+          bytes = new Uint8Array(await readFile(resolved))
+        } else {
+          bytes = new Uint8Array(Buffer.from(base64 as string, 'base64'))
+        }
+        const maxBytes = 20 * 1024 * 1024
+        if (bytes.byteLength > maxBytes) throw new InputError('asset larger than 20 MB')
         return ok(
           await store.importAsset({
             name,

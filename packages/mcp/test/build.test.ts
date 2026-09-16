@@ -25,7 +25,7 @@ describe('asset.import and site.build', () => {
     const a = jsonOf<{ id: string; hash: string; kind: string }>(
       await c.client.callTool({
         name: 'asset.import',
-        arguments: { name: 'note.txt', mime: 'text/plain', path: file },
+        arguments: { name: 'note.txt', mime: 'text/plain', path: 'note.txt' },
       }),
     )
     expect(a.kind).toBe('file')
@@ -43,9 +43,15 @@ describe('asset.import and site.build', () => {
     expect(b.size).toBe(2)
     const both = await c.client.callTool({
       name: 'asset.import',
-      arguments: { name: 'c', mime: 'text/plain', path: file, base64: 'eA==' },
+      arguments: { name: 'c', mime: 'text/plain', path: 'note.txt', base64: 'eA==' },
     })
     expect(jsonOf(both)).toMatchObject({ kind: 'input' })
+    const outside = await c.client.callTool({
+      name: 'asset.import',
+      arguments: { name: 'c', mime: 'text/plain', path: '../outside.txt' },
+    })
+    expect(outside.isError).toBe(true)
+    expect(jsonOf(outside)).toMatchObject({ kind: 'input' })
     const built = jsonOf<{ pages: number; outDir: string }>(
       await c.client.callTool({ name: 'site.build', arguments: {} }),
     )
