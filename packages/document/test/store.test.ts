@@ -123,6 +123,25 @@ describe('DocumentStore in memory', () => {
     await expect(store.apply({ expectedRevision: 0, operations: [] })).rejects.toThrow('disk full')
     expect(store.revision).toBe(0)
   })
+
+  it('serializes overlapping batches so the second sees the first commit', async () => {
+    const store = DocumentStore.inMemory(fixtureDocument())
+    const [first, second] = await Promise.allSettled([
+      store.apply({
+        expectedRevision: 0,
+        operations: [{ type: 'class.create', id: 'c-a', name: 'a' }],
+      }),
+      store.apply({
+        expectedRevision: 0,
+        operations: [{ type: 'class.create', id: 'c-b', name: 'b' }],
+      }),
+    ])
+    expect(first.status).toBe('fulfilled')
+    if (first.status === 'fulfilled') expect(first.value.revision).toBe(1)
+    expect(second.status).toBe('rejected')
+    if (second.status === 'rejected') expect(second.reason).toBeInstanceOf(StaleRevisionError)
+    expect(store.revision).toBe(1)
+  })
 })
 
 describe('DocumentStore on a folder', () => {
@@ -164,6 +183,15 @@ describe('DocumentStore on a folder', () => {
     const text = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
     await writeFile(path.join(dir, 'freeflow.json'), text.replace('"revision": 1', '"revision": 0'))
     await expect(DocumentStore.open(dir)).rejects.toBeInstanceOf(RevisionRewoundError)
+  })
+
+  it('refuses to create over a folder that already holds a document', async () => {
+    const dir = await tmp()
+    await DocumentStore.create(dir, 'Site')
+    const before = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
+    await expect(DocumentStore.create(dir, 'Other')).rejects.toBeInstanceOf(DocumentError)
+    const after = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
+    expect(after).toBe(before)
   })
 })
 

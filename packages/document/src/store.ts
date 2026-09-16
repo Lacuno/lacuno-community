@@ -1,3 +1,4 @@
+import { mkdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
 import type { AssetRef, Document } from '@freeflow/schema'
 import { createEmptyDocument, DocumentError, hashAsset, parseDocument } from '@freeflow/schema'
@@ -43,6 +44,8 @@ export function kindForMime(mime: string): AssetRef['kind'] {
  */
 export class DocumentStore {
   private document: Document
+  /** Serializes apply() calls so overlapping callers cannot both plan from the same revision. */
+  private queue: Promise<unknown> = Promise.resolve()
   private constructor(
     private readonly persistence: Persistence,
     document: Document,
@@ -65,16 +68,32 @@ export class DocumentStore {
     return new DocumentStore(persistence, document, key)
   }
 
-  static open(siteDir: string): Promise<DocumentStore> {
+  static async open(siteDir: string): Promise<DocumentStore> {
     const dir = path.resolve(siteDir)
-    return DocumentStore.withPersistence(new FolderPersistence(dir), dir)
+    const key = await realpath(dir)
+    return DocumentStore.withPersistence(new FolderPersistence(dir), key)
   }
 
   static async create(siteDir: string, name: string): Promise<DocumentStore> {
     const dir = path.resolve(siteDir)
+    await mkdir(dir, { recursive: true })
+    const key = await realpath(dir)
     const persistence = new FolderPersistence(dir)
+    // A file that fails to parse is not a readable document either; create() may still claim
+    // the folder in that case. Only a document persistence can actually load blocks the create.
+    let existing: unknown
+    try {
+      existing = await persistence.load()
+    } catch (e) {
+      if (!(e instanceof DocumentError)) throw e
+      existing = undefined
+    }
+    if (existing !== undefined)
+      throw new DocumentError([
+        { path: 'freeflow.json', message: 'a document already exists in this folder' },
+      ])
     await persistence.save(createEmptyDocument(name))
-    return DocumentStore.withPersistence(persistence, dir)
+    return DocumentStore.withPersistence(persistence, key)
   }
 
   static inMemory(document: Document): DocumentStore {
@@ -89,7 +108,14 @@ export class DocumentStore {
     return { document: this.document, revision: this.document.revision }
   }
 
-  async apply(batch: Batch): Promise<ApplyResult> {
+  /** Queues onto any batch already in flight, so overlapping callers never race the revision. */
+  apply(batch: Batch): Promise<ApplyResult> {
+    const run = this.queue.then(() => this.applyNow(batch))
+    this.queue = run.catch(() => undefined)
+    return run
+  }
+
+  private async applyNow(batch: Batch): Promise<ApplyResult> {
     if (batch.expectedRevision !== this.document.revision)
       throw new StaleRevisionError(batch.expectedRevision, this.document.revision)
     const planned = planBatch(this.document, batch.operations, OPERATIONS_BY_TYPE)
@@ -131,7 +157,10 @@ export class DocumentStore {
       expectedRevision: this.document.revision,
       operations: [operation],
     })
-    const id = result.created[0]?.[0] as string
-    return this.document.assets[id] as AssetRef
+    const id = result.created[0]?.[0]
+    if (id === undefined) throw new Error('asset.create did not register an asset')
+    const asset = this.document.assets[id]
+    if (asset === undefined) throw new Error('asset.create did not register an asset')
+    return asset
   }
 }
