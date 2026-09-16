@@ -4,12 +4,21 @@ import { DocumentError } from '@freeflow/schema'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 export type ToolError = {
-  kind: 'stale' | 'operation' | 'document' | 'patch' | 'build' | 'input'
+  kind: 'stale' | 'operation' | 'document' | 'patch' | 'build' | 'input' | 'unexpected'
   message: string
 } & Record<string, unknown>
 
+export type ToolIssue = { path: string; message: string }
+
 /** Thrown by tools for bad arguments the schema cannot express (unknown page, both path and base64). */
-export class InputError extends Error {}
+export class InputError extends Error {
+  issues?: ToolIssue[]
+
+  constructor(message: string, issues?: ToolIssue[]) {
+    super(message)
+    if (issues !== undefined) this.issues = issues
+  }
+}
 
 export function describeError(e: unknown): ToolError {
   if (e instanceof StaleRevisionError)
@@ -29,8 +38,17 @@ export function describeError(e: unknown): ToolError {
       buildKind: e.kind,
       ...(e.detail ? { detail: e.detail } : {}),
     }
-  if (e instanceof InputError) return { kind: 'input', message: e.message }
-  return { kind: 'input', message: e instanceof Error ? e.message : String(e) }
+  if (e instanceof InputError)
+    return {
+      kind: 'input',
+      message: e.message,
+      ...(e.issues !== undefined ? { issues: e.issues } : {}),
+    }
+  return {
+    kind: 'unexpected',
+    message: e instanceof Error ? e.message : String(e),
+    ...(e instanceof Error && e.stack !== undefined ? { stack: e.stack } : {}),
+  }
 }
 
 export function fail(e: unknown): CallToolResult {
