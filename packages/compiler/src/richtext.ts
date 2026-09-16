@@ -66,7 +66,8 @@ function renderNode(node: PmNode, warn: Warn): string {
     case 'horizontalRule':
       return '<hr>'
     case 'heading': {
-      const level = Math.min(6, Math.max(1, Number(node.attrs?.level ?? 2)))
+      const raw = Number(node.attrs?.level)
+      const level = Number.isFinite(raw) ? Math.min(6, Math.max(1, raw)) : 2
       return `<h${level}>${renderChildren(node, warn)}</h${level}>`
     }
     case 'codeBlock':

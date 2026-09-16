@@ -31,6 +31,16 @@ describe('richTextToHtml', () => {
     )
   })
 
+  it('falls back to h2 for a non-numeric heading level instead of hNaN', () => {
+    const rt: RichText = {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 'big' }, content: [{ type: 'text', text: 'Title' }] },
+      ],
+    }
+    expect(richTextToHtml(rt, noWarn)).toBe('<h2>Title</h2>')
+  })
+
   it('renders lists, quotes, code blocks and rules', () => {
     const rt: RichText = {
       type: 'doc',
