@@ -21,6 +21,7 @@ function ensure<V>(map: Record<string, V>, key: string, make: () => V): V {
 
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: 'freeflow', version: '0.0.0' })
+  let buildQueue: Promise<unknown> = Promise.resolve()
 
   server.registerTool(
     'guide',
@@ -116,12 +117,16 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       inputSchema: { siteUrl: z.url().optional() },
     },
     async ({ siteUrl }) => {
-      try {
+      const run = buildQueue.then(async () => {
         if (!options.siteDir) throw new InputError('this server has no site folder to build')
-        const r = await build(options.siteDir, {
+        return build(options.siteDir, {
           quiet: true,
           ...(siteUrl !== undefined ? { siteUrl } : {}),
         })
+      })
+      buildQueue = run.catch(() => undefined)
+      try {
+        const r = await run
         return ok({ pages: r.pages, warnings: r.warnings, outDir: r.outDir })
       } catch (e) {
         return fail(e)

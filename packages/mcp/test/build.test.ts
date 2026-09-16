@@ -61,4 +61,18 @@ describe('asset.import and site.build', () => {
       kind: 'input',
     })
   })
+
+  it('serializes overlapping site.build calls so they never run concurrently', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-'))
+    dirs.push(dir)
+    const store = await DocumentStore.create(dir, 'Site')
+    const c = await connect(store, { siteDir: dir })
+    close = c.close
+    const [first, second] = await Promise.all([
+      c.client.callTool({ name: 'site.build', arguments: {} }),
+      c.client.callTool({ name: 'site.build', arguments: {} }),
+    ])
+    expect(jsonOf<{ pages: number }>(first).pages).toBe(1)
+    expect(jsonOf<{ pages: number }>(second).pages).toBe(1)
+  })
 })
