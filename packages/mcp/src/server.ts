@@ -1,4 +1,8 @@
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { build } from '@freeflow/compiler/build'
 import type { DocumentStore } from '@freeflow/document'
+import { Operation } from '@freeflow/document'
 import type { Node } from '@freeflow/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
@@ -9,12 +13,6 @@ import { ok, text } from './result.js'
 import { documentJsonSchema, operationsJsonSchema } from './schemas.js'
 
 export type ServerOptions = { siteDir?: string }
-
-const PLACEHOLDER_TOOLS: { name: string; description: string }[] = [
-  { name: 'document.apply', description: 'Apply a batch of operations to the document.' },
-  { name: 'asset.import', description: 'Import an asset from a path or base64 payload.' },
-  { name: 'site.build', description: 'Compile the site to static output.' },
-]
 
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: 'freeflow', version: '0.0.0' })
@@ -35,9 +33,89 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
   )
 
-  for (const { name, description } of PLACEHOLDER_TOOLS) {
-    server.registerTool(name, { description }, async () => fail(new InputError('not implemented')))
-  }
+  server.registerTool(
+    'document.apply',
+    {
+      description:
+        'Apply a batch of operations atomically. Pass the revision you read; use dryRun to preview patches.',
+      inputSchema: {
+        expectedRevision: z.number().int().nonnegative(),
+        operations: z.array(Operation),
+        dryRun: z.boolean().optional(),
+      },
+    },
+    async ({ expectedRevision, operations, dryRun }) => {
+      try {
+        return ok(
+          await store.apply({
+            expectedRevision,
+            operations: operations as Operation[],
+            ...(dryRun ? { dryRun } : {}),
+          }),
+        )
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'asset.import',
+    {
+      description: 'Import an asset from a file path or base64 bytes; returns the asset reference.',
+      inputSchema: {
+        name: z.string().min(1),
+        mime: z.string().min(1),
+        path: z.string().optional(),
+        base64: z.string().optional(),
+        alt: z.string().optional(),
+        width: z.number().int().positive().optional(),
+        height: z.number().int().positive().optional(),
+      },
+    },
+    async ({ name, mime, path: file, base64, alt, width, height }) => {
+      try {
+        if ((file === undefined) === (base64 === undefined))
+          throw new InputError('pass exactly one of path or base64')
+        const bytes =
+          file !== undefined
+            ? new Uint8Array(await readFile(resolve(file)))
+            : new Uint8Array(Buffer.from(base64 as string, 'base64'))
+        return ok(
+          await store.importAsset({
+            name,
+            mime,
+            bytes,
+            ...(alt !== undefined ? { alt } : {}),
+            ...(width !== undefined ? { width } : {}),
+            ...(height !== undefined ? { height } : {}),
+          }),
+        )
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'site.build',
+    {
+      description: 'Build the site folder to static output with the compiler.',
+      inputSchema: { siteUrl: z.url().optional() },
+    },
+    async ({ siteUrl }) => {
+      try {
+        if (!options.siteDir) throw new InputError('this server has no site folder to build')
+        const r = await build(options.siteDir, {
+          quiet: true,
+          ...(siteUrl !== undefined ? { siteUrl } : {}),
+        })
+        return ok({ pages: r.pages, warnings: r.warnings, outDir: r.outDir })
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
 
   server.registerTool(
     'document.read',
@@ -176,6 +254,5 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     }),
   )
 
-  void options
   return server
 }
