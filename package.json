@@ -15,7 +15,8 @@
     "format": "biome format --write .",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "freeflow": "tsx apps/cli/src/main.ts",
-    "lighthouse": "tsx scripts/lighthouse.ts"
+    "lighthouse": "tsx scripts/lighthouse.ts",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
