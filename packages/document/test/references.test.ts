@@ -97,6 +97,24 @@ describe('reference scanners', () => {
       't-surface-muted',
     ])
   })
+  it('finds design token and asset references in code component props', () => {
+    const d = fixtureDocument()
+    d.nodes['n-code'] = {
+      id: 'n-code',
+      type: 'code-component',
+      source: 'Map.astro',
+      parent: 'n-home',
+      children: [],
+      classes: [],
+      props: {
+        color: { type: 'designToken', designToken: 't-brand' },
+        img: { type: 'asset', asset: 'a-hero' },
+      },
+    }
+    d.nodes['n-home']!.children.push('n-code')
+    expect(referencesToDesignToken(d, 't-brand')).toContain('nodes.n-code')
+    expect(referencesToAsset(d, 'a-hero')).toContain('nodes.n-code')
+  })
 })
 
 describe('partialPatches', () => {

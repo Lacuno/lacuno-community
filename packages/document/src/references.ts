@@ -92,7 +92,7 @@ function nodeRefs(doc: Document): Map<NodeId, Refs> {
     for (const b of Object.values(node.attrs ?? {})) bindingRefs(b, refs)
     if (node.type === 'text' && !('type' in node.text && node.text.type === 'doc'))
       bindingRefs(node.text as Binding, refs)
-    if (node.type === 'component')
+    if (node.type === 'component' || node.type === 'code-component')
       for (const b of Object.values(node.props ?? {})) bindingRefs(b, refs)
     out.set(node.id, refs)
   }
