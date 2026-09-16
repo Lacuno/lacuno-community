@@ -1,9 +1,10 @@
 import { z } from 'zod'
 import { type OperationDef, operationMap } from '../define.js'
+import { nodeOperations } from './nodes.js'
 import { siteOperations } from './site.js'
 
 /** Every operation the document layer understands, in catalog order. Later groups append here. */
-export const OPERATIONS = [...siteOperations]
+export const OPERATIONS = [...siteOperations, ...nodeOperations]
 
 export const OPERATIONS_BY_TYPE = operationMap(OPERATIONS as readonly OperationDef[])
 
