@@ -192,6 +192,31 @@ describe('fields', () => {
 })
 
 describe('entries', () => {
+  it('rejects unknown fields even when their value is null on create', () => {
+    failing(
+      [
+        {
+          type: 'entry.create',
+          collection: 'col-posts',
+          fields: { 'f-title': 'Four', 'f-slug': 'four', 'f-nope': null },
+        },
+      ],
+      /unknown field f-nope/,
+    )
+  })
+
+  it('omits a known optional null field on create', () => {
+    const { document, created } = run([
+      {
+        type: 'entry.create',
+        collection: 'col-posts',
+        fields: { 'f-title': 'Four', 'f-slug': 'four', 'f-date': null },
+      },
+    ])
+    const entry = document.entries['col-posts']!.find((e) => e.id === created[0]![0])!
+    expect(entry.fields).not.toHaveProperty('f-date')
+  })
+
   it('creates, updates, moves and deletes entries', () => {
     const { document, created } = run([
       {

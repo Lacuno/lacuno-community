@@ -225,6 +225,15 @@ const fieldRemove = defineOperation(
   },
 )
 
+function checkEntryFieldKeys(
+  ctx: PlanContext,
+  col: CollectionSchema,
+  fields: Record<string, unknown>,
+): void {
+  for (const key of Object.keys(fields))
+    if (!col.fields.some((f) => f.id === key)) ctx.fail(`unknown field ${key}`, { id: key })
+}
+
 /** Checks one entry's field values against the collection: required, known, slug, options. */
 function checkEntryFields(
   ctx: PlanContext,
@@ -238,8 +247,7 @@ function checkEntryFields(
     if (f.type === 'option' && value !== undefined && !f.options.some((o) => o.value === value))
       ctx.fail(`${JSON.stringify(value)} is not an option of field ${f.name}`)
   }
-  for (const key of Object.keys(fields))
-    if (!col.fields.some((f) => f.id === key)) ctx.fail(`unknown field ${key}`, { id: key })
+  checkEntryFieldKeys(ctx, col, fields)
   const slug = fields[col.slugField]
   if (typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug))
     ctx.fail(`slug must be lower-case letters, digits and dashes, got ${JSON.stringify(slug)}`)
@@ -270,6 +278,7 @@ const entryCreate = defineOperation(
   }),
   (op, ctx) => {
     const col = requireCollection(ctx, op.collection)
+    checkEntryFieldKeys(ctx, col, op.fields)
     // An explicit null on create means "no value", same as omitting the key, so a null on a
     // required field is reported as missing rather than committed as a literal null.
     const fields = Object.fromEntries(
