@@ -55,7 +55,9 @@ Task 3 began at revision 1. A design-system batch produced revision 2; a shared-
 collection and entry batch produced revision 3; and the page batch produced revision 4. The
 first page attempt was atomically rejected because one text-node payload omitted its tag. The
 payload was corrected and retried through MCP without editing `freeflow.json` directly. A final
-copy refinement produced revision 5 through `node.update`.
+copy refinement produced revision 5 through `node.update`. Review then found a negative root
+margin that conflicted with the compiler's body reset; two `style.clear` operations removed that
+margin and the unnecessary overflow mask, producing revision 6.
 
 Readback through MCP covered all four page outlines, all three collection entries, the shared
 style set, the preview frame subtree and the final document. `site.build` reported six pages and
