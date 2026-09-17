@@ -53,9 +53,12 @@ and `url` fields. Keep `slug` and `url` in sync: for example, the slug `my-artic
 
 The Home preview is the image node `n-home-preview-image` inside `n-home-preview-frame`. Its source
 is a real 1440 × 900 browser capture of this starter's final About page, imported through the MCP
-`asset.import` tool. It is project-generated, includes no third-party artwork, and is distributed
-with this repository under its AGPL-3.0-or-later license. The starter uses a system font stack and
-has no external font or image attribution requirements.
+`asset.import` tool. The committed source is
+`assets/7f5df1a1670e25d7ccb063a6a80f1d8c40e32ecec6c85fafbd79dc516feecd2f`: asset ID
+`An41fLkGaH61`, SHA-256 `7f5df1a1670e25d7ccb063a6a80f1d8c40e32ecec6c85fafbd79dc516feecd2f`,
+87,934 bytes and 1440 × 900 pixels. It is project-generated, includes no third-party artwork, and is
+distributed with this repository under its AGPL-3.0-or-later license. The starter uses a system font
+stack and has no external font or image attribution requirements.
 
 The Freeflow-operated browser builder and hosting service described in the sample copy are planned.
 No current availability, price or numeric allowance is promised. Self-hosting the builder and
