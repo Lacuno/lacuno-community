@@ -331,6 +331,32 @@ p {
   height: 22px;
   border-left: 1px solid var(--border);
 }
+.history-controls {
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8f8f9;
+}
+.history-controls button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #555b65;
+}
+.history-controls button:hover:not(:disabled) {
+  background: #eeebf8;
+  color: var(--accent);
+}
+.history-controls button:disabled {
+  color: #b7bbc3;
+  opacity: 1;
+}
 .site-name {
   font-size: 13px;
   font-weight: 550;

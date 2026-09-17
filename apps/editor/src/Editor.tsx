@@ -434,7 +434,21 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             aria-label="Undo"
             aria-keyshortcuts="Meta+Z Control+Z"
           >
-            ↶
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M9 4 4 9l5 5" />
+              <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
+            </svg>
           </button>
           <button
             type="button"
@@ -444,7 +458,21 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             aria-label="Redo"
             aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z Control+Y"
           >
-            ↷
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="m15 4 5 5-5 5" />
+              <path d="M20 9H10a6 6 0 0 0 0 12h3" />
+            </svg>
           </button>
         </div>
         <span className="save-state" role="status">
