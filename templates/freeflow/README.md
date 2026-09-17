@@ -1,34 +1,69 @@
-# Freeflow template
+# Freeflow starter
 
-This directory contains the in-progress default Freeflow site. The document is intentionally
-kept as native Freeflow data so its content and styling remain editable through the document
-operations exposed by Freeflow's MCP server.
+This folder is a complete, editable Freeflow marketing-site starter. It includes Home, About and
+Blog pages, a collection-backed article template, three sample articles, shared navigation and
+footer components, and a reusable paper/ink/lime design system. The source stays in native
+Freeflow data rather than HTML embeds or page-specific code.
 
-## Authoring note
+## Copy and build
 
-The initial empty document was created once with `DocumentStore.create`, the bootstrap
-exception required before an MCP server can open the site. Every change after that bootstrap
-is sent through an SDK client connected to the real stdio server. The client launches `pnpm`
-with `--silent freeflow mcp <absolute-site-directory>` from the repository root and closes the
-session in a `finally` block. It does not import the document engine or write document JSON.
+Copy this folder to a persistent location of your choice, then build it from the Freeflow
+repository root:
 
-The first session successfully called `guide`, `document.read`, and `document.apply`. The
-top-level guide returned a short overview and grouped operation index, while `guide` with the
-`site` group returned the `site.update` schema. The responses were practical for authoring, so
-no guide change was needed. The initial read reported revision 0 and locale `en`. A dry-run
-`site.update` to locale `en-US` returned the expected patch, no warnings, and revision 0. A
-follow-up read confirmed the document was still at revision 0 with locale `en`. Applying the
-same operation against that revision returned revision 1, and the final read confirmed the
-locale persisted as `en-US`. The client checks `isError` for every result and stops with the
-structured tool message if a call fails; no tool errors occurred in this session. A later
-verification session also called `page.outline`, `node.get`, `styles.get`, and `site.build` over
-the same stdio transport. The build produced one page with no compiler warnings.
+```sh
+cp -R templates/freeflow /absolute/path/to/my-site
+pnpm --silent freeflow build /absolute/path/to/my-site
+```
 
-When the client closed, Node printed an unsettled top-level-await warning for the CLI entrypoint
-after all responses had completed; the helper still exited successfully. This did not block
-authoring or persistence, so it is recorded here rather than changing the CLI in template work.
+The compiler writes the static site to `dist/` inside the copied site folder. The generated
+directory is disposable; `freeflow.json` is the editable source.
 
-The configured public repository destination, `https://github.com/Lacuno/Freeflow`, returned
-HTTP 404 during authoring. Until a public project destination exists, the template's planned
-“Explore Freeflow” action will use the local `/about` route as directed by the implementation
-plan. No hosted product URL was inferred from the repository name.
+To connect an MCP client over stdio, launch the server from the repository root:
+
+```sh
+pnpm --silent freeflow mcp /absolute/path/to/my-site
+```
+
+The client owns that process. It should read the current document revision before sending
+version-pinned `document.apply` calls.
+
+## What to customize
+
+- Edit Home, About and Blog page nodes for your own story and calls to action.
+- Change the color, typography, spacing and size design tokens to establish your visual system.
+- Update the shared header and footer components once to change navigation across every route.
+- Replace the three entries in `col-posts` with your own articles. Each entry stores `title`,
+  `slug`, `summary`, `body` and `url`. Update `slug` and `url` together so article routes and Blog
+  links continue to match.
+- The Home preview has stable nodes for adding a rendered page image: `n-home-preview-frame` is
+  the parent frame and `n-home-preview-fallback` is the editable fallback content.
+
+The hosted browser builder and Freeflow-operated hosting service described in the copy are
+planned work. The template does not imply current availability, pricing or a specific allowance.
+The primary “Explore Freeflow” action currently links to `/about` because no public project
+destination was verified during authoring.
+
+## MCP authoring evidence
+
+The initial empty document was created once with `DocumentStore.create`, the required bootstrap
+exception before an MCP server can open a site. Every later content and style mutation was sent
+through an SDK `Client` connected to the real Freeflow stdio server. The client launched
+`pnpm --silent freeflow mcp <absolute-site-directory>` and did not import the document engine,
+call `store.apply`, or write completed document JSON.
+
+Task 3 began at revision 1. A design-system batch produced revision 2; a shared-component,
+collection and entry batch produced revision 3; and the page batch produced revision 4. The
+first page attempt was atomically rejected because one text-node payload omitted its tag. The
+payload was corrected and retried through MCP without editing `freeflow.json` directly. A final
+copy refinement produced revision 5 through `node.update`.
+
+Readback through MCP covered all four page outlines, all three collection entries, the shared
+style set, the preview frame subtree and the final document. `site.build` reported six pages and
+no warnings. The six routes are `/`, `/about`, `/blog`,
+`/blog/your-website-your-rules`, `/blog/from-document-to-website` and
+`/blog/hosted-or-self-hosted`.
+
+No external images or fonts are included, so there is no asset attribution requirement. The
+system font stack avoids third-party requests. Node 24 may print the repository’s known
+unsettled-top-level-await warning when the MCP client closes after successful calls; the calls
+and persisted results still complete before that warning.
