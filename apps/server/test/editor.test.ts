@@ -54,8 +54,43 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await expect
       .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
       .toBe('42px')
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
+      .not.toBe('42px')
+    expect(await heading.textContent()).toBe('Made with Freeflow.')
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect.poll(() => heading.textContent()).toBe('Your website. Your rules.')
+    await expect
+      .poll(() => page.getByRole('button', { name: 'Undo', exact: true }).isDisabled())
+      .toBe(true)
+    await page.getByRole('button', { name: 'Redo', exact: true }).focus()
+    await page.keyboard.press('Control+Shift+Z')
+    await expect.poll(() => heading.textContent()).toBe('Made with Freeflow.')
+    await heading.click()
+    await page.keyboard.press('Control+Shift+Z')
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
+      .toBe('42px')
+    await page.getByLabel('Text', { exact: true }).focus()
+    await page.keyboard.press('End')
+    await page.keyboard.type('!')
+    await expect
+      .poll(() => page.getByRole('button', { name: 'Undo', exact: true }).isDisabled())
+      .toBe(true)
+    await page.keyboard.press('ControlOrMeta+Z')
+    await expect
+      .poll(() => page.getByLabel('Text', { exact: true }).inputValue())
+      .toBe('Made with Freeflow.')
+    await expect
+      .poll(() => page.getByRole('button', { name: 'Undo', exact: true }).isEnabled())
+      .toBe(true)
     await page.reload()
     await expect.poll(() => heading.textContent()).toBe('Made with Freeflow.')
+    await expect
+      .poll(() => page.getByRole('button', { name: 'Undo', exact: true }).isDisabled())
+      .toBe(true)
+    expect(await page.getByRole('button', { name: 'Redo', exact: true }).isDisabled()).toBe(true)
     await page.locator('.layer').filter({ hasText: /h1$/ }).click()
     expect(await page.getByLabel('Text', { exact: true }).inputValue()).toBe('Made with Freeflow.')
     await page.getByLabel('Text', { exact: true }).fill('Unsaved draft')
@@ -88,6 +123,34 @@ it('edits a real template in the browser, persists changes, and protects drafts 
       .toBe('Made with Freeflow.')
     await expect.poll(() => heading.textContent()).toBe('Made with Freeflow.')
     expect(await page.title()).toBe('Freeflow — Editor')
+    await page.getByLabel('Text', { exact: true }).fill('Temporary undo target')
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click()
+    await expect.poll(() => heading.textContent()).toBe('Temporary undo target')
+    const beforeUndo = await (
+      await context.request.get(`${origin}/api/sites/${siteId}/document`)
+    ).json()
+    expect(
+      (
+        await context.request.post(`${origin}/api/sites/${siteId}/document/apply`, {
+          data: {
+            expectedRevision: beforeUndo.revision,
+            operations: [
+              {
+                type: 'node.update',
+                id: 'n-home-title',
+                text: { type: 'static', value: 'Other session wins' },
+              },
+            ],
+          },
+        })
+      ).status(),
+    ).toBe(200)
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await page.getByRole('button', { name: 'Reload latest', exact: true }).click()
+    await expect.poll(() => heading.textContent()).toBe('Other session wins')
+    await expect
+      .poll(() => page.getByRole('button', { name: 'Undo', exact: true }).isDisabled())
+      .toBe(true)
     // Links select elements rather than leaving the canvas.
     await canvas.locator('a').first().click()
     await heading.waitFor()

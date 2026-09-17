@@ -87,6 +87,9 @@ importers:
       '@freeflow/css':
         specifier: workspace:*
         version: link:../../packages/css
+      '@freeflow/document':
+        specifier: workspace:*
+        version: link:../../packages/document
       '@freeflow/schema':
         specifier: workspace:*
         version: link:../../packages/schema
@@ -112,6 +115,9 @@ importers:
       vite:
         specifier: ^8.3.0
         version: 8.3.0(@types/node@24.13.4)(esbuild@0.28.2)(tsx@4.23.13)
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.0(@opentelemetry/api@1.9.1)(@types/node@24.13.4)(vite@8.3.0(@types/node@24.13.4)(esbuild@0.28.2)(tsx@4.23.13))
 
   apps/server:
     dependencies:

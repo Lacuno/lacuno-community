@@ -1,13 +1,21 @@
 import { contextFromDocument, serializeValue } from '@freeflow/css'
+import { applyPatches, type Patch } from '@freeflow/document/patch'
 import { type Document, type Node, parseDocument, styleKey } from '@freeflow/schema'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Brand } from './App.js'
 import { ApiError, api } from './api.js'
 import { Canvas } from './Canvas.js'
+import {
+  captureEdit,
+  committedHistory,
+  type EditOperation,
+  emptyHistory,
+  historyShortcut,
+} from './history.js'
 
 type Snapshot = { document: Document; revision: number }
 type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
-type Operation = Record<string, unknown>
+type Operation = EditOperation
 const describe = (node: Node) => node.meta?.label ?? ('tag' in node ? node.tag : node.type)
 
 function Layers({
@@ -274,13 +282,14 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [conflict, setConflict] = useState(false)
   const [saved, setSaved] = useState(false)
   const [generation, setGeneration] = useState(0)
+  const [editHistory, setEditHistory] = useState(emptyHistory)
+  const inFlight = useRef(false)
   const revision = snapshot?.revision
   const doc = snapshot?.document
   const page = doc?.pages[pageId]
   const entries = page?.collection ? (doc?.entries[page.collection] ?? []) : []
   const activeEntry = entries.find((entry) => entry.id === entryId)?.id ?? entries[0]?.id ?? ''
-  const load = useCallback(async () => {
-    const next = await api<Snapshot>(`/api/sites/${siteId}/document`)
+  const acceptSnapshot = useCallback((next: Snapshot) => {
     next.document = parseDocument(next.document)
     setSnapshot(next)
     setPageId((current) =>
@@ -294,7 +303,12 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
     setDirty(false)
     setError('')
     setGeneration((value) => value + 1)
-  }, [siteId])
+  }, [])
+  const load = useCallback(async () => {
+    const next = await api<Snapshot>(`/api/sites/${siteId}/document`)
+    acceptSnapshot(next)
+    setEditHistory(emptyHistory())
+  }, [siteId, acceptSnapshot])
   useEffect(() => {
     load().catch((e) => setError(e.message))
   }, [load])
@@ -332,17 +346,30 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
     setSaved(false)
     action()
   }
-  async function save(operations: Operation[]) {
-    if (!snapshot) return false
+  async function save(operations: Operation[], action: 'edit' | 'undo' | 'redo' = 'edit') {
+    if (!snapshot || conflict || inFlight.current || operations.length === 0) return false
+    inFlight.current = true
     setBusy(true)
     setError('')
     setSaved(false)
     try {
-      await api(`/api/sites/${siteId}/document/apply`, {
-        expectedRevision: snapshot.revision,
-        operations,
+      const entry =
+        action === 'edit' ? captureEdit(snapshot.document, operations) : editHistory[action].at(-1)
+      if (!entry) return false
+      const result = await api<{ revision: number; patches: Patch[] }>(
+        `/api/sites/${siteId}/document/apply`,
+        {
+          expectedRevision: snapshot.revision,
+          operations,
+        },
+      )
+      // Use this commit's patches, not a follow-up read that could include someone else's edits.
+      const document = applyPatches(snapshot.document, result.patches)
+      acceptSnapshot({
+        document: { ...document, revision: result.revision },
+        revision: result.revision,
       })
-      await load()
+      setEditHistory(committedHistory(editHistory, action, entry))
       setSaved(true)
       return true
     } catch (e) {
@@ -354,9 +381,36 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       } else setError(e instanceof Error ? e.message : 'Could not save changes')
       return false
     } finally {
+      inFlight.current = false
       setBusy(false)
     }
   }
+  const canUndo = !!snapshot && editHistory.undo.length > 0 && !busy && !dirty && !conflict
+  const canRedo = !!snapshot && editHistory.redo.length > 0 && !busy && !dirty && !conflict
+  function travel(direction: 'undo' | 'redo') {
+    if (!(direction === 'undo' ? canUndo : canRedo)) return
+    const entry = editHistory[direction].at(-1)
+    if (entry) void save(entry[direction], direction)
+  }
+  const travelRef = useRef(travel)
+  travelRef.current = travel
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        (event.target as Element | null)?.closest?.(
+          'input, textarea, select, [contenteditable="true"]',
+        )
+      )
+        return
+      const direction = historyShortcut(event)
+      if (direction) {
+        event.preventDefault()
+        travelRef.current(direction)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   return (
     <div className="editor">
       <header className="editor-header">
@@ -371,6 +425,28 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         <Brand />
         <span className="header-divider" />
         <strong className="site-name">{doc?.site.name ?? 'Opening site…'}</strong>
+        <div className="row history-controls">
+          <button
+            type="button"
+            onClick={() => travel('undo')}
+            disabled={!canUndo}
+            title="Undo saved edit (⌘/Ctrl Z)"
+            aria-label="Undo"
+            aria-keyshortcuts="Meta+Z Control+Z"
+          >
+            ↶
+          </button>
+          <button
+            type="button"
+            onClick={() => travel('redo')}
+            disabled={!canRedo}
+            title="Redo saved edit (⌘/Ctrl Shift Z)"
+            aria-label="Redo"
+            aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z Control+Y"
+          >
+            ↷
+          </button>
+        </div>
         <span className="save-state" role="status">
           {busy ? 'Saving…' : dirty ? 'Unsaved changes' : saved ? 'All changes saved' : 'Saved'}
         </span>
@@ -488,6 +564,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           <div className="canvas-workspace">
             {preview ? (
               <Canvas
+                onHistory={travel}
                 html={preview.html}
                 width={width}
                 selected={selected}

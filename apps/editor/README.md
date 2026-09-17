@@ -31,6 +31,13 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
 - Save changes to commit one version-pinned operation batch. Unsaved drafts warn before switching
   selection or page. A stale save keeps your draft and asks you to reload; it never overwrites newer
   changes. Reloading discards the draft after confirmation.
+- Undo/redo buttons reverse saved batches, including text and styles changed together. Use
+  `⌘/Ctrl Z` to undo and `⌘/Ctrl Shift Z` (or `Ctrl Y`) to redo, in the editor or canvas. Text fields
+  retain their native text undo. Save or discard a draft before undoing a saved edit.
+- History holds the latest 100 saves in the open editor. A new edit clears redo; reloading or leaving
+  the site clears history. Undo/redo writes a new revision through the same API and rejects stale
+  revisions rather than reverting someone else's work. Original token values and cleared styles
+  are restored, not reconstructed from computed CSS.
 
 ## Canvas rendering
 
@@ -44,7 +51,7 @@ also blocks scripts, forms, embedded frames and external resources in the canvas
 listeners handle selection and suppress link navigation. Site scripts cannot access the editor.
 
 This is a minimal editor: adding/moving elements, assigning new classes, rich-text editing, visual
-breakpoint/state editing, undo/redo, Yjs sync, git history and publishing are subsequent milestones.
+breakpoint/state editing, collaborative Yjs undo, git history and publishing are subsequent milestones.
 The editing workspace currently targets desktop browsers; its mobile button previews the site.
 
 ## Verification
@@ -53,10 +60,13 @@ The editing workspace currently targets desktop browsers; its mobile button prev
 pnpm --filter @freeflow/renderer test
 pnpm --filter @freeflow/server test
 pnpm --filter @freeflow/editor typecheck
+pnpm --filter @freeflow/editor test
 ```
 
 Renderer tests compare all fixture and default-template pages and entries with compiler markup and
 CSS. Server tests cover preview/asset access control. A Playwright test covers account creation,
 canvas selection, text/style edits, reload persistence, stale-write protection, mobile viewport,
-collection previews, sandbox isolation, sign-out and sign-in. It saves a desktop screenshot under
+collection previews, sandbox isolation, undo/redo, sign-out and sign-in. Unit tests exercise inverse
+batches, restoration of rich text and typed CSS, history bounds and branching, and shortcuts.
+The browser test saves a desktop screenshot under
 `.freeflow/editor-preview/` for visual inspection.

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { historyShortcut } from './history.js'
 
 function highlight(frame: HTMLIFrameElement | null, selected: string) {
   for (const element of frame?.contentDocument?.querySelectorAll('[data-freeflow-node]') ?? []) {
@@ -14,11 +15,13 @@ export function Canvas({
   width,
   selected,
   select,
+  onHistory,
 }: {
   html: string
   width: number
   selected: string
   select: (id: string) => void
+  onHistory: (direction: 'undo' | 'redo') => void
 }) {
   const frame = useRef<HTMLIFrameElement>(null)
   const shell = useRef<HTMLDivElement>(null)
@@ -28,6 +31,8 @@ export function Canvas({
   selectedRef.current = selected
   const selectRef = useRef(select)
   selectRef.current = select
+  const historyRef = useRef(onHistory)
+  historyRef.current = onHistory
   useEffect(() => {
     highlight(frame.current, selected)
   }, [selected])
@@ -74,6 +79,12 @@ export function Canvas({
           doc.addEventListener(
             'keydown',
             (event) => {
+              const direction = historyShortcut(event)
+              if (direction) {
+                event.preventDefault()
+                historyRef.current(direction)
+                return
+              }
               if (event.key === 'Enter' || event.key === ' ') pick(event)
             },
             true,
