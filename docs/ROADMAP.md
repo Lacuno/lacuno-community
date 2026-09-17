@@ -39,6 +39,8 @@ The [first visual editor](../apps/editor/README.md) adds sign-in and site select
 using the compiler's renderer, page and collection-entry previews, a layer tree, viewport presets,
 and plain-text/base-class-style edits with conflict protection. Session undo/redo now reverses saved
 batches through version-pinned operations, including keyboard shortcuts and original typed values.
+The element palette inserts headings, paragraphs, sections and containers; sibling-order controls
+and structural undo/redo preserve IDs. Shared component and collection structure remains protected.
 Full visual authoring, Yjs sync and collaborative undo, git history and publishing remain to be built.
 
 - Server with auth, workspaces, sites, SQLite, Yjs sync, git commits.

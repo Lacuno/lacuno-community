@@ -12,6 +12,7 @@ import {
   emptyHistory,
   historyShortcut,
 } from './history.js'
+import { StructurePanel } from './StructurePanel.js'
 
 type Snapshot = { document: Document; revision: number }
 type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
@@ -534,6 +535,16 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 </button>
               ))}
           </div>
+          {doc && page && (
+            <StructurePanel
+              doc={doc}
+              root={page.root}
+              selected={selected}
+              disabled={busy || dirty || conflict}
+              save={save}
+              select={setSelected}
+            />
+          )}
           <div className="panel-title">
             LAYERS<span>◇</span>
           </div>

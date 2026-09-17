@@ -63,7 +63,7 @@ export function Canvas({
           if (!doc) return
           const style = doc.createElement('style')
           style.textContent =
-            '[data-freeflow-node]:hover { outline: 1px solid #8775ed !important; outline-offset: -1px } [data-freeflow-selected] { outline: 2px solid #6d51df !important; outline-offset: -2px }'
+            'div[data-freeflow-selected]:empty, section[data-freeflow-selected]:empty { min-height: 48px; min-width: 48px; } [data-freeflow-node]:hover { outline: 1px solid #8775ed !important; outline-offset: -1px } [data-freeflow-selected] { outline: 2px solid #6d51df !important; outline-offset: -2px }'
           doc.head.append(style)
           const pick = (event: Event) => {
             event.preventDefault()

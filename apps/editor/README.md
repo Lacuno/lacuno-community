@@ -24,6 +24,11 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
 - Choose a page in the left panel. Collection pages also offer an entry selector.
 - Click the canvas or a layer to select an element. Desktop, tablet and mobile buttons change the
   iframe viewport; the canvas scales to fit available space without changing its media-query width.
+- Use Add element to insert a heading, paragraph, section with starter content, or empty container.
+  Choose an explicit destination and optionally reuse a style class. Empty containers can be selected
+  in Layers and populated with Inside selection. Move up/down changes the selected sibling order.
+  These actions save immediately and support undo/redo with stable element IDs. Locked elements,
+  component interiors and collection structure stay protected.
 - Edit plain text in the inspector. Structured rich text and content bindings remain read-only.
 - Pick an assigned class and edit a supported CSS property. This first panel edits the base
   breakpoint's default state. Class changes affect all elements sharing that class. Empty values
@@ -31,7 +36,7 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
 - Save changes to commit one version-pinned operation batch. Unsaved drafts warn before switching
   selection or page. A stale save keeps your draft and asks you to reload; it never overwrites newer
   changes. Reloading discards the draft after confirmation.
-- Undo/redo buttons reverse saved batches, including text and styles changed together. Use
+- Undo/redo buttons reverse saved batches, including insertion, sibling moves, text and styles changed together. Use
   `⌘/Ctrl Z` to undo and `⌘/Ctrl Shift Z` (or `Ctrl Y`) to redo, in the editor or canvas. Text fields
   retain their native text undo. Save or discard a draft before undoing a saved edit.
 - History holds the latest 100 saves in the open editor. A new edit clears redo; reloading or leaving
@@ -50,7 +55,7 @@ The React shell hosts an iframe with `sandbox="allow-same-origin"` and no script
 also blocks scripts, forms, embedded frames and external resources in the canvas. Parent-side event
 listeners handle selection and suppress link navigation. Site scripts cannot access the editor.
 
-This is a minimal editor: adding/moving elements, assigning new classes, rich-text editing, visual
+This is a minimal editor: drag-and-drop layout, creating classes, rich-text editing, visual
 breakpoint/state editing, collaborative Yjs undo, git history and publishing are subsequent milestones.
 The editing workspace currently targets desktop browsers; its mobile button previews the site.
 
@@ -66,7 +71,7 @@ pnpm --filter @freeflow/editor test
 Renderer tests compare all fixture and default-template pages and entries with compiler markup and
 CSS. Server tests cover preview/asset access control. A Playwright test covers account creation,
 canvas selection, text/style edits, reload persistence, stale-write protection, mobile viewport,
-collection previews, sandbox isolation, undo/redo, sign-out and sign-in. Unit tests exercise inverse
+collection previews, sandbox isolation, insertion, sibling moves, undo/redo, sign-out and sign-in. Unit tests exercise inverse
 batches, restoration of rich text and typed CSS, history bounds and branching, and shortcuts.
 The browser test saves a desktop screenshot under
 `.freeflow/editor-preview/` for visual inspection.

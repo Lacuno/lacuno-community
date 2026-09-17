@@ -167,6 +167,33 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await heading.waitFor()
     await page.getByRole('button', { name: 'Desktop', exact: true }).click()
     await heading.click()
+    await page.getByText('Add element', { exact: true }).click()
+    await page.getByRole('button', { name: 'Insert element', exact: true }).click()
+    const inserted = canvas.getByRole('heading', { name: 'Your new heading', exact: true })
+    await inserted.waitFor()
+    const insertedId = await inserted.getAttribute('data-freeflow-node')
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect.poll(() => inserted.count()).toBe(0)
+    await page.getByRole('button', { name: 'Redo', exact: true }).click()
+    await inserted.waitFor()
+    expect(await inserted.getAttribute('data-freeflow-node')).toBe(insertedId)
+    await expect
+      .poll(() => page.getByRole('button', { name: 'Move up', exact: true }).isEnabled())
+      .toBe(true)
+    await page.getByRole('button', { name: 'Move up', exact: true }).click()
+    const readInsertedPosition = async () => {
+      const snapshot = await (
+        await context.request.get(`${origin}/api/sites/${siteId}/document`)
+      ).json()
+      const node = snapshot.document.nodes[insertedId!]
+      const siblings = snapshot.document.nodes[node.parent].children
+      return siblings.indexOf(insertedId) - siblings.length
+    }
+    await expect.poll(readInsertedPosition).toBe(-2)
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect.poll(readInsertedPosition).toBe(-1)
+    await page.getByRole('button', { name: 'Reload site', exact: true }).click()
+    await inserted.waitFor()
     await page.mouse.move(0, 0)
     await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
     await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-desktop.png') })

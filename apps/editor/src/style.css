@@ -332,6 +332,7 @@ p {
   border-left: 1px solid var(--border);
 }
 .history-controls {
+  display: flex;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--border);
@@ -348,6 +349,10 @@ p {
   border-radius: 5px;
   background: transparent;
   color: #555b65;
+}
+.history-controls svg {
+  width: 18px;
+  height: 18px;
 }
 .history-controls button:hover:not(:disabled) {
   background: #eeebf8;
@@ -670,4 +675,45 @@ p {
 .canvas-shell iframe {
   min-height: 0;
   display: block;
+}
+
+.structure-panel {
+  border-block: 1px solid var(--border, #e5e7eb);
+  padding: 12px 14px;
+}
+.structure-panel summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.insert-fields {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+.insert-fields label {
+  margin: 0;
+  display: grid;
+  gap: 5px;
+  font-size: 11px;
+  color: #647084;
+}
+.insert-fields select {
+  width: 100%;
+  min-width: 0;
+}
+.insert-hint {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+  color: #647084;
+}
+.structure-order {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: #647084;
 }
