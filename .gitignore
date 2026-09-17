@@ -3,6 +3,7 @@ dist/
 build/
 .turbo/
 .freeflow/
+.worktrees/
 *.log
 .env
 .env.*
