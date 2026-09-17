@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": 6,
+  "revision": 12,
   "site": {
     "name": "Freeflow",
     "locale": "en-US",
@@ -2306,38 +2306,11 @@
         "value": "● ● ●"
       }
     },
-    "n-home-preview-fallback": {
-      "id": "n-home-preview-fallback",
-      "parent": "n-home-preview-frame",
-      "children": [
-        "n-home-preview-main-copy",
-        "n-home-preview-side"
-      ],
-      "classes": [
-        "c-preview-content"
-      ],
-      "type": "element",
-      "tag": "div"
-    },
-    "n-home-preview-fallback-title": {
-      "id": "n-home-preview-fallback-title",
-      "parent": "n-home-preview-main-copy",
-      "children": [],
-      "classes": [
-        "c-preview-title"
-      ],
-      "type": "text",
-      "tag": "p",
-      "text": {
-        "type": "static",
-        "value": "The web works better when your website is yours."
-      }
-    },
     "n-home-preview-frame": {
       "id": "n-home-preview-frame",
       "parent": "n-home-preview-slot",
       "children": [
-        "n-home-preview-fallback"
+        "n-home-preview-image"
       ],
       "classes": [
         "c-preview-frame"
@@ -2358,19 +2331,32 @@
       "type": "element",
       "tag": "div"
     },
-    "n-home-preview-index": {
-      "id": "n-home-preview-index",
-      "parent": "n-home-preview-main-copy",
+    "n-home-preview-image": {
+      "id": "n-home-preview-image",
+      "parent": "n-home-preview-frame",
       "children": [],
       "classes": [
-        "c-preview-index"
+        "c-preview-image"
       ],
-      "type": "text",
-      "tag": "p",
-      "text": {
-        "type": "static",
-        "value": "About / 01"
-      }
+      "attrs": {
+        "src": {
+          "type": "asset",
+          "asset": "An41fLkGaH61"
+        },
+        "sizes": {
+          "type": "static",
+          "value": "(max-width: 767px) calc(100vw - 3rem), 1200px"
+        },
+        "loading": {
+          "type": "static",
+          "value": "lazy"
+        }
+      },
+      "meta": {
+        "label": "Rendered About page preview"
+      },
+      "type": "element",
+      "tag": "img"
     },
     "n-home-preview-kicker": {
       "id": "n-home-preview-kicker",
@@ -2398,38 +2384,6 @@
         "value": "About page / live template"
       }
     },
-    "n-home-preview-link": {
-      "id": "n-home-preview-link",
-      "parent": "n-home-preview-main-copy",
-      "children": [],
-      "classes": [
-        "c-link-arrow"
-      ],
-      "attrs": {
-        "href": {
-          "type": "static",
-          "value": "/about"
-        }
-      },
-      "type": "text",
-      "tag": "a",
-      "text": {
-        "type": "static",
-        "value": "Open the About page →"
-      }
-    },
-    "n-home-preview-main-copy": {
-      "id": "n-home-preview-main-copy",
-      "parent": "n-home-preview-fallback",
-      "children": [
-        "n-home-preview-index",
-        "n-home-preview-fallback-title",
-        "n-home-preview-link"
-      ],
-      "classes": [],
-      "type": "element",
-      "tag": "div"
-    },
     "n-home-preview-section": {
       "id": "n-home-preview-section",
       "parent": "n-home-main",
@@ -2444,20 +2398,6 @@
       ],
       "type": "element",
       "tag": "section"
-    },
-    "n-home-preview-side": {
-      "id": "n-home-preview-side",
-      "parent": "n-home-preview-fallback",
-      "children": [],
-      "classes": [
-        "c-preview-side"
-      ],
-      "type": "text",
-      "tag": "p",
-      "text": {
-        "type": "static",
-        "value": "Visual building, editable source and static output belong in one clear workflow."
-      }
     },
     "n-home-preview-slot": {
       "id": "n-home-preview-slot",
@@ -2752,11 +2692,6 @@
       "kind": "class",
       "name": "preview-bar"
     },
-    "c-preview-content": {
-      "id": "c-preview-content",
-      "kind": "class",
-      "name": "preview-content"
-    },
     "c-preview-dots": {
       "id": "c-preview-dots",
       "kind": "class",
@@ -2767,25 +2702,15 @@
       "kind": "class",
       "name": "preview-frame"
     },
-    "c-preview-index": {
-      "id": "c-preview-index",
+    "c-preview-image": {
+      "id": "c-preview-image",
       "kind": "class",
-      "name": "preview-index"
+      "name": "preview-image"
     },
     "c-preview-shell": {
       "id": "c-preview-shell",
       "kind": "class",
       "name": "preview-shell"
-    },
-    "c-preview-side": {
-      "id": "c-preview-side",
-      "kind": "class",
-      "name": "preview-side"
-    },
-    "c-preview-title": {
-      "id": "c-preview-title",
-      "kind": "class",
-      "name": "preview-title"
     },
     "c-principle": {
       "id": "c-principle",
@@ -2951,7 +2876,7 @@
       "property": "color",
       "value": {
         "type": "designToken",
-        "ref": "t-color-accent"
+        "ref": "t-color-ink"
       }
     },
     "c-about-index|base|none|font-size": {
@@ -5678,118 +5603,6 @@
         "value": "uppercase"
       }
     },
-    "c-preview-content|base|none|box-sizing": {
-      "class": "c-preview-content",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "box-sizing",
-      "value": {
-        "type": "keyword",
-        "value": "border-box"
-      }
-    },
-    "c-preview-content|base|none|display": {
-      "class": "c-preview-content",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "display",
-      "value": {
-        "type": "keyword",
-        "value": "grid"
-      }
-    },
-    "c-preview-content|base|none|gap": {
-      "class": "c-preview-content",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "gap",
-      "value": {
-        "type": "designToken",
-        "ref": "t-space-lg"
-      }
-    },
-    "c-preview-content|base|none|grid-template-columns": {
-      "class": "c-preview-content",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "grid-template-columns",
-      "value": {
-        "type": "list",
-        "separator": " ",
-        "values": [
-          {
-            "type": "unit",
-            "value": 3,
-            "unit": "fr"
-          },
-          {
-            "type": "unit",
-            "value": 1,
-            "unit": "fr"
-          }
-        ]
-      }
-    },
-    "c-preview-content|base|none|min-height": {
-      "class": "c-preview-content",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "min-height",
-      "value": {
-        "type": "unit",
-        "value": 560,
-        "unit": "px"
-      }
-    },
-    "c-preview-content|base|none|padding": {
-      "class": "c-preview-content",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "padding",
-      "value": {
-        "type": "fn",
-        "name": "clamp",
-        "args": [
-          {
-            "type": "unit",
-            "value": 2,
-            "unit": "rem"
-          },
-          {
-            "type": "unit",
-            "value": 7,
-            "unit": "vw"
-          },
-          {
-            "type": "unit",
-            "value": 6,
-            "unit": "rem"
-          }
-        ]
-      }
-    },
-    "c-preview-content|mobile-p|none|min-height": {
-      "class": "c-preview-content",
-      "breakpoint": "mobile-p",
-      "state": "none",
-      "property": "min-height",
-      "value": {
-        "type": "unit",
-        "value": 430,
-        "unit": "px"
-      }
-    },
-    "c-preview-content|tablet|none|grid-template-columns": {
-      "class": "c-preview-content",
-      "breakpoint": "tablet",
-      "state": "none",
-      "property": "grid-template-columns",
-      "value": {
-        "type": "unit",
-        "value": 1,
-        "unit": "fr"
-      }
-    },
     "c-preview-dots|base|none|color": {
       "class": "c-preview-dots",
       "breakpoint": "base",
@@ -5846,17 +5659,6 @@
         ]
       }
     },
-    "c-preview-frame|base|none|min-height": {
-      "class": "c-preview-frame",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "min-height",
-      "value": {
-        "type": "unit",
-        "value": 560,
-        "unit": "px"
-      }
-    },
     "c-preview-frame|base|none|overflow": {
       "class": "c-preview-frame",
       "breakpoint": "base",
@@ -5867,58 +5669,35 @@
         "value": "hidden"
       }
     },
-    "c-preview-frame|mobile-p|none|min-height": {
-      "class": "c-preview-frame",
-      "breakpoint": "mobile-p",
-      "state": "none",
-      "property": "min-height",
-      "value": {
-        "type": "unit",
-        "value": 430,
-        "unit": "px"
-      }
-    },
-    "c-preview-index|base|none|font-size": {
-      "class": "c-preview-index",
+    "c-preview-image|base|none|display": {
+      "class": "c-preview-image",
       "breakpoint": "base",
       "state": "none",
-      "property": "font-size",
-      "value": {
-        "type": "unit",
-        "value": 0.75,
-        "unit": "rem"
-      }
-    },
-    "c-preview-index|base|none|font-weight": {
-      "class": "c-preview-index",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "font-weight",
-      "value": {
-        "type": "unit",
-        "value": 800,
-        "unit": "number"
-      }
-    },
-    "c-preview-index|base|none|letter-spacing": {
-      "class": "c-preview-index",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "letter-spacing",
-      "value": {
-        "type": "unit",
-        "value": 0.14,
-        "unit": "em"
-      }
-    },
-    "c-preview-index|base|none|text-transform": {
-      "class": "c-preview-index",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "text-transform",
+      "property": "display",
       "value": {
         "type": "keyword",
-        "value": "uppercase"
+        "value": "block"
+      }
+    },
+    "c-preview-image|base|none|height": {
+      "class": "c-preview-image",
+      "breakpoint": "base",
+      "state": "none",
+      "property": "height",
+      "value": {
+        "type": "keyword",
+        "value": "auto"
+      }
+    },
+    "c-preview-image|base|none|width": {
+      "class": "c-preview-image",
+      "breakpoint": "base",
+      "state": "none",
+      "property": "width",
+      "value": {
+        "type": "unit",
+        "value": 100,
+        "unit": "%"
       }
     },
     "c-preview-shell|base|none|background-color": {
@@ -5991,196 +5770,6 @@
         "type": "unit",
         "value": 0.75,
         "unit": "rem"
-      }
-    },
-    "c-preview-side|base|none|align-self": {
-      "class": "c-preview-side",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "align-self",
-      "value": {
-        "type": "keyword",
-        "value": "end"
-      }
-    },
-    "c-preview-side|base|none|border-left": {
-      "class": "c-preview-side",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "border-left",
-      "value": {
-        "type": "list",
-        "separator": " ",
-        "values": [
-          {
-            "type": "unit",
-            "value": 1,
-            "unit": "px"
-          },
-          {
-            "type": "keyword",
-            "value": "solid"
-          },
-          {
-            "type": "designToken",
-            "ref": "t-color-ink"
-          }
-        ]
-      }
-    },
-    "c-preview-side|base|none|padding-left": {
-      "class": "c-preview-side",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "padding-left",
-      "value": {
-        "type": "unit",
-        "value": 1.5,
-        "unit": "rem"
-      }
-    },
-    "c-preview-side|tablet|none|border-left": {
-      "class": "c-preview-side",
-      "breakpoint": "tablet",
-      "state": "none",
-      "property": "border-left",
-      "value": {
-        "type": "keyword",
-        "value": "none"
-      }
-    },
-    "c-preview-side|tablet|none|border-top": {
-      "class": "c-preview-side",
-      "breakpoint": "tablet",
-      "state": "none",
-      "property": "border-top",
-      "value": {
-        "type": "list",
-        "separator": " ",
-        "values": [
-          {
-            "type": "unit",
-            "value": 1,
-            "unit": "px"
-          },
-          {
-            "type": "keyword",
-            "value": "solid"
-          },
-          {
-            "type": "designToken",
-            "ref": "t-color-ink"
-          }
-        ]
-      }
-    },
-    "c-preview-side|tablet|none|padding-left": {
-      "class": "c-preview-side",
-      "breakpoint": "tablet",
-      "state": "none",
-      "property": "padding-left",
-      "value": {
-        "type": "unit",
-        "value": 0,
-        "unit": "px"
-      }
-    },
-    "c-preview-side|tablet|none|padding-top": {
-      "class": "c-preview-side",
-      "breakpoint": "tablet",
-      "state": "none",
-      "property": "padding-top",
-      "value": {
-        "type": "unit",
-        "value": 1.5,
-        "unit": "rem"
-      }
-    },
-    "c-preview-title|base|none|font-size": {
-      "class": "c-preview-title",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "font-size",
-      "value": {
-        "type": "fn",
-        "name": "clamp",
-        "args": [
-          {
-            "type": "unit",
-            "value": 2.4,
-            "unit": "rem"
-          },
-          {
-            "type": "unit",
-            "value": 6,
-            "unit": "vw"
-          },
-          {
-            "type": "unit",
-            "value": 5.7,
-            "unit": "rem"
-          }
-        ]
-      }
-    },
-    "c-preview-title|base|none|letter-spacing": {
-      "class": "c-preview-title",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "letter-spacing",
-      "value": {
-        "type": "unit",
-        "value": -0.055,
-        "unit": "em"
-      }
-    },
-    "c-preview-title|base|none|line-height": {
-      "class": "c-preview-title",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "line-height",
-      "value": {
-        "type": "unit",
-        "value": 0.92,
-        "unit": "number"
-      }
-    },
-    "c-preview-title|base|none|margin": {
-      "class": "c-preview-title",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "margin",
-      "value": {
-        "type": "list",
-        "separator": " ",
-        "values": [
-          {
-            "type": "unit",
-            "value": 1,
-            "unit": "rem"
-          },
-          {
-            "type": "unit",
-            "value": 0,
-            "unit": "px"
-          },
-          {
-            "type": "unit",
-            "value": 2,
-            "unit": "rem"
-          }
-        ]
-      }
-    },
-    "c-preview-title|base|none|max-width": {
-      "class": "c-preview-title",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "max-width",
-      "value": {
-        "type": "unit",
-        "value": 10,
-        "unit": "ch"
       }
     },
     "c-principles|base|none|display": {
@@ -7391,6 +6980,18 @@
       }
     ]
   },
-  "assets": {},
+  "assets": {
+    "An41fLkGaH61": {
+      "id": "An41fLkGaH61",
+      "name": "freeflow-about-page-preview.png",
+      "kind": "image",
+      "hash": "7f5df1a1670e25d7ccb063a6a80f1d8c40e32ecec6c85fafbd79dc516feecd2f",
+      "mime": "image/png",
+      "size": 87934,
+      "width": 1440,
+      "height": 900,
+      "alt": "The Freeflow About page with an editorial headline, black typography and a bold page number on a warm paper background"
+    }
+  },
   "redirects": []
 }

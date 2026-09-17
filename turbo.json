@@ -3,6 +3,10 @@
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "test": { "dependsOn": ["^build"] },
+    "@freeflow/compiler#test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/templates/freeflow/**"]
+    },
     "typecheck": { "dependsOn": ["^build"] }
   }
 }
