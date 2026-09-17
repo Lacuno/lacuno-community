@@ -5,7 +5,11 @@
     "test": { "dependsOn": ["^build"] },
     "@freeflow/compiler#test": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/templates/freeflow/**"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/templates/freeflow/freeflow.json",
+        "$TURBO_ROOT$/templates/freeflow/assets/**"
+      ]
     },
     "typecheck": { "dependsOn": ["^build"] }
   }
