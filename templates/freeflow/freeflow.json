@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "revision": 1,
+  "site": {
+    "name": "Freeflow",
+    "locale": "en-US",
+    "modes": [
+      {
+        "id": "light",
+        "label": "Light",
+        "default": true
+      }
+    ],
+    "fonts": []
+  },
+  "pages": {
+    "oIX2PFrpQB5P": {
+      "id": "oIX2PFrpQB5P",
+      "name": "Home",
+      "path": "/",
+      "root": "MWjbWmL2Sh44"
+    }
+  },
+  "folders": {},
+  "nodes": {
+    "MWjbWmL2Sh44": {
+      "id": "MWjbWmL2Sh44",
+      "parent": null,
+      "children": [],
+      "classes": [],
+      "type": "element",
+      "tag": "main"
+    }
+  },
+  "classes": {},
+  "styles": {},
+  "breakpoints": {
+    "base": {
+      "id": "base",
+      "label": "Desktop"
+    },
+    "mobile-l": {
+      "id": "mobile-l",
+      "label": "Mobile landscape",
+      "maxWidth": 767
+    },
+    "mobile-p": {
+      "id": "mobile-p",
+      "label": "Mobile portrait",
+      "maxWidth": 479
+    },
+    "tablet": {
+      "id": "tablet",
+      "label": "Tablet",
+      "maxWidth": 991
+    }
+  },
+  "designTokens": {},
+  "components": {},
+  "collections": {},
+  "entries": {},
+  "assets": {},
+  "redirects": []
+}
