@@ -15,6 +15,9 @@
     "format": "biome format --write .",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "freeflow": "tsx apps/cli/src/main.ts",
+    "server": "pnpm run dev",
+    "dev": "pnpm --filter @freeflow/editor build && pnpm --filter @freeflow/server dev",
+    "setup:env": "node scripts/setup-env.mjs",
     "lighthouse": "tsx scripts/lighthouse.ts",
     "smoke": "tsx scripts/smoke.ts"
   },

@@ -7,8 +7,13 @@ alongside you on the same document, on the canvas and from the terminal. Run it 
 with one command.
 
 > Status: pre-alpha. Phase 0 is complete: the schema, document operations, CSS generator, static
-> compiler, CLI, stdio MCP server and default template are working. The visual editor and hosted
-> service are planned work. Start with [docs/VISION.md](docs/VISION.md).
+> compiler, CLI, stdio MCP server and default template are working. A first visual editor is now
+> available; the full Editor MVP and hosted service remain in progress. Start with [docs/VISION.md](docs/VISION.md).
+
+Phase 1 now has a [server foundation](apps/server/README.md): email/password sessions, private
+workspaces, template-based site creation, and persistent document editing through an HTTP API.
+The [visual editor](apps/editor/README.md) adds a canvas, layer tree, page previews and basic text/style
+editing. Run `pnpm setup:env` and `pnpm dev`, then open `http://localhost:3000`.
 
 ## Documents
 
@@ -42,6 +47,8 @@ AGPL-3.0-or-later for the whole project. See [docs/DECISIONS.md](docs/DECISIONS.
 pnpm install
 pnpm check        # lint, typecheck, tests
 pnpm test         # tests only
+pnpm setup:env    # prepare local server settings; preserves an existing .env
+pnpm dev         # start the API with settings from .env
 ```
 
 Node 22 and pnpm 10. The stack and the reasons behind it are in [docs/STACK.md](docs/STACK.md).
@@ -55,6 +62,9 @@ packages/css        The document-to-stylesheet generator
 packages/compiler   The document-to-static-site compiler, using Astro internally
 packages/mcp        MCP tools and resources over the document and compiler
 apps/cli            The `freeflow build` and `freeflow mcp` commands
+apps/server         Authenticated HTTP API with SQLite document persistence
+apps/editor         React editor with canvas selection and text/style editing
+packages/renderer   Canvas HTML using the shared compiler and CSS generator
 templates/freeflow  Runnable default site, source asset and usage instructions
 scripts/            Smoke and Lighthouse checks
 docs/               Vision, features, architecture, agents, roadmap and decisions

@@ -1,4 +1,4 @@
-import type { Document, Page } from '@freeflow/schema'
+import type { AssetRef, Document, Page } from '@freeflow/schema'
 import { extensionForMime, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { escapeAttr, escapeHtml } from './html.js'
@@ -12,6 +12,7 @@ export type HeadInput = {
   /** Public base URL without trailing slash. Enables canonical, og:url and absolute og:image. */
   siteUrl?: string
   resolveImage: ImageResolver
+  resolveAsset?: (asset: AssetRef) => string
 }
 
 const FONT_FORMAT: Record<string, string> = {
@@ -39,14 +40,14 @@ function cssString(s: string): string {
 }
 
 /** Asset fonts get a preload and a font-face rule. System fonts need nothing. No third parties. */
-function renderFonts(doc: Document, page: Page): string[] {
+function renderFonts(doc: Document, page: Page, resolveAsset = publicAssetPath): string[] {
   const out: string[] = []
   const faces: string[] = []
   for (const f of doc.site.fonts) {
     if (f.source !== 'asset') continue
     const asset = f.asset ? doc.assets[f.asset] : undefined
     if (!asset) throw new RenderError(`font ${f.family} has no known asset`, undefined, page.id)
-    const href = publicAssetPath(asset)
+    const href = resolveAsset(asset)
     const ext = extensionForMime(asset.mime)
     const format = FONT_FORMAT[ext] ?? ext
     out.push(
@@ -83,10 +84,13 @@ export function renderHead(input: HeadInput): string {
   if (seo?.ogImage) {
     const asset = doc.assets[seo.ogImage]
     if (!asset) throw new RenderError(`unknown og image ${seo.ogImage}`, undefined, page.id)
-    const src = asset.kind === 'image' ? input.resolveImage(asset).src : publicAssetPath(asset)
+    const src =
+      asset.kind === 'image'
+        ? input.resolveImage(asset).src
+        : (input.resolveAsset ?? publicAssetPath)(asset)
     parts.push(og('og:image', absolute(src)))
   }
-  parts.push(...renderFonts(doc, page))
+  parts.push(...renderFonts(doc, page, input.resolveAsset))
   if (doc.site.headCode) parts.push(doc.site.headCode)
   if (page.headCode) parts.push(page.headCode)
   return parts.join('\n')

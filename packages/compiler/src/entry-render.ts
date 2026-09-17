@@ -4,5 +4,5 @@
  */
 export { parseDocument } from '@freeflow/schema'
 export { imageResolverFrom, resolveAllImages } from './images.js'
-export { render } from './render.js'
+export { assembleDocument, render } from './render.js'
 export { enumerateRoutes } from './routes.js'

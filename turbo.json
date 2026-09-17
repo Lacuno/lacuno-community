@@ -11,6 +11,18 @@
         "$TURBO_ROOT$/templates/freeflow/assets/**"
       ]
     },
+    "@freeflow/server#test": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/templates/freeflow/freeflow.json",
+        "$TURBO_ROOT$/templates/freeflow/assets/**"
+      ]
+    },
+    "@freeflow/renderer#test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/templates/freeflow/freeflow.json"]
+    },
     "typecheck": { "dependsOn": ["^build"] }
   }
 }

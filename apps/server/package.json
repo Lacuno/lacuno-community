@@ -1,0 +1,33 @@
+{
+  "name": "@freeflow/server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsdown",
+    "test": "pnpm --filter @freeflow/editor build && pnpm build && vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@freeflow/document": "workspace:*",
+    "@freeflow/renderer": "workspace:*",
+    "@freeflow/schema": "workspace:*",
+    "@hono/node-server": "^2.1.1",
+    "better-auth": "^1.7.5",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.13.8",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@freeflow/editor": "workspace:*",
+    "@types/better-sqlite3": "^9.6.0",
+    "playwright": "^1.63.0",
+    "tsdown": "^0.23.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.0"
+  }
+}

@@ -36,7 +36,7 @@ freeflow/
     schema/        Zod schema for the document. Types, validation, migrations. Zero deps beyond zod
     document/      Operations over the document: typed mutations compiled to patches, revision, dry run, persistence
     css/           The one CSS generator. Document → stylesheet. Used by renderer and compiler
-    renderer/      React renderer for the canvas iframe. Document → DOM, same CSS as compiler
+    renderer/      Canvas HTML adapter over the compiler renderer, hosted in a React-managed iframe
     compiler/      Document + content → static site, using Astro as an internal engine
     cms/           Collection schema, storage, queries, export to content collections
     mcp/           MCP server: tool definitions over the document API

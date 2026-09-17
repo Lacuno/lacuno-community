@@ -1,5 +1,5 @@
 import { classNames } from '@freeflow/css'
-import type { Document, Entry, Page } from '@freeflow/schema'
+import type { AssetRef, Document, Entry, Page } from '@freeflow/schema'
 import { RenderError } from './errors.js'
 import { renderHead } from './head.js'
 import { renderAttrs } from './html.js'
@@ -10,6 +10,9 @@ import type { Scope } from './scope.js'
 
 export type RenderContext = {
   resolveImage: ImageResolver
+  /** Canvas-only metadata; omitted from published output. */
+  annotateNodes?: boolean
+  resolveAsset?: (asset: AssetRef) => string
   /** Overrides `doc.site.url`. */
   siteUrl?: string
 }
@@ -54,9 +57,17 @@ export function render(
     resolveImage: ctx.resolveImage,
     page: page.id,
     warnings: [],
+    ...(ctx.annotateNodes ? { annotateNodes: true } : {}),
+    ...(ctx.resolveAsset ? { resolveAsset: ctx.resolveAsset } : {}),
   }
   const siteUrl = normalizeSiteUrl(ctx.siteUrl ?? doc.site.url)
-  const headInput = { doc, page, path: routePath(page.path, slug), resolveImage: ctx.resolveImage }
+  const headInput = {
+    doc,
+    page,
+    path: routePath(page.path, slug),
+    resolveImage: ctx.resolveImage,
+    ...(ctx.resolveAsset ? { resolveAsset: ctx.resolveAsset } : {}),
+  }
   const head = renderHead(siteUrl ? { ...headInput, siteUrl } : headInput)
   const body =
     renderNode(page.root, scope, state) + (doc.site.bodyCode ?? '') + (page.bodyCode ?? '')

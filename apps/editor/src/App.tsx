@@ -1,0 +1,251 @@
+import { useEffect, useState } from 'react'
+import { api } from './api.js'
+import { Editor } from './Editor.js'
+
+type User = { name: string; email: string }
+type Site = { id: string; name: string; revision: number }
+const message = (error: unknown) =>
+  error instanceof Error ? error.message : 'Something went wrong'
+
+export function Brand() {
+  return (
+    <span className="brand">
+      <span className="brand-mark">f</span>freeflow<span className="badge">EARLY ACCESS</span>
+    </span>
+  )
+}
+
+function Auth({ onLogin }: { onLogin: (user: User) => void }) {
+  const [signup, setSignup] = useState(false)
+  const [allowed, setAllowed] = useState(false)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    api<{ allowSignup: boolean }>('/api/config')
+      .then((data) => setAllowed(data.allowSignup))
+      .catch((e) => setError(message(e)))
+  }, [])
+  return (
+    <main className="auth-layout">
+      <div className="auth-intro">
+        <Brand />
+        <div>
+          <p className="eyebrow">YOUR IDEAS. YOUR CANVAS.</p>
+          <h1>
+            Make something
+            <br />
+            that feels like you.
+          </h1>
+          <p>
+            A home for your sites, from the first idea
+            <br />
+            to the last little detail.
+          </p>
+        </div>
+        <span className="muted">Open source. Yours to build.</span>
+      </div>
+      <div className="auth-form">
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault()
+            setBusy(true)
+            setError('')
+            const data = new FormData(event.currentTarget)
+            try {
+              const result = await api<{ user: User }>(
+                `/api/auth/${signup ? 'sign-up' : 'sign-in'}/email`,
+                {
+                  email: data.get('email'),
+                  password: data.get('password'),
+                  ...(signup ? { name: data.get('name') } : {}),
+                },
+              )
+              onLogin(result.user)
+            } catch (e) {
+              setError(message(e))
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          <p className="eyebrow">LET’S GET STARTED</p>
+          <h2>{signup ? 'Create your account' : 'Welcome back'}</h2>
+          <p className="muted">
+            {signup
+              ? 'A workspace for everything you’ll make.'
+              : 'Sign in to your Freeflow workspace.'}
+          </p>
+          {signup && (
+            <label>
+              Your name
+              <input name="name" required autoComplete="name" />
+            </label>
+          )}
+          <label>
+            Email
+            <input name="email" type="email" required autoComplete="email" />
+          </label>
+          <label>
+            Password
+            <input
+              name="password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete={signup ? 'new-password' : 'current-password'}
+            />
+          </label>
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          <button className="primary" disabled={busy} type="submit">
+            {busy ? 'Please wait…' : signup ? 'Create account' : 'Sign in'}
+            <span aria-hidden="true">→</span>
+          </button>
+          {allowed && (
+            <button
+              className="text-button"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setSignup(!signup)
+                setError('')
+              }}
+            >
+              {signup ? 'Already have an account? Sign in' : 'New here? Create an account'}
+            </button>
+          )}
+        </form>
+      </div>
+    </main>
+  )
+}
+
+function Sites({
+  user,
+  open,
+  logout,
+}: {
+  user: User
+  open: (id: string) => void
+  logout: () => void
+}) {
+  const [sites, setSites] = useState<Site[]>([])
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    api<{ sites: Site[] }>('/api/sites')
+      .then((data) => setSites(data.sites))
+      .catch((e) => setError(message(e)))
+  }, [])
+  return (
+    <div className="workspace">
+      <header className="workspace-header">
+        <Brand />
+        <div className="row">
+          <span className="muted">{user.name}</span>
+          <button type="button" onClick={logout}>
+            Sign out
+          </button>
+        </div>
+      </header>
+      <main className="sites-main">
+        <p className="eyebrow">MY WORKSPACE</p>
+        <h1>Your next idea starts here.</h1>
+        <p className="muted">Pick up where you left off, or start with a fresh canvas.</p>
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        <div className="site-grid">
+          {sites.map((site) => (
+            <button type="button" className="site-card" key={site.id} onClick={() => open(site.id)}>
+              <div className="site-art">
+                <span>
+                  F<span className="art-dot">.</span>
+                </span>
+                <div className="art-lines" />
+              </div>
+              <div className="site-card-caption">
+                <strong>{site.name}</strong>
+                <span>Open editor ↗</span>
+              </div>
+            </button>
+          ))}
+          <form
+            className="create-card"
+            onSubmit={async (event) => {
+              event.preventDefault()
+              setBusy(true)
+              setError('')
+              try {
+                const site = await api<Site>('/api/sites', {
+                  name: new FormData(event.currentTarget).get('name'),
+                })
+                open(site.id)
+              } catch (e) {
+                setError(message(e))
+                setBusy(false)
+              }
+            }}
+          >
+            <span className="create-icon">+</span>
+            <h2>Start a new site</h2>
+            <p className="muted">A complete starter, ready to make your own.</p>
+            <label>
+              Site name
+              <input name="name" required maxLength={200} placeholder="My new site" />
+            </label>
+            <button type="submit" className="primary" disabled={busy}>
+              {busy ? 'Creating…' : 'Create site'}
+              <span aria-hidden="true">→</span>
+            </button>
+          </form>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+export function App() {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [site, setSite] = useState(new URLSearchParams(location.search).get('site') ?? '')
+  useEffect(() => {
+    api<{ user: User } | null>('/api/auth/get-session')
+      .then((session) => setUser(session?.user ?? null))
+      .catch((e) => setError(message(e)))
+      .finally(() => setLoading(false))
+  }, [])
+  function open(id: string) {
+    setSite(id)
+    history.replaceState(null, '', id ? `/?site=${encodeURIComponent(id)}` : '/')
+  }
+  if (loading) return <div className="loading">Opening your workspace…</div>
+  if (error)
+    return (
+      <div className="loading">
+        <p role="alert">{error}</p>
+        <button type="button" onClick={() => location.reload()}>
+          Try again
+        </button>
+      </div>
+    )
+  if (!user) return <Auth onLogin={setUser} />
+  if (site) return <Editor siteId={site} back={() => open('')} />
+  return (
+    <Sites
+      user={user}
+      open={open}
+      logout={() => {
+        api('/api/auth/sign-out', {})
+          .then(() => setUser(null))
+          .catch((e) => setError(message(e)))
+      }}
+    />
+  )
+}

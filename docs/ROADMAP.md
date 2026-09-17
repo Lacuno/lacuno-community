@@ -30,6 +30,16 @@ it does not publish them online.
 
 Goal: a designer can build and publish a site without touching the terminal.
 
+**First milestone implemented:** the [server foundation](../apps/server/README.md) provides
+email/password sessions, a private default workspace per user, site creation from the default
+template (including assets), and authenticated document reads and version-pinned operations.
+SQLite persists documents, sessions and rate-limit counters. Tests cover a real server process
+restart, ownership isolation, atomic invalid batches, dry runs and conflicting writes.
+The [first visual editor](../apps/editor/README.md) adds sign-in and site selection, a sandboxed canvas
+using the compiler's renderer, page and collection-entry previews, a layer tree, viewport presets,
+and plain-text/base-class-style edits with conflict protection. Full visual authoring, Yjs sync,
+undo/redo, git history and publishing remain to be built.
+
 - Server with auth, workspaces, sites, SQLite, Yjs sync, git commits.
 - Editor: canvas iframe, layer tree, element palette, style panel, classes, breakpoints, states,
   design tokens, pages, page settings and SEO, assets, fonts, undo and redo, version history.

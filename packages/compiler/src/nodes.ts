@@ -25,6 +25,8 @@ export type RenderState = {
   resolveImage: ImageResolver
   page: string
   warnings: Warning[]
+  annotateNodes?: boolean
+  resolveAsset?: (asset: AssetRef) => string
 }
 
 const DEFAULT_SIZES = '100vw'
@@ -77,13 +79,14 @@ function resolveAttrs(
     } else if (isAsset(v)) {
       if (name === 'src' && tag === 'img' && isOptimizedImage(v)) imageAsset = v
       else if (isOptimizedImage(v)) out[name] = state.resolveImage(v).src
-      else out[name] = publicAssetPath(v)
+      else out[name] = (state.resolveAsset ?? publicAssetPath)(v)
     } else if (isRichText(v)) {
       throw new RenderError(`attribute ${name} cannot hold rich text`, nodeId, state.page)
     } else {
       out[name] = String(v)
     }
   }
+  if (state.annotateNodes) out['data-freeflow-node'] = nodeId
   return imageAsset ? { attrs: out, imageAsset } : { attrs: out }
 }
 
@@ -140,7 +143,11 @@ function renderText(
     if (v === undefined || v === null) inner = ''
     else if (isRichText(v)) inner = richTextToHtml(v, warn)
     else if (isAsset(v))
-      inner = escapeHtml(isOptimizedImage(v) ? state.resolveImage(v).src : publicAssetPath(v))
+      inner = escapeHtml(
+        isOptimizedImage(v)
+          ? state.resolveImage(v).src
+          : (state.resolveAsset ?? publicAssetPath)(v),
+      )
     else inner = escapeHtml(String(v))
   }
   return `<${node.tag}${renderAttrs(attrs)}>${inner}</${node.tag}>`
