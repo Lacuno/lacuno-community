@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { cp, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
@@ -7,6 +7,7 @@ import { build, writeFixtureSite } from '@freeflow/compiler/build'
 import { launch } from 'chrome-launcher'
 import lighthouse from 'lighthouse'
 import { chromium } from 'playwright'
+import { type Document, parseDocument } from '../packages/schema/src/index.js'
 
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -54,9 +55,25 @@ async function serve(dir: string): Promise<{ origin: string; close: () => Promis
 }
 
 async function main(): Promise<number> {
+  if (process.argv.length > 3) {
+    console.error('Usage: pnpm lighthouse [site-folder]')
+    return 1
+  }
+  const source = process.argv[2] ? path.resolve(process.argv[2]) : undefined
   const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-lighthouse-'))
   try {
-    const doc = await writeFixtureSite(dir)
+    let doc: Document
+    if (source) {
+      await cp(path.join(source, 'freeflow.json'), path.join(dir, 'freeflow.json'))
+      try {
+        await cp(path.join(source, 'assets'), path.join(dir, 'assets'), { recursive: true })
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      }
+      doc = parseDocument(JSON.parse(await readFile(path.join(dir, 'freeflow.json'), 'utf8')))
+    } else {
+      doc = await writeFixtureSite(dir)
+    }
     const result = await build(dir, { quiet: true })
     const site = await serve(result.outDir)
     const chrome = await launch({

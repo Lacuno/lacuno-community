@@ -43,6 +43,30 @@ planned work. The template does not imply current availability, pricing or a spe
 The primary “Explore Freeflow” action currently links to `/about` because no public project
 destination was verified during authoring.
 
+## Lighthouse performance audit
+
+On 2026-09-17, `pnpm lighthouse` audited the unchanged compiler fixture and
+`pnpm lighthouse templates/freeflow` audited a temporary copy of this template. Both commands
+completed once without a rerun. The harness ran Lighthouse 13.4.1 with Node 22.14.0 and Google
+Chrome for Testing 153.0.8010.12 on arm64 macOS 27.0. It used Lighthouse's default mobile preset:
+a 412 × 823 viewport at device scale factor 1.75 with simulated mobile Slow 4G throttling. The
+fixture routes scored 100 for `/`, `/blog/hello-world`, `/blog/second-post` and
+`/blog/third-post`.
+
+The template route scores were:
+
+| Route | Performance |
+| --- | ---: |
+| `/` | 100 |
+| `/about` | 100 |
+| `/blog` | 100 |
+| `/blog/from-document-to-website` | 100 |
+| `/blog/hosted-or-self-hosted` | 100 |
+| `/blog/your-website-your-rules` | 100 |
+
+These are Lighthouse performance-category results only; they do not represent an accessibility
+audit.
+
 ## MCP authoring evidence
 
 The initial empty document was created once with `DocumentStore.create`, the required bootstrap
