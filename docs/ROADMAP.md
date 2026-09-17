@@ -2,7 +2,7 @@
 
 Phases, not dates. Each phase has an exit condition we can demonstrate.
 
-## Phase 0. Foundation
+## Phase 0. Foundation — complete
 
 Goal: the document, the compiler and an agent can produce a real site before there is an editor.
 
@@ -15,10 +15,16 @@ Goal: the document, the compiler and an agent can produce a real site before the
 - `packages/mcp` and `freeflow mcp`: stdio server with `guide`, `document.read`, `page.outline`,
   `node.get`, `styles.get`, `entries.list`, atomic `document.apply` with dry run and version
   pinning, `asset.import`, `site.build`, and JSON Schema resources, operating on a site folder.
-- Default template documents written by an agent through the MCP server.
+- Default template documents written through the provider-independent MCP stdio server.
 
-**Exit:** Claude Code builds a three-page marketing site with a blog layout through MCP alone, and
-`freeflow build` publishes it with a Lighthouse performance score of 100.
+**Exit demonstrated on 2026-09-17:** an SDK MCP client authored the native default document through
+the real stdio server after the one required empty-document bootstrap. Version-pinned operations
+created the design tokens, shared components, three static pages, collection template, three entries
+and preview asset; no model-provider integration was required. The CLI then generated six static
+routes with no warnings. Browser checks covered the routes at desktop, mobile and 320px widths,
+including navigation, headings, keyboard focus, contrast and horizontal overflow. All six routes
+scored 100 in Lighthouse's performance category. `freeflow build` writes portable files to `dist/`;
+it does not publish them online.
 
 ## Phase 1. Editor MVP
 

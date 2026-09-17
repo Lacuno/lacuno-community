@@ -1,59 +1,106 @@
 # Freeflow starter
 
-This folder is a complete, editable Freeflow marketing-site starter. It includes Home, About and
-Blog pages, a collection-backed article template, three sample articles, shared navigation and
-footer components, and a reusable paper/ink/lime design system. The source stays in native
-Freeflow data rather than HTML embeds or page-specific code.
+This folder is a complete, editable Freeflow marketing-site starter. Its source is native Freeflow
+data rather than an HTML embed or custom code. It includes three static pages, a collection-backed
+article template, three sample articles, shared navigation and footer components, and a reusable
+paper/ink/lime design system.
 
 ## Copy and build
 
-Copy this folder to a persistent location of your choice, then build it from the Freeflow
-repository root:
+From the Freeflow repository root, choose a new destination that does not already contain a site:
 
 ```sh
-cp -R templates/freeflow /absolute/path/to/my-site
-pnpm --silent freeflow build /absolute/path/to/my-site
+mkdir -p "$HOME/FreeflowSites"
+cp -R templates/freeflow "$HOME/FreeflowSites/my-site"
+pnpm --silent freeflow build "$HOME/FreeflowSites/my-site"
 ```
 
-The compiler writes the static site to `dist/` inside the copied site folder. The generated
-directory is disposable; `freeflow.json` is the editable source.
+The compiler writes the static result to `dist/` inside the copied folder. A build does not publish
+the site online. If you copy a working folder that has already been built, omit the generated
+`dist/`, `.freeflow/` and `node_modules/` directories; only `freeflow.json`, `assets/` and this
+README are needed.
 
-To connect an MCP client over stdio, launch the server from the repository root:
+To edit the copied document with an MCP client, run its stdio server from the repository root. The
+concrete copied folder must be the final argument:
 
 ```sh
-pnpm --silent freeflow mcp /absolute/path/to/my-site
+pnpm --silent freeflow mcp "$HOME/FreeflowSites/my-site"
 ```
 
-The client owns that process. It should read the current document revision before sending
-version-pinned `document.apply` calls.
+The client owns that process. It should call `document.read`, keep the returned revision, and use
+that revision for version-pinned `document.apply` calls. The available server and CLI are enough to
+copy, edit and build the starter; no additional package or runtime service is required.
 
-## What to customize
+## Structure and customization
 
-- Edit Home, About and Blog page nodes for your own story and calls to action.
-- Change the color, typography, spacing and size design tokens to establish your visual system.
-- Update the shared header and footer components once to change navigation across every route.
-- Replace the three entries in `col-posts` with your own articles. Each entry stores `title`,
-  `slug`, `summary`, `body` and `url`. Update `slug` and `url` together so article routes and Blog
-  links continue to match.
-- The Home preview has stable nodes for adding a rendered page image: `n-home-preview-frame` is
-  the parent frame and `n-home-preview-fallback` is the editable fallback content.
+The static pages are Home (`/`), About (`/about`) and Blog (`/blog`). The Article page is the
+template for the `Posts` collection and produces one route for each entry. `Site header` and
+`Site footer` are shared components, so edits to either component affect every page that uses it.
 
-The hosted browser builder and Freeflow-operated hosting service described in the copy are
-planned work. The template does not imply current availability, pricing or a specific allowance.
-The primary “Explore Freeflow” action currently links to `/about` because no public project
-destination was verified during authoring.
+The design tokens are:
 
-## Lighthouse performance audit
+- colors: `color.accent`, `color.ink`, `color.line`, `color.muted`, `color.paper`;
+- typography: `font.body`;
+- radius and size: `radius.small`, `size.content`;
+- spacing: `space.xs`, `space.sm`, `space.md`, `space.lg`, `space.xl`, `space.2xl`.
 
-On 2026-09-17, `pnpm lighthouse` audited the unchanged compiler fixture and
-`pnpm lighthouse templates/freeflow` audited a temporary copy of this template. Both commands
-completed once without a rerun. The harness ran Lighthouse 13.4.1 with Node 22.14.0 and Google
-Chrome for Testing 153.0.8010.12 on arm64 macOS 27.0. It used Lighthouse's default mobile preset:
-a 412 × 823 viewport at device scale factor 1.75 with simulated mobile Slow 4G throttling. The
-fixture routes scored 100 for `/`, `/blog/hello-world`, `/blog/second-post` and
-`/blog/third-post`.
+Use MCP read tools such as `page.outline`, `node.get`, `styles.get` and `entries.list` to inspect the
+document. Apply node, style, token and component changes through version-pinned `document.apply`
+operations. To replace the sample articles, create, update or delete entries in `col-posts` with
+`entry.create`, `entry.update` and `entry.delete`. Each entry has `title`, `slug`, `summary`, `body`
+and `url` fields. Keep `slug` and `url` in sync: for example, the slug `my-article` needs the URL
+`/blog/my-article`, which is also the link emitted by the Blog list.
 
-The template route scores were:
+The Home preview is the image node `n-home-preview-image` inside `n-home-preview-frame`. Its source
+is a real 1440 × 900 browser capture of this starter's final About page, imported through the MCP
+`asset.import` tool. It is project-generated, includes no third-party artwork, and is distributed
+with this repository under its AGPL-3.0-or-later license. The starter uses a system font stack and
+has no external font or image attribution requirements.
+
+The Freeflow-operated browser builder and hosting service described in the sample copy are planned.
+No current availability, price or numeric allowance is promised. Self-hosting the builder and
+generated websites remains part of the project direction. The primary “Explore Freeflow” action
+links to `/about` because a working public project destination was not available when the starter
+was authored.
+
+## Authoring and verification evidence
+
+The initial empty document was created once with `DocumentStore.create`; this bootstrap exception
+was necessary before the MCP server could open a site. Every later content, style and asset mutation
+used an SDK MCP client connected to the real stdio command shown above. The client did not import the
+document engine, call `store.apply`, or hand-write the completed JSON. The source reached revision
+12 through version-pinned MCP operations.
+
+The first page batch was rejected atomically because a text-node payload lacked its tag. The payload
+was corrected and retried through MCP. Browser review later exposed a negative root margin hidden by
+an overflow mask; both declarations were cleared through MCP. A low-contrast lime-on-paper page
+number was changed to ink. The final About capture was imported, bound to the Home preview and the
+superseded image removed, all through MCP. On Node 24, the SDK client can print the repository's known
+unsettled-top-level-await warning while closing after a successful call; persisted results were read
+back before that warning.
+
+For repository contributions, run
+`pnpm exec biome format --write templates/freeflow/freeflow.json` after MCP authoring and before
+committing. This normalizes serialized whitespace; it does not replace MCP operations for document
+content or styles.
+
+Final MCP readback covered all four page outlines, the shared styles and components, the three
+collection entries, the preview image and the complete document. `site.build` returned six pages and
+no warnings. A separate CLI check copied only this README, `freeflow.json` and `assets/` to a fresh
+temporary folder and ran `pnpm --silent freeflow build <absolute-copy-dir> --json`; it also returned
+`{"pages":6,"warnings":[]}`.
+
+All six routes returned HTTP 200 in browser checks at 1440, 390 and 320 CSS pixels, with no horizontal
+overflow, console errors, page errors, missing h1, skipped heading level or broken internal link.
+Keyboard checks at desktop and mobile widths found a visible, working skip link and visible focus
+outlines. The rendered color pairs measured from 13.27:1 to 15.99:1 contrast. The responsive Home
+preview loaded the final imported image with intrinsic dimensions, alt text, lazy loading and
+generated WebP/AVIF variants.
+
+On 2026-09-17, `pnpm lighthouse templates/freeflow` audited the template with Lighthouse 13.4.1,
+Node 22.14.0 and Google Chrome for Testing 153.0.8010.12 on arm64 macOS 27.0. The default mobile
+preset used a 412 × 823 viewport, device scale factor 1.75 and simulated mobile Slow 4G throttling.
+Every route scored 100 in the performance category:
 
 | Route | Performance |
 | --- | ---: |
@@ -64,32 +111,5 @@ The template route scores were:
 | `/blog/hosted-or-self-hosted` | 100 |
 | `/blog/your-website-your-rules` | 100 |
 
-These are Lighthouse performance-category results only; they do not represent an accessibility
-audit.
-
-## MCP authoring evidence
-
-The initial empty document was created once with `DocumentStore.create`, the required bootstrap
-exception before an MCP server can open a site. Every later content and style mutation was sent
-through an SDK `Client` connected to the real Freeflow stdio server. The client launched
-`pnpm --silent freeflow mcp <absolute-site-directory>` and did not import the document engine,
-call `store.apply`, or write completed document JSON.
-
-Task 3 began at revision 1. A design-system batch produced revision 2; a shared-component,
-collection and entry batch produced revision 3; and the page batch produced revision 4. The
-first page attempt was atomically rejected because one text-node payload omitted its tag. The
-payload was corrected and retried through MCP without editing `freeflow.json` directly. A final
-copy refinement produced revision 5 through `node.update`. Review then found a negative root
-margin that conflicted with the compiler's body reset; two `style.clear` operations removed that
-margin and the unnecessary overflow mask, producing revision 6.
-
-Readback through MCP covered all four page outlines, all three collection entries, the shared
-style set, the preview frame subtree and the final document. `site.build` reported six pages and
-no warnings. The six routes are `/`, `/about`, `/blog`,
-`/blog/your-website-your-rules`, `/blog/from-document-to-website` and
-`/blog/hosted-or-self-hosted`.
-
-No external images or fonts are included, so there is no asset attribution requirement. The
-system font stack avoids third-party requests. Node 24 may print the repository’s known
-unsettled-top-level-await warning when the MCP client closes after successful calls; the calls
-and persisted results still complete before that warning.
+These Lighthouse scores cover performance only. The responsive, keyboard, heading, link and contrast
+checks above were separate browser QA.

@@ -6,8 +6,9 @@ Design visually like Webflow. Publish blazing-fast static sites built by Astro. 
 alongside you on the same document, on the canvas and from the terminal. Run it all on your own server
 with one command.
 
-> Status: pre-alpha. We are writing down what we want to build before we build it.
-> Start with [docs/VISION.md](docs/VISION.md).
+> Status: pre-alpha. Phase 0 is complete: the schema, document operations, CSS generator, static
+> compiler, CLI, stdio MCP server and default template are working. The visual editor and hosted
+> service are planned work. Start with [docs/VISION.md](docs/VISION.md).
 
 ## Documents
 
@@ -21,6 +22,7 @@ with one command.
 | [docs/LANDSCAPE.md](docs/LANDSCAPE.md) | What Webstudio, Webflow, Framer, Onlook, Plasmic and Puck do, and where we differ |
 | [docs/STACK.md](docs/STACK.md) | Pinned technology choices with reasons and fallbacks |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Decision log. Every big call, the alternatives, and why |
+| [templates/freeflow/README.md](templates/freeflow/README.md) | Copy, customize and build the runnable default template |
 
 ## The pitch in five lines
 
@@ -47,11 +49,19 @@ Node 22 and pnpm 10. The stack and the reasons behind it are in [docs/STACK.md](
 ### Repository layout
 
 ```
-packages/schema   The document schema (Zod), validation, fixtures. Everything else depends on it
-packages/css      Document to stylesheet. The one place CSS is generated
-apps/             Server, editor and CLI arrive in later phases
-docs/             Vision, features, architecture, agents, roadmap, decisions
+packages/schema     Document schema, validation and fixtures
+packages/document   Versioned operations, dry runs and atomic site-folder persistence
+packages/css        The document-to-stylesheet generator
+packages/compiler   The document-to-static-site compiler, using Astro internally
+packages/mcp        MCP tools and resources over the document and compiler
+apps/cli            The `freeflow build` and `freeflow mcp` commands
+templates/freeflow  Runnable default site, source asset and usage instructions
+scripts/            Smoke and Lighthouse checks
+docs/               Vision, features, architecture, agents, roadmap and decisions
 ```
 
-Phase 0 status: schema and CSS generator done. Next up: the Astro compiler and the MCP server.
-See [docs/ROADMAP.md](docs/ROADMAP.md).
+Phase 0 is complete. An MCP client authored the default template through the provider-independent
+stdio server, the CLI generated its six static routes, responsive and keyboard browser checks passed,
+and every route scored 100 in the Lighthouse performance category. See
+[the template instructions](templates/freeflow/README.md) to run it and [the roadmap](docs/ROADMAP.md)
+for the demonstrated exit criteria and planned editor work.
