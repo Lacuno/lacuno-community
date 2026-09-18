@@ -1,7 +1,9 @@
 import type { Document } from '@freeflow/schema'
 import type { EditOperation, InsertNode } from './history.js'
 
-export type Preset = 'heading' | 'paragraph' | 'section' | 'container'
+export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
+export type Structure = (typeof structures)[number]
+export type Preset = 'heading' | 'paragraph' | Structure
 export type Placement = 'inside' | 'after' | 'page'
 const containers = new Set([
   'div',
@@ -89,7 +91,7 @@ export function presetNode(
     type: 'element',
     tag: preset === 'section' ? 'section' : 'div',
     classes,
-    meta: { label: preset === 'section' ? 'Section' : 'Container' },
+    meta: { label: preset[0]!.toUpperCase() + preset.slice(1) },
     children:
       preset === 'section'
         ? [
@@ -98,4 +100,47 @@ export function presetNode(
           ]
         : [],
   }
+}
+
+const defaults: Record<Structure, Record<string, string>> = {
+  section: { padding: '48px 24px', 'box-sizing': 'border-box' },
+  container: { width: '100%', 'max-width': '1100px', margin: '0 auto', 'box-sizing': 'border-box' },
+  stack: { display: 'flex', 'flex-direction': 'column', gap: '16px' },
+  row: { display: 'flex', 'flex-direction': 'row', 'flex-wrap': 'wrap', gap: '16px' },
+  grid: { display: 'grid', 'grid-template-columns': 'repeat(3, minmax(0, 1fr))', gap: '16px' },
+}
+
+export function structureInsertion(
+  preset: Preset,
+  target: { parent: string; index: number },
+  classId = '',
+  empty = false,
+): { node: InsertNode; operations: EditOperation[] } {
+  const node = presetNode(preset, classId)
+  if (empty) node.children = []
+  const operations: EditOperation[] = []
+  if (preset in defaults) {
+    const id = `c-${crypto.randomUUID()}`
+    node.classes.push(id)
+    operations.push({ type: 'class.create', id, local: true })
+    for (const [property, value] of Object.entries(defaults[preset as Structure])) {
+      operations.push({
+        type: 'style.set',
+        class: id,
+        breakpoint: 'base',
+        state: 'none',
+        property,
+        value: { type: 'raw', value },
+      })
+    }
+  }
+  operations.push({ type: 'node.create', ...target, node })
+  return { node, operations }
+}
+
+export function wrapSelection(doc: Document, id: string, preset: Structure) {
+  const target = insertionTarget(doc, '', id, 'after')
+  const result = structureInsertion(preset, { ...target, index: target.index - 1 }, '', true)
+  result.operations.push({ type: 'node.move', id, parent: result.node.id, index: 0 })
+  return result
 }

@@ -35,6 +35,7 @@ function Layers({
   id,
   selected,
   select,
+  actions,
   depth = 0,
 }: {
   doc: Document
@@ -42,6 +43,7 @@ function Layers({
   selected: string
   select: (id: string) => void
   depth?: number
+  actions: (id: string) => void
 }) {
   const node = doc.nodes[id]
   if (!node || depth > 50) return null
@@ -57,6 +59,16 @@ function Layers({
         className={`layer ${selected === id ? 'selected' : ''}`}
         style={{ paddingLeft: 16 + depth * 13 }}
         onClick={() => select(id)}
+        onContextMenu={(event) => {
+          event.preventDefault()
+          actions(id)
+        }}
+        onKeyDown={(event) => {
+          if (event.shiftKey && event.key === 'F10') {
+            event.preventDefault()
+            actions(id)
+          }
+        }}
         title={describe(node)}
       >
         <span className="layer-icon">
@@ -74,6 +86,7 @@ function Layers({
           id={child}
           selected={selected}
           select={select}
+          actions={actions}
           depth={depth + 1}
         />
       ))}
@@ -389,6 +402,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot>()
   const [ribbonHost, setRibbonHost] = useState<HTMLDivElement | null>(null)
   const [ribbonTab, setRibbonTab] = useState('Home')
+  const [sidebar, setSidebar] = useState<'Add' | 'Layers' | 'Pages'>('Layers')
+  const elementActionsId = useId()
   const ribbonGroup =
     ribbonTab === 'Layout'
       ? 'Spacing & shape'
@@ -680,17 +695,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
               {tab}
             </button>
           ))}
-          <button
-            type="button"
-            className="ribbon-insert"
-            onClick={() => {
-              const panel = document.querySelector<HTMLDetailsElement>('.structure-panel details')
-              if (panel) {
-                panel.open = true
-                panel.querySelector<HTMLSelectElement>('select')?.focus()
-              }
-            }}
-          >
+          <button type="button" className="ribbon-insert" onClick={() => setSidebar('Add')}>
             <EditorIcon name="plus" />
             Insert
           </button>
@@ -763,62 +768,133 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       )}
       <div className="editor-body">
         <aside className="layers-panel">
-          <div className="panel-title">
-            Pages<span>{doc ? Object.keys(doc.pages).length : ''}</span>
-          </div>
-          <div className="page-list">
-            {doc &&
-              Object.values(doc.pages)
-                .sort(
-                  (a, b) =>
-                    Number(b.path === '/') - Number(a.path === '/') || a.name.localeCompare(b.name),
-                )
-                .map((item) => (
+          <nav className="sidebar-rail" aria-label="Editor panels">
+            {(['Add', 'Layers', 'Pages'] as const).map((name) => (
+              <button
+                key={name}
+                type="button"
+                aria-label={name}
+                title={name}
+                aria-pressed={sidebar === name}
+                onClick={() => setSidebar(name)}
+              >
+                <EditorIcon name={name === 'Add' ? 'plus' : name === 'Layers' ? 'layer' : 'page'} />
+              </button>
+            ))}
+          </nav>
+          <section className="sidebar-content" aria-label={`${sidebar} panel`}>
+            {sidebar === 'Pages' && (
+              <>
+                <div className="panel-title">
+                  Pages<span>{doc ? Object.keys(doc.pages).length : ''}</span>
+                </div>
+                <div className="page-list">
+                  {doc &&
+                    Object.values(doc.pages)
+                      .sort(
+                        (a, b) =>
+                          Number(b.path === '/') - Number(a.path === '/') ||
+                          a.name.localeCompare(b.name),
+                      )
+                      .map((item) => (
+                        <button
+                          type="button"
+                          className={`page-link ${pageId === item.id ? 'active' : ''}`}
+                          key={item.id}
+                          onClick={() =>
+                            leave(() => {
+                              setPageId(item.id)
+                              setSelected('')
+                              setEntryId('')
+                              setError('')
+                            })
+                          }
+                        >
+                          <EditorIcon name="page" />
+                          {item.name}
+                          <span className="page-path">{item.collection ? 'CMS' : item.path}</span>
+                        </button>
+                      ))}
+                </div>
+              </>
+            )}
+            {sidebar === 'Add' && (
+              <>
+                <div className="panel-title">Add elements</div>
+                {doc && page && (
+                  <StructurePanel
+                    doc={doc}
+                    root={page.root}
+                    selected={selected}
+                    disabled={busy || dirty || conflict}
+                    save={save}
+                    select={(id) => {
+                      setSelected(id)
+                      setSidebar('Layers')
+                    }}
+                  />
+                )}
+              </>
+            )}
+            {sidebar === 'Layers' && (
+              <>
+                <div className="panel-title">
+                  Layers
                   <button
                     type="button"
-                    className={`page-link ${pageId === item.id ? 'active' : ''}`}
-                    key={item.id}
-                    onClick={() =>
-                      leave(() => {
-                        setPageId(item.id)
-                        setSelected('')
-                        setEntryId('')
-                        setError('')
-                      })
-                    }
+                    className="element-actions-button"
+                    aria-label="Element actions"
+                    title="Element actions"
+                    disabled={!selected}
+                    popoverTarget={elementActionsId}
                   >
-                    <EditorIcon name="page" />
-                    {item.name}
-                    <span className="page-path">{item.collection ? 'CMS' : item.path}</span>
+                    •••
                   </button>
-                ))}
-          </div>
-          {doc && page && (
-            <StructurePanel
-              doc={doc}
-              root={page.root}
-              selected={selected}
-              disabled={busy || dirty || conflict}
-              save={save}
-              select={setSelected}
-            />
-          )}
-          <div className="panel-title">
-            Layers
-            <EditorIcon name="layer" />
-          </div>
-          <div className="layer-list">
-            {doc && page && (
-              <Layers
-                doc={doc}
-                id={page.root}
-                selected={selected}
-                select={(id) => {
-                  if (id !== selected) leave(() => setSelected(id))
-                }}
-              />
+                </div>
+                {doc && page && (
+                  <div
+                    id={elementActionsId}
+                    popover="auto"
+                    className="element-actions-popover"
+                    key={selected}
+                  >
+                    <strong>
+                      {doc.nodes[selected] ? describe(doc.nodes[selected]!) : 'Element actions'}
+                    </strong>
+                    <StructurePanel
+                      mode="actions"
+                      doc={doc}
+                      root={page.root}
+                      selected={selected}
+                      disabled={busy || dirty || conflict}
+                      save={save}
+                      select={setSelected}
+                    />
+                  </div>
+                )}
+                <div className="layer-list">
+                  {doc && page && (
+                    <Layers
+                      doc={doc}
+                      id={page.root}
+                      selected={selected}
+                      actions={(id) =>
+                        leave(() => {
+                          setSelected(id)
+                          requestAnimationFrame(() =>
+                            document.getElementById(elementActionsId)?.showPopover(),
+                          )
+                        })
+                      }
+                      select={(id) => {
+                        if (id !== selected) leave(() => setSelected(id))
+                      }}
+                    />
+                  )}
+                </div>
+              </>
             )}
-          </div>
+          </section>
         </aside>
         <main className="canvas-panel">
           <div className="canvas-toolbar">

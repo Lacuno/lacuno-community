@@ -5,11 +5,15 @@ import {
   insertionTarget,
   type Placement,
   type Preset,
-  presetNode,
+  type Structure,
   siblingMove,
+  structureInsertion,
+  structures,
+  wrapSelection,
 } from './structure.js'
 
 export function StructurePanel({
+  mode = 'add',
   doc,
   root,
   selected,
@@ -17,6 +21,7 @@ export function StructurePanel({
   save,
   select,
 }: {
+  mode?: 'add' | 'actions'
   doc: Document
   root: string
   selected: string
@@ -27,6 +32,13 @@ export function StructurePanel({
   const [preset, setPreset] = useState<Preset>('heading')
   const [placement, setPlacement] = useState<Placement>('page')
   const [classId, setClassId] = useState('')
+  const [wrapper, setWrapper] = useState<Structure>('container')
+  let wrapReason = ''
+  try {
+    insertionTarget(doc, root, selected, 'after')
+  } catch (error) {
+    wrapReason = (error as Error).message
+  }
   let target: ReturnType<typeof insertionTarget> | undefined
   let reason = ''
   try {
@@ -39,22 +51,37 @@ export function StructurePanel({
   const parent = target && doc.nodes[target.parent]
   return (
     <div className="structure-panel">
-      <details>
-        <summary>Add element</summary>
+      {mode === 'add' && (
         <div className="insert-fields">
-          <label>
-            Element
-            <select
-              aria-label="Element type"
-              value={preset}
-              onChange={(event) => setPreset(event.target.value as Preset)}
-            >
-              <option value="heading">Heading</option>
-              <option value="paragraph">Paragraph</option>
-              <option value="section">Section</option>
-              <option value="container">Empty container</option>
-            </select>
-          </label>
+          {[
+            { label: 'Structure', items: structures },
+            { label: 'Text', items: ['heading', 'paragraph'] as const },
+          ].map((group) => (
+            <section className="insert-category" key={group.label}>
+              <h3>{group.label}</h3>
+              <div className="insert-tiles">
+                {group.items.map((name) => (
+                  <button
+                    type="button"
+                    key={name}
+                    aria-pressed={preset === name}
+                    onClick={() => setPreset(name)}
+                  >
+                    <svg
+                      viewBox="0 0 32 32"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      aria-hidden="true"
+                    >
+                      <path d={tilePaths[name]} />
+                    </svg>
+                    {name[0]!.toUpperCase() + name.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
           <label>
             Position
             <select
@@ -96,46 +123,90 @@ export function StructurePanel({
             disabled={disabled || !target}
             onClick={async () => {
               if (!target) return
-              const node = presetNode(preset, classId)
-              if (await save([{ type: 'node.create', ...target, node }])) select(node.id)
+              const { node, operations } = structureInsertion(preset, target, classId)
+              if (await save(operations)) select(node.id)
             }}
           >
             Insert element
           </button>
         </div>
-      </details>
-      <div className="structure-order">
-        <span>Layer order</span>
-        <div className="history-controls">
-          {[
-            { name: 'Move up', operation: up, path: 'm6 11 6-6 6 6M12 5v14' },
-            { name: 'Move down', operation: down, path: 'm6 13 6 6 6-6M12 19V5' },
-          ].map(({ name, operation, path }) => (
-            <button
-              key={name}
-              type="button"
-              aria-label={name}
-              title={name}
-              disabled={disabled || !operation}
-              onClick={() => {
-                if (operation) void save([operation])
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+      )}
+      {mode === 'actions' && (
+        <>
+          <details>
+            <summary>Wrap selection in…</summary>
+            <div className="insert-fields">
+              <label>
+                Structure
+                <select
+                  aria-label="Wrap structure"
+                  value={wrapper}
+                  onChange={(event) => setWrapper(event.target.value as Structure)}
+                >
+                  {structures.map((name) => (
+                    <option key={name} value={name}>
+                      {name[0]!.toUpperCase() + name.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {wrapReason && <p className="insert-hint">{wrapReason}</p>}
+              <button
+                type="button"
+                disabled={disabled || !!wrapReason}
+                onClick={async () => {
+                  const { node, operations } = wrapSelection(doc, selected, wrapper)
+                  if (await save(operations)) select(node.id)
+                }}
               >
-                <path d={path} />
-              </svg>
-            </button>
-          ))}
-        </div>
-      </div>
+                Wrap selection
+              </button>
+            </div>
+          </details>
+          <div className="structure-order">
+            <span>Layer order</span>
+            <div className="history-controls">
+              {[
+                { name: 'Move up', operation: up, path: 'm6 11 6-6 6 6M12 5v14' },
+                { name: 'Move down', operation: down, path: 'm6 13 6 6 6-6M12 19V5' },
+              ].map(({ name, operation, path }) => (
+                <button
+                  key={name}
+                  type="button"
+                  aria-label={name}
+                  title={name}
+                  disabled={disabled || !operation}
+                  onClick={() => {
+                    if (operation) void save([operation])
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d={path} />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
+}
+
+const tilePaths: Record<Preset, string> = {
+  section: 'M3 4h26v24H3zM3 10h26M3 23h26',
+  container: 'M3 4h26v24H3zM9 9h14v14H9z',
+  stack: 'M5 3h22v26H5zM10 9h12M10 16h12M10 23h12',
+  row: 'M3 5h26v22H3zM9 10v12M16 10v12M23 10v12',
+  grid: 'M4 4h24v24H4zM16 4v24M4 16h24',
+  heading: 'M7 5v22M25 5v22M7 16h18',
+  paragraph: 'M6 7h20M6 13h20M6 19h20M6 25h12',
 }

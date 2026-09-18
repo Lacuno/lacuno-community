@@ -32,6 +32,44 @@ export const formattingGroups = [
     ],
   },
   {
+    name: 'Layout',
+    fields: [
+      { property: 'display', label: 'Layout type', choices: ['block', 'flex', 'grid'] },
+      {
+        property: 'flex-direction',
+        label: 'Direction',
+        choices: ['row', 'column', 'row-reverse', 'column-reverse'],
+      },
+      { property: 'flex-wrap', label: 'Wrapping', choices: ['nowrap', 'wrap'] },
+      {
+        property: 'justify-content',
+        label: 'Distribute items',
+        choices: [
+          'flex-start',
+          'center',
+          'flex-end',
+          'space-between',
+          'space-around',
+          'space-evenly',
+        ],
+      },
+      {
+        property: 'align-items',
+        label: 'Align items',
+        choices: ['stretch', 'flex-start', 'center', 'flex-end', 'baseline'],
+      },
+      {
+        property: 'grid-template-columns',
+        label: 'Grid columns',
+        hint: 'e.g. repeat(3, minmax(0, 1fr))',
+      },
+      { property: 'width', label: 'Width', hint: 'auto, 100%, or 320px' },
+      { property: 'height', label: 'Height', hint: 'auto or 240px' },
+      { property: 'min-width', label: 'Minimum width', hint: 'e.g. 0px' },
+      { property: 'max-width', label: 'Maximum width', hint: 'e.g. 1100px' },
+    ],
+  },
+  {
     name: 'Spacing & shape',
     fields: [
       { property: 'padding', label: 'Inside spacing', hint: 'e.g. 16px' },
@@ -182,6 +220,10 @@ export function normalizeFormatting(
 ): Record<string, CssValue | null> {
   const lengths = new Set([
     'font-size',
+    'width',
+    'height',
+    'min-width',
+    'max-width',
     'padding',
     'margin',
     'gap',

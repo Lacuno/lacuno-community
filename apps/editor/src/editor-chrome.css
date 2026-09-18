@@ -297,6 +297,7 @@
   color: #8b8c99;
 }
 .ribbon-formatting {
+  gap: 20px;
   display: flex;
   align-items: stretch;
 }
@@ -322,6 +323,15 @@
   align-items: flex-start;
   gap: 10px;
   margin: 0;
+}
+.ribbon-formatting
+  :where(details[data-group="Layout"], details[data-group="Spacing & shape"])
+  .formatting-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 106px);
+}
+.ribbon-formatting :where(details[data-group="Layout"]) .formatting-grid {
+  grid-template-columns: repeat(5, 106px);
 }
 .ribbon-formatting .formatting-grid > div {
   width: 106px;
@@ -422,7 +432,7 @@
   border-radius: 50%;
 }
 .editor-body {
-  grid-template-columns: 218px minmax(350px, 1fr) 294px;
+  grid-template-columns: 270px minmax(350px, 1fr) 294px;
 }
 .editor .panel-title {
   min-height: 44px;
@@ -644,7 +654,7 @@
 
 @media (max-width: 1150px) {
   .editor-body {
-    grid-template-columns: 190px minmax(350px, 1fr) 266px;
+    grid-template-columns: 240px minmax(350px, 1fr) 266px;
   }
   .editor-header .site-name {
     max-width: 230px;
@@ -759,4 +769,86 @@
 .editor :is(input, select, button)[data-overridden="true"] {
   border-color: #b8a1f5;
   background-color: #faf8ff;
+}
+
+.editor .layers-panel {
+  flex-direction: row;
+  overflow: hidden;
+}
+.sidebar-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 44px;
+  gap: 8px;
+  padding-top: 10px;
+  border-right: 1px solid var(--border);
+  background: #faf9fd;
+}
+.sidebar-rail :where(button) {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #737585;
+}
+.sidebar-rail button[aria-pressed="true"] {
+  background: #eee7ff;
+  color: #693cdd;
+}
+.sidebar-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+.insert-category h3 {
+  margin: 4px 0 10px;
+  font-size: 12px;
+}
+.insert-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.insert-tiles :where(button) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 4px;
+  font-size: 11px;
+  background: #faf9fd;
+}
+.insert-tiles button[aria-pressed="true"] {
+  border-color: #8a60ea;
+  background: #f2edff;
+  color: #693cdd;
+}
+.insert-tiles svg {
+  width: 32px;
+  height: 32px;
+}
+.element-actions-button {
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+}
+.element-actions-popover {
+  inset: 265px auto auto 55px;
+  margin: 0;
+  width: 240px;
+  max-height: calc(100vh - 285px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px #26203b24;
+  font-size: 12px;
+}
+.element-actions-popover .structure-panel {
+  margin-top: 12px;
 }

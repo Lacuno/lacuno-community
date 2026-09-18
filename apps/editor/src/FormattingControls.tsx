@@ -8,6 +8,15 @@ import { MotionControls } from './MotionControls.js'
 const choiceLabel = (value: string) =>
   (
     ({
+      block: 'Normal flow',
+      flex: 'Stack / row',
+      grid: 'Grid',
+      row: 'Horizontal',
+      column: 'Vertical',
+      nowrap: 'Single line',
+      wrap: 'Wrap',
+      'flex-start': 'Start',
+      'flex-end': 'End',
       '400': 'Regular',
       '500': 'Medium',
       '600': 'Semibold',
@@ -44,9 +53,11 @@ export function FormattingControls({
   return (
     <div className={`formatting-controls ${ribbon ? 'ribbon-formatting' : 'inspector-formatting'}`}>
       {formattingGroups
-        .filter(
-          (group) => !groupName || (ribbon ? group.name === groupName : group.name !== groupName),
-        )
+        .filter((group) => {
+          const active =
+            group.name === groupName || (groupName === 'Spacing & shape' && group.name === 'Layout')
+          return !groupName || (ribbon ? active : !active)
+        })
         .map((group) => (
           <details
             data-group={group.name}
@@ -155,19 +166,7 @@ export function FormattingControls({
                               )}
                               {field.choices.map((choice) => (
                                 <option key={choice} value={choice}>
-                                  {(
-                                    {
-                                      'Inter, sans-serif': 'Inter',
-                                      'Arial, sans-serif': 'Arial',
-                                      'Georgia, serif': 'Georgia',
-                                      monospace: 'Monospace',
-                                      '400': 'Regular',
-                                      '500': 'Medium',
-                                      '600': 'Semibold',
-                                      '700': 'Bold',
-                                      '800': 'Extra bold',
-                                    } as Record<string, string>
-                                  )[choice] ?? choice}
+                                  {choiceLabel(choice)}
                                 </option>
                               ))}
                             </select>

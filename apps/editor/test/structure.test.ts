@@ -2,7 +2,15 @@ import { DocumentStore } from '@freeflow/document'
 import { fixtureDocument } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import { captureEdit, type EditOperation } from '../src/history.js'
-import { insertionTarget, presetNode, siblingMove, structureRestriction } from '../src/structure.js'
+import {
+  insertionTarget,
+  presetNode,
+  siblingMove,
+  structureInsertion,
+  structureRestriction,
+  structures,
+  wrapSelection,
+} from '../src/structure.js'
 
 it('round-trips insertion, subtree edits and sibling moves with stable IDs', async () => {
   const original = fixtureDocument()
@@ -49,4 +57,48 @@ it('offers valid destinations and protects locked ancestors and shared component
   expect(siblingMove(doc, id, 1)).toBeUndefined()
   for (const component of Object.values(doc.components))
     expect(structureRestriction(doc, component.root)).toContain('Component')
+})
+
+it.each(structures)(
+  'wraps content in %s without losing identity and restores it on undo',
+  async (preset) => {
+    const original = fixtureDocument()
+    const id = 'n-hero-title'
+    const before = original.nodes[id]!
+    const parent = original.nodes[before.parent!]!
+    const { node, operations } = wrapSelection(original, id, preset)
+    const entry = captureEdit(original, operations)
+    const store = DocumentStore.inMemory(original)
+    await store.apply({ expectedRevision: store.revision, operations })
+    const edited = store.read().document
+    expect(edited.nodes[parent.id]!.children[parent.children.indexOf(id)]).toBe(node.id)
+    expect(edited.nodes[node.id]!.children).toEqual([id])
+    expect(edited.nodes[id]).toEqual({ ...before, parent: node.id })
+    expect(Object.values(edited.styles).some((style) => node.classes.includes(style.class))).toBe(
+      true,
+    )
+    await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+    expect({ ...store.read().document, revision: original.revision }).toEqual(original)
+    await store.apply({ expectedRevision: store.revision, operations: entry.redo })
+    expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
+  },
+)
+
+it('protects roots and locked selections from wrapping and creates empty layout blocks', () => {
+  const doc = fixtureDocument()
+  const root = Object.values(doc.nodes).find((node) => !node.parent)!
+  expect(() => wrapSelection(doc, root.id, 'row')).toThrow()
+  doc.nodes['n-hero-title']!.meta = { locked: true }
+  expect(() => wrapSelection(doc, 'n-hero-title', 'row')).toThrow('locked')
+  for (const preset of ['stack', 'row', 'grid'] as const) {
+    const result = structureInsertion(preset, { parent: root.id, index: 0 })
+    expect(result.node.children).toEqual([])
+    expect(result.operations).toContainEqual(
+      expect.objectContaining({
+        type: 'style.set',
+        property: 'display',
+        value: { type: 'raw', value: preset === 'grid' ? 'grid' : 'flex' },
+      }),
+    )
+  }
 })

@@ -99,8 +99,10 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await page.locator('.layer').filter({ hasText: /h1$/ }).click()
     expect(await page.getByLabel('Text', { exact: true }).inputValue()).toBe('Made with Freeflow.')
     await page.getByLabel('Text', { exact: true }).fill('Autosaved on navigation')
+    await page.getByRole('button', { name: 'Pages', exact: true }).click()
     await page.locator('.page-link').filter({ hasText: 'About' }).click()
     await expect.poll(() => page.locator('.page-link.active').textContent()).toContain('About')
+    await page.getByRole('button', { name: 'Pages', exact: true }).click()
     await page.locator('.page-link').filter({ hasText: 'Home' }).click()
     await expect.poll(() => heading.textContent()).toBe('Autosaved on navigation')
     await heading.click()
@@ -169,15 +171,22 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     expect(await frame.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     )
+    await page.getByRole('button', { name: 'Pages', exact: true }).click()
     await page.locator('.page-link').filter({ hasText: 'Article' }).click()
     await page.getByLabel('Collection entry').selectOption({ index: 1 })
     await canvas.locator('h1').waitFor()
+    await page.getByRole('button', { name: 'Pages', exact: true }).click()
     await page.locator('.page-link').filter({ hasText: 'Home' }).click()
     await heading.waitFor()
     await page.getByRole('button', { name: 'Desktop', exact: true }).click()
     await heading.click()
-    await page.getByText('Add element', { exact: true }).click()
+    await page.getByRole('button', { name: 'Insert', exact: true }).click()
+    expect(await page.getByRole('region', { name: 'Add panel' }).count()).toBe(1)
+    expect(await page.getByRole('region', { name: 'Pages panel' }).count()).toBe(0)
+    await page.getByRole('button', { name: 'Heading', exact: true }).click()
+    await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-add.png') })
     await page.getByRole('button', { name: 'Insert element', exact: true }).click()
+    await page.getByRole('region', { name: 'Layers panel' }).waitFor()
     const inserted = canvas.getByRole('heading', { name: 'Your new heading', exact: true })
     await inserted.waitFor()
     const insertedId = await inserted.getAttribute('data-freeflow-node')
@@ -186,6 +195,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await page.getByRole('button', { name: 'Redo', exact: true }).click()
     await inserted.waitFor()
     expect(await inserted.getAttribute('data-freeflow-node')).toBe(insertedId)
+    await page.getByRole('button', { name: 'Element actions', exact: true }).click()
     await expect
       .poll(() => page.getByRole('button', { name: 'Move up', exact: true }).isEnabled())
       .toBe(true)
@@ -199,6 +209,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
       return siblings.indexOf(insertedId) - siblings.length
     }
     await expect.poll(readInsertedPosition).toBe(-2)
+    await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'Undo', exact: true }).click()
     await expect.poll(readInsertedPosition).toBe(-1)
     await page.getByRole('button', { name: 'Reload site', exact: true }).click()
@@ -246,7 +257,8 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await saved()
     const insertedColor = () => inserted.evaluate((element) => getComputedStyle(element).color)
     await expect.poll(insertedColor).toBe('rgb(171, 205, 239)')
-    await page.getByLabel('Element type').selectOption('paragraph')
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await page.getByRole('button', { name: 'Paragraph', exact: true }).click()
     await page.getByLabel('Insert style class').selectOption({ label: 'project-color-test' })
     await page.getByRole('button', { name: 'Insert element', exact: true }).click()
     const paragraph = canvas.getByText('Write something worth sharing.', { exact: true })
@@ -377,6 +389,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await page.getByLabel('Size', { exact: true }).fill('not-a-size')
     await page.getByRole('alert').waitFor()
     page.once('dialog', (dialog) => dialog.dismiss())
+    await page.getByRole('button', { name: 'Pages', exact: true }).click()
     await page.locator('.page-link').filter({ hasText: 'About' }).click()
     expect(await page.getByLabel('Size', { exact: true }).inputValue()).toBe('not-a-size')
     await page.getByLabel('Size', { exact: true }).fill('')
@@ -652,6 +665,43 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     expect(
       await page.getByLabel('Hover shadow', { exact: true }).getAttribute('data-overridden'),
     ).toBe('false')
+    // Wrapping preserves content and supports different arrangements at each viewport.
+    await page.getByRole('button', { name: 'Desktop', exact: true }).click()
+    await page.getByRole('button', { name: 'Layers', exact: true }).click()
+    await page.locator('.layer.selected').click({ button: 'right' })
+    await page.getByText('Wrap selection in…', { exact: true }).click()
+    await page.getByLabel('Wrap structure', { exact: true }).selectOption('row')
+    const originalParent = await heading.evaluate((element) =>
+      element.parentElement!.getAttribute('data-freeflow-node'),
+    )
+    await page.getByRole('button', { name: 'Wrap selection', exact: true }).click()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element.parentElement!).display))
+      .toBe('flex')
+    await page.getByRole('button', { name: 'Layout', exact: true }).click()
+    await page.getByRole('button', { name: 'Mobile', exact: true }).click()
+    await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
+    await page.getByLabel('Direction', { exact: true }).selectOption('column')
+    await saved()
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => getComputedStyle(element.parentElement!).flexDirection),
+      )
+      .toBe('column')
+    await page.getByRole('button', { name: 'Desktop', exact: true }).click()
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => getComputedStyle(element.parentElement!).flexDirection),
+      )
+      .toBe('row')
+    await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-layout.png') })
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => element.parentElement!.getAttribute('data-freeflow-node')),
+      )
+      .toBe(originalParent)
     await page.getByRole('button', { name: 'Back to sites' }).click()
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill('editor@example.test')
