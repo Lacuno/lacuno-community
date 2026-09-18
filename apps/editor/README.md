@@ -48,8 +48,15 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   Bare numeric sizes use pixels. Choose **Reset formatting** to clear base/default local adjustments;
   resetting and formatting both support undo/redo. Project colors remain linked references.
   Local rules take precedence over shared rules in both canvas and published CSS. Component
-  definition edits still affect all instances, as indicated in the inspector. Named style presets
-  and explicit “update style from selection” are a later milestone.
+  definition edits still affect all instances, as indicated in the inspector.
+- **Presets** in the Design inspector reuse base typography, colors, spacing, and borders. Create
+  one from the selected element, then apply it immediately from the picker on other elements.
+  Applying a preset replaces local base formatting; choosing **No preset** removes its link.
+  Subsequent formatting stays local. **Reset to preset** clears those adjustments, while
+  **Update preset** merges them into the shared preset and displays the number of affected elements.
+  Other elements keep their own local overrides. Color references stay linked. Preset creation,
+  application, reset, and updates support undo/redo. Responsive and interaction-state styling
+  remain in the underlying shared classes; presets currently capture base/default formatting.
 - Text, formatting and existing project colors preview immediately and save automatically after a
   400 ms pause. No Save button is required. Writes are serialized; typing during a request remains
   responsive and queues the latest changes. Switching selection or page flushes pending edits.

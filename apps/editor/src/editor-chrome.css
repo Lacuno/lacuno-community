@@ -1,3 +1,55 @@
+.preset-manager {
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 16px;
+  margin-bottom: 16px;
+  display: grid;
+  gap: 8px;
+}
+.preset-manager label {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #565d73;
+}
+.preset-manager .hint {
+  margin: 0 0 4px;
+}
+.preset-manager button {
+  font-size: 11px;
+}
+.preset-manager form {
+  display: grid;
+  gap: 8px;
+}
+
+.preset-creation-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 290px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  color: #252633;
+  box-shadow:
+    0 12px 40px #25263324,
+    0 2px 8px #2526330d;
+}
+.preset-creation-popover > strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.preset-creation-popover .hint {
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
 /* Editor chrome: contextual ribbon, quiet canvas and categorized inspector. */
 .editor {
   --accent: #7047eb;

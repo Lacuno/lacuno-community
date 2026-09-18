@@ -19,6 +19,7 @@ import {
   historyShortcut,
 } from './history.js'
 import type { LivePreview } from './livePreview.js'
+import { PresetManager } from './PresetManager.js'
 import { ProjectColors } from './ProjectColors.js'
 import { StructurePanel } from './StructurePanel.js'
 import { useAutosave } from './useAutosave.js'
@@ -129,6 +130,7 @@ function Inspector({
   const [text, setText] = useState(originalText ?? '')
   const [changes, setChanges] = useState<Record<string, CssValue | null>>({})
   const [classDraft, setClassDraft] = useState(false)
+  const [presetDraft, setPresetDraft] = useState(false)
   const classId = useRef(`c-${crypto.randomUUID()}`)
   const normalized = normalizeFormatting(changes)
   const pending = Object.fromEntries(
@@ -149,8 +151,8 @@ function Inspector({
   const textDirty = originalText !== undefined && text !== originalText
   const styleDirty = Object.keys(pending).length > 0
   useEffect(() => {
-    dirtyChanged(textDirty || styleDirty || classDraft)
-  }, [textDirty, styleDirty, classDraft, dirtyChanged])
+    dirtyChanged(textDirty || styleDirty || classDraft || presetDraft)
+  }, [textDirty, styleDirty, classDraft, presetDraft, dirtyChanged])
   let locked = false
   let shared = false
   for (
@@ -162,7 +164,7 @@ function Inspector({
     if (Object.values(doc.components).some((component) => component.root === current?.id))
       shared = true
   }
-  const disabled = conflict || locked || classDraft
+  const disabled = conflict || locked || classDraft || presetDraft
   const local = localClass(doc, node)
   const overrides = Object.values(doc.styles).filter(
     (style) => style.class === local && style.breakpoint === 'base' && style.state === 'none',
@@ -183,7 +185,7 @@ function Inspector({
   if (!invalid) operations.push(...formattingOperations(doc, node, pending, () => classId.current))
   const autosave = useAutosave(operations, !disabled && !invalid, busy, autoSave)
   const flushRef = useRef(autosave.flush)
-  flushRef.current = async () => !invalid && !classDraft && (await autosave.flush())
+  flushRef.current = async () => !invalid && !classDraft && !presetDraft && (await autosave.flush())
   useEffect(() => {
     registerFlush(() => flushRef.current())
     return () => registerFlush(async () => true)
@@ -261,6 +263,14 @@ function Inspector({
       <div className="inspector-body">
         {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
         {locked && <p className="note">This element or its parent is locked.</p>}
+        <PresetManager
+          doc={doc}
+          node={node}
+          computed={computed}
+          disabled={busy || conflict || locked || textDirty || styleDirty || classDraft}
+          save={save}
+          draftChanged={setPresetDraft}
+        />
         <form
           onSubmit={(event) => {
             event.preventDefault()
@@ -315,7 +325,7 @@ function Inspector({
           <ClassManager
             doc={doc}
             node={node}
-            disabled={busy || conflict || locked || textDirty || styleDirty}
+            disabled={busy || conflict || locked || textDirty || styleDirty || presetDraft}
             save={save}
             draftChanged={setClassDraft}
           />

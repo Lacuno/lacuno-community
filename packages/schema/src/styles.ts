@@ -53,6 +53,8 @@ export const Class = z.object({
    * this class, and compiles to the compound selector `.a.b.this`. Order is significant.
    */
   combo: z.array(ClassId).optional(),
+  /** A reusable formatting preset exposed in the editor. */
+  preset: z.boolean().optional(),
   locked: z.boolean().optional(),
 })
 export type Class = z.infer<typeof Class>

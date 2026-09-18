@@ -22,7 +22,7 @@ export function ClassManager({
     draftChanged(!!name || !!existing)
   }, [name, existing, draftChanged])
   const available = Object.values(doc.classes)
-    .filter((cls) => cls.kind === 'class' && !node.classes.includes(cls.id))
+    .filter((cls) => cls.kind === 'class' && !cls.preset && !node.classes.includes(cls.id))
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   const location = (item: Node) => {
     let current: Node | undefined = item
@@ -42,7 +42,7 @@ export function ClassManager({
       <div className="section-label">CLASSES</div>
       <ul className="assigned-classes">
         {node.classes
-          .filter((id) => doc.classes[id]?.kind !== 'local')
+          .filter((id) => doc.classes[id]?.kind !== 'local' && !doc.classes[id]?.preset)
           .map((id) => {
             const cls = doc.classes[id]!
             const uses = Object.values(doc.nodes).filter((item) => item.classes.includes(id))

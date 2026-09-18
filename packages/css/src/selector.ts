@@ -85,16 +85,16 @@ export function selectorFor(
     if (!n) throw new Error(`no class name for ${id}`)
     return `.${n}`
   })
-  // Direct formatting wins over reusable rules, including combo and state selectors.
-  // Keep this in the shared generator so canvas and published output agree.
-  if (cls.kind === 'local') {
+  // Presets override ordinary shared styles; direct formatting overrides presets.
+  // Use the same specificity in the canvas and published output.
+  if (cls.preset || cls.kind === 'local') {
     const specificity =
       Math.max(
         1,
         ...Object.values(doc.classes)
-          .filter((item) => item.kind !== 'local')
+          .filter((item) => item.kind !== 'local' && !item.preset)
           .map((item) => (item.combo?.length ?? 0) + 2),
-      ) + 1
+      ) + (cls.kind === 'local' && Object.values(doc.classes).some((item) => item.preset) ? 3 : 1)
     while (chain.length < specificity) chain.push(`.${names.get(classId)}`)
   }
   return `${chain.join('')}${STATE_SELECTOR[state]}`

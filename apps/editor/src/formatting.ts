@@ -76,7 +76,18 @@ export function formattingOperations(
 ): EditOperation[] {
   const operations: EditOperation[] = []
   let id = localClass(doc, node)
-  if (!id && Object.values(changes).some((value) => value !== null)) {
+  if (
+    !id &&
+    (Object.values(changes).some((value) => value !== null) ||
+      Object.values(doc.styles).some(
+        (style) =>
+          node.classes.includes(style.class) &&
+          doc.classes[style.class]?.kind === 'local' &&
+          style.breakpoint === 'base' &&
+          style.state === 'none' &&
+          style.property in changes,
+      ))
+  ) {
     id = makeId()
     operations.push(
       { type: 'class.create', id, local: true },

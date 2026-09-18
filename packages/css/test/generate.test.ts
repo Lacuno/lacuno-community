@@ -177,3 +177,14 @@ it('gives direct formatting priority over shared combo and state rules', () => {
   }
   expect(selectorFor(doc, names, local.id, 'hover')).toMatch(/:hover$/)
 })
+
+it('places presets above shared styles and below local formatting', () => {
+  const doc = fixtureDocument()
+  doc.classes['c-preset'] = { id: 'c-preset', name: 'Heading preset', kind: 'class', preset: true }
+  const names = classNames(doc)
+  const specificity = (id: string) => selectorFor(doc, names, id, 'none').split('.').length
+  const local = Object.values(doc.classes).find((cls) => cls.kind === 'local')!
+  expect(specificity(local.id)).toBeGreaterThan(specificity('c-preset') + 1)
+  for (const cls of Object.values(doc.classes).filter((cls) => cls.kind === 'class' && !cls.preset))
+    expect(specificity('c-preset')).toBeGreaterThan(specificity(cls.id) + 1)
+})

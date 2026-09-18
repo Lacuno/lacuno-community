@@ -45,10 +45,13 @@ const classCreate = defineOperation(
     name: z.string().min(1).optional(),
     /** A local class is an unnamed per-node style source. */
     local: z.boolean().optional(),
+    preset: z.boolean().optional(),
     combo: z.array(ClassId).optional(),
     locked: z.boolean().optional(),
   }),
   (op, ctx) => {
+    if (op.preset && (op.local || op.combo?.length))
+      ctx.fail('presets must be standalone named classes')
     if (!op.local && op.name === undefined) ctx.fail('a named class needs a name')
     if (op.name !== undefined) checkClassName(ctx, op.name)
     checkCombo(ctx, op.combo ?? [])
@@ -59,6 +62,7 @@ const classCreate = defineOperation(
       ...(op.name !== undefined ? { name: op.name } : {}),
       ...(op.combo?.length ? { combo: op.combo } : {}),
       ...(op.locked ? { locked: true } : {}),
+      ...(op.preset ? { preset: true } : {}),
     }
     return [{ op: 'set', path: ['classes', id], value: cls }]
   },
