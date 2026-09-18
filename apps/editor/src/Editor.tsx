@@ -1,10 +1,14 @@
-import { contextFromDocument, serializeValue } from '@freeflow/css'
+import { classNames, contextFromDocument, selectorFor, serializeValue } from '@freeflow/css'
 import { applyPatches, type Patch } from '@freeflow/document/patch'
-import { type Document, type Node, parseDocument, styleKey } from '@freeflow/schema'
+import { type CssValue, type Document, type Node, parseDocument } from '@freeflow/schema'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Brand } from './App.js'
 import { ApiError, api } from './api.js'
 import { Canvas } from './Canvas.js'
+import { ClassManager } from './ClassManager.js'
+import { FormattingControls } from './FormattingControls.js'
+import { formattingOperations, localClass, localValue, normalizeFormatting } from './formatting.js'
 import {
   captureEdit,
   committedHistory,
@@ -12,7 +16,10 @@ import {
   emptyHistory,
   historyShortcut,
 } from './history.js'
+import type { LivePreview } from './livePreview.js'
+import { ProjectColors } from './ProjectColors.js'
 import { StructurePanel } from './StructurePanel.js'
+import { useAutosave } from './useAutosave.js'
 
 type Snapshot = { document: Document; revision: number }
 type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
@@ -93,42 +100,109 @@ function Inspector({
   busy,
   conflict,
   save,
+  autoSave,
   dirtyChanged,
+  computed,
+  previewChanged,
+  registerFlush,
 }: {
+  previewChanged: (preview: LivePreview) => void
+  registerFlush: (flush: () => Promise<boolean>) => void
+  computed: Record<string, string>
   doc: Document
   node: Node
   busy: boolean
   conflict: boolean
   save: (ops: Operation[]) => Promise<boolean>
+  autoSave: (ops: Operation[]) => Promise<boolean>
   dirtyChanged: (dirty: boolean) => void
 }) {
   const originalText = editableText(node)
   const [text, setText] = useState(originalText ?? '')
-  const [classId, setClassId] = useState(node.classes.at(-1) ?? '')
-  const [property, setProperty] = useState('font-size')
-  const [value, setValue] = useState('')
-  const [styleDirty, setStyleDirty] = useState(false)
-  const [validation, setValidation] = useState('')
+  const [changes, setChanges] = useState<Record<string, CssValue | null>>({})
+  const [classDraft, setClassDraft] = useState(false)
+  const classId = useRef(`c-${crypto.randomUUID()}`)
+  const normalized = normalizeFormatting(changes)
+  const pending = Object.fromEntries(
+    Object.entries(normalized).filter(
+      ([property, value]) =>
+        JSON.stringify(value) !== JSON.stringify(localValue(doc, node, property) ?? null),
+    ),
+  )
+  const invalid = Object.entries(pending).find(
+    ([property, value]) =>
+      value &&
+      value.type !== 'designToken' &&
+      !CSS.supports(property, serializeValue(value, contextFromDocument(doc))),
+  )
+  const validation = invalid
+    ? `Enter a valid value for ${invalid[0]}, such as 24px or #334155.`
+    : ''
   const textDirty = originalText !== undefined && text !== originalText
-  const coordinates = { class: classId, breakpoint: 'base', state: 'none' as const, property }
-  const declaration = doc.styles[styleKey(coordinates)]
-  const styleValue = declaration ? serializeValue(declaration.value, contextFromDocument(doc)) : ''
+  const styleDirty = Object.keys(pending).length > 0
   useEffect(() => {
-    setValue(styleValue)
-    setStyleDirty(false)
-  }, [styleValue])
+    dirtyChanged(textDirty || styleDirty || classDraft)
+  }, [textDirty, styleDirty, classDraft, dirtyChanged])
+  let locked = false
+  let shared = false
+  for (
+    let current: Node | undefined = node;
+    current;
+    current = current.parent ? doc.nodes[current.parent] : undefined
+  ) {
+    if (current.meta?.locked) locked = true
+    if (Object.values(doc.components).some((component) => component.root === current?.id))
+      shared = true
+  }
+  const disabled = conflict || locked || classDraft
+  const local = localClass(doc, node)
+  const overrides = Object.values(doc.styles).filter(
+    (style) => style.class === local && style.breakpoint === 'base' && style.state === 'none',
+  )
+  const operations: Operation[] = []
+  if (textDirty)
+    operations.push({
+      type: 'node.update',
+      id: node.id,
+      text:
+        node.type === 'text' && node.text.type === 'doc'
+          ? {
+              type: 'doc',
+              content: [{ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] }],
+            }
+          : { type: 'static', value: text },
+    })
+  if (!invalid) operations.push(...formattingOperations(doc, node, pending, () => classId.current))
+  const autosave = useAutosave(operations, !disabled && !invalid, busy, autoSave)
+  const flushRef = useRef(autosave.flush)
+  flushRef.current = async () => !invalid && !classDraft && (await autosave.flush())
   useEffect(() => {
-    dirtyChanged(textDirty || styleDirty)
-  }, [textDirty, styleDirty, dirtyChanged])
-  const locked = node.meta?.locked ?? false
-  const shared = Object.values(doc.components).some((component) => {
-    let current: Node | undefined = node
-    while (current) {
-      if (current.id === component.root) return true
-      current = current.parent ? doc.nodes[current.parent] : undefined
-    }
-    return false
+    registerFlush(() => flushRef.current())
+    return () => registerFlush(async () => true)
+  }, [registerFlush])
+  const previewKey = JSON.stringify({
+    node: {
+      id: node.id,
+      ...(local ? { selector: selectorFor(doc, classNames(doc), local, 'none') } : {}),
+      ...(originalText !== undefined ? { text } : {}),
+      styles: Object.fromEntries(
+        Object.entries(normalized)
+          .filter(
+            ([property, value]) =>
+              value === null ||
+              CSS.supports(property, serializeValue(value, contextFromDocument(doc))),
+          )
+          .map(([property, value]) => [
+            property,
+            value === null ? null : serializeValue(value!, contextFromDocument(doc)),
+          ]),
+      ),
+    },
   })
+  useEffect(() => {
+    previewChanged(JSON.parse(previewKey))
+    return () => previewChanged({})
+  }, [previewKey, previewChanged])
   return (
     <aside className="inspector">
       <div className="panel-title">
@@ -137,41 +211,11 @@ function Inspector({
       <div className="inspector-body">
         <h2>{describe(node)}</h2>
         {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
-        {locked && <p className="note">This element is locked.</p>}
+        {locked && <p className="note">This element or its parent is locked.</p>}
         <form
-          onSubmit={async (event) => {
+          onSubmit={(event) => {
             event.preventDefault()
-            setValidation('')
-            const operations: Operation[] = []
-            if (textDirty)
-              operations.push({
-                type: 'node.update',
-                id: node.id,
-                text:
-                  node.type === 'text' && node.text.type === 'doc'
-                    ? {
-                        type: 'doc',
-                        content: [
-                          { type: 'paragraph', content: text ? [{ type: 'text', text }] : [] },
-                        ],
-                      }
-                    : { type: 'static', value: text },
-              })
-            if (styleDirty && classId) {
-              if (value.trim()) {
-                if (!CSS.supports(property, value.trim())) {
-                  setValidation('Enter a valid CSS value, such as 24px or #334155.')
-                  return
-                }
-                operations.push({
-                  type: 'style.set',
-                  ...coordinates,
-                  value: { type: 'raw', value: value.trim() },
-                  ...(declaration?.important ? { important: true } : {}),
-                })
-              } else if (declaration) operations.push({ type: 'style.clear', ...coordinates })
-            }
-            if (operations.length && (await save(operations))) dirtyChanged(false)
+            void autosave.flush()
           }}
         >
           {originalText !== undefined ? (
@@ -179,10 +223,10 @@ function Inspector({
               Text
               <textarea
                 aria-label="Text"
+                rows={3}
                 value={text}
+                disabled={disabled}
                 onChange={(event) => setText(event.target.value)}
-                rows={5}
-                disabled={locked || busy}
               />
             </label>
           ) : node.type === 'text' ? (
@@ -191,80 +235,75 @@ function Inspector({
               later.
             </p>
           ) : null}
-          <div className="section-label">STYLE</div>
-          {node.classes.length ? (
-            <>
-              <label>
-                Class
-                <select
-                  value={classId}
-                  disabled={busy || styleDirty}
-                  onChange={(event) => setClassId(event.target.value)}
-                >
-                  {node.classes.map((id) => (
-                    <option key={id} value={id}>
-                      {doc.classes[id]?.name ?? 'Local style'}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="hint">
-                Applies to every element using this class. Base breakpoint, default state.
-              </p>
-              <label>
-                Property
-                <select
-                  value={property}
-                  disabled={busy || styleDirty}
-                  onChange={(event) => setProperty(event.target.value)}
-                >
-                  {[
-                    'font-size',
-                    'font-weight',
-                    'line-height',
-                    'color',
-                    'background-color',
-                    'padding',
-                    'gap',
-                    'border-radius',
-                    'max-width',
-                  ].map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Value
-                <input
-                  value={value}
-                  disabled={locked || busy || doc.classes[classId]?.locked}
-                  placeholder="e.g. 24px"
-                  onChange={(event) => {
-                    setValue(event.target.value)
-                    setStyleDirty(event.target.value !== styleValue)
-                  }}
-                />
-              </label>
-              <p className="hint">Leave empty to remove this declaration.</p>
-            </>
-          ) : (
-            <p className="note">No class assigned. Class creation comes later.</p>
-          )}
+          <FormattingControls
+            doc={doc}
+            node={node}
+            computed={computed}
+            disabled={disabled}
+            changes={changes}
+            change={(property, value) =>
+              setChanges((previous) => {
+                const next = { ...previous }
+                if (
+                  JSON.stringify(value) === JSON.stringify(localValue(doc, node, property) ?? null)
+                )
+                  delete next[property]
+                else next[property] = value
+                return next
+              })
+            }
+          />
           {validation && (
             <p className="error" role="alert">
               {validation}
             </p>
           )}
+          <p className="hint" role="status">
+            {conflict
+              ? 'Changes paused. Reload to resolve the conflict.'
+              : validation
+                ? 'Waiting for a valid value.'
+                : busy
+                  ? 'Saving…'
+                  : textDirty || styleDirty
+                    ? 'Changes pending…'
+                    : 'All changes saved'}
+          </p>
+          {autosave.hasFailed && !conflict && (
+            <button type="button" onClick={autosave.retry}>
+              Retry changes
+            </button>
+          )}
           <button
-            className="primary"
-            type="submit"
-            disabled={busy || locked || (!textDirty && !styleDirty)}
+            className="reset-formatting"
+            type="button"
+            disabled={disabled || busy || !overrides.length || textDirty || styleDirty}
+            onClick={() =>
+              void save(
+                formattingOperations(
+                  doc,
+                  node,
+                  Object.fromEntries(overrides.map((style) => [style.property, null])),
+                ),
+              )
+            }
           >
-            {conflict ? 'Reload to continue' : busy ? 'Saving…' : 'Save changes'}
+            Reset formatting
           </button>
         </form>
+        <details className="advanced-classes">
+          <summary>Advanced: shared classes</summary>
+          <p className="hint">
+            Reusable styles underneath this element. Direct formatting takes priority.
+          </p>
+          <ClassManager
+            doc={doc}
+            node={node}
+            disabled={busy || conflict || locked || textDirty || styleDirty}
+            save={save}
+            draftChanged={setClassDraft}
+          />
+        </details>
       </div>
     </aside>
   )
@@ -282,15 +321,27 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [dirty, setDirty] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [colorsOpen, setColorsOpen] = useState(false)
+  const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
+    id: '',
+    values: {},
+  })
+  const [livePreview, setLivePreview] = useState<LivePreview>({})
+  const [colorPreview, setColorPreview] = useState<LivePreview>({})
+  const pendingFlush = useRef<() => Promise<boolean>>(async () => true)
+  const registerFlush = useCallback((flush: () => Promise<boolean>) => {
+    pendingFlush.current = flush
+  }, [])
   const [generation, setGeneration] = useState(0)
   const [editHistory, setEditHistory] = useState(emptyHistory)
   const inFlight = useRef(false)
+  const autoFlight = useRef(false)
   const revision = snapshot?.revision
   const doc = snapshot?.document
   const page = doc?.pages[pageId]
   const entries = page?.collection ? (doc?.entries[page.collection] ?? []) : []
   const activeEntry = entries.find((entry) => entry.id === entryId)?.id ?? entries[0]?.id ?? ''
-  const acceptSnapshot = useCallback((next: Snapshot) => {
+  const acceptSnapshot = useCallback((next: Snapshot, reset = true) => {
     next.document = parseDocument(next.document)
     setSnapshot(next)
     setPageId((current) =>
@@ -301,9 +352,9 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           ''),
     )
     setConflict(false)
-    setDirty(false)
+    if (reset) setDirty(false)
     setError('')
-    setGeneration((value) => value + 1)
+    if (reset) setGeneration((value) => value + 1)
   }, [])
   const load = useCallback(async () => {
     const next = await api<Snapshot>(`/api/sites/${siteId}/document`)
@@ -313,17 +364,22 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   useEffect(() => {
     load().catch((e) => setError(e.message))
   }, [load])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a different page or entry must discard the prior canvas.
+  useEffect(() => {
+    setPreview(undefined)
+  }, [pageId, activeEntry])
   useEffect(() => {
     if (!pageId || revision === undefined) return
     const controller = new AbortController()
-    setPreview(undefined)
     api<Preview>(
       `/api/sites/${siteId}/preview?page=${encodeURIComponent(pageId)}&entry=${encodeURIComponent(activeEntry)}`,
       undefined,
       controller.signal,
     )
       .then((data) => {
+        if (controller.signal.aborted) return
         if (data.revision !== revision) {
+          if (inFlight.current) return
           setConflict(true)
           setError('This site changed in another session. Reload the latest version to continue.')
         } else setPreview(data)
@@ -335,27 +391,35 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   }, [siteId, pageId, activeEntry, revision])
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (dirty) event.preventDefault()
+      if (dirty || busy) event.preventDefault()
     }
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
-  function leave(action: () => void) {
-    if (busy) return
-    if (dirty && !window.confirm('Discard your unsaved changes?')) return
+  }, [dirty, busy])
+  async function leave(action: () => void) {
+    if (inFlight.current && !autoFlight.current) return
+    if (
+      (dirty || busy) &&
+      !(await pendingFlush.current()) &&
+      !window.confirm('Discard your unsaved changes?')
+    )
+      return
     setDirty(false)
     setSaved(false)
     action()
   }
-  async function save(operations: Operation[], action: 'edit' | 'undo' | 'redo' = 'edit') {
+  async function save(operations: Operation[], action: 'edit' | 'undo' | 'redo' | 'auto' = 'edit') {
     if (!snapshot || conflict || inFlight.current || operations.length === 0) return false
     inFlight.current = true
+    autoFlight.current = action === 'auto'
     setBusy(true)
     setError('')
     setSaved(false)
     try {
       const entry =
-        action === 'edit' ? captureEdit(snapshot.document, operations) : editHistory[action].at(-1)
+        action === 'edit' || action === 'auto'
+          ? captureEdit(snapshot.document, operations)
+          : editHistory[action].at(-1)
       if (!entry) return false
       const result = await api<{ revision: number; patches: Patch[] }>(
         `/api/sites/${siteId}/document/apply`,
@@ -366,12 +430,14 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       )
       // Use this commit's patches, not a follow-up read that could include someone else's edits.
       const document = applyPatches(snapshot.document, result.patches)
-      acceptSnapshot({
-        document: { ...document, revision: result.revision },
-        revision: result.revision,
+      flushSync(() => {
+        acceptSnapshot(
+          { document: { ...document, revision: result.revision }, revision: result.revision },
+          action !== 'auto',
+        )
+        setEditHistory(committedHistory(editHistory, action === 'auto' ? 'edit' : action, entry))
+        setSaved(true)
       })
-      setEditHistory(committedHistory(editHistory, action, entry))
-      setSaved(true)
       return true
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -383,6 +449,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       return false
     } finally {
       inFlight.current = false
+      autoFlight.current = false
       setBusy(false)
     }
   }
@@ -477,7 +544,17 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           </button>
         </div>
         <span className="save-state" role="status">
-          {busy ? 'Saving…' : dirty ? 'Unsaved changes' : saved ? 'All changes saved' : 'Saved'}
+          {conflict
+            ? 'Changes paused'
+            : error
+              ? 'Could not save'
+              : busy
+                ? 'Saving…'
+                : dirty
+                  ? 'Changes pending…'
+                  : saved
+                    ? 'All changes saved'
+                    : 'Saved'}
         </span>
         <button
           type="button"
@@ -489,6 +566,13 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           disabled={busy}
         >
           Reload site
+        </button>
+        <button
+          type="button"
+          disabled={busy || dirty || conflict || !doc}
+          onClick={() => setColorsOpen(true)}
+        >
+          Project colors
         </button>
       </header>
       {error && (
@@ -507,6 +591,19 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             </button>
           )}
         </div>
+      )}
+      {colorsOpen && doc && (
+        <ProjectColors
+          doc={doc}
+          busy={busy}
+          conflict={conflict}
+          error={error}
+          dirtyChanged={setDirty}
+          save={save}
+          close={() => setColorsOpen(false)}
+          autoSave={(operations) => save(operations, 'auto')}
+          previewChanged={setColorPreview}
+        />
       )}
       <div className="editor-body">
         <aside className="layers-panel">
@@ -604,6 +701,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             {preview ? (
               <Canvas
                 onHistory={travel}
+                livePreview={{ ...livePreview, ...colorPreview }}
+                onComputed={setComputed}
                 html={preview.html}
                 width={width}
                 selected={selected}
@@ -639,9 +738,13 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             key={`${selected}-${generation}`}
             doc={doc}
             node={doc.nodes[selected]}
-            busy={busy || conflict}
+            computed={computed.id === selected ? computed.values : {}}
+            previewChanged={setLivePreview}
+            registerFlush={registerFlush}
+            busy={busy}
             conflict={conflict}
             save={save}
+            autoSave={(operations) => save(operations, 'auto')}
             dirtyChanged={setDirty}
           />
         ) : (

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
+import type { LivePreview } from './livePreview.js'
 
 function highlight(frame: HTMLIFrameElement | null, selected: string) {
   for (const element of frame?.contentDocument?.querySelectorAll('[data-freeflow-node]') ?? []) {
@@ -16,14 +18,85 @@ export function Canvas({
   selected,
   select,
   onHistory,
+  onComputed,
+  livePreview,
 }: {
+  livePreview: LivePreview
   html: string
   width: number
   selected: string
   select: (id: string) => void
   onHistory: (direction: 'undo' | 'redo') => void
+  onComputed: (value: { id: string; values: Record<string, string> }) => void
 }) {
   const frame = useRef<HTMLIFrameElement>(null)
+  const liveRef = useRef(livePreview)
+  liveRef.current = livePreview
+  const restore = useRef<(() => void) | undefined>(undefined)
+  const paint = () => {
+    restore.current?.()
+    const doc = frame.current?.contentDocument
+    if (!doc) return
+    const undo: (() => void)[] = []
+    const draft = liveRef.current
+    if (draft.node) {
+      const element = [...doc.querySelectorAll<HTMLElement>('[data-freeflow-node]')].find(
+        (element) => element.dataset.freeflowNode === draft.node!.id,
+      )
+      if (element) {
+        const markup = element.innerHTML
+        const style = element.getAttribute('style')
+        undo.push(() => {
+          element.innerHTML = markup
+          if (style === null) element.removeAttribute('style')
+          else element.setAttribute('style', style)
+        })
+        if (draft.node.text !== undefined) element.textContent = draft.node.text
+        for (const [property, value] of Object.entries(draft.node.styles)) {
+          if (value !== null) element.style.setProperty(property, value, 'important')
+          else if (draft.node.selector) {
+            for (const sheet of doc.styleSheets) {
+              // Generated base rules are top-level; responsive overrides remain intact.
+              let rules: CSSRuleList
+              try {
+                rules = sheet.cssRules
+              } catch {
+                continue
+              }
+              for (const rule of rules) {
+                if (!('selectorText' in rule) || rule.selectorText !== draft.node.selector) continue
+                const declaration = (rule as CSSStyleRule).style
+                const before = declaration.getPropertyValue(property)
+                const priority = declaration.getPropertyPriority(property)
+                declaration.removeProperty(property)
+                undo.push(() => {
+                  if (before) declaration.setProperty(property, before, priority)
+                })
+              }
+            }
+          }
+        }
+      }
+    }
+    for (const [name, value] of Object.entries(draft.colors ?? {})) {
+      const before = doc.documentElement.style.getPropertyValue(name)
+      undo.push(() => {
+        if (before) doc.documentElement.style.setProperty(name, before)
+        else doc.documentElement.style.removeProperty(name)
+      })
+      doc.documentElement.style.setProperty(name, value)
+    }
+    restore.current = () => {
+      for (const action of undo) action()
+    }
+  }
+  const paintRef = useRef(paint)
+  paintRef.current = paint
+  // biome-ignore lint/correctness/useExhaustiveDependencies: paint the latest draft into the iframe when the draft changes.
+  useEffect(() => {
+    paintRef.current()
+  }, [livePreview])
+
   const shell = useRef<HTMLDivElement>(null)
   const [available, setAvailable] = useState(width)
   const zoom = Math.min(1, available / width)
@@ -33,9 +106,35 @@ export function Canvas({
   selectRef.current = select
   const historyRef = useRef(onHistory)
   historyRef.current = onHistory
+  const computedRef = useRef(onComputed)
+  computedRef.current = onComputed
+  const reportStyles = () => {
+    const doc = frame.current?.contentDocument
+    const element = [...(doc?.querySelectorAll('[data-freeflow-node]') ?? [])].find(
+      (element) => element.getAttribute('data-freeflow-node') === selectedRef.current,
+    )
+    const styles = element && doc?.defaultView?.getComputedStyle(element)
+    computedRef.current({
+      id: selectedRef.current,
+      values: styles
+        ? Object.fromEntries(
+            formattingGroups.flatMap((group) =>
+              group.fields.map((field) => [
+                field.property,
+                styles.getPropertyValue(field.property),
+              ]),
+            ),
+          )
+        : {},
+    })
+  }
+  const reportRef = useRef(reportStyles)
+  reportRef.current = reportStyles
+  // biome-ignore lint/correctness/useExhaustiveDependencies: changing the iframe width changes its computed responsive styles.
   useEffect(() => {
     highlight(frame.current, selected)
-  }, [selected])
+    reportRef.current()
+  }, [selected, width])
   useEffect(() => {
     const workspace = shell.current?.parentElement
     if (!workspace) return
@@ -90,6 +189,9 @@ export function Canvas({
             true,
           )
           highlight(frame.current, selectedRef.current)
+          restore.current = undefined
+          paintRef.current()
+          reportRef.current()
         }}
       />
     </div>

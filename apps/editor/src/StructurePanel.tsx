@@ -75,16 +75,18 @@ export function StructurePanel({
               onChange={(event) => setClassId(event.target.value)}
             >
               <option value="">None</option>
-              {Object.values(doc.classes).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
+              {Object.values(doc.classes)
+                .filter((item) => item.kind === 'class')
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
             </select>
           </label>
           <p className="insert-hint">
             {disabled
-              ? 'Finish saving, discard your draft, or resolve the conflict to change structure.'
+              ? 'Waiting for pending changes or a resolved conflict.'
               : reason ||
                 `Add to ${parent?.meta?.label ?? (parent && 'tag' in parent ? parent.tag : 'page')}, position ${(target?.index ?? 0) + 1}.`}
           </p>

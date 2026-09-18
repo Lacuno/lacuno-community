@@ -85,6 +85,18 @@ export function selectorFor(
     if (!n) throw new Error(`no class name for ${id}`)
     return `.${n}`
   })
+  // Direct formatting wins over reusable rules, including combo and state selectors.
+  // Keep this in the shared generator so canvas and published output agree.
+  if (cls.kind === 'local') {
+    const specificity =
+      Math.max(
+        1,
+        ...Object.values(doc.classes)
+          .filter((item) => item.kind !== 'local')
+          .map((item) => (item.combo?.length ?? 0) + 2),
+      ) + 1
+    while (chain.length < specificity) chain.push(`.${names.get(classId)}`)
+  }
   return `${chain.join('')}${STATE_SELECTOR[state]}`
 }
 

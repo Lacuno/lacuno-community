@@ -166,3 +166,14 @@ describe('generateStylesheet', () => {
     )
   })
 })
+
+it('gives direct formatting priority over shared combo and state rules', () => {
+  const doc = fixtureDocument()
+  const local = Object.values(doc.classes).find((cls) => cls.kind === 'local')!
+  const names = classNames(doc)
+  const localSpecificity = selectorFor(doc, names, local.id, 'none').split('.').length - 1
+  for (const cls of Object.values(doc.classes).filter((cls) => cls.kind !== 'local')) {
+    expect(localSpecificity).toBeGreaterThan((cls.combo?.length ?? 0) + 2)
+  }
+  expect(selectorFor(doc, names, local.id, 'hover')).toMatch(/:hover$/)
+})

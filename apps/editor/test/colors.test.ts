@@ -1,0 +1,122 @@
+import { DocumentStore } from '@freeflow/document'
+import { fixtureDocument, styleKey } from '@freeflow/schema'
+import { expect, it } from 'vitest'
+import {
+  colorLabel,
+  colorPreview,
+  colorTokenName,
+  defaultMode,
+  referencesColor,
+} from '../src/colors.js'
+import { captureEdit, type EditOperation } from '../src/history.js'
+
+it('round-trips classes, color variants and shared typed references in one saved batch', async () => {
+  const original = fixtureDocument()
+  const mode = defaultMode(original)
+  const coordinates = {
+    class: 'c-new-color',
+    breakpoint: 'base',
+    state: 'none' as const,
+    property: 'color',
+  }
+  const operations: EditOperation[] = [
+    { type: 'class.create', id: 'c-new-color', name: 'shared-color' },
+    {
+      type: 'node.update',
+      id: 'n-hero-title',
+      classes: [...original.nodes['n-hero-title']!.classes, 'c-new-color'],
+    },
+    {
+      type: 'designToken.create',
+      id: 'dt-new-color',
+      name: 'color.new',
+      group: 'color',
+      values: { [mode]: { type: 'color', value: '#123456' } },
+    },
+    {
+      type: 'designToken.create',
+      id: 'dt-new-light',
+      name: 'color.new.light',
+      group: 'color',
+      values: { [mode]: { type: 'color', value: '#abcdef' } },
+    },
+    {
+      type: 'style.set',
+      ...coordinates,
+      value: { type: 'designToken', ref: 'dt-new-light' },
+      important: true,
+    },
+    {
+      type: 'designToken.setValue',
+      id: 'dt-new-light',
+      mode,
+      value: { type: 'color', value: '#fedcba' },
+    },
+  ]
+  const entry = captureEdit(original, operations)
+  const store = DocumentStore.inMemory(original)
+  await store.apply({ expectedRevision: store.revision, operations })
+  const edited = store.read().document
+  expect(edited.styles[styleKey(coordinates)]!.value).toEqual({
+    type: 'designToken',
+    ref: 'dt-new-light',
+  })
+  expect(colorPreview(edited, 'dt-new-light')).toBe('#fedcba')
+  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+  expect({ ...store.read().document, revision: original.revision }).toEqual(original)
+  await store.apply({ expectedRevision: store.revision, operations: entry.redo })
+  expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
+})
+
+it('restores missing mode overrides and preserves aliases', async () => {
+  const doc = fixtureDocument()
+  const mode = defaultMode(doc)
+  doc.site.modes.push({ id: 'test-mode', label: 'Test mode', selector: '.test-mode' })
+  doc.designTokens['dt-test'] = {
+    id: 'dt-test',
+    name: 'color.test',
+    group: 'color',
+    values: { [mode]: { type: 'color', value: '#123456' } },
+  }
+  doc.designTokens['dt-alias'] = {
+    id: 'dt-alias',
+    name: 'color.alias',
+    group: 'color',
+    values: { [mode]: { type: 'designToken', ref: 'dt-test' } },
+  }
+  expect(colorPreview(doc, 'dt-alias', 'test-mode')).toBe('#123456')
+  const operations: EditOperation[] = [
+    {
+      type: 'designToken.setValue',
+      id: 'dt-alias',
+      mode: 'test-mode',
+      value: { type: 'color', value: '#ffffff' },
+    },
+  ]
+  const entry = captureEdit(doc, operations)
+  const store = DocumentStore.inMemory(doc)
+  await store.apply({ expectedRevision: store.revision, operations })
+  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+  expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
+})
+
+it('normalizes labels, rejects duplicate CSS names, and finds nested color references', () => {
+  const doc = fixtureDocument()
+  expect(colorTokenName(doc, 'Ocean Blue')).toBe('color.ocean-blue')
+  expect(colorTokenName(doc, 'Muted', 'color.ocean-blue')).toBe('color.ocean-blue.muted')
+  expect(colorLabel('color.ocean-blue.muted')).toBe('Ocean blue / Muted')
+  expect(() => colorTokenName(doc, 'bad;name')).toThrow('name')
+  doc.designTokens['dt-clash'] = {
+    id: 'dt-clash',
+    name: 'color.ocean.blue',
+    group: 'color',
+    values: {},
+  }
+  expect(() => colorTokenName(doc, 'Ocean Blue')).toThrow('already exists')
+  expect(
+    referencesColor(
+      { type: 'list', separator: ' ', values: [{ type: 'designToken', ref: 'dt-brand' }] },
+      'dt-brand',
+    ),
+  ).toBe(true)
+})

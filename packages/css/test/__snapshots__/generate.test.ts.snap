@@ -64,9 +64,6 @@ a { color: inherit; }
   margin: 0 auto;
   padding: 0 var(--space-md);
 }
-.ff-l-hero-title {
-  letter-spacing: -0.02em;
-}
 .heading {
   margin: 0;
   font-size: clamp(2rem, 5vw, 4rem);
@@ -94,6 +91,9 @@ a { color: inherit; }
 }
 .button.primary:hover {
   background-color: var(--color-brand-hover);
+}
+.ff-l-hero-title.ff-l-hero-title.ff-l-hero-title.ff-l-hero-title {
+  letter-spacing: -0.02em;
 }
 
 @media (max-width: 991px) {

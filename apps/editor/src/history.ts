@@ -1,4 +1,11 @@
-import type { Document, ElementNode, StyleDecl, TextNode } from '@freeflow/schema'
+import type {
+  CssValue,
+  DesignToken,
+  Document,
+  ElementNode,
+  StyleDecl,
+  TextNode,
+} from '@freeflow/schema'
 import { styleKey } from '@freeflow/schema'
 
 type DefinedFields<T> = { [K in keyof T]: Exclude<T[K], undefined> }
@@ -8,7 +15,13 @@ export type InsertNode = (
 ) & { children?: InsertNode[] }
 
 export type EditOperation =
-  | { type: 'node.update'; id: string; text: TextNode['text'] }
+  | { type: 'node.update'; id: string; text?: TextNode['text']; classes?: string[] }
+  | { type: 'class.create'; id: string; name?: string; local?: boolean }
+  | { type: 'class.delete'; id: string }
+  | (DefinedFields<DesignToken> & { type: 'designToken.create' })
+  | { type: 'designToken.delete'; id: string }
+  | { type: 'designToken.setValue'; id: string; mode: string; value: CssValue }
+  | { type: 'designToken.clearValue'; id: string; mode: string }
   | { type: 'node.create'; parent: string; index?: number; node: InsertNode }
   | { type: 'node.move'; id: string; parent: string; index: number }
   | { type: 'node.delete'; id: string }
@@ -90,9 +103,81 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
       undo.unshift({ type: 'node.move', id: operation.id, ...before })
     } else if (operation.type === 'node.update') {
       const node = draft.nodes[operation.id]
-      if (node?.type !== 'text') throw new Error('Cannot record a text edit for this element')
-      undo.unshift({ type: 'node.update', id: operation.id, text: structuredClone(node.text) })
-      node.text = structuredClone(operation.text)
+      if (!node) throw new Error('Element no longer exists')
+      const inverse: EditOperation = { type: 'node.update', id: operation.id }
+      if (operation.text !== undefined) {
+        if (node.type !== 'text') throw new Error('Cannot record a text edit for this element')
+        inverse.text = structuredClone(node.text)
+        node.text = structuredClone(operation.text)
+      }
+      if (operation.classes !== undefined) {
+        inverse.classes = [...node.classes]
+        node.classes = [...operation.classes]
+      }
+      undo.unshift(inverse)
+    } else if (operation.type === 'class.create') {
+      if (draft.classes[operation.id]) throw new Error('Class already exists')
+      draft.classes[operation.id] = {
+        id: operation.id,
+        ...(operation.name !== undefined ? { name: operation.name } : {}),
+        kind: operation.local ? 'local' : 'class',
+      }
+      undo.unshift({ type: 'class.delete', id: operation.id })
+    } else if (operation.type === 'class.delete') {
+      const cls = draft.classes[operation.id]
+      if (!cls || (cls.kind === 'class' && !cls.name) || cls.combo?.length || cls.locked)
+        throw new Error('This class cannot be restored by the editor yet')
+      const styles = Object.entries(draft.styles).filter(
+        ([, style]) => style.class === operation.id,
+      )
+      undo.unshift(
+        {
+          type: 'class.create',
+          id: cls.id,
+          ...(cls.name !== undefined ? { name: cls.name } : {}),
+          ...(cls.kind === 'local' ? { local: true } : {}),
+        },
+        ...styles.map(([, style]) => ({ type: 'style.set' as const, ...structuredClone(style) })),
+      )
+      for (const [key] of styles) delete draft.styles[key]
+      delete draft.classes[operation.id]
+    } else if (operation.type === 'designToken.create') {
+      if (draft.designTokens[operation.id]) throw new Error('Color already exists')
+      const { type: _, ...token } = operation
+      draft.designTokens[operation.id] = structuredClone(token)
+      undo.unshift({ type: 'designToken.delete', id: operation.id })
+    } else if (operation.type === 'designToken.delete') {
+      const token = draft.designTokens[operation.id]
+      if (!token) throw new Error('Color no longer exists')
+      undo.unshift({
+        type: 'designToken.create',
+        id: token.id,
+        name: token.name,
+        group: token.group,
+        values: structuredClone(token.values),
+        ...(token.description !== undefined ? { description: token.description } : {}),
+      })
+      delete draft.designTokens[operation.id]
+    } else if (
+      operation.type === 'designToken.setValue' ||
+      operation.type === 'designToken.clearValue'
+    ) {
+      const token = draft.designTokens[operation.id]
+      if (!token) throw new Error('Color no longer exists')
+      const before = token.values[operation.mode]
+      undo.unshift(
+        before
+          ? {
+              type: 'designToken.setValue',
+              id: operation.id,
+              mode: operation.mode,
+              value: structuredClone(before),
+            }
+          : { type: 'designToken.clearValue', id: operation.id, mode: operation.mode },
+      )
+      if (operation.type === 'designToken.setValue')
+        token.values[operation.mode] = structuredClone(operation.value)
+      else delete token.values[operation.mode]
     } else {
       const key = styleKey(operation)
       const before = draft.styles[key]
