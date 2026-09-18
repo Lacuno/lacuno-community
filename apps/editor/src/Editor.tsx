@@ -2,11 +2,13 @@ import { classNames, contextFromDocument, selectorFor, serializeValue } from '@f
 import { applyPatches, type Patch } from '@freeflow/document/patch'
 import { type CssValue, type Document, type Node, parseDocument } from '@freeflow/schema'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { Brand } from './App.js'
 import { ApiError, api } from './api.js'
 import { Canvas } from './Canvas.js'
 import { ClassManager } from './ClassManager.js'
+import { colorLabel, projectColors, colorPreview as swatchColor } from './colors.js'
+import { EditorIcon } from './EditorIcon.js'
 import { FormattingControls } from './FormattingControls.js'
 import { formattingOperations, localClass, localValue, normalizeFormatting } from './formatting.js'
 import {
@@ -56,7 +58,9 @@ function Layers({
         title={describe(node)}
       >
         <span className="layer-icon">
-          {node.type === 'text' ? 'T' : node.type === 'component' ? '◇' : '▱'}
+          <EditorIcon
+            name={node.type === 'text' ? 'text' : node.type === 'component' ? 'component' : 'layer'}
+          />
         </span>
         <span>{describe(node)}</span>
         {node.meta?.locked && <span>· locked</span>}
@@ -105,7 +109,11 @@ function Inspector({
   computed,
   previewChanged,
   registerFlush,
+  ribbonHost,
+  ribbonGroup,
 }: {
+  ribbonHost: HTMLDivElement | null
+  ribbonGroup: string
   previewChanged: (preview: LivePreview) => void
   registerFlush: (flush: () => Promise<boolean>) => void
   computed: Record<string, string>
@@ -203,13 +211,54 @@ function Inspector({
     previewChanged(JSON.parse(previewKey))
     return () => previewChanged({})
   }, [previewKey, previewChanged])
+  const changeFormatting = (property: string, value: CssValue | null) =>
+    setChanges((previous) => {
+      const next = { ...previous }
+      if (JSON.stringify(value) === JSON.stringify(localValue(doc, node, property) ?? null))
+        delete next[property]
+      else next[property] = value
+      return next
+    })
+  const controls = { doc, node, computed, disabled, changes, change: changeFormatting }
+  const resetFormatting = () =>
+    void save(
+      formattingOperations(
+        doc,
+        node,
+        Object.fromEntries(overrides.map((style) => [style.property, null])),
+      ),
+    )
   return (
     <aside className="inspector">
-      <div className="panel-title">
-        INSPECTOR<span>{'tag' in node ? `<${node.tag}>` : node.type}</span>
+      {ribbonHost &&
+        createPortal(
+          <>
+            <FormattingControls {...controls} groupName={ribbonGroup} ribbon />
+            <div className="ribbon-reset">
+              <button
+                type="button"
+                aria-label="Reset formatting"
+                title="Reset local formatting"
+                disabled={disabled || busy || !overrides.length || textDirty || styleDirty}
+                onClick={resetFormatting}
+              >
+                <EditorIcon name="reset" />
+                <span>Reset</span>
+              </button>
+            </div>
+          </>,
+          ribbonHost,
+        )}
+      <div className="selection-heading">
+        <strong>
+          {node.type === 'text' && 'tag' in node && /^h[1-6]$/.test(node.tag)
+            ? 'Heading'
+            : describe(node)}
+        </strong>
+        <span className="element-badge">{'tag' in node ? node.tag.toUpperCase() : node.type}</span>
       </div>
+      <div className="inspector-section-name">Design</div>
       <div className="inspector-body">
-        <h2>{describe(node)}</h2>
         {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
         {locked && <p className="note">This element or its parent is locked.</p>}
         <form
@@ -220,7 +269,7 @@ function Inspector({
         >
           {originalText !== undefined ? (
             <label>
-              Text
+              Content
               <textarea
                 aria-label="Text"
                 rows={3}
@@ -235,24 +284,7 @@ function Inspector({
               later.
             </p>
           ) : null}
-          <FormattingControls
-            doc={doc}
-            node={node}
-            computed={computed}
-            disabled={disabled}
-            changes={changes}
-            change={(property, value) =>
-              setChanges((previous) => {
-                const next = { ...previous }
-                if (
-                  JSON.stringify(value) === JSON.stringify(localValue(doc, node, property) ?? null)
-                )
-                  delete next[property]
-                else next[property] = value
-                return next
-              })
-            }
-          />
+          <FormattingControls {...controls} groupName={ribbonGroup} />
           {validation && (
             <p className="error" role="alert">
               {validation}
@@ -274,22 +306,6 @@ function Inspector({
               Retry changes
             </button>
           )}
-          <button
-            className="reset-formatting"
-            type="button"
-            disabled={disabled || busy || !overrides.length || textDirty || styleDirty}
-            onClick={() =>
-              void save(
-                formattingOperations(
-                  doc,
-                  node,
-                  Object.fromEntries(overrides.map((style) => [style.property, null])),
-                ),
-              )
-            }
-          >
-            Reset formatting
-          </button>
         </form>
         <details className="advanced-classes">
           <summary>Advanced: shared classes</summary>
@@ -311,6 +327,14 @@ function Inspector({
 
 export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot>()
+  const [ribbonHost, setRibbonHost] = useState<HTMLDivElement | null>(null)
+  const [ribbonTab, setRibbonTab] = useState('Home')
+  const ribbonGroup =
+    ribbonTab === 'Layout'
+      ? 'Spacing & shape'
+      : ribbonTab === 'Appearance'
+        ? 'Colors'
+        : 'Typography'
   const [pageId, setPageId] = useState('')
   const [entryId, setEntryId] = useState('')
   const [selected, setSelected] = useState('')
@@ -488,11 +512,15 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           onClick={() => leave(back)}
           aria-label="Back to sites"
         >
-          ←
+          <EditorIcon name="back" />
         </button>
         <Brand />
         <span className="header-divider" />
-        <strong className="site-name">{doc?.site.name ?? 'Opening site…'}</strong>
+        <span className="site-name">
+          {doc?.site.name ?? 'Opening site…'}
+          <span className="site-page-divider"> / </span>
+          {page?.name}
+        </span>
         <div className="row history-controls">
           <button
             type="button"
@@ -543,7 +571,11 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             </svg>
           </button>
         </div>
-        <span className="save-state" role="status">
+        <span
+          className="save-state"
+          role="status"
+          data-state={conflict || error ? 'error' : busy || dirty ? 'pending' : 'saved'}
+        >
           {conflict
             ? 'Changes paused'
             : error
@@ -564,17 +596,77 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             })
           }
           disabled={busy}
+          aria-label="Reload site"
+          title="Reload site"
+          className="reload-button"
         >
-          Reload site
-        </button>
-        <button
-          type="button"
-          disabled={busy || dirty || conflict || !doc}
-          onClick={() => setColorsOpen(true)}
-        >
-          Project colors
+          <EditorIcon name="reload" />
         </button>
       </header>
+      <section className="editor-ribbon" aria-label="Formatting ribbon">
+        <nav className="ribbon-tabs" aria-label="Formatting categories">
+          {['Home', 'Layout', 'Appearance'].map((tab) => (
+            <button
+              type="button"
+              key={tab}
+              aria-pressed={ribbonTab === tab}
+              className={ribbonTab === tab ? 'active' : ''}
+              onClick={() => setRibbonTab(tab)}
+            >
+              {tab}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="ribbon-insert"
+            onClick={() => {
+              const panel = document.querySelector<HTMLDetailsElement>('.structure-panel details')
+              if (panel) {
+                panel.open = true
+                panel.querySelector<HTMLSelectElement>('select')?.focus()
+              }
+            }}
+          >
+            <EditorIcon name="plus" />
+            Insert
+          </button>
+        </nav>
+        <div className="ribbon-body">
+          <div className="ribbon-controls" ref={setRibbonHost}>
+            {(!doc || !selected || !doc.nodes[selected]) && (
+              <div className="ribbon-empty">
+                <EditorIcon name="text" />
+                <div>
+                  <strong>Select an element to format</strong>
+                  <span>Typography, colors and spacing, all in one place.</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="ribbon-project-colors">
+            <button
+              type="button"
+              aria-label="Project colors"
+              disabled={busy || dirty || conflict || !doc}
+              onClick={() => setColorsOpen(true)}
+            >
+              <span className="ribbon-swatches">
+                {doc &&
+                  projectColors(doc)
+                    .slice(0, 4)
+                    .map((color) => (
+                      <span
+                        key={color.id}
+                        title={colorLabel(color.name)}
+                        style={{ background: swatchColor(doc, color.id) }}
+                      />
+                    ))}
+              </span>
+              <span>Project colors</span>
+            </button>
+          </div>
+        </div>
+      </section>
       {error && (
         <div className="error-banner" role="alert">
           {error}
@@ -608,29 +700,34 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       <div className="editor-body">
         <aside className="layers-panel">
           <div className="panel-title">
-            PAGES<span>{doc ? Object.keys(doc.pages).length : ''}</span>
+            Pages<span>{doc ? Object.keys(doc.pages).length : ''}</span>
           </div>
           <div className="page-list">
             {doc &&
-              Object.values(doc.pages).map((item) => (
-                <button
-                  type="button"
-                  className={`page-link ${pageId === item.id ? 'active' : ''}`}
-                  key={item.id}
-                  onClick={() =>
-                    leave(() => {
-                      setPageId(item.id)
-                      setSelected('')
-                      setEntryId('')
-                      setError('')
-                    })
-                  }
-                >
-                  <span>▤</span>
-                  {item.name}
-                  <span className="page-path">{item.collection ? 'CMS' : item.path}</span>
-                </button>
-              ))}
+              Object.values(doc.pages)
+                .sort(
+                  (a, b) =>
+                    Number(b.path === '/') - Number(a.path === '/') || a.name.localeCompare(b.name),
+                )
+                .map((item) => (
+                  <button
+                    type="button"
+                    className={`page-link ${pageId === item.id ? 'active' : ''}`}
+                    key={item.id}
+                    onClick={() =>
+                      leave(() => {
+                        setPageId(item.id)
+                        setSelected('')
+                        setEntryId('')
+                        setError('')
+                      })
+                    }
+                  >
+                    <EditorIcon name="page" />
+                    {item.name}
+                    <span className="page-path">{item.collection ? 'CMS' : item.path}</span>
+                  </button>
+                ))}
           </div>
           {doc && page && (
             <StructurePanel
@@ -643,7 +740,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             />
           )}
           <div className="panel-title">
-            LAYERS<span>◇</span>
+            Layers
+            <EditorIcon name="layer" />
           </div>
           <div className="layer-list">
             {doc && page && (
@@ -661,7 +759,10 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         <main className="canvas-panel">
           <div className="canvas-toolbar">
             <div className="row">
-              <span>{page?.name ?? 'Canvas'}</span>
+              <span className="canvas-page">
+                <EditorIcon name="page" />
+                {page?.name ?? 'Canvas'}
+              </span>
               {entries.length > 0 && (
                 <select
                   aria-label="Collection entry"
@@ -688,10 +789,16 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 <button
                   type="button"
                   key={size}
+                  aria-label={String(label)}
+                  title={String(label)}
                   className={width === size ? 'active' : ''}
                   onClick={() => setWidth(Number(size))}
                 >
-                  {label}
+                  <EditorIcon
+                    name={
+                      label === 'Desktop' ? 'desktop' : label === 'Tablet' ? 'tablet' : 'mobile'
+                    }
+                  />
                 </button>
               ))}
             </fieldset>
@@ -717,11 +824,17 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             )}
           </div>
           <footer className="canvas-footer">
-            <span>Click an element to inspect it</span>
+            <span className="canvas-breadcrumb">
+              {page?.name ?? 'Page'}
+              <EditorIcon name="chevron" />
+              {selected && doc?.nodes[selected]
+                ? describe(doc.nodes[selected])
+                : 'Select an element'}
+            </span>
             <span>
               {preview?.warnings.length
                 ? `${preview.warnings.length} render warning(s)`
-                : 'Canvas preview · Scripts disabled'}
+                : 'Changes apply instantly'}
             </span>
           </footer>
           {preview?.warnings.length ? (
@@ -736,6 +849,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         {doc && selected && doc.nodes[selected] ? (
           <Inspector
             key={`${selected}-${generation}`}
+            ribbonHost={ribbonHost}
+            ribbonGroup={ribbonGroup}
             doc={doc}
             node={doc.nodes[selected]}
             computed={computed.id === selected ? computed.values : {}}
@@ -749,13 +864,14 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           />
         ) : (
           <aside className="inspector">
-            <div className="panel-title">INSPECTOR</div>
+            <div className="selection-heading">
+              <strong>Design</strong>
+            </div>
             <div className="inspector-empty">
-              <span>↖</span>
-              <h2>
-                A little detail.
-                <br />A big difference.
-              </h2>
+              <span className="empty-selection-icon">
+                <EditorIcon name="layer" />
+              </span>
+              <h2>Make it yours.</h2>
               <p>Select an element on the canvas or in the layers to make it yours.</p>
             </div>
           </aside>

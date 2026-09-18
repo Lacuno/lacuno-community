@@ -39,7 +39,10 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   references, so editing one color updates every use. Variants are independent, editable values;
   they do not automatically derive from the parent color. Existing site modes can have separate
   values. Color edits support undo/redo, draft protection and version-conflict handling.
-- Format the selected element directly with grouped Typography, Colors, and Spacing & shape controls.
+- Format the selected element with the contextual ribbon: **Home** for typography, **Layout** for
+  spacing and borders, and **Appearance** for colors. Other groups stay available in the Design
+  inspector. **Insert** opens the existing element palette. The ribbon and inspector share the same
+  editing state, so changing categories preserves pending edits.
   No class setup is required. A private local style is created automatically; shared styles stay
   unchanged. Empty fields show the computed canvas value as a hint and retain the existing style.
   Bare numeric sizes use pixels. Choose **Reset formatting** to clear base/default local adjustments;
