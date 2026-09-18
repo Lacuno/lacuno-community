@@ -1,4 +1,5 @@
 import type {
+  AssetRef,
   CssValue,
   DesignToken,
   Document,
@@ -21,7 +22,10 @@ export type EditOperation =
       text?: TextNode['text']
       classes?: string[]
       meta?: NonNullable<ElementNode['meta']> | null
+      attrs?: NonNullable<ElementNode['attrs']> | null
     }
+  | ({ type: 'asset.create' } & AssetRef)
+  | { type: 'asset.delete'; id: string }
   | { type: 'class.create'; id: string; name?: string; local?: boolean; preset?: boolean }
   | { type: 'class.delete'; id: string }
   | (DefinedFields<DesignToken> & { type: 'designToken.create' })
@@ -81,7 +85,16 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
     delete draft.nodes[id]
   }
   for (const operation of operations) {
-    if (operation.type === 'node.create') {
+    if (operation.type === 'asset.create') {
+      const { type: _, ...asset } = operation
+      draft.assets[asset.id] = structuredClone(asset)
+      undo.unshift({ type: 'asset.delete', id: asset.id })
+    } else if (operation.type === 'asset.delete') {
+      const asset = draft.assets[operation.id]
+      if (!asset) throw new Error('Image no longer exists')
+      undo.unshift({ type: 'asset.create', ...structuredClone(asset) })
+      delete draft.assets[operation.id]
+    } else if (operation.type === 'node.create') {
       const parent = draft.nodes[operation.parent]
       if (!parent) throw new Error('Insertion parent no longer exists')
       const index = operation.index ?? parent.children.length
@@ -115,6 +128,11 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
         if (node.type !== 'text') throw new Error('Cannot record a text edit for this element')
         inverse.text = structuredClone(node.text)
         node.text = structuredClone(operation.text)
+      }
+      if (operation.attrs !== undefined) {
+        inverse.attrs = node.attrs ? structuredClone(node.attrs) : null
+        if (operation.attrs === null) delete node.attrs
+        else node.attrs = structuredClone(operation.attrs)
       }
       if (operation.meta !== undefined) {
         inverse.meta = node.meta ? structuredClone(node.meta) : null

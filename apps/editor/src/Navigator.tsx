@@ -141,19 +141,21 @@ export function Navigator({
     const direction = values['flex-direction']
     const layout = display?.type === 'raw' ? display.value : ''
     const kind =
-      node.type === 'component'
-        ? 'component'
-        : node.type === 'text'
-          ? 'text'
-          : node.type === 'element' && node.tag === 'section'
-            ? 'section'
-            : layout === 'grid'
-              ? 'grid'
-              : layout === 'flex'
-                ? direction?.type === 'raw' && direction.value.startsWith('column')
-                  ? 'stack'
-                  : 'row'
-                : 'layer'
+      node.type === 'element' && node.tag === 'img'
+        ? 'image'
+        : node.type === 'component'
+          ? 'component'
+          : node.type === 'text'
+            ? 'text'
+            : node.type === 'element' && node.tag === 'section'
+              ? 'section'
+              : layout === 'grid'
+                ? 'grid'
+                : layout === 'flex'
+                  ? direction?.type === 'raw' && direction.value.startsWith('column')
+                    ? 'stack'
+                    : 'row'
+                  : 'layer'
     return (
       <div key={id}>
         <div

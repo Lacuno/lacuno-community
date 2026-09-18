@@ -90,111 +90,116 @@ export function FormattingControls({
               />
             ) : (
               <div className="formatting-grid">
-                {group.fields.map((field) => {
-                  const { property, label } = field
-                  const value =
-                    property in changes
-                      ? changes[property]
-                      : localValue(doc, node, property, breakpoint)
-                  const ref = value?.type === 'designToken' ? value.ref : ''
-                  const text = value ? serializeValue(value, contextFromDocument(doc)) : ''
-                  const color = colorProperties.has(property)
-                  return (
-                    <div
-                      key={property}
-                      data-property={property}
-                      data-overridden={breakpoint !== 'base' && !!value}
-                      title={
-                        value
-                          ? breakpoint === 'base'
-                            ? 'Local base style'
-                            : 'Local override at this breakpoint'
-                          : 'Inherited from wider styles or the preset'
-                      }
-                      className={color || property === 'font-family' ? 'formatting-wide' : ''}
-                    >
-                      {color && (
-                        <label>
-                          {label}
-                          <select
-                            aria-label={`${label} source`}
-                            value={ref}
-                            disabled={disabled}
-                            onChange={(event) =>
-                              change(
-                                property,
-                                event.target.value
-                                  ? { type: 'designToken', ref: event.target.value }
-                                  : null,
-                              )
-                            }
-                          >
-                            <option value="">Custom / inherited</option>
-                            {projectColors(doc).map((token) => (
-                              <option key={token.id} value={token.id}>
-                                {colorLabel(token.name)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      )}
-                      {(!color || !ref) && (
-                        <label htmlFor={`format-${property}`}>
-                          {color ? 'Custom color' : label}
-                          {'choices' in field ? (
+                {group.fields
+                  .filter(
+                    (field) =>
+                      field.property !== 'object-fit' && field.property !== 'object-position',
+                  )
+                  .map((field) => {
+                    const { property, label } = field
+                    const value =
+                      property in changes
+                        ? changes[property]
+                        : localValue(doc, node, property, breakpoint)
+                    const ref = value?.type === 'designToken' ? value.ref : ''
+                    const text = value ? serializeValue(value, contextFromDocument(doc)) : ''
+                    const color = colorProperties.has(property)
+                    return (
+                      <div
+                        key={property}
+                        data-property={property}
+                        data-overridden={breakpoint !== 'base' && !!value}
+                        title={
+                          value
+                            ? breakpoint === 'base'
+                              ? 'Local base style'
+                              : 'Local override at this breakpoint'
+                            : 'Inherited from wider styles or the preset'
+                        }
+                        className={color || property === 'font-family' ? 'formatting-wide' : ''}
+                      >
+                        {color && (
+                          <label>
+                            {label}
                             <select
-                              id={`format-${property}`}
-                              aria-label={label}
+                              aria-label={`${label} source`}
+                              value={ref}
                               disabled={disabled}
-                              value={text}
                               onChange={(event) =>
                                 change(
                                   property,
                                   event.target.value
-                                    ? { type: 'raw', value: event.target.value }
+                                    ? { type: 'designToken', ref: event.target.value }
                                     : null,
                                 )
                               }
                             >
-                              <option value="">
-                                {computed[property]
-                                  ? choiceLabel(computed[property]!)
-                                  : 'From style'}
-                              </option>
-                              {text && !(field.choices as readonly string[]).includes(text) && (
-                                <option value={text}>{text}</option>
-                              )}
-                              {field.choices.map((choice) => (
-                                <option key={choice} value={choice}>
-                                  {choiceLabel(choice)}
+                              <option value="">Custom / inherited</option>
+                              {projectColors(doc).map((token) => (
+                                <option key={token.id} value={token.id}>
+                                  {colorLabel(token.name)}
                                 </option>
                               ))}
                             </select>
-                          ) : (
-                            <input
-                              id={`format-${property}`}
-                              aria-label={label}
-                              disabled={disabled}
-                              placeholder={
-                                computed[property] ||
-                                ('hint' in field ? field.hint : 'e.g. #6952d9')
-                              }
-                              value={text}
-                              onChange={(event) =>
-                                change(
-                                  property,
-                                  event.target.value
-                                    ? { type: color ? 'color' : 'raw', value: event.target.value }
-                                    : null,
-                                )
-                              }
-                            />
-                          )}
-                        </label>
-                      )}
-                    </div>
-                  )
-                })}
+                          </label>
+                        )}
+                        {(!color || !ref) && (
+                          <label htmlFor={`format-${property}`}>
+                            {color ? 'Custom color' : label}
+                            {'choices' in field ? (
+                              <select
+                                id={`format-${property}`}
+                                aria-label={label}
+                                disabled={disabled}
+                                value={text}
+                                onChange={(event) =>
+                                  change(
+                                    property,
+                                    event.target.value
+                                      ? { type: 'raw', value: event.target.value }
+                                      : null,
+                                  )
+                                }
+                              >
+                                <option value="">
+                                  {computed[property]
+                                    ? choiceLabel(computed[property]!)
+                                    : 'From style'}
+                                </option>
+                                {text && !(field.choices as readonly string[]).includes(text) && (
+                                  <option value={text}>{text}</option>
+                                )}
+                                {field.choices.map((choice) => (
+                                  <option key={choice} value={choice}>
+                                    {choiceLabel(choice)}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                id={`format-${property}`}
+                                aria-label={label}
+                                disabled={disabled}
+                                placeholder={
+                                  computed[property] ||
+                                  ('hint' in field ? field.hint : 'e.g. #6952d9')
+                                }
+                                value={text}
+                                onChange={(event) =>
+                                  change(
+                                    property,
+                                    event.target.value
+                                      ? { type: color ? 'color' : 'raw', value: event.target.value }
+                                      : null,
+                                  )
+                                }
+                              />
+                            )}
+                          </label>
+                        )}
+                      </div>
+                    )
+                  })}
               </div>
             )}
           </details>

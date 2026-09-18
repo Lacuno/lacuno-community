@@ -257,3 +257,59 @@ describe('server foundation', () => {
     ).toBe(200)
   })
 })
+
+it('stages authenticated image uploads and serves only registered workspace assets', async () => {
+  const cookie = await register()
+  const site = await createSite(cookie)
+  const route = `/api/sites/${site.id}/assets/upload`
+  const data =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+  expect((await request(route, '', { name: 'pixel.png', data })).status).toBe(401)
+  expect(
+    (
+      await request(
+        route,
+        cookie,
+        { name: 'pixel.png', data },
+        { origin: 'https://elsewhere.test' },
+      )
+    ).status,
+  ).toBe(403)
+  const stranger = await register('stranger@example.test')
+  expect((await request(route, stranger, { name: 'pixel.png', data })).status).toBe(404)
+  expect(
+    (
+      await request(route, cookie, {
+        name: 'fake.png',
+        data: Buffer.from('<script>alert(1)</script>').toString('base64'),
+      })
+    ).status,
+  ).toBe(415)
+  const oversized = Buffer.alloc(10 * 1024 * 1024 + 1)
+  Buffer.from(data, 'base64').copy(oversized)
+  expect(
+    (await request(route, cookie, { name: 'huge.png', data: oversized.toString('base64') })).status,
+  ).toBe(413)
+  const response = await request(route, cookie, { name: 'pixel.png', data })
+  expect(response.status).toBe(200)
+  const asset = await response.json()
+  expect(asset.mime).toBe('image/png')
+  const bytesRoute = `/api/sites/${site.id}/assets/${asset.hash}`
+  expect((await request(bytesRoute, cookie)).status).toBe(404)
+  const snapshot = await readDocument(`/api/sites/${site.id}/document`, cookie)
+  expect(
+    (
+      await request(`/api/sites/${site.id}/document/apply`, cookie, {
+        expectedRevision: snapshot.revision,
+        operations: [{ type: 'asset.create', ...asset }],
+      })
+    ).status,
+  ).toBe(200)
+  const served = await request(bytesRoute, cookie)
+  expect(Buffer.from(await served.arrayBuffer())).toEqual(Buffer.from(data, 'base64'))
+  expect(served.headers.get('content-type')).toBe('image/png')
+  expect((await request(bytesRoute, stranger)).status).toBe(404)
+  expect((await (await request(route, cookie, { name: 'same.png', data })).json()).id).toBe(
+    asset.id,
+  )
+})

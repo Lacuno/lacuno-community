@@ -4,6 +4,7 @@ import { type CssValue, type Document, type Node, parseDocument } from '@freeflo
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import { Brand } from './App.js'
+import { AssetsPanel, assetUrl, uploadImage } from './AssetsPanel.js'
 import { ApiError, api } from './api.js'
 import { breakpointMedia, editingBreakpoint } from './breakpoints.js'
 import { Canvas } from './Canvas.js'
@@ -19,12 +20,18 @@ import {
   emptyHistory,
   historyShortcut,
 } from './history.js'
+import { ImageLibrary } from './ImageLibrary.js'
 import type { LivePreview } from './livePreview.js'
 import { Navigator } from './Navigator.js'
 import { PresetManager } from './PresetManager.js'
 import { ProjectColors } from './ProjectColors.js'
 import { StructurePanel } from './StructurePanel.js'
-import { duplicateSelection, subtreeRestriction } from './structure.js'
+import {
+  duplicateSelection,
+  insertionTarget,
+  structureInsertion,
+  subtreeRestriction,
+} from './structure.js'
 import { useAutosave } from './useAutosave.js'
 import { useStructureDrag } from './useStructureDrag.js'
 
@@ -53,6 +60,7 @@ function editableText(node: Node): string | undefined {
 }
 
 function Inspector({
+  siteId,
   breakpoint,
   doc,
   node,
@@ -67,6 +75,7 @@ function Inspector({
   ribbonHost,
   ribbonGroup,
 }: {
+  siteId: string
   breakpoint: string
   ribbonHost: HTMLDivElement | null
   ribbonGroup: string
@@ -83,6 +92,13 @@ function Inspector({
 }) {
   const scopeInfoId = useId()
   const scopeInfo = useRef<HTMLDivElement>(null)
+  const isImage = node.type === 'element' && node.tag === 'img'
+  const originalAlt = node.attrs?.alt?.type === 'static' ? String(node.attrs.alt.value) : ''
+  const originalAsset = node.attrs?.src?.type === 'asset' ? node.attrs.src.asset : ''
+  const [imageAlt, setImageAlt] = useState(originalAlt)
+  const [imageAsset, setImageAsset] = useState(originalAsset)
+  const [imageLibraryOpen, setImageLibraryOpen] = useState(false)
+  const imageDirty = isImage && (imageAlt !== originalAlt || imageAsset !== originalAsset)
   const originalText = editableText(node)
   const [text, setText] = useState(originalText ?? '')
   const [changes, setChanges] = useState<Record<string, CssValue | null>>({})
@@ -109,8 +125,8 @@ function Inspector({
   const textDirty = originalText !== undefined && text !== originalText
   const styleDirty = Object.keys(pending).length > 0
   useEffect(() => {
-    dirtyChanged(textDirty || styleDirty || classDraft || presetDraft)
-  }, [textDirty, styleDirty, classDraft, presetDraft, dirtyChanged])
+    dirtyChanged(textDirty || styleDirty || imageDirty || classDraft || presetDraft)
+  }, [textDirty, styleDirty, imageDirty, classDraft, presetDraft, dirtyChanged])
   let locked = false
   let shared = false
   for (
@@ -128,6 +144,18 @@ function Inspector({
     (style) => style.class === local && style.breakpoint === breakpoint && style.state === 'none',
   )
   const operations: Operation[] = []
+  if (imageDirty)
+    operations.push({
+      type: 'node.update',
+      id: node.id,
+      attrs: {
+        ...node.attrs,
+        ...(imageAlt !== originalAlt ? { alt: { type: 'static' as const, value: imageAlt } } : {}),
+        ...(imageAsset !== originalAsset && imageAsset
+          ? { src: { type: 'asset' as const, asset: imageAsset } }
+          : {}),
+      },
+    })
   if (textDirty)
     operations.push({
       type: 'node.update',
@@ -155,6 +183,18 @@ function Inspector({
       media: breakpointMedia(doc, breakpoint),
       ...(local ? { selector: selectorFor(doc, classNames(doc), local, 'none') } : {}),
       ...(originalText !== undefined ? { text } : {}),
+      ...(isImage
+        ? {
+            attrs: {
+              ...(node.attrs?.alt?.type === 'static' || imageAlt !== originalAlt
+                ? { alt: imageAlt }
+                : {}),
+              ...(doc.assets[imageAsset]
+                ? { src: assetUrl(siteId, doc.assets[imageAsset]!.hash) }
+                : {}),
+            },
+          }
+        : {}),
       styles: Object.fromEntries(
         Object.entries(normalized)
           .filter(
@@ -206,7 +246,9 @@ function Inspector({
                 type="button"
                 aria-label="Reset formatting"
                 title="Reset local formatting"
-                disabled={disabled || busy || !overrides.length || textDirty || styleDirty}
+                disabled={
+                  disabled || busy || !overrides.length || textDirty || styleDirty || imageDirty
+                }
                 onClick={resetFormatting}
               >
                 <EditorIcon name="reset" />
@@ -269,7 +311,9 @@ function Inspector({
           doc={doc}
           node={node}
           computed={computed}
-          disabled={busy || conflict || locked || textDirty || styleDirty || classDraft}
+          disabled={
+            busy || conflict || locked || textDirty || styleDirty || imageDirty || classDraft
+          }
           save={save}
           draftChanged={setPresetDraft}
         />
@@ -279,6 +323,98 @@ function Inspector({
             void autosave.flush()
           }}
         >
+          {isImage && (
+            <div className="image-controls">
+              <button
+                type="button"
+                disabled={disabled}
+                aria-haspopup="dialog"
+                onClick={() => setImageLibraryOpen(true)}
+              >
+                {imageAsset ? 'Change image' : 'Choose image'}
+              </button>
+              {imageLibraryOpen && (
+                <ImageLibrary
+                  siteId={siteId}
+                  doc={doc}
+                  selected={imageAsset}
+                  close={() => setImageLibraryOpen(false)}
+                  choose={(id) => {
+                    setImageAsset(id)
+                    setImageLibraryOpen(false)
+                  }}
+                />
+              )}
+              <label>
+                Alt text
+                <input
+                  aria-label="Image alt text"
+                  value={imageAlt}
+                  disabled={disabled}
+                  onChange={(event) => setImageAlt(event.target.value)}
+                />
+              </label>
+              <p className="hint">Describe the image, or leave empty if it is decorative.</p>
+              <label>
+                Fit
+                <select
+                  aria-label="Image fit"
+                  disabled={disabled}
+                  value={
+                    changes['object-fit']?.type === 'raw'
+                      ? changes['object-fit'].value
+                      : computed['object-fit'] || 'fill'
+                  }
+                  onChange={(event) =>
+                    changeFormatting('object-fit', { type: 'raw', value: event.target.value })
+                  }
+                >
+                  {Object.entries({
+                    cover: 'Fill frame',
+                    contain: 'Fit inside',
+                    fill: 'Stretch',
+                    none: 'Original size',
+                    'scale-down': 'Shrink to fit',
+                  }).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Focal point
+                <select
+                  aria-label="Image focal point"
+                  disabled={disabled}
+                  value={
+                    changes['object-position']?.type === 'raw'
+                      ? changes['object-position'].value
+                      : computed['object-position'] || '50% 50%'
+                  }
+                  onChange={(event) =>
+                    changeFormatting('object-position', { type: 'raw', value: event.target.value })
+                  }
+                >
+                  {[
+                    ['0% 0%', 'Top left'],
+                    ['50% 0%', 'Top'],
+                    ['100% 0%', 'Top right'],
+                    ['0% 50%', 'Left'],
+                    ['50% 50%', 'Center'],
+                    ['100% 50%', 'Right'],
+                    ['0% 100%', 'Bottom left'],
+                    ['50% 100%', 'Bottom'],
+                    ['100% 100%', 'Bottom right'],
+                  ].map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
           {originalText !== undefined ? (
             <label>
               Content
@@ -309,7 +445,7 @@ function Inspector({
                 ? 'Waiting for a valid value.'
                 : busy
                   ? 'Saving…'
-                  : textDirty || styleDirty
+                  : textDirty || styleDirty || imageDirty
                     ? 'Changes pending…'
                     : 'All changes saved'}
           </p>
@@ -327,7 +463,9 @@ function Inspector({
           <ClassManager
             doc={doc}
             node={node}
-            disabled={busy || conflict || locked || textDirty || styleDirty || presetDraft}
+            disabled={
+              busy || conflict || locked || textDirty || styleDirty || imageDirty || presetDraft
+            }
             save={save}
             draftChanged={setClassDraft}
           />
@@ -341,7 +479,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot>()
   const [ribbonHost, setRibbonHost] = useState<HTMLDivElement | null>(null)
   const [ribbonTab, setRibbonTab] = useState('Home')
-  const [sidebar, setSidebar] = useState<'Add' | 'Layers' | 'Pages'>('Layers')
+  const [sidebar, setSidebar] = useState<'Add' | 'Layers' | 'Pages' | 'Assets'>('Layers')
   const elementActionsId = useId()
   const ribbonGroup =
     ribbonTab === 'Layout'
@@ -502,15 +640,58 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       const edit = duplicateSelection(doc, id)
       if (await save(edit.operations)) setSelected(edit.node.id)
     } else {
-      const parent = doc.nodes[id]?.parent ?? ''
-      if (await save([{ type: 'node.delete', id }])) setSelected(parent)
+      if (await save([{ type: 'node.delete', id }])) setSelected('')
     }
   }
+  const [imageUpload, setImageUpload] = useState<{
+    id: string
+    asset: Awaited<ReturnType<typeof uploadImage>>
+  }>()
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const imageUploadFlight = useRef(false)
+  async function dropImage(id: string, file: File) {
+    if (imageUploadFlight.current) return
+    imageUploadFlight.current = true
+    setUploadingImage(true)
+    setError('')
+    try {
+      setImageUpload({ id, asset: await uploadImage(siteId, file) })
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not upload image.')
+      imageUploadFlight.current = false
+      setUploadingImage(false)
+    }
+  }
+  useEffect(() => {
+    if (!imageUpload || !doc || busy || dirty || conflict) return
+    const { id, asset } = imageUpload
+    setImageUpload(undefined)
+    const node = doc.nodes[id]
+    if (node?.type !== 'element' || node.tag !== 'img' || subtreeRestriction(doc, id)) {
+      setError('This image can no longer be changed.')
+      imageUploadFlight.current = false
+      setUploadingImage(false)
+      return
+    }
+    void save([
+      ...(!doc.assets[asset.id] ? [{ type: 'asset.create' as const, ...asset }] : []),
+      {
+        type: 'node.update',
+        id,
+        attrs: { ...node.attrs, src: { type: 'asset', asset: asset.id } },
+      },
+    ]).then((ok) => {
+      if (ok) setSelected(id)
+      imageUploadFlight.current = false
+      setUploadingImage(false)
+    })
+  })
   const canUndo = !!snapshot && editHistory.undo.length > 0 && !busy && !dirty && !conflict
   const bindDragSurface = useStructureDrag({
     doc,
     root: page?.root,
-    disabled: busy || dirty || conflict,
+    uploadImage: dropImage,
+    disabled: busy || dirty || conflict || uploadingImage,
     save,
     select: (id) => {
       setSelected(id)
@@ -544,6 +725,11 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   }, [])
   return (
     <div className="editor">
+      {uploadingImage && (
+        <div className="image-upload-status" role="status">
+          Uploading image…
+        </div>
+      )}
       <header className="editor-header">
         <button
           type="button"
@@ -729,7 +915,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       <div className="editor-body">
         <aside className="layers-panel">
           <nav className="sidebar-rail" aria-label="Editor panels">
-            {(['Add', 'Layers', 'Pages'] as const).map((name) => (
+            {(['Add', 'Layers', 'Pages', 'Assets'] as const).map((name) => (
               <button
                 key={name}
                 type="button"
@@ -738,7 +924,17 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 aria-pressed={sidebar === name}
                 onClick={() => setSidebar(name)}
               >
-                <EditorIcon name={name === 'Add' ? 'plus' : name === 'Layers' ? 'layer' : 'page'} />
+                <EditorIcon
+                  name={
+                    name === 'Add'
+                      ? 'plus'
+                      : name === 'Layers'
+                        ? 'layer'
+                        : name === 'Assets'
+                          ? 'image'
+                          : 'page'
+                  }
+                />
               </button>
             ))}
           </nav>
@@ -777,6 +973,34 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                       ))}
                 </div>
               </>
+            )}
+            {doc && page && (
+              <div hidden={sidebar !== 'Assets'}>
+                <div className="panel-title">Assets</div>
+                <AssetsPanel
+                  siteId={siteId}
+                  doc={doc}
+                  disabled={busy || dirty || conflict}
+                  save={save}
+                  insert={async (assetId) => {
+                    let target: ReturnType<typeof insertionTarget>
+                    try {
+                      target = insertionTarget(doc, page.root, selected, 'inside')
+                    } catch {
+                      try {
+                        target = insertionTarget(doc, page.root, selected, 'after')
+                      } catch {
+                        target = insertionTarget(doc, page.root, selected, 'page')
+                      }
+                    }
+                    const edit = structureInsertion('image', target, '', false, assetId)
+                    if (await save(edit.operations)) {
+                      setSelected(edit.node.id)
+                      setSidebar('Layers')
+                    }
+                  }}
+                />
+              </div>
             )}
             {sidebar === 'Add' && (
               <>
@@ -960,6 +1184,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         </main>
         {doc && selected && doc.nodes[selected] ? (
           <Inspector
+            siteId={siteId}
             key={`${selected}-${generation}-${editingBreakpoint(doc, width)}`}
             breakpoint={editingBreakpoint(doc, width)}
             ribbonHost={ribbonHost}

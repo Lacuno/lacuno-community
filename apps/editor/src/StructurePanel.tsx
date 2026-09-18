@@ -59,6 +59,7 @@ export function StructurePanel({
           {[
             { label: 'Structure', items: structures },
             { label: 'Text', items: ['heading', 'paragraph'] as const },
+            { label: 'Media', items: ['image'] as const },
           ].map((group) => (
             <section className="insert-category" key={group.label}>
               <h3>{group.label}</h3>
@@ -72,7 +73,9 @@ export function StructurePanel({
                     data-drag-class={classId}
                     title={`Drag ${name} onto the page`}
                     aria-pressed={preset === name}
-                    onClick={() => setPreset(name)}
+                    onClick={() => {
+                      setPreset(name)
+                    }}
                   >
                     <svg
                       viewBox="0 0 32 32"
@@ -130,7 +133,7 @@ export function StructurePanel({
             disabled={disabled || !target}
             onClick={async () => {
               if (!target) return
-              const { node, operations } = structureInsertion(preset, target, classId)
+              const { node, operations } = structureInsertion(preset, target, classId, false)
               if (await save(operations)) select(node.id)
             }}
           >
@@ -227,6 +230,7 @@ export function StructurePanel({
 }
 
 const tilePaths: Record<Preset, string> = {
+  image: 'M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8M22 9h1',
   section: 'M3 4h26v24H3zM3 10h26M3 23h26',
   container: 'M3 4h26v24H3zM9 9h14v14H9z',
   stack: 'M5 3h22v26H5zM10 9h12M10 16h12M10 23h12',

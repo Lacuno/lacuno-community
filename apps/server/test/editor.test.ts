@@ -884,6 +884,139 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await page.screenshot({
       path: path.join(root, '.freeflow/editor-preview/editor-navigator.png'),
     })
+    // Upload images, drag them into the document, and edit them through autosave.
+    await page.getByRole('button', { name: 'Assets', exact: true }).click()
+    const imageData = await page.evaluate(() => {
+      const image = document.createElement('canvas')
+      image.width = 40
+      image.height = 30
+      const context = image.getContext('2d')!
+      context.fillStyle = '#265fd6'
+      context.fillRect(0, 0, 40, 30)
+      return image.toDataURL('image/png').split(',')[1]!
+    })
+    await page.getByLabel('Upload image', { exact: true }).setInputFiles({
+      name: 'blue-card.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(imageData, 'base64'),
+    })
+    const imageTile = page.getByRole('button', { name: 'Insert blue-card.png', exact: true })
+    await imageTile.waitFor()
+    await drag(imageTile, heading, 0.9)
+    await expect.poll(() => page.locator('.layer.selected').textContent()).toBe('Image')
+    const imageId = await page.locator('.layer.selected').getAttribute('data-drag-node')
+    const insertedImage = canvas.locator(`[data-freeflow-node="${imageId}"]`)
+    await expect
+      .poll(() => insertedImage.evaluate((element) => (element as HTMLImageElement).naturalWidth))
+      .toBe(40)
+    const uploadedSrc = await insertedImage.getAttribute('src')
+    await page.getByLabel('Image alt text', { exact: true }).fill('Blue sample image')
+    await expect.poll(() => insertedImage.getAttribute('alt')).toBe('Blue sample image')
+    await saved()
+    await page.getByLabel('Height', { exact: true }).fill('160px')
+    await page.getByLabel('Image fit', { exact: true }).selectOption('contain')
+    await saved()
+    await expect
+      .poll(() => insertedImage.evaluate((element) => getComputedStyle(element).objectFit))
+      .toBe('contain')
+    await page.getByRole('button', { name: 'Mobile', exact: true }).click()
+    await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
+    await page.getByLabel('Image focal point', { exact: true }).selectOption('100% 0%')
+    await saved()
+    await page.getByRole('button', { name: 'Desktop', exact: true }).click()
+    await expect
+      .poll(() => insertedImage.evaluate((element) => getComputedStyle(element).objectPosition))
+      .toBe('50% 50%')
+    await page.getByRole('button', { name: 'Change image', exact: true }).click()
+    const library = page.getByRole('dialog', { name: 'Image library' })
+    await library.waitFor()
+    await expect
+      .poll(() =>
+        library
+          .locator('img')
+          .evaluateAll((images) =>
+            images.every((image) => (image as HTMLImageElement).naturalWidth > 0),
+          ),
+      )
+      .toBe(true)
+    await page.screenshot({
+      path: path.join(root, '.freeflow/editor-preview/editor-image-library.png'),
+    })
+    await library.locator('button[aria-pressed="false"]').first().click()
+    await saved()
+    await expect.poll(() => insertedImage.getAttribute('src')).not.toBe(uploadedSrc)
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect.poll(() => insertedImage.getAttribute('src')).toBe(uploadedSrc)
+    await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-images.png') })
+    await page.reload()
+    await expect.poll(() => insertedImage.getAttribute('alt')).toBe('Blue sample image')
+    await expect
+      .poll(() => insertedImage.evaluate((element) => (element as HTMLImageElement).naturalWidth))
+      .toBe(40)
+    await insertedImage.dispatchEvent('click')
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await page.getByRole('button', { name: 'Image', exact: true }).click()
+    await page.getByRole('button', { name: 'Insert element', exact: true }).click()
+    await expect
+      .poll(() => page.locator('.layer.selected').getAttribute('data-drag-node'))
+      .not.toBe(imageId)
+    await saved()
+    const placeholderId = await page.locator('.layer.selected').getAttribute('data-drag-node')
+    const placeholder = canvas.locator(`[data-freeflow-node="${placeholderId}"]`)
+    await expect.poll(() => placeholder.evaluate((element) => element.tagName)).toBe('DIV')
+    await expect.poll(() => placeholder.getAttribute('src')).toBe(null)
+    await placeholder.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+    await page.screenshot({
+      path: path.join(root, '.freeflow/editor-preview/editor-image-placeholder.png'),
+    })
+    await page.getByRole('button', { name: 'Choose image', exact: true }).click()
+    await page
+      .getByRole('dialog', { name: 'Image library' })
+      .getByRole('button', { name: 'Choose blue-card.png', exact: true })
+      .click()
+    await expect.poll(() => placeholder.evaluate((element) => element.tagName)).toBe('IMG')
+    await saved()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect.poll(() => placeholder.evaluate((element) => element.tagName)).toBe('DIV')
+    const dropFile = async (name: string, color: string) => {
+      await placeholder.evaluate(
+        (element, { name, color }) => {
+          const image = document.createElement('canvas')
+          image.width = 60
+          image.height = 40
+          const context = image.getContext('2d')!
+          context.fillStyle = color
+          context.fillRect(0, 0, 60, 40)
+          const bytes = Uint8Array.from(atob(image.toDataURL('image/png').split(',')[1]!), (char) =>
+            char.charCodeAt(0),
+          )
+          const dataTransfer = new DataTransfer()
+          dataTransfer.items.add(new File([bytes], name, { type: 'image/png' }))
+          element.dispatchEvent(
+            new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer }),
+          )
+          element.dispatchEvent(
+            new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }),
+          )
+        },
+        { name, color },
+      )
+    }
+    await dropFile('green-drop.png', '#00aa55')
+    await expect.poll(() => placeholder.evaluate((element) => element.tagName)).toBe('IMG')
+    await expect
+      .poll(() => placeholder.evaluate((element) => (element as HTMLImageElement).naturalWidth))
+      .toBe(60)
+    await saved()
+    const greenSource = await placeholder.getAttribute('src')
+    await dropFile('red-drop.png', '#ff4455')
+    await expect.poll(() => placeholder.getAttribute('src')).not.toBe(greenSource)
+    await saved()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect.poll(() => placeholder.getAttribute('src')).toBe(greenSource)
+    await saved()
+    await page.getByRole('button', { name: 'Assets', exact: true }).click()
+    await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-assets.png') })
     await page.getByRole('button', { name: 'Back to sites' }).click()
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill('editor@example.test')

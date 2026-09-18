@@ -1,4 +1,5 @@
 const paths = {
+  image: 'M3 3h18v18H3zM3 18l6-8 5 6 3-4 4 6M16 7h1',
   section: 'M3 3h18v18H3zM3 8h18M3 16h18',
   grid: 'M3 3h18v18H3zM12 3v18M3 12h18',
   row: 'M3 4h18v16H3zM9 4v16M15 4v16',

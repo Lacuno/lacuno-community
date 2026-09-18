@@ -16,6 +16,7 @@ type Options = {
   root: string | undefined
   disabled: boolean
   save: (operations: EditOperation[]) => Promise<boolean>
+  uploadImage: (id: string, file: File) => void
   select: (id: string) => void
 }
 
@@ -98,7 +99,12 @@ function createController(getOptions: () => Options) {
       }
       const preset = element.dataset.dragPreset as Preset | undefined
       const id = element.dataset.dragNode ?? element.dataset.freeflowNode
-      if (preset) item = { preset, classId: element.dataset.dragClass ?? '' }
+      if (preset)
+        item = {
+          preset,
+          classId: element.dataset.dragClass ?? '',
+          assetId: element.dataset.dragAsset ?? '',
+        }
       else if (id && id !== root && doc.nodes[id]?.parent && !structureRestriction(doc, id))
         item = { id }
       if (!item) {
@@ -108,7 +114,43 @@ function createController(getOptions: () => Options) {
       event.dataTransfer.effectAllowed = 'preset' in item ? 'copy' : 'move'
       event.dataTransfer.setData('application/x-freeflow-element', 'internal')
     }
+    const isFileDrop = (event: DragEvent) => event.dataTransfer?.types.includes('Files')
+    const imageTarget = (event: DragEvent) => {
+      const { doc, disabled } = getOptions()
+      const element = elementAt(event)
+      const id = element?.dataset.freeflowNode
+      const node = id && doc?.nodes[id]
+      if (
+        !disabled &&
+        doc &&
+        element &&
+        id &&
+        node &&
+        node.type === 'element' &&
+        node.tag === 'img' &&
+        !structureRestriction(doc, id)
+      )
+        return { element, id }
+    }
     const over = (event: DragEvent) => {
+      if (isFileDrop(event)) {
+        event.preventDefault()
+        clear()
+        const target = imageTarget(event)
+        if (event.dataTransfer) event.dataTransfer.dropEffect = target ? 'copy' : 'none'
+        if (target) {
+          const rect = target.element.getBoundingClientRect()
+          Object.assign(indicator.style, {
+            display: 'block',
+            left: `${rect.left}px`,
+            top: `${rect.top}px`,
+            width: `${rect.width}px`,
+            height: `${rect.height}px`,
+          })
+          label.textContent = 'Drop photo to replace image'
+        }
+        return
+      }
       if (!item) return
       event.preventDefault()
       clear()
@@ -129,6 +171,15 @@ function createController(getOptions: () => Options) {
       label.textContent = `${position === 'inside' ? 'Inside' : position === 'before' ? 'Before' : 'After'} ${node.meta?.label ?? ('tag' in node ? node.tag : node.type)}`
     }
     const drop = (event: DragEvent) => {
+      if (isFileDrop(event)) {
+        event.preventDefault()
+        event.stopPropagation()
+        const target = imageTarget(event)
+        const file = event.dataTransfer?.files[0]
+        end()
+        if (target && file) getOptions().uploadImage(target.id, file)
+        return
+      }
       if (!item) return
       event.preventDefault()
       event.stopPropagation()

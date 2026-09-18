@@ -58,21 +58,41 @@ export function Canvas({
     const undo: (() => void)[] = []
     const draft = liveRef.current
     if (draft.node) {
-      const element = [...doc.querySelectorAll<HTMLElement>('[data-freeflow-node]')].find(
+      let element = [...doc.querySelectorAll<HTMLElement>('[data-freeflow-node]')].find(
         (element) => element.dataset.freeflowNode === draft.node!.id,
       )
+      if (element?.hasAttribute('data-freeflow-image-placeholder') && draft.node.attrs?.src) {
+        const placeholder = element
+        const image = doc.createElement('img')
+        for (const attribute of placeholder.attributes) {
+          if (attribute.name !== 'data-freeflow-image-placeholder')
+            image.setAttribute(attribute.name, attribute.value)
+        }
+        placeholder.replaceWith(image)
+        element = image
+        undo.push(() => image.replaceWith(placeholder))
+      }
       if (element) {
+        const target = element
         // Style previews must preserve child DOM, including its current selection marker.
-        const markup = draft.node.text !== undefined ? element.innerHTML : undefined
-        const style = element.getAttribute('style')
+        const markup = draft.node.text !== undefined ? target.innerHTML : undefined
+        const style = target.getAttribute('style')
         undo.push(() => {
-          if (markup !== undefined) element.innerHTML = markup
-          if (style === null) element.removeAttribute('style')
-          else element.setAttribute('style', style)
+          if (markup !== undefined) target.innerHTML = markup
+          if (style === null) target.removeAttribute('style')
+          else target.setAttribute('style', style)
         })
-        if (draft.node.text !== undefined) element.textContent = draft.node.text
+        for (const [attribute, value] of Object.entries(draft.node.attrs ?? {})) {
+          const before = target.getAttribute(attribute)
+          undo.push(() => {
+            if (before === null) target.removeAttribute(attribute)
+            else target.setAttribute(attribute, before)
+          })
+          target.setAttribute(attribute, value)
+        }
+        if (draft.node.text !== undefined) target.textContent = draft.node.text
         for (const [property, value] of Object.entries(draft.node.styles)) {
-          if (value !== null) element.style.setProperty(property, value, 'important')
+          if (value !== null) target.style.setProperty(property, value, 'important')
           else if (draft.node.selector) {
             for (const sheet of doc.styleSheets) {
               let rules: CSSRuleList
@@ -248,6 +268,16 @@ export function Canvas({
         onLoad={() => {
           const doc = frame.current?.contentDocument
           if (!doc) return
+          for (const image of doc.querySelectorAll(
+            'img[data-freeflow-node]:not([src]), img[data-freeflow-node][src=""]',
+          )) {
+            const placeholder = doc.createElement('div')
+            for (const attribute of image.attributes)
+              placeholder.setAttribute(attribute.name, attribute.value)
+            placeholder.setAttribute('data-freeflow-image-placeholder', '')
+            placeholder.setAttribute('aria-label', 'Image placeholder. Drop a photo here.')
+            image.replaceWith(placeholder)
+          }
           selectionCleanup.current?.()
           selectionCleanup.current = selectionOverlay(doc, () => nameRef.current)
           dragCleanup.current?.()
@@ -257,6 +287,7 @@ export function Canvas({
           const style = doc.createElement('style')
           style.textContent =
             'div[data-freeflow-node]:empty, section[data-freeflow-node]:empty { min-height: 48px; min-width: 48px; } [data-freeflow-node]:not([data-freeflow-selected]):hover:not(:has([data-freeflow-node]:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }'
+          style.textContent += `[data-freeflow-image-placeholder] { min-height:160px !important; min-width:80px; background: #f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; position:relative; } [data-freeflow-image-placeholder]::after { content:""; display:block; width:40px; height:40px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%239187aa' stroke-width='1.5'%3E%3Cpath d='M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8'/%3E%3Ccircle cx='22' cy='10' r='2'/%3E%3C/svg%3E"); }`
           style.textContent += MOTION_CSS
           doc.head.append(style)
           const pick = (event: Event) => {

@@ -34,6 +34,8 @@ export const formattingGroups = [
   {
     name: 'Layout',
     fields: [
+      { property: 'object-fit', label: 'Image fit' },
+      { property: 'object-position', label: 'Image focal point' },
       { property: 'display', label: 'Layout type', choices: ['block', 'flex', 'grid'] },
       {
         property: 'flex-direction',

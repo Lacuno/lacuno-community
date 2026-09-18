@@ -3,7 +3,7 @@ import type { EditOperation, InsertNode } from './history.js'
 
 export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
 export type Structure = (typeof structures)[number]
-export type Preset = 'heading' | 'paragraph' | Structure
+export type Preset = 'heading' | 'paragraph' | 'image' | Structure
 export type Placement = 'inside' | 'after' | 'page'
 const containers = new Set([
   'div',
@@ -73,6 +73,7 @@ export function presetNode(
   preset: Preset,
   classId: string,
   makeId = () => `n-${crypto.randomUUID()}`,
+  assetId = '',
 ): InsertNode {
   const text = (tag: string, label: string, value: string): InsertNode => ({
     id: makeId(),
@@ -82,6 +83,20 @@ export function presetNode(
     text: { type: 'static', value },
     meta: { label },
   })
+  if (preset === 'image') {
+    return {
+      id: makeId(),
+      type: 'element',
+      tag: 'img',
+      classes: classId ? [classId] : [],
+      attrs: {
+        ...(assetId ? { src: { type: 'asset' as const, asset: assetId } } : {}),
+        alt: { type: 'static', value: '' },
+      },
+      meta: { label: 'Image' },
+      children: [],
+    }
+  }
   const classes = classId ? [classId] : []
   if (preset === 'heading') return { ...text('h2', 'Heading', 'Your new heading'), classes }
   if (preset === 'paragraph')
@@ -102,7 +117,15 @@ export function presetNode(
   }
 }
 
-const defaults: Record<Structure, Record<string, string>> = {
+const defaults: Record<Structure | 'image', Record<string, string>> = {
+  image: {
+    display: 'block',
+    'max-width': '100%',
+    width: '100%',
+    height: 'auto',
+    'object-fit': 'cover',
+    'object-position': '50% 50%',
+  },
   section: { padding: '48px 24px', 'box-sizing': 'border-box' },
   container: { width: '100%', 'max-width': '1100px', margin: '0 auto', 'box-sizing': 'border-box' },
   stack: { display: 'flex', 'flex-direction': 'column', gap: '16px' },
@@ -115,15 +138,16 @@ export function structureInsertion(
   target: { parent: string; index: number },
   classId = '',
   empty = false,
+  assetId = '',
 ): { node: InsertNode; operations: EditOperation[] } {
-  const node = presetNode(preset, classId)
+  const node = presetNode(preset, classId, undefined, assetId)
   if (empty) node.children = []
   const operations: EditOperation[] = []
   if (preset in defaults) {
     const id = `c-${crypto.randomUUID()}`
     node.classes.push(id)
     operations.push({ type: 'class.create', id, local: true })
-    for (const [property, value] of Object.entries(defaults[preset as Structure])) {
+    for (const [property, value] of Object.entries(defaults[preset as Structure | 'image'])) {
       operations.push({
         type: 'style.set',
         class: id,
@@ -146,7 +170,7 @@ export function wrapSelection(doc: Document, id: string, preset: Structure) {
 }
 
 export type DropPosition = 'before' | 'inside' | 'after'
-export type DragItem = { preset: Preset; classId?: string } | { id: string }
+export type DragItem = { preset: Preset; classId?: string; assetId?: string } | { id: string }
 
 export function canContain(doc: Document, id: string) {
   const node = doc.nodes[id]
@@ -200,7 +224,8 @@ export function dropEdit(
   position: DropPosition,
 ) {
   const target = dropTarget(doc, root, item, id, position)
-  if ('preset' in item) return structureInsertion(item.preset, target, item.classId)
+  if ('preset' in item)
+    return structureInsertion(item.preset, target, item.classId, false, item.assetId)
   const node = doc.nodes[item.id]!
   const unchanged =
     node.parent === target.parent && doc.nodes[target.parent]!.children[target.index] === item.id

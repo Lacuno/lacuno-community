@@ -198,3 +198,57 @@ it('renames an element and restores absent metadata exactly', async () => {
   await store.apply({ expectedRevision: store.revision, operations: history.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })
+
+it('round-trips image registration, insertion, replacement and alt text through history', async () => {
+  const doc = fixtureDocument()
+  const originalAsset = Object.values(doc.assets)[0]!
+  const asset = { ...originalAsset, id: 'a-new-image', name: 'New image' }
+  const parent = doc.nodes['n-hero-title']!.parent!
+  const inserted = structureInsertion('image', { parent, index: 0 }, '', false, asset.id)
+  const operations: EditOperation[] = [{ type: 'asset.create', ...asset }, ...inserted.operations]
+  const history = captureEdit(doc, operations)
+  const store = DocumentStore.inMemory(doc)
+  await store.apply({ expectedRevision: store.revision, operations })
+  const beforeEdit = store.read().document
+  const update: EditOperation[] = [
+    {
+      type: 'node.update',
+      id: inserted.node.id,
+      attrs: {
+        src: { type: 'asset', asset: originalAsset.id },
+        alt: { type: 'static', value: 'A description' },
+      },
+    },
+  ]
+  const updateHistory = captureEdit(beforeEdit, update)
+  await store.apply({ expectedRevision: store.revision, operations: update })
+  expect(store.read().document.nodes[inserted.node.id]!.attrs!.alt).toEqual({
+    type: 'static',
+    value: 'A description',
+  })
+  await store.apply({ expectedRevision: store.revision, operations: updateHistory.undo })
+  expect({ ...store.read().document, revision: beforeEdit.revision }).toEqual(beforeEdit)
+  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
+})
+
+it('inserts an image without selecting an existing asset and restores its placeholder on undo', async () => {
+  const doc = fixtureDocument()
+  const parent = doc.nodes['n-hero-title']!.parent!
+  const inserted = structureInsertion('image', { parent, index: 0 })
+  const store = DocumentStore.inMemory(doc)
+  await store.apply({ expectedRevision: store.revision, operations: inserted.operations })
+  const node = store.read().document.nodes[inserted.node.id]!
+  expect(node.attrs?.src).toBeUndefined()
+  const asset = Object.values(doc.assets)[0]!
+  const edit = captureEdit(store.read().document, [
+    {
+      type: 'node.update',
+      id: node.id,
+      attrs: { ...node.attrs, src: { type: 'asset', asset: asset.id } },
+    },
+  ])
+  await store.apply({ expectedRevision: store.revision, operations: edit.redo })
+  await store.apply({ expectedRevision: store.revision, operations: edit.undo })
+  expect(store.read().document.nodes[node.id]).toEqual(node)
+})

@@ -54,7 +54,11 @@ export async function createServer(options: ServerOptions) {
       c.header('Cache-Control', 'no-store')
       await next()
     })
-    app.use('/api/*', bodyLimit({ maxSize: 2 * 1024 * 1024 }))
+    app.use('/api/*', (c, next) =>
+      bodyLimit({
+        maxSize: c.req.path.endsWith('/assets/upload') ? 15 * 1024 * 1024 : 2 * 1024 * 1024,
+      })(c, next),
+    )
     app.onError((error, c) => {
       if (error instanceof HTTPException) return error.getResponse()
       if (error instanceof StaleRevisionError)
@@ -182,6 +186,45 @@ export async function createServer(options: ServerOptions) {
       if (page.collection && !entry)
         return c.json({ error: 'Choose a collection entry to preview' }, 400)
       return c.json({ ...renderCanvas(document, page, entry, c.req.param('id')), revision })
+    })
+    app.post('/api/sites/:id/assets/upload', async (c) => {
+      const input = z
+        .object({
+          name: z.string().trim().min(1).max(255),
+          data: z
+            .string()
+            .max(14 * 1024 * 1024)
+            .regex(/^[A-Za-z0-9+/]+={0,2}$/),
+        })
+        .safeParse(await c.req.json().catch(() => null))
+      if (!input.success) return c.json({ error: 'Invalid image upload' }, 400)
+      const bytes = Buffer.from(input.data.data, 'base64')
+      if (!bytes.length || bytes.length > 10 * 1024 * 1024)
+        return c.json({ error: 'Images must be 10 MB or smaller.' }, 413)
+      const mime = bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+        ? 'image/png'
+        : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
+          ? 'image/jpeg'
+          : ['GIF87a', 'GIF89a'].includes(bytes.toString('ascii', 0, 6))
+            ? 'image/gif'
+            : bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP'
+              ? 'image/webp'
+              : ''
+      if (!mime) return c.json({ error: 'Choose a PNG, JPEG, WebP, or GIF image.' }, 415)
+      const hash = await hashAsset(bytes)
+      const { document } = (await store(c.req.param('id'))).read()
+      const existing = Object.values(document.assets).find((asset) => asset.hash === hash)
+      if (existing) return c.json(existing)
+      // Stage immutable bytes; registration goes through the editor's revision-checked undoable batch.
+      await new SqlitePersistence(db, c.req.param('id'), options.dataDir).putAsset(bytes, hash)
+      return c.json({
+        id: `a-${randomUUID()}`,
+        name: input.data.name,
+        kind: 'image',
+        hash,
+        mime,
+        size: bytes.length,
+      })
     })
     app.get('/api/sites/:id/assets/:hash', async (c) => {
       const hash = c.req.param('hash')
