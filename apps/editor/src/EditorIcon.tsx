@@ -1,4 +1,8 @@
 const paths = {
+  section: 'M3 3h18v18H3zM3 8h18M3 16h18',
+  grid: 'M3 3h18v18H3zM12 3v18M3 12h18',
+  row: 'M3 4h18v16H3zM9 4v16M15 4v16',
+  stack: 'M4 3h16v18H4zM4 9h16M4 15h16',
   back: 'm14 6-6 6 6 6M8 12h12',
   page: 'M6 3h8l4 4v14H6zM14 3v5h4',
   layer: 'M4 6h16v12H4z',

@@ -20,9 +20,11 @@ import {
   historyShortcut,
 } from './history.js'
 import type { LivePreview } from './livePreview.js'
+import { Navigator } from './Navigator.js'
 import { PresetManager } from './PresetManager.js'
 import { ProjectColors } from './ProjectColors.js'
 import { StructurePanel } from './StructurePanel.js'
+import { duplicateSelection, subtreeRestriction } from './structure.js'
 import { useAutosave } from './useAutosave.js'
 import { useStructureDrag } from './useStructureDrag.js'
 
@@ -30,72 +32,6 @@ type Snapshot = { document: Document; revision: number }
 type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
 type Operation = EditOperation
 const describe = (node: Node) => node.meta?.label ?? ('tag' in node ? node.tag : node.type)
-
-function Layers({
-  doc,
-  id,
-  selected,
-  select,
-  actions,
-  depth = 0,
-}: {
-  doc: Document
-  id: string
-  selected: string
-  select: (id: string) => void
-  depth?: number
-  actions: (id: string) => void
-}) {
-  const node = doc.nodes[id]
-  if (!node || depth > 50) return null
-  const children = [...node.children]
-  if (node.type === 'component') {
-    const root = doc.components[node.component]?.root
-    if (root) children.unshift(root)
-  }
-  return (
-    <>
-      <button
-        type="button"
-        draggable
-        data-drag-node={id}
-        className={`layer ${selected === id ? 'selected' : ''}`}
-        style={{ paddingLeft: 16 + depth * 13 }}
-        onClick={() => select(id)}
-        onContextMenu={(event) => {
-          event.preventDefault()
-          actions(id)
-        }}
-        onKeyDown={(event) => {
-          if (event.shiftKey && event.key === 'F10') {
-            event.preventDefault()
-            actions(id)
-          }
-        }}
-        title={describe(node)}
-      >
-        <span className="layer-icon">
-          <EditorIcon
-            name={node.type === 'text' ? 'text' : node.type === 'component' ? 'component' : 'layer'}
-          />
-        </span>
-        <span>{describe(node)}</span>
-        {node.meta?.locked && <span>· locked</span>}
-      </button>
-      {children.map((child) => (
-        <Layers
-          key={child}
-          doc={doc}
-          id={child}
-          selected={selected}
-          select={select}
-          actions={actions}
-          depth={depth + 1}
-        />
-      ))}
-    </>
-  )
-}
 
 function editableText(node: Node): string | undefined {
   if (node.type !== 'text') return undefined
@@ -420,6 +356,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [pageId, setPageId] = useState('')
   const [entryId, setEntryId] = useState('')
   const [selected, setSelected] = useState('')
+  const [revealSelection, setRevealSelection] = useState(0)
   const [preview, setPreview] = useState<Preview>()
   const [width, setWidth] = useState(1100)
   const [error, setError] = useState('')
@@ -557,6 +494,16 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       inFlight.current = false
       autoFlight.current = false
       setBusy(false)
+    }
+  }
+  async function nodeAction(action: 'duplicate' | 'delete', id: string) {
+    if (!doc || busy || dirty || conflict || subtreeRestriction(doc, id)) return
+    if (action === 'duplicate') {
+      const edit = duplicateSelection(doc, id)
+      if (await save(edit.operations)) setSelected(edit.node.id)
+    } else {
+      const parent = doc.nodes[id]?.parent ?? ''
+      if (await save([{ type: 'node.delete', id }])) setSelected(parent)
     }
   }
   const canUndo = !!snapshot && editHistory.undo.length > 0 && !busy && !dirty && !conflict
@@ -875,6 +822,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                       {doc.nodes[selected] ? describe(doc.nodes[selected]!) : 'Element actions'}
                     </strong>
                     <StructurePanel
+                      nodeAction={(action) => void nodeAction(action, selected)}
                       mode="actions"
                       doc={doc}
                       root={page.root}
@@ -887,9 +835,14 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 )}
                 <div className="layer-list">
                   {doc && page && (
-                    <Layers
+                    <Navigator
+                      reveal={revealSelection}
+                      key={page.root}
+                      disabled={busy || dirty || conflict}
+                      save={save}
+                      nodeAction={(action, id) => void nodeAction(action, id)}
                       doc={doc}
-                      id={page.root}
+                      root={page.root}
                       selected={selected}
                       actions={(id) =>
                         leave(() => {
@@ -962,6 +915,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           <div className="canvas-workspace">
             {preview ? (
               <Canvas
+                onNodeAction={(action, id) => void nodeAction(action, id)}
                 bindDragSurface={bindDragSurface}
                 onHistory={travel}
                 livePreview={{ ...livePreview, ...colorPreview }}
@@ -969,7 +923,9 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 html={preview.html}
                 width={width}
                 selected={selected}
+                selectedName={doc?.nodes[selected] ? describe(doc.nodes[selected]!) : ''}
                 select={(id) => {
+                  setRevealSelection((value) => value + 1)
                   if (id !== selected) leave(() => setSelected(id))
                 }}
               />

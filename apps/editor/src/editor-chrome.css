@@ -856,3 +856,85 @@
 :where(.insert-tiles, .layer-list) [draggable="true"] {
   cursor: grab;
 }
+
+.editor .layer-list {
+  padding: 0 0 24px;
+}
+.navigator-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 8px 8px;
+}
+.navigator-tools :where(button) {
+  border: 0;
+  background: transparent;
+  color: #777589;
+  font-size: 10px;
+  padding: 4px;
+}
+.navigator-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding-right: 6px;
+}
+.navigator-row.active {
+  background: #eee7ff;
+  color: #693cdd;
+}
+.navigator-guides {
+  position: absolute;
+  pointer-events: none;
+  top: 0;
+  bottom: 0;
+  left: 13px;
+  background: repeating-linear-gradient(to right, transparent 0 13px, #e9e7ef 13px 14px);
+}
+.navigator-toggle,
+.navigator-spacer {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 24px;
+}
+.navigator-toggle {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #777589;
+  z-index: 1;
+}
+.navigator-toggle :where(.editor-icon) {
+  width: 12px;
+  height: 12px;
+}
+.navigator-toggle[aria-expanded="true"] :where(.editor-icon) {
+  transform: rotate(90deg);
+}
+.editor .navigator .layer {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 2px;
+  margin: 0;
+  background: transparent;
+  font-size: 12px;
+}
+.navigator-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.navigator-row :where(input) {
+  min-width: 0;
+  width: 100%;
+  height: 28px;
+  padding: 4px;
+  font-size: 12px;
+}
+.element-edit-actions {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}

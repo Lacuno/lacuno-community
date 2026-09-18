@@ -209,3 +209,85 @@ export function dropEdit(
     operations: unchanged ? [] : [{ type: 'node.move', id: item.id, ...target } as EditOperation],
   }
 }
+
+export function subtreeRestriction(doc: Document, id: string): string | undefined {
+  if (!doc.nodes[id]) return 'Select an element first.'
+  const reason = structureRestriction(doc, id)
+  if (reason) return reason
+  const node = doc.nodes[id]!
+  if (!node.parent) return 'The page root cannot be duplicated or deleted.'
+  if (node.type !== 'element' && node.type !== 'text') return 'This element is not supported yet.'
+  for (const child of node.children) {
+    const restriction = subtreeRestriction(doc, child)
+    if (restriction) return restriction
+  }
+}
+
+export function duplicateSelection(doc: Document, id: string) {
+  const reason = subtreeRestriction(doc, id)
+  if (reason) throw new Error(reason)
+  const operations: EditOperation[] = []
+  const locals = new Map<string, string>()
+  const htmlIds = new Map<string, string>()
+  const collect = (nodeId: string) => {
+    const node = doc.nodes[nodeId]!
+    const value = node.attrs?.id
+    if (value?.type === 'static' && typeof value.value === 'string')
+      htmlIds.set(value.value, `${value.value}-copy-${crypto.randomUUID().slice(0, 8)}`)
+    node.children.forEach(collect)
+  }
+  collect(id)
+
+  const copy = (nodeId: string): InsertNode => {
+    const node = doc.nodes[nodeId]!
+    if (node.type !== 'element' && node.type !== 'text') throw new Error('Unsupported element')
+    const { parent: _, children, ...fields } = structuredClone(node)
+    for (const [attribute, binding] of Object.entries(fields.attrs ?? {})) {
+      if (binding.type !== 'static' || typeof binding.value !== 'string') continue
+      if (attribute === 'id') binding.value = htmlIds.get(binding.value) ?? binding.value
+      else if (attribute === 'href' && binding.value.startsWith('#'))
+        binding.value = `#${htmlIds.get(binding.value.slice(1)) ?? binding.value.slice(1)}`
+      else if (
+        [
+          'for',
+          'aria-labelledby',
+          'aria-describedby',
+          'aria-controls',
+          'aria-owns',
+          'headers',
+          'list',
+          'form',
+        ].includes(attribute)
+      )
+        binding.value = binding.value
+          .split(/\s+/)
+          .map((value) => htmlIds.get(value) ?? value)
+          .join(' ')
+    }
+    const classes = node.classes.map((classId) => {
+      const cls = doc.classes[classId]
+      if (cls?.kind !== 'local' || cls.combo?.length || cls.locked) return classId
+      if (!locals.has(classId)) {
+        const next = `c-${crypto.randomUUID()}`
+        locals.set(classId, next)
+        operations.push({ type: 'class.create', id: next, local: true })
+        for (const style of Object.values(doc.styles).filter((style) => style.class === classId))
+          operations.push({ type: 'style.set', ...structuredClone(style), class: next })
+      }
+      return locals.get(classId)!
+    })
+    return {
+      ...fields,
+      id: `n-${crypto.randomUUID()}`,
+      classes,
+      children: children.map(copy),
+    } as InsertNode
+  }
+  const node = copy(id)
+  node.meta = {
+    ...node.meta,
+    label: `${doc.nodes[id]!.meta?.label ?? ('tag' in doc.nodes[id]! ? doc.nodes[id]!.tag : 'Element')} copy`,
+  }
+  operations.push({ type: 'node.create', ...insertionTarget(doc, '', id, 'after'), node })
+  return { node, operations }
+}

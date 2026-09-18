@@ -9,11 +9,13 @@ import {
   siblingMove,
   structureInsertion,
   structures,
+  subtreeRestriction,
   wrapSelection,
 } from './structure.js'
 
 export function StructurePanel({
   mode = 'add',
+  nodeAction,
   doc,
   root,
   selected,
@@ -22,6 +24,7 @@ export function StructurePanel({
   select,
 }: {
   mode?: 'add' | 'actions'
+  nodeAction?: (action: 'duplicate' | 'delete') => void
   doc: Document
   root: string
   selected: string
@@ -137,6 +140,24 @@ export function StructurePanel({
       )}
       {mode === 'actions' && (
         <>
+          <div className="element-edit-actions">
+            <button
+              type="button"
+              disabled={disabled || !!subtreeRestriction(doc, selected)}
+              title={subtreeRestriction(doc, selected)}
+              onClick={() => nodeAction?.('duplicate')}
+            >
+              Duplicate element
+            </button>
+            <button
+              type="button"
+              disabled={disabled || !!subtreeRestriction(doc, selected)}
+              title={subtreeRestriction(doc, selected)}
+              onClick={() => nodeAction?.('delete')}
+            >
+              Delete element
+            </button>
+          </div>
           <details>
             <summary>Wrap selection in…</summary>
             <div className="insert-fields">

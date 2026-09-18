@@ -15,7 +15,13 @@ export type InsertNode = (
 ) & { children?: InsertNode[] }
 
 export type EditOperation =
-  | { type: 'node.update'; id: string; text?: TextNode['text']; classes?: string[] }
+  | {
+      type: 'node.update'
+      id: string
+      text?: TextNode['text']
+      classes?: string[]
+      meta?: NonNullable<ElementNode['meta']> | null
+    }
   | { type: 'class.create'; id: string; name?: string; local?: boolean; preset?: boolean }
   | { type: 'class.delete'; id: string }
   | (DefinedFields<DesignToken> & { type: 'designToken.create' })
@@ -109,6 +115,11 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
         if (node.type !== 'text') throw new Error('Cannot record a text edit for this element')
         inverse.text = structuredClone(node.text)
         node.text = structuredClone(operation.text)
+      }
+      if (operation.meta !== undefined) {
+        inverse.meta = node.meta ? structuredClone(node.meta) : null
+        if (operation.meta === null) delete node.meta
+        else node.meta = structuredClone(operation.meta)
       }
       if (operation.classes !== undefined) {
         inverse.classes = [...node.classes]

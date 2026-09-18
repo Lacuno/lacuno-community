@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
 import type { LivePreview } from './livePreview.js'
+import { selectionOverlay } from './selectionOverlay.js'
 
 function highlight(frame: HTMLIFrameElement | null, selected: string) {
   for (const element of frame?.contentDocument?.querySelectorAll('[data-freeflow-node]') ?? []) {
@@ -14,26 +15,36 @@ function highlight(frame: HTMLIFrameElement | null, selected: string) {
 }
 
 export function Canvas({
+  onNodeAction,
   bindDragSurface,
   html,
   width,
   selected,
+  selectedName,
   select,
   onHistory,
   onComputed,
   livePreview,
 }: {
+  onNodeAction: (action: 'duplicate' | 'delete', id: string) => void
   bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
   html: string
   width: number
   selected: string
+  selectedName: string
   select: (id: string) => void
   onHistory: (direction: 'undo' | 'redo') => void
   onComputed: (value: { id: string; values: Record<string, string> }) => void
 }) {
+  const selectionCleanup = useRef<(() => void) | undefined>(undefined)
+  const nameRef = useRef(selectedName)
+  nameRef.current = selectedName
+  useEffect(() => () => selectionCleanup.current?.(), [])
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
   useEffect(() => () => dragCleanup.current?.(), [])
+  const nodeActionRef = useRef(onNodeAction)
+  nodeActionRef.current = onNodeAction
   const frame = useRef<HTMLIFrameElement>(null)
   const scrollPosition = useRef({ x: 0, y: 0 })
   const liveRef = useRef(livePreview)
@@ -51,10 +62,11 @@ export function Canvas({
         (element) => element.dataset.freeflowNode === draft.node!.id,
       )
       if (element) {
-        const markup = element.innerHTML
+        // Style previews must preserve child DOM, including its current selection marker.
+        const markup = draft.node.text !== undefined ? element.innerHTML : undefined
         const style = element.getAttribute('style')
         undo.push(() => {
-          element.innerHTML = markup
+          if (markup !== undefined) element.innerHTML = markup
           if (style === null) element.removeAttribute('style')
           else element.setAttribute('style', style)
         })
@@ -236,13 +248,15 @@ export function Canvas({
         onLoad={() => {
           const doc = frame.current?.contentDocument
           if (!doc) return
+          selectionCleanup.current?.()
+          selectionCleanup.current = selectionOverlay(doc, () => nameRef.current)
           dragCleanup.current?.()
           for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
             element.draggable = true
           dragCleanup.current = bindDragSurface(doc)
           const style = doc.createElement('style')
           style.textContent =
-            'div[data-freeflow-node]:empty, section[data-freeflow-node]:empty { min-height: 48px; min-width: 48px; } [data-freeflow-node]:hover { outline: 1px solid #8775ed !important; outline-offset: -1px } [data-freeflow-selected] { outline: 2px solid #6d51df !important; outline-offset: -2px }'
+            'div[data-freeflow-node]:empty, section[data-freeflow-node]:empty { min-height: 48px; min-width: 48px; } [data-freeflow-node]:not([data-freeflow-selected]):hover:not(:has([data-freeflow-node]:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }'
           style.textContent += MOTION_CSS
           doc.head.append(style)
           const pick = (event: Event) => {
@@ -263,6 +277,16 @@ export function Canvas({
               if (direction) {
                 event.preventDefault()
                 historyRef.current(direction)
+                return
+              }
+              if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+                event.preventDefault()
+                nodeActionRef.current('duplicate', selectedRef.current)
+                return
+              }
+              if (event.key === 'Delete' || event.key === 'Backspace') {
+                event.preventDefault()
+                nodeActionRef.current('delete', selectedRef.current)
                 return
               }
               if (event.key === 'Enter' || event.key === ' ') pick(event)

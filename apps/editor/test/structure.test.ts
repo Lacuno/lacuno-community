@@ -5,12 +5,14 @@ import { captureEdit, type EditOperation } from '../src/history.js'
 import {
   dropEdit,
   dropTarget,
+  duplicateSelection,
   insertionTarget,
   presetNode,
   siblingMove,
   structureInsertion,
   structureRestriction,
   structures,
+  subtreeRestriction,
   wrapSelection,
 } from '../src/structure.js'
 
@@ -155,6 +157,44 @@ it('rejects moving a container into a descendant and round-trips drag insertion'
     dropTarget(store.read().document, root, { id: row.node.id }, child.node.id, 'inside'),
   ).toThrow('itself')
   await store.apply({ expectedRevision: store.revision, operations: childHistory.undo })
+  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
+})
+
+it('duplicates a subtree with independent local styles and unique HTML ids, then undoes exactly', async () => {
+  const doc = fixtureDocument()
+  const id = 'n-hero-title'
+  doc.nodes[id]!.attrs = {
+    id: { type: 'static', value: 'hero-title' },
+    'aria-labelledby': { type: 'static', value: 'hero-title' },
+  }
+  const edit = duplicateSelection(doc, id)
+  const history = captureEdit(doc, edit.operations)
+  const store = DocumentStore.inMemory(doc)
+  await store.apply({ expectedRevision: store.revision, operations: edit.operations })
+  const result = store.read().document
+  const copy = result.nodes[edit.node.id]!
+  expect(copy.id).not.toBe(id)
+  expect(copy.attrs!.id).not.toEqual(doc.nodes[id]!.attrs!.id)
+  expect(copy.attrs!['aria-labelledby']).toEqual(copy.attrs!.id)
+  for (const cls of copy.classes.filter((cls) => result.classes[cls]?.kind === 'local'))
+    expect(doc.nodes[id]!.classes).not.toContain(cls)
+  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
+  expect(subtreeRestriction(doc, '')).toBeTruthy()
+  doc.nodes[id]!.meta = { locked: true }
+  expect(() => duplicateSelection(doc, id)).toThrow('locked')
+})
+
+it('renames an element and restores absent metadata exactly', async () => {
+  const doc = fixtureDocument()
+  const id = 'n-hero-title'
+  delete doc.nodes[id]!.meta
+  const operations: EditOperation[] = [{ type: 'node.update', id, meta: { label: 'Hero title' } }]
+  const history = captureEdit(doc, operations)
+  const store = DocumentStore.inMemory(doc)
+  await store.apply({ expectedRevision: store.revision, operations })
+  expect(store.read().document.nodes[id]!.meta?.label).toBe('Hero title')
   await store.apply({ expectedRevision: store.revision, operations: history.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })
