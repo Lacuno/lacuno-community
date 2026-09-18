@@ -64,6 +64,10 @@ export function StructurePanel({
                   <button
                     type="button"
                     key={name}
+                    draggable={!disabled}
+                    data-drag-preset={name}
+                    data-drag-class={classId}
+                    title={`Drag ${name} onto the page`}
                     aria-pressed={preset === name}
                     onClick={() => setPreset(name)}
                   >

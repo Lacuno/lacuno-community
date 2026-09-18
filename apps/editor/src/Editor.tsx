@@ -24,6 +24,7 @@ import { PresetManager } from './PresetManager.js'
 import { ProjectColors } from './ProjectColors.js'
 import { StructurePanel } from './StructurePanel.js'
 import { useAutosave } from './useAutosave.js'
+import { useStructureDrag } from './useStructureDrag.js'
 
 type Snapshot = { document: Document; revision: number }
 type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
@@ -56,6 +57,8 @@ function Layers({
     <>
       <button
         type="button"
+        draggable
+        data-drag-node={id}
         className={`layer ${selected === id ? 'selected' : ''}`}
         style={{ paddingLeft: 16 + depth * 13 }}
         onClick={() => select(id)}
@@ -557,6 +560,16 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
     }
   }
   const canUndo = !!snapshot && editHistory.undo.length > 0 && !busy && !dirty && !conflict
+  const bindDragSurface = useStructureDrag({
+    doc,
+    root: page?.root,
+    disabled: busy || dirty || conflict,
+    save,
+    select: (id) => {
+      setSelected(id)
+      setSidebar('Layers')
+    },
+  })
   const canRedo = !!snapshot && editHistory.redo.length > 0 && !busy && !dirty && !conflict
   function travel(direction: 'undo' | 'redo') {
     if (!(direction === 'undo' ? canUndo : canRedo)) return
@@ -949,6 +962,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           <div className="canvas-workspace">
             {preview ? (
               <Canvas
+                bindDragSurface={bindDragSurface}
                 onHistory={travel}
                 livePreview={{ ...livePreview, ...colorPreview }}
                 onComputed={setComputed}

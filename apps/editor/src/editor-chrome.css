@@ -852,3 +852,7 @@
 .element-actions-popover .structure-panel {
   margin-top: 12px;
 }
+
+:where(.insert-tiles, .layer-list) [draggable="true"] {
+  cursor: grab;
+}

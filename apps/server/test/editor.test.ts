@@ -702,6 +702,119 @@ it('edits a real template in the browser, persists changes, and protects drafts 
         heading.evaluate((element) => element.parentElement!.getAttribute('data-freeflow-node')),
       )
       .toBe(originalParent)
+    // Real native drags cross the editor/canvas boundary and remain single undoable edits.
+    const drag = async (
+      source: import('playwright').Locator,
+      target: import('playwright').Locator,
+      fraction = 0.5,
+      cancel = false,
+    ) => {
+      await target.scrollIntoViewIfNeeded()
+      await source.scrollIntoViewIfNeeded()
+      const from = (await source.boundingBox())!
+      const to = (await target.boundingBox())!
+      // Direct mouse input avoids Playwright drag interception stalling in a script-disabled iframe.
+      const session = await context.newCDPSession(page)
+      const x = from.x + from.width / 2
+      const y = from.y + from.height / 2
+      await session.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y })
+      await session.send('Input.dispatchMouseEvent', {
+        type: 'mousePressed',
+        x,
+        y,
+        button: 'left',
+        buttons: 1,
+        clickCount: 1,
+      })
+      for (let step = 1; step <= 20; step++) {
+        await session.send('Input.dispatchMouseEvent', {
+          type: 'mouseMoved',
+          x: x + ((to.x + to.width / 2 - x) * step) / 20,
+          y: y + ((to.y + to.height * fraction - y) * step) / 20,
+          button: 'left',
+          buttons: 1,
+        })
+      }
+      await expect
+        .poll(
+          async () =>
+            (await page.locator('[data-freeflow-drop-indicator]').isVisible()) ||
+            (await canvas.locator('[data-freeflow-drop-indicator]').isVisible()),
+        )
+        .toBe(true)
+      // Cancel the native drag session (the browser action behind Escape).
+      if (cancel) await session.send('Input.cancelDragging')
+      else
+        await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-drag.png') })
+      await session.send('Input.dispatchMouseEvent', {
+        type: 'mouseReleased',
+        x: to.x + to.width / 2,
+        y: to.y + to.height * fraction,
+        button: 'left',
+        buttons: 0,
+        clickCount: 1,
+      })
+      await session.detach()
+    }
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await drag(page.getByRole('button', { name: 'Stack', exact: true }), heading, 0.9)
+    await expect.poll(() => page.locator('.layer.selected').textContent()).toBe('Stack')
+    const stackId = await page.locator('.layer.selected').getAttribute('data-drag-node')
+    const stack = canvas.locator(`[data-freeflow-node="${stackId}"]`)
+    await drag(heading, stack)
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => element.parentElement!.getAttribute('data-freeflow-node')),
+      )
+      .toBe(stackId)
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => element.parentElement!.getAttribute('data-freeflow-node')),
+      )
+      .toBe(originalParent)
+    const headingLayer = page.locator('[data-drag-node="n-home-title"]')
+    const stackLayer = page.locator(`[data-drag-node="${stackId}"]`)
+    await drag(headingLayer, stackLayer)
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => element.parentElement!.getAttribute('data-freeflow-node')),
+      )
+      .toBe(stackId)
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => element.parentElement!.getAttribute('data-freeflow-node')),
+      )
+      .toBe(originalParent)
+    await drag(stackLayer, headingLayer, 0.05)
+    await expect
+      .poll(() =>
+        heading.evaluate((element) =>
+          element.previousElementSibling?.getAttribute('data-freeflow-node'),
+        ),
+      )
+      .toBe(stackId)
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect
+      .poll(() =>
+        heading.evaluate((element) =>
+          element.nextElementSibling?.getAttribute('data-freeflow-node'),
+        ),
+      )
+      .toBe(stackId)
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect.poll(() => stack.count()).toBe(0)
+    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    let cancelledWrites = 0
+    const watchCancelledDrag = (request: import('playwright').Request) => {
+      if (request.url().endsWith('/document/apply')) cancelledWrites++
+    }
+    page.on('request', watchCancelledDrag)
+    await drag(page.getByRole('button', { name: 'Row', exact: true }), heading, 0.9, true)
+    expect(cancelledWrites).toBe(0)
+    expect(await canvas.locator('[data-freeflow-drop-indicator]').isVisible()).toBe(false)
+    page.off('request', watchCancelledDrag)
     await page.getByRole('button', { name: 'Back to sites' }).click()
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill('editor@example.test')

@@ -3,6 +3,8 @@ import { fixtureDocument } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import { captureEdit, type EditOperation } from '../src/history.js'
 import {
+  dropEdit,
+  dropTarget,
   insertionTarget,
   presetNode,
   siblingMove,
@@ -101,4 +103,58 @@ it('protects roots and locked selections from wrapping and creates empty layout 
       }),
     )
   }
+})
+
+it('drops before and after siblings with post-removal indices and reversible reparenting', async () => {
+  const original = fixtureDocument()
+  const parent = original.nodes['n-hero-title']!.parent!
+  const root = parent
+  const store = DocumentStore.inMemory(original)
+  const inserted = structureInsertion('stack', { parent, index: 0 })
+  await store.apply({ expectedRevision: store.revision, operations: inserted.operations })
+  const doc = store.read().document
+  const siblings = doc.nodes[parent]!.children
+  const first = siblings[0]!
+  const last = siblings.at(-1)!
+  expect(dropTarget(doc, root, { id: first }, last, 'after').index).toBe(siblings.length - 1)
+  expect(dropTarget(doc, root, { id: last }, first, 'before').index).toBe(0)
+  expect(dropEdit(doc, root, { id: first }, first, 'after').operations).toEqual([])
+  const edit = dropEdit(doc, root, { id: 'n-hero-title' }, first, 'inside')
+  const history = captureEdit(doc, edit.operations)
+  await store.apply({ expectedRevision: store.revision, operations: edit.operations })
+  expect(store.read().document.nodes[first]!.children).toEqual(['n-hero-title'])
+  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
+})
+
+it('rejects drag cycles, locked content, text containers and page-root moves', () => {
+  const doc = fixtureDocument()
+  const child = 'n-hero-title'
+  const root = doc.nodes[child]!.parent!
+  expect(() => dropTarget(doc, root, { id: root }, child, 'after')).toThrow()
+  expect(() => dropTarget(doc, root, { preset: 'row' }, child, 'inside')).toThrow()
+  expect(() => dropTarget(doc, root, { id: child }, child, 'inside')).toThrow()
+  doc.nodes[child]!.meta = { locked: true }
+  expect(() => dropTarget(doc, root, { id: child }, root, 'inside')).toThrow()
+  expect(() => dropTarget(doc, root, { preset: 'heading' }, child, 'after')).toThrow()
+  for (const component of Object.values(doc.components))
+    expect(() => dropTarget(doc, root, { preset: 'row' }, component.root, 'inside')).toThrow()
+})
+
+it('rejects moving a container into a descendant and round-trips drag insertion', async () => {
+  const doc = fixtureDocument()
+  const root = doc.nodes['n-hero-title']!.parent!
+  const store = DocumentStore.inMemory(doc)
+  const row = dropEdit(doc, root, { preset: 'row' }, 'n-hero-title', 'after')
+  const history = captureEdit(doc, row.operations)
+  await store.apply({ expectedRevision: store.revision, operations: row.operations })
+  const child = dropEdit(store.read().document, root, { preset: 'stack' }, row.node.id, 'inside')
+  const childHistory = captureEdit(store.read().document, child.operations)
+  await store.apply({ expectedRevision: store.revision, operations: child.operations })
+  expect(() =>
+    dropTarget(store.read().document, root, { id: row.node.id }, child.node.id, 'inside'),
+  ).toThrow('itself')
+  await store.apply({ expectedRevision: store.revision, operations: childHistory.undo })
+  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })

@@ -14,6 +14,7 @@ function highlight(frame: HTMLIFrameElement | null, selected: string) {
 }
 
 export function Canvas({
+  bindDragSurface,
   html,
   width,
   selected,
@@ -22,6 +23,7 @@ export function Canvas({
   onComputed,
   livePreview,
 }: {
+  bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
   html: string
   width: number
@@ -30,6 +32,8 @@ export function Canvas({
   onHistory: (direction: 'undo' | 'redo') => void
   onComputed: (value: { id: string; values: Record<string, string> }) => void
 }) {
+  const dragCleanup = useRef<(() => void) | undefined>(undefined)
+  useEffect(() => () => dragCleanup.current?.(), [])
   const frame = useRef<HTMLIFrameElement>(null)
   const scrollPosition = useRef({ x: 0, y: 0 })
   const liveRef = useRef(livePreview)
@@ -232,9 +236,13 @@ export function Canvas({
         onLoad={() => {
           const doc = frame.current?.contentDocument
           if (!doc) return
+          dragCleanup.current?.()
+          for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
+            element.draggable = true
+          dragCleanup.current = bindDragSurface(doc)
           const style = doc.createElement('style')
           style.textContent =
-            'div[data-freeflow-selected]:empty, section[data-freeflow-selected]:empty { min-height: 48px; min-width: 48px; } [data-freeflow-node]:hover { outline: 1px solid #8775ed !important; outline-offset: -1px } [data-freeflow-selected] { outline: 2px solid #6d51df !important; outline-offset: -2px }'
+            'div[data-freeflow-node]:empty, section[data-freeflow-node]:empty { min-height: 48px; min-width: 48px; } [data-freeflow-node]:hover { outline: 1px solid #8775ed !important; outline-offset: -1px } [data-freeflow-selected] { outline: 2px solid #6d51df !important; outline-offset: -2px }'
           style.textContent += MOTION_CSS
           doc.head.append(style)
           const pick = (event: Event) => {

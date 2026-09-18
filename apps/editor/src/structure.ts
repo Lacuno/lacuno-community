@@ -144,3 +144,68 @@ export function wrapSelection(doc: Document, id: string, preset: Structure) {
   result.operations.push({ type: 'node.move', id, parent: result.node.id, index: 0 })
   return result
 }
+
+export type DropPosition = 'before' | 'inside' | 'after'
+export type DragItem = { preset: Preset; classId?: string } | { id: string }
+
+export function canContain(doc: Document, id: string) {
+  const node = doc.nodes[id]
+  return node?.type === 'element' && containers.has(node.tag)
+}
+
+/** Resolve a visual insertion boundary to the index after removing the dragged node. */
+export function dropTarget(
+  doc: Document,
+  root: string,
+  item: DragItem,
+  id: string,
+  position: DropPosition,
+) {
+  const belongs = (nodeId: string) => {
+    for (let current: string | null = nodeId; current; current = doc.nodes[current]?.parent ?? null)
+      if (current === root) return true
+    return false
+  }
+  if (!belongs(id) || structureRestriction(doc, id))
+    throw new Error('This element cannot receive a drop.')
+  const node = doc.nodes[id]!
+  const parent = position === 'inside' ? id : node.parent
+  if (!parent || !canContain(doc, parent))
+    throw new Error('Drop inside a container or beside an element.')
+  let index =
+    position === 'inside'
+      ? doc.nodes[parent]!.children.length
+      : doc.nodes[parent]!.children.indexOf(id) + (position === 'after' ? 1 : 0)
+  if ('id' in item) {
+    const source = doc.nodes[item.id]
+    if (
+      !source?.parent ||
+      item.id === root ||
+      !belongs(item.id) ||
+      structureRestriction(doc, item.id)
+    )
+      throw new Error('This element cannot be moved.')
+    for (let current: string | null = parent; current; current = doc.nodes[current]?.parent ?? null)
+      if (current === item.id) throw new Error('An element cannot contain itself.')
+    if (source.parent === parent && doc.nodes[parent]!.children.indexOf(item.id) < index) index--
+  }
+  return { parent, index }
+}
+
+export function dropEdit(
+  doc: Document,
+  root: string,
+  item: DragItem,
+  id: string,
+  position: DropPosition,
+) {
+  const target = dropTarget(doc, root, item, id, position)
+  if ('preset' in item) return structureInsertion(item.preset, target, item.classId)
+  const node = doc.nodes[item.id]!
+  const unchanged =
+    node.parent === target.parent && doc.nodes[target.parent]!.children[target.index] === item.id
+  return {
+    node,
+    operations: unchanged ? [] : [{ type: 'node.move', id: item.id, ...target } as EditOperation],
+  }
+}
