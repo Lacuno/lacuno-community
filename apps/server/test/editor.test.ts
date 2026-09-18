@@ -483,6 +483,40 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await expect
       .poll(() => heading.evaluate((element) => getComputedStyle(element).transform))
       .toBe('none')
+    await page.getByRole('button', { name: 'Motion', exact: true }).click()
+    await page.getByLabel('Motion duration', { exact: true }).fill('1500')
+    await saved()
+    await page.getByLabel('Hover scale (%)', { exact: true }).fill('125')
+    await saved()
+    await page.getByRole('button', { name: 'Preview hover', exact: true }).click()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).scale), {
+        timeout: 4000,
+        interval: 50,
+      })
+      .toBe('1.25')
+    await page.getByLabel('Entrance animation', { exact: true }).selectOption('ff-slide-up')
+    await saved()
+    await page.getByRole('button', { name: 'Preview entrance', exact: true }).click()
+    await expect
+      .poll(() =>
+        heading.evaluate((element) =>
+          element
+            .getAnimations()
+            .some(
+              (animation) =>
+                animation instanceof CSSAnimation && animation.animationName === 'ff-slide-up',
+            ),
+        ),
+      )
+      .toBe(true)
+    await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-motion.png') })
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await expect.poll(() => heading.evaluate((element) => element.getAnimations().length)).toBe(0)
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.getByRole('button', { name: 'Reset formatting', exact: true }).click()
+    await saved()
+    await page.getByRole('button', { name: 'Home', exact: true }).click()
     // Presets retain shared formatting while ordinary edits remain local.
     await page.getByLabel('Size', { exact: true }).fill('38px')
     await saved()
@@ -520,6 +554,28 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
     await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-desktop.png') })
     expect(errors).toEqual([])
+    // Saving and undoing a lower-page edit must not return the canvas to its top.
+    const lowerHeading = canvas.locator('[data-freeflow-node="n-home-feature-publish-title"]')
+    await lowerHeading.click()
+    const scrollBefore = await lowerHeading.evaluate(() => window.scrollY)
+    expect(scrollBefore).toBeGreaterThan(300)
+    const originalLowerText = await lowerHeading.textContent()
+    await lowerHeading.evaluate(() => {
+      document.documentElement.dataset.scrollTest = 'before'
+    })
+    await page.getByLabel('Text', { exact: true }).fill('Publish your site')
+    await saved()
+    await expect
+      .poll(() => lowerHeading.evaluate(() => document.documentElement.dataset.scrollTest))
+      .toBeUndefined()
+    await expect
+      .poll(() => lowerHeading.evaluate(() => window.scrollY))
+      .toBeCloseTo(scrollBefore, 0)
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect.poll(() => lowerHeading.textContent()).toBe(originalLowerText)
+    await expect
+      .poll(() => lowerHeading.evaluate(() => window.scrollY))
+      .toBeCloseTo(scrollBefore, 0)
     await page.getByRole('button', { name: 'Back to sites' }).click()
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill('editor@example.test')

@@ -87,6 +87,14 @@ function resolveAttrs(
     }
   }
   if (state.annotateNodes) out['data-freeflow-node'] = nodeId
+  const node = state.doc.nodes[nodeId]
+  if (
+    node &&
+    Object.values(state.doc.styles).some(
+      (style) => node.classes.includes(style.class) && style.property.startsWith('--ff-'),
+    )
+  )
+    out['data-freeflow-motion'] = ''
   return imageAsset ? { attrs: out, imageAsset } : { attrs: out }
 }
 

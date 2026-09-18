@@ -40,7 +40,7 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   they do not automatically derive from the parent color. Existing site modes can have separate
   values. Color edits support undo/redo, draft protection and version-conflict handling.
 - Format the selected element with the contextual ribbon: **Home** for typography, **Layout** for
-  spacing and borders, **Appearance** for colors, and **Effects** for visual treatments. Other groups stay available in the Design
+  spacing and borders, **Appearance** for colors, and **Effects** for visual treatments, and **Motion** for animation. Other groups stay available in the Design
   inspector. **Insert** opens the existing element palette. The ribbon and inspector share the same
   editing state, so changing categories preserves pending edits.
   No class setup is required. A private local style is created automatically; shared styles stay
@@ -54,6 +54,12 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   and inset controls. Existing custom transforms and complex shadows remain editable as CSS.
   Effects preview immediately, autosave, support undo/redo, and reset with **Reset formatting**.
   Rotation and scale use individual CSS properties, so they compose with existing transforms.
+- **Motion** configures hover/focus opacity, scale, rotation, and shadow plus duration, delay,
+  and easing. Entrances include fade and slides from four directions, played once when an element
+  enters the viewport. Preview buttons replay hover or entrance effects in the sandboxed canvas.
+  Reduced-motion preferences disable motion in both preview and published output. Published
+  entrance animations use a small IntersectionObserver script; content remains visible without
+  JavaScript or observer support. Motion settings autosave, support undo/reset, and travel with presets.
 - **Presets** in the Design inspector reuse base typography, colors, spacing, borders, and effects. Create
   one from the selected element, then apply it immediately from the picker on other elements.
   Applying a preset replaces local base formatting; choosing **No preset** removes its link.

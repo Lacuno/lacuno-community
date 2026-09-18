@@ -5,6 +5,7 @@ export {
   RESET,
   type Stylesheet,
 } from './generate.js'
+export { MOTION_CSS, MOTION_SCRIPT } from './motion.js'
 export { compareProperties } from './order.js'
 export {
   type ClassNames,

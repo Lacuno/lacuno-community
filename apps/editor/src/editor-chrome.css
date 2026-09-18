@@ -1,3 +1,36 @@
+.motion-controls {
+  display: grid;
+  gap: 12px;
+}
+.motion-timing,
+.motion-hover {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.motion-controls :where(label) {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  font-size: 10px;
+}
+.motion-controls :where(button) {
+  align-self: end;
+  font-size: 11px;
+}
+.motion-controls .hint {
+  margin: 0;
+  font-size: 10px;
+}
+.ribbon-formatting .motion-timing,
+.ribbon-formatting .motion-hover {
+  display: flex;
+  align-items: end;
+}
+:where(.ribbon-formatting) .motion-controls :where(label) {
+  width: 114px;
+}
+
 .effects-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

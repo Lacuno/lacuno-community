@@ -346,7 +346,9 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         ? 'Colors'
         : ribbonTab === 'Effects'
           ? 'Effects'
-          : 'Typography'
+          : ribbonTab === 'Motion'
+            ? 'Motion'
+            : 'Typography'
   const [pageId, setPageId] = useState('')
   const [entryId, setEntryId] = useState('')
   const [selected, setSelected] = useState('')
@@ -617,7 +619,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       </header>
       <section className="editor-ribbon" aria-label="Formatting ribbon">
         <nav className="ribbon-tabs" aria-label="Formatting categories">
-          {['Home', 'Layout', 'Appearance', 'Effects'].map((tab) => (
+          {['Home', 'Layout', 'Appearance', 'Effects', 'Motion'].map((tab) => (
             <button
               type="button"
               key={tab}

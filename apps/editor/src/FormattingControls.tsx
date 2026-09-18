@@ -3,6 +3,7 @@ import type { CssValue, Document, Node } from '@freeflow/schema'
 import { colorLabel, colorProperties, projectColors } from './colors.js'
 import { EffectsControls } from './EffectsControls.js'
 import { formattingGroups, localValue } from './formatting.js'
+import { MotionControls } from './MotionControls.js'
 
 const choiceLabel = (value: string) =>
   (
@@ -48,10 +49,22 @@ export function FormattingControls({
           <details
             data-group={group.name}
             key={group.name}
-            open={ribbon || (group.name !== 'Colors' && group.name !== 'Effects')}
+            open={
+              ribbon ||
+              (group.name !== 'Colors' && group.name !== 'Effects' && group.name !== 'Motion')
+            }
           >
             <summary>{group.name}</summary>
-            {group.name === 'Effects' ? (
+            {group.name === 'Motion' ? (
+              <MotionControls
+                doc={doc}
+                node={node}
+                computed={computed}
+                changes={changes}
+                change={change}
+                disabled={disabled}
+              />
+            ) : group.name === 'Effects' ? (
               <EffectsControls
                 doc={doc}
                 node={node}

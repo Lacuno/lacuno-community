@@ -1,5 +1,6 @@
 import type { Breakpoint, Document, State, StyleDecl } from '@freeflow/schema'
 import { BASE_BREAKPOINT_ID, designTokenCssName, State as StateSchema } from '@freeflow/schema'
+import { MOTION_CSS } from './motion.js'
 import { compareProperties } from './order.js'
 import { type ClassNames, classNames, selectorFor } from './selector.js'
 import { contextFromDocument, serializeValue, type ValueContext } from './value.js'
@@ -161,5 +162,16 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
     sections.push(mq ? `${mq} {\n${body}\n}` : body)
   }
 
+  const motion = decls.filter((style) => style.property.startsWith('--ff-'))
+  if (motion.length) {
+    sections.push(MOTION_CSS)
+    for (const style of motion.filter((item) => item.property.startsWith('--ff-hover-'))) {
+      const property = style.property.slice('--ff-hover-'.length)
+      if (!['opacity', 'scale', 'rotate', 'box-shadow'].includes(property)) continue
+      const selector = selectorFor(doc, names, style.class, 'none')
+      const rule = `${selector}:hover, ${selector}:focus-visible, ${selector}[data-ff-hover-preview] { ${property}: var(${style.property}) !important; }`
+      sections.push(`@media (prefers-reduced-motion: no-preference) { ${rule} }`)
+    }
+  }
   return { css: `${sections.join('\n\n')}\n`, classNames: names }
 }

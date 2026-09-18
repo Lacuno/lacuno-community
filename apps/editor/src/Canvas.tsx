@@ -1,3 +1,4 @@
+import { MOTION_CSS } from '@freeflow/css'
 import { useEffect, useRef, useState } from 'react'
 import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
@@ -30,8 +31,10 @@ export function Canvas({
   onComputed: (value: { id: string; values: Record<string, string> }) => void
 }) {
   const frame = useRef<HTMLIFrameElement>(null)
+  const scrollPosition = useRef({ x: 0, y: 0 })
   const liveRef = useRef(livePreview)
   liveRef.current = livePreview
+  const motionReplay = useRef<(() => void) | undefined>(undefined)
   const restore = useRef<(() => void) | undefined>(undefined)
   const paint = () => {
     restore.current?.()
@@ -144,6 +147,61 @@ export function Canvas({
     observer.observe(workspace)
     return () => observer.disconnect()
   }, [])
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let cleanup: (() => void) | undefined
+    const preview = (event: Event) => {
+      const { id, kind } = (event as CustomEvent<{ id: string; kind: string }>).detail
+      if (id !== selectedRef.current) return
+      cleanup?.()
+      clearTimeout(timer)
+      motionReplay.current = () => preview(event)
+      const doc = frame.current?.contentDocument
+      const element = [...(doc?.querySelectorAll<HTMLElement>('[data-freeflow-node]') ?? [])].find(
+        (item) => item.dataset.freeflowNode === id,
+      )
+      if (!doc || !element || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+      element.setAttribute('data-freeflow-motion', '')
+      const before = element.getAttribute('style')
+      cleanup = () => {
+        element.removeAttribute('data-ff-enter')
+        if (before === null) element.removeAttribute('style')
+        else element.setAttribute('style', before)
+        paintRef.current()
+      }
+      const computed = doc.defaultView!.getComputedStyle(element)
+      const duration = Number.parseFloat(computed.getPropertyValue('--ff-duration')) || 400
+      const delay = Number.parseFloat(computed.getPropertyValue('--ff-delay')) || 0
+      if (kind === 'entrance') {
+        for (const property of ['opacity', 'translate']) {
+          const value = element.style.getPropertyValue(property)
+          if (value) element.style.setProperty(property, value)
+        }
+        element.removeAttribute('data-ff-enter')
+        void element.offsetWidth
+        element.setAttribute('data-ff-enter', '')
+      } else {
+        for (const property of ['opacity', 'scale', 'rotate', 'box-shadow']) {
+          const value = computed.getPropertyValue(`--ff-hover-${property}`).trim()
+          if (value) element.style.setProperty(property, value, 'important')
+        }
+      }
+      timer = setTimeout(
+        () => {
+          cleanup?.()
+          cleanup = undefined
+          motionReplay.current = undefined
+        },
+        duration + delay + 500,
+      )
+    }
+    window.addEventListener('freeflow:motion-preview', preview)
+    return () => {
+      window.removeEventListener('freeflow:motion-preview', preview)
+      clearTimeout(timer)
+      cleanup?.()
+    }
+  }, [])
   return (
     <div ref={shell} className="canvas-shell" style={{ width: width * zoom }}>
       <iframe
@@ -163,6 +221,7 @@ export function Canvas({
           const style = doc.createElement('style')
           style.textContent =
             'div[data-freeflow-selected]:empty, section[data-freeflow-selected]:empty { min-height: 48px; min-width: 48px; } [data-freeflow-node]:hover { outline: 1px solid #8775ed !important; outline-offset: -1px } [data-freeflow-selected] { outline: 2px solid #6d51df !important; outline-offset: -2px }'
+          style.textContent += MOTION_CSS
           doc.head.append(style)
           const pick = (event: Event) => {
             event.preventDefault()
@@ -192,6 +251,24 @@ export function Canvas({
           restore.current = undefined
           paintRef.current()
           reportRef.current()
+          motionReplay.current?.()
+          const view = doc.defaultView
+          if (view) {
+            view.scrollTo({
+              left: scrollPosition.current.x,
+              top: scrollPosition.current.y,
+              behavior: 'instant',
+            })
+            view.addEventListener(
+              'scroll',
+              () => {
+                // Ignore events from the document being replaced by an autosave refresh.
+                if (frame.current?.contentDocument === doc)
+                  scrollPosition.current = { x: view.scrollX, y: view.scrollY }
+              },
+              { passive: true },
+            )
+          }
         }}
       />
     </div>

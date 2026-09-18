@@ -56,6 +56,19 @@ export const formattingGroups = [
       { property: 'box-shadow', label: 'Shadow' },
     ],
   },
+  {
+    name: 'Motion',
+    fields: [
+      { property: '--ff-duration', label: 'Duration' },
+      { property: '--ff-delay', label: 'Delay' },
+      { property: '--ff-easing', label: 'Easing' },
+      { property: '--ff-entrance', label: 'Entrance' },
+      { property: '--ff-hover-opacity', label: 'Hover opacity' },
+      { property: '--ff-hover-scale', label: 'Hover scale' },
+      { property: '--ff-hover-rotate', label: 'Hover rotation' },
+      { property: '--ff-hover-box-shadow', label: 'Hover shadow' },
+    ],
+  },
 ] as const
 
 /** Only reuse a local style owned exclusively by this element. */

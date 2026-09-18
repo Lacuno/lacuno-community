@@ -1,4 +1,4 @@
-import { classNames } from '@freeflow/css'
+import { classNames, MOTION_SCRIPT } from '@freeflow/css'
 import type { AssetRef, Document, Entry, Page } from '@freeflow/schema'
 import { RenderError } from './errors.js'
 import { renderHead } from './head.js'
@@ -70,7 +70,13 @@ export function render(
   }
   const head = renderHead(siteUrl ? { ...headInput, siteUrl } : headInput)
   const body =
-    renderNode(page.root, scope, state) + (doc.site.bodyCode ?? '') + (page.bodyCode ?? '')
+    renderNode(page.root, scope, state) +
+    (doc.site.bodyCode ?? '') +
+    (page.bodyCode ?? '') +
+    (!ctx.annotateNodes &&
+    Object.values(doc.styles).some((style) => style.property === '--ff-entrance')
+      ? `<script>${MOTION_SCRIPT}</script>`
+      : '')
   return { htmlAttrs: { lang: doc.site.locale }, head, body, warnings: state.warnings }
 }
 

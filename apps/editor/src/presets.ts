@@ -27,7 +27,8 @@ export function presetValues(doc: Document, node: Node, computed: Record<string,
   const values: Record<string, CssValue> = {}
   const important = new Set<string>()
   for (const property of properties) {
-    if (computed[property]) values[property] = { type: 'raw', value: computed[property]! }
+    if (!property.startsWith('--ff-') && computed[property])
+      values[property] = { type: 'raw', value: computed[property]! }
   }
   for (const id of classes) {
     for (const style of Object.values(doc.styles)) {
