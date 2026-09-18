@@ -40,7 +40,7 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   they do not automatically derive from the parent color. Existing site modes can have separate
   values. Color edits support undo/redo, draft protection and version-conflict handling.
 - Format the selected element with the contextual ribbon: **Home** for typography, **Layout** for
-  spacing and borders, and **Appearance** for colors. Other groups stay available in the Design
+  spacing and borders, **Appearance** for colors, and **Effects** for visual treatments. Other groups stay available in the Design
   inspector. **Insert** opens the existing element palette. The ribbon and inspector share the same
   editing state, so changing categories preserves pending edits.
   No class setup is required. A private local style is created automatically; shared styles stay
@@ -49,7 +49,12 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   resetting and formatting both support undo/redo. Project colors remain linked references.
   Local rules take precedence over shared rules in both canvas and published CSS. Component
   definition edits still affect all instances, as indicated in the inspector.
-- **Presets** in the Design inspector reuse base typography, colors, spacing, and borders. Create
+- **Effects** provides opacity and scale percentages, rotation, and X/Y tilt with an 800px
+  perspective. Box shadows use a popover with horizontal/vertical offsets, blur, spread, color,
+  and inset controls. Existing custom transforms and complex shadows remain editable as CSS.
+  Effects preview immediately, autosave, support undo/redo, and reset with **Reset formatting**.
+  Rotation and scale use individual CSS properties, so they compose with existing transforms.
+- **Presets** in the Design inspector reuse base typography, colors, spacing, borders, and effects. Create
   one from the selected element, then apply it immediately from the picker on other elements.
   Applying a preset replaces local base formatting; choosing **No preset** removes its link.
   Subsequent formatting stays local. **Reset to preset** clears those adjustments, while

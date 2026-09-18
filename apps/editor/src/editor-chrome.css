@@ -1,3 +1,65 @@
+.effects-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.effects-grid label,
+.effect-shadow-trigger,
+.effect-shadow-popover label {
+  display: grid;
+  gap: 6px;
+  font-size: 10px;
+  color: #565d73;
+  margin: 0;
+}
+.effects-grid input,
+.effect-shadow-popover input {
+  min-width: 0;
+  width: 100%;
+}
+.effect-custom {
+  grid-column: 1 / -1;
+}
+.ribbon-formatting .effects-grid {
+  display: flex;
+  align-items: start;
+  gap: 14px;
+}
+.effects-grid > :where(label) {
+  min-width: 0;
+}
+.ribbon-formatting .effects-grid > :where(label) {
+  width: 94px;
+}
+.effect-shadow-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 298px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: #252633;
+  background: #fff;
+  box-shadow: 0 12px 40px #25263324;
+}
+.shadow-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.shadow-fields .shadow-inset {
+  display: flex;
+  align-items: center;
+}
+.shadow-inset input {
+  width: auto;
+}
+
 .preset-manager {
   border-bottom: 1px solid var(--border);
   padding: 0 0 16px;

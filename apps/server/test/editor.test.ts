@@ -418,6 +418,71 @@ it('edits a real template in the browser, persists changes, and protects drafts 
       .toBe('0px')
     await page.getByRole('button', { name: 'Home', exact: true }).click()
     await page.locator('.ribbon-controls').getByLabel('Size', { exact: true }).waitFor()
+    // Effects preview and persist through the same formatting pipeline.
+    await page.getByRole('button', { name: 'Effects', exact: true }).click()
+    await page.getByLabel('Opacity (%)', { exact: true }).fill('65')
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).opacity))
+      .toBe('0.65')
+    await saved()
+    await page.getByLabel('Rotation (°)', { exact: true }).fill('12')
+    await saved()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).rotate))
+      .toBe('12deg')
+    await page.getByLabel('Scale (%)', { exact: true }).fill('90')
+    await saved()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).scale))
+      .toBe('0.9')
+    await page.getByLabel('Tilt X (°)', { exact: true }).fill('8')
+    await saved()
+    await page.getByLabel('Tilt Y (°)', { exact: true }).fill('-6')
+    await saved()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).transform))
+      .not.toBe('none')
+    await page.getByRole('button', { name: 'Add shadow…', exact: true }).click()
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/document/apply') &&
+          response.request().postData()?.includes('24px') === true,
+      ),
+      page.getByRole('button', { name: 'Apply shadow', exact: true }).click(),
+    ])
+    await saved()
+    await page.getByLabel('Shadow blur', { exact: true }).fill('32')
+    await saved()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).boxShadow))
+      .toContain('32px')
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await saved()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).boxShadow))
+      .toContain('24px')
+    await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-effects.png') })
+    await page.reload()
+    await heading.click()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).opacity))
+      .toBe('0.65')
+    await page.getByRole('button', { name: 'Reset formatting', exact: true }).click()
+    await saved()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).opacity))
+      .toBe('1')
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).rotate))
+      .toBe('none')
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).scale))
+      .toBe('none')
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).transform))
+      .toBe('none')
     // Presets retain shared formatting while ordinary edits remain local.
     await page.getByLabel('Size', { exact: true }).fill('38px')
     await saved()

@@ -46,6 +46,16 @@ export const formattingGroups = [
       },
     ],
   },
+  {
+    name: 'Effects',
+    fields: [
+      { property: 'opacity', label: 'Opacity' },
+      { property: 'rotate', label: 'Rotation' },
+      { property: 'scale', label: 'Scale' },
+      { property: 'transform', label: 'Tilt' },
+      { property: 'box-shadow', label: 'Shadow' },
+    ],
+  },
 ] as const
 
 /** Only reuse a local style owned exclusively by this element. */
