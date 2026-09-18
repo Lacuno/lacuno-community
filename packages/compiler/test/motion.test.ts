@@ -77,3 +77,53 @@ it('runs entrances once on viewport entry and honors reduced motion in published
     await browser.close()
   }
 }, 20000)
+
+it('keeps mobile hover overrides out of desktop output', async () => {
+  const doc = fixtureDocument()
+  const id = 'l-hero-title'
+  const mobile = Object.values(doc.breakpoints)
+    .filter((bp) => bp.maxWidth !== undefined)
+    .sort((a, b) => a.maxWidth! - b.maxWidth!)[0]!
+  for (const [breakpoint, property, value] of [
+    ['base', 'scale', '1.1'],
+    [mobile.id, '--ff-hover-scale', '1.2'],
+  ]) {
+    const style = {
+      class: id,
+      breakpoint: breakpoint!,
+      state: 'none' as const,
+      property: property!,
+      value: { type: 'raw' as const, value: value! },
+    }
+    doc.styles[styleKey(style)] = style
+  }
+  const result = render(
+    doc,
+    Object.values(doc.pages).find((page) => page.path === '/')!,
+    undefined,
+    { resolveImage: plainImageResolver },
+  )
+  result.head += `<style>${generateStylesheet(doc).css}</style>`
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 800 } })
+    await page.setContent(assembleDocument(result))
+    const target = page.locator(`.${classNames(doc).get(id)}`)
+    await target.hover()
+    await expect
+      .poll(() => target.evaluate((element) => getComputedStyle(element).scale))
+      .toBe('1.1')
+    await page.setViewportSize({ width: 390, height: 800 })
+    await target.hover()
+    await expect
+      .poll(() => target.evaluate((element) => getComputedStyle(element).scale))
+      .toBe('1.2')
+    await page.setViewportSize({ width: 1100, height: 800 })
+    await target.hover()
+    await expect
+      .poll(() => target.evaluate((element) => getComputedStyle(element).scale))
+      .toBe('1.1')
+  } finally {
+    await browser.close()
+  }
+}, 20000)

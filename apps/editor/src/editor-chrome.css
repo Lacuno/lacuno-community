@@ -719,3 +719,44 @@
 .editor .save-state[data-state="error"]::before {
   background: #c85262;
 }
+
+.responsive-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  color: #655484;
+  font-size: 11px;
+}
+.responsive-scope .scope-info-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.scope-info-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 260px;
+  max-width: calc(100vw - 24px);
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: #565d73;
+  box-shadow: 0 8px 28px #25263324;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.editor [data-overridden="true"] :is(input, select),
+.editor :is(input, select, button)[data-overridden="true"] {
+  border-color: #b8a1f5;
+  background-color: #faf8ff;
+}

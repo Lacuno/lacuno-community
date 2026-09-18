@@ -85,10 +85,15 @@ export function localClass(doc: Document, node: Node): string | undefined {
       ),
   )
 }
-export function localValue(doc: Document, node: Node, property: string): CssValue | undefined {
+export function localValue(
+  doc: Document,
+  node: Node,
+  property: string,
+  breakpoint = 'base',
+): CssValue | undefined {
   const id = localClass(doc, node)
   return id
-    ? doc.styles[styleKey({ class: id, breakpoint: 'base', state: 'none', property })]?.value
+    ? doc.styles[styleKey({ class: id, breakpoint, state: 'none', property })]?.value
     : undefined
 }
 export function formattingOperations(
@@ -96,6 +101,7 @@ export function formattingOperations(
   node: Node,
   changes: Record<string, CssValue | null>,
   makeId = () => `c-${crypto.randomUUID()}`,
+  breakpoint = 'base',
 ): EditOperation[] {
   const operations: EditOperation[] = []
   let id = localClass(doc, node)
@@ -106,7 +112,7 @@ export function formattingOperations(
         (style) =>
           node.classes.includes(style.class) &&
           doc.classes[style.class]?.kind === 'local' &&
-          style.breakpoint === 'base' &&
+          style.breakpoint === breakpoint &&
           style.state === 'none' &&
           style.property in changes,
       ))
@@ -145,14 +151,14 @@ export function formattingOperations(
       }
     }
     for (const style of inherited.values()) {
-      if (style.breakpoint === 'base' && style.state === 'none' && style.property in changes)
+      if (style.breakpoint === breakpoint && style.state === 'none' && style.property in changes)
         continue
       operations.push({ type: 'style.set', ...style })
     }
   }
   if (!id) return operations
   for (const [property, value] of Object.entries(changes)) {
-    const coordinates = { class: id, breakpoint: 'base', state: 'none' as const, property }
+    const coordinates = { class: id, breakpoint, state: 'none' as const, property }
     if (value) {
       const important = Object.values(doc.styles).some(
         (style) =>

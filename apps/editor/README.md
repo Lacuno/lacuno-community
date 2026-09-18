@@ -45,10 +45,16 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   editing state, so changing categories preserves pending edits.
   No class setup is required. A private local style is created automatically; shared styles stay
   unchanged. Empty fields show the computed canvas value as a hint and retain the existing style.
-  Bare numeric sizes use pixels. Choose **Reset formatting** to clear base/default local adjustments;
+  Bare numeric sizes use pixels. Choose **Reset formatting** to clear local adjustments at the active breakpoint;
   resetting and formatting both support undo/redo. Project colors remain linked references.
   Local rules take precedence over shared rules in both canvas and published CSS. Component
   definition edits still affect all instances, as indicated in the inspector.
+- Desktop, Tablet, and Mobile select the matching document breakpoint as well as the canvas width.
+  Formatting writes only to that breakpoint. Wider rules remain inherited until overridden, with
+  purple fields marking tablet/mobile overrides and the inspector naming the active scope. Reset clears
+  only that breakpoint. Desktop base edits remain visually neutral. Switching sizes flushes pending edits before changing scope. Text, project
+  colors, and preset assignments remain shared. Effects, motion, and preset updates use the same
+  breakpoint scope, and all responsive edits support undo/redo.
 - **Effects** provides opacity and scale percentages, rotation, and X/Y tilt with an 800px
   perspective. Box shadows use a popover with horizontal/vertical offsets, blur, spread, color,
   and inset controls. Existing custom transforms and complex shadows remain editable as CSS.
@@ -60,14 +66,14 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   Reduced-motion preferences disable motion in both preview and published output. Published
   entrance animations use a small IntersectionObserver script; content remains visible without
   JavaScript or observer support. Motion settings autosave, support undo/reset, and travel with presets.
-- **Presets** in the Design inspector reuse base typography, colors, spacing, borders, and effects. Create
+- **Presets** in the Design inspector reuse typography, colors, spacing, borders, and effects across breakpoints. Create
   one from the selected element, then apply it immediately from the picker on other elements.
-  Applying a preset replaces local base formatting; choosing **No preset** removes its link.
+  Applying a preset replaces local formatting across all breakpoints; choosing **No preset** removes its link.
   Subsequent formatting stays local. **Reset to preset** clears those adjustments, while
   **Update preset** merges them into the shared preset and displays the number of affected elements.
   Other elements keep their own local overrides. Color references stay linked. Preset creation,
-  application, reset, and updates support undo/redo. Responsive and interaction-state styling
-  remain in the underlying shared classes; presets currently capture base/default formatting.
+  application, reset, and updates support undo/redo. New presets retain responsive formatting. Updating or resetting a preset affects only the active
+  breakpoint; preset assignment remains shared across sizes. Interaction-state styling stays in the underlying classes.
 - Text, formatting and existing project colors preview immediately and save automatically after a
   400 ms pause. No Save button is required. Writes are serialized; typing during a request remains
   responsive and queues the latest changes. Switching selection or page flushes pending edits.

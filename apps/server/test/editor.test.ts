@@ -576,6 +576,82 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await expect
       .poll(() => lowerHeading.evaluate(() => window.scrollY))
       .toBeCloseTo(scrollBefore, 0)
+    // Responsive edits are isolated, including a pending edit flushed while switching sizes.
+    await heading.click()
+    await page.getByRole('button', { name: 'Home', exact: true }).click()
+    await page.getByLabel('Size', { exact: true }).fill('60px')
+    await saved()
+    await page.getByRole('button', { name: 'Mobile', exact: true }).click()
+    await expect.poll(() => page.getByLabel('Size', { exact: true }).inputValue()).toBe('')
+    await page.getByLabel('Size', { exact: true }).fill('24px')
+    await page.getByRole('button', { name: 'Tablet', exact: true }).click()
+    await expect.poll(() => page.getByLabel('Size', { exact: true }).inputValue()).toBe('')
+    await page.getByLabel('Size', { exact: true }).fill('32px')
+    await saved()
+    await page.getByRole('button', { name: 'Desktop', exact: true }).click()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
+      .toBe('60px')
+    await page.getByRole('button', { name: 'Mobile', exact: true }).click()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
+      .toBe('24px')
+    await page.getByLabel('Size', { exact: true }).fill('')
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
+      .toBe('32px')
+    await saved()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
+      .toBe('24px')
+    await page.getByRole('button', { name: 'Reset formatting', exact: true }).click()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
+      .toBe('32px')
+    await page.screenshot({
+      path: path.join(root, '.freeflow/editor-preview/editor-responsive.png'),
+    })
+    await page.getByRole('button', { name: 'Desktop', exact: true }).click()
+    await expect
+      .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
+      .toBe('60px')
+    // Desktop base edits are neutral; purple marks only a device-specific override.
+    await page.getByRole('button', { name: 'Motion', exact: true }).click()
+    await page.getByLabel('Hover rotation (°)', { exact: true }).fill('-4')
+    await page
+      .getByLabel('Hover shadow', { exact: true })
+      .selectOption('0px 12px 32px 0px #00000033')
+    await page.getByLabel('Hover scale (%)', { exact: true }).fill('107')
+    await page.getByRole('button', { name: 'Mobile', exact: true }).click()
+    await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
+    await page.getByLabel('Hover scale (%)', { exact: true }).fill('95')
+    await page.getByRole('button', { name: 'Desktop', exact: true }).click()
+    await expect
+      .poll(() => page.getByLabel('Hover scale (%)', { exact: true }).inputValue())
+      .toBe('107')
+    expect(await page.getByLabel('Hover rotation (°)', { exact: true }).inputValue()).toBe('-4')
+    expect(await page.getByLabel('Hover shadow', { exact: true }).inputValue()).toBe(
+      '0px 12px 32px 0px #00000033',
+    )
+    for (const label of ['Hover scale (%)', 'Hover rotation (°)', 'Hover shadow'])
+      expect(await page.getByLabel(label, { exact: true }).getAttribute('data-overridden')).toBe(
+        'false',
+      )
+    await page.getByRole('button', { name: 'Mobile', exact: true }).click()
+    await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
+    await expect
+      .poll(() => page.getByLabel('Hover scale (%)', { exact: true }).inputValue())
+      .toBe('95')
+    expect(
+      await page.getByLabel('Hover scale (%)', { exact: true }).getAttribute('data-overridden'),
+    ).toBe('true')
+    expect(
+      await page.getByLabel('Hover rotation (°)', { exact: true }).getAttribute('data-overridden'),
+    ).toBe('false')
+    expect(
+      await page.getByLabel('Hover shadow', { exact: true }).getAttribute('data-overridden'),
+    ).toBe('false')
     await page.getByRole('button', { name: 'Back to sites' }).click()
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill('editor@example.test')

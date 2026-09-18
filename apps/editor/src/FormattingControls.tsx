@@ -21,6 +21,7 @@ const choiceLabel = (value: string) =>
     .replace(/^./, (letter) => letter.toUpperCase())
 
 export function FormattingControls({
+  breakpoint = 'base',
   doc,
   node,
   changes,
@@ -33,6 +34,7 @@ export function FormattingControls({
   groupName?: string
   ribbon?: boolean
   computed: Record<string, string>
+  breakpoint?: string
   doc: Document
   node: Node
   changes: Record<string, CssValue | null>
@@ -57,6 +59,7 @@ export function FormattingControls({
             <summary>{group.name}</summary>
             {group.name === 'Motion' ? (
               <MotionControls
+                breakpoint={breakpoint}
                 doc={doc}
                 node={node}
                 computed={computed}
@@ -66,6 +69,7 @@ export function FormattingControls({
               />
             ) : group.name === 'Effects' ? (
               <EffectsControls
+                breakpoint={breakpoint}
                 doc={doc}
                 node={node}
                 computed={computed}
@@ -78,7 +82,9 @@ export function FormattingControls({
                 {group.fields.map((field) => {
                   const { property, label } = field
                   const value =
-                    property in changes ? changes[property] : localValue(doc, node, property)
+                    property in changes
+                      ? changes[property]
+                      : localValue(doc, node, property, breakpoint)
                   const ref = value?.type === 'designToken' ? value.ref : ''
                   const text = value ? serializeValue(value, contextFromDocument(doc)) : ''
                   const color = colorProperties.has(property)
@@ -86,6 +92,14 @@ export function FormattingControls({
                     <div
                       key={property}
                       data-property={property}
+                      data-overridden={breakpoint !== 'base' && !!value}
+                      title={
+                        value
+                          ? breakpoint === 'base'
+                            ? 'Local base style'
+                            : 'Local override at this breakpoint'
+                          : 'Inherited from wider styles or the preset'
+                      }
                       className={color || property === 'font-family' ? 'formatting-wide' : ''}
                     >
                       {color && (

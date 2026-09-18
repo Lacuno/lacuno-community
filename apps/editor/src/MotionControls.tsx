@@ -1,8 +1,10 @@
 import { contextFromDocument, serializeValue } from '@freeflow/css'
 import type { CssValue, Document, Node } from '@freeflow/schema'
+import { localValue } from './formatting.js'
 import { presetValues } from './presets.js'
 
 export function MotionControls({
+  breakpoint = 'base',
   doc,
   node,
   computed,
@@ -10,6 +12,7 @@ export function MotionControls({
   change,
   disabled,
 }: {
+  breakpoint?: string
   doc: Document
   node: Node
   computed: Record<string, string>
@@ -17,7 +20,10 @@ export function MotionControls({
   change: (property: string, value: CssValue | null) => void
   disabled: boolean
 }) {
-  const values = presetValues(doc, node, computed)
+  const overridden = (property: string) =>
+    breakpoint !== 'base' &&
+    !!(property in changes ? changes[property] : localValue(doc, node, property, breakpoint))
+  const values = presetValues(doc, node, computed, breakpoint)
   const read = (property: string, fallback = '') => {
     const value = property in changes ? changes[property] : values[property]
     return value ? serializeValue(value, contextFromDocument(doc)) : fallback
@@ -36,6 +42,7 @@ export function MotionControls({
             {key === 'duration' ? 'Duration (ms)' : 'Delay (ms)'}
             <input
               aria-label={`Motion ${key}`}
+              data-overridden={overridden(`--ff-${key}`)}
               type="number"
               min="0"
               max="10000"
@@ -51,6 +58,7 @@ export function MotionControls({
           Easing
           <select
             aria-label="Motion easing"
+            data-overridden={overridden('--ff-easing')}
             disabled={disabled}
             value={read('--ff-easing', 'ease-out')}
             onChange={(event) => set('--ff-easing', event.target.value)}
@@ -64,6 +72,7 @@ export function MotionControls({
           Entrance
           <select
             aria-label="Entrance animation"
+            data-overridden={overridden('--ff-entrance')}
             disabled={disabled}
             value={read('--ff-entrance', 'none')}
             onChange={(event) => set('--ff-entrance', event.target.value)}
@@ -109,6 +118,7 @@ export function MotionControls({
               {label}
               <input
                 aria-label={label}
+                data-overridden={overridden(`--ff-hover-${key}`)}
                 type="number"
                 min={min}
                 max={max}
@@ -132,6 +142,7 @@ export function MotionControls({
           Hover shadow
           <select
             aria-label="Hover shadow"
+            data-overridden={overridden('--ff-hover-box-shadow')}
             disabled={disabled}
             value={read('--ff-hover-box-shadow')}
             onChange={(event) => set('--ff-hover-box-shadow', event.target.value)}

@@ -59,23 +59,37 @@ export function Canvas({
           if (value !== null) element.style.setProperty(property, value, 'important')
           else if (draft.node.selector) {
             for (const sheet of doc.styleSheets) {
-              // Generated base rules are top-level; responsive overrides remain intact.
               let rules: CSSRuleList
               try {
                 rules = sheet.cssRules
               } catch {
                 continue
               }
-              for (const rule of rules) {
-                if (!('selectorText' in rule) || rule.selectorText !== draft.node.selector) continue
-                const declaration = (rule as CSSStyleRule).style
-                const before = declaration.getPropertyValue(property)
-                const priority = declaration.getPropertyPriority(property)
-                declaration.removeProperty(property)
-                undo.push(() => {
-                  if (before) declaration.setProperty(property, before, priority)
-                })
+              const clearRules = (items: CSSRuleList, media?: string) => {
+                for (const rule of items) {
+                  if ('conditionText' in rule && 'cssRules' in rule) {
+                    clearRules(
+                      (rule as CSSMediaRule).cssRules,
+                      (rule as CSSMediaRule).conditionText,
+                    )
+                    continue
+                  }
+                  if (
+                    media !== draft.node?.media ||
+                    !('selectorText' in rule) ||
+                    rule.selectorText !== draft.node?.selector
+                  )
+                    continue
+                  const declaration = (rule as CSSStyleRule).style
+                  const before = declaration.getPropertyValue(property)
+                  const priority = declaration.getPropertyPriority(property)
+                  declaration.removeProperty(property)
+                  undo.push(() => {
+                    if (before) declaration.setProperty(property, before, priority)
+                  })
+                }
               }
+              clearRules(rules)
             }
           }
         }

@@ -1,10 +1,11 @@
 import { classNames, contextFromDocument, selectorFor, serializeValue } from '@freeflow/css'
 import { applyPatches, type Patch } from '@freeflow/document/patch'
 import { type CssValue, type Document, type Node, parseDocument } from '@freeflow/schema'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import { Brand } from './App.js'
 import { ApiError, api } from './api.js'
+import { breakpointMedia, editingBreakpoint } from './breakpoints.js'
 import { Canvas } from './Canvas.js'
 import { ClassManager } from './ClassManager.js'
 import { colorLabel, projectColors, colorPreview as swatchColor } from './colors.js'
@@ -100,6 +101,7 @@ function editableText(node: Node): string | undefined {
 }
 
 function Inspector({
+  breakpoint,
   doc,
   node,
   busy,
@@ -113,6 +115,7 @@ function Inspector({
   ribbonHost,
   ribbonGroup,
 }: {
+  breakpoint: string
   ribbonHost: HTMLDivElement | null
   ribbonGroup: string
   previewChanged: (preview: LivePreview) => void
@@ -126,6 +129,8 @@ function Inspector({
   autoSave: (ops: Operation[]) => Promise<boolean>
   dirtyChanged: (dirty: boolean) => void
 }) {
+  const scopeInfoId = useId()
+  const scopeInfo = useRef<HTMLDivElement>(null)
   const originalText = editableText(node)
   const [text, setText] = useState(originalText ?? '')
   const [changes, setChanges] = useState<Record<string, CssValue | null>>({})
@@ -136,7 +141,8 @@ function Inspector({
   const pending = Object.fromEntries(
     Object.entries(normalized).filter(
       ([property, value]) =>
-        JSON.stringify(value) !== JSON.stringify(localValue(doc, node, property) ?? null),
+        JSON.stringify(value) !==
+        JSON.stringify(localValue(doc, node, property, breakpoint) ?? null),
     ),
   )
   const invalid = Object.entries(pending).find(
@@ -167,7 +173,7 @@ function Inspector({
   const disabled = conflict || locked || classDraft || presetDraft
   const local = localClass(doc, node)
   const overrides = Object.values(doc.styles).filter(
-    (style) => style.class === local && style.breakpoint === 'base' && style.state === 'none',
+    (style) => style.class === local && style.breakpoint === breakpoint && style.state === 'none',
   )
   const operations: Operation[] = []
   if (textDirty)
@@ -182,7 +188,8 @@ function Inspector({
             }
           : { type: 'static', value: text },
     })
-  if (!invalid) operations.push(...formattingOperations(doc, node, pending, () => classId.current))
+  if (!invalid)
+    operations.push(...formattingOperations(doc, node, pending, () => classId.current, breakpoint))
   const autosave = useAutosave(operations, !disabled && !invalid, busy, autoSave)
   const flushRef = useRef(autosave.flush)
   flushRef.current = async () => !invalid && !classDraft && !presetDraft && (await autosave.flush())
@@ -193,6 +200,7 @@ function Inspector({
   const previewKey = JSON.stringify({
     node: {
       id: node.id,
+      media: breakpointMedia(doc, breakpoint),
       ...(local ? { selector: selectorFor(doc, classNames(doc), local, 'none') } : {}),
       ...(originalText !== undefined ? { text } : {}),
       styles: Object.fromEntries(
@@ -216,18 +224,23 @@ function Inspector({
   const changeFormatting = (property: string, value: CssValue | null) =>
     setChanges((previous) => {
       const next = { ...previous }
-      if (JSON.stringify(value) === JSON.stringify(localValue(doc, node, property) ?? null))
+      if (
+        JSON.stringify(value) ===
+        JSON.stringify(localValue(doc, node, property, breakpoint) ?? null)
+      )
         delete next[property]
       else next[property] = value
       return next
     })
-  const controls = { doc, node, computed, disabled, changes, change: changeFormatting }
+  const controls = { doc, node, computed, disabled, changes, change: changeFormatting, breakpoint }
   const resetFormatting = () =>
     void save(
       formattingOperations(
         doc,
         node,
         Object.fromEntries(overrides.map((style) => [style.property, null])),
+        undefined,
+        breakpoint,
       ),
     )
   return (
@@ -261,9 +274,46 @@ function Inspector({
       </div>
       <div className="inspector-section-name">Design</div>
       <div className="inspector-body">
+        <div className="responsive-scope">
+          <span>{doc.breakpoints[breakpoint]?.label ?? breakpoint}</span>
+          <button
+            type="button"
+            className="scope-info-button"
+            aria-label="About responsive editing"
+            popoverTarget={scopeInfoId}
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect()
+              if (scopeInfo.current) {
+                scopeInfo.current.style.left = `${Math.max(12, Math.min(rect.right - 260, innerWidth - 272))}px`
+                scopeInfo.current.style.top = `${Math.max(12, Math.min(rect.bottom + 8, innerHeight - 150))}px`
+              }
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <circle cx="10" cy="10" r="7.5" />
+              <path d="M10 9v5" />
+              <circle cx="10" cy="6" r=".8" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+          <div ref={scopeInfo} id={scopeInfoId} popover="auto" className="scope-info-popover">
+            {breakpoint === 'base'
+              ? `${overrides.length} local base styles. These apply to all sizes unless overridden.`
+              : `${overrides.length} local overrides. Purple fields override this size; reset restores inheritance.`}{' '}
+            Text and preset assignment apply to all sizes.
+          </div>
+        </div>
         {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
         {locked && <p className="note">This element or its parent is locked.</p>}
         <PresetManager
+          breakpoint={breakpoint}
           doc={doc}
           node={node}
           computed={computed}
@@ -806,7 +856,9 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                   aria-label={String(label)}
                   title={String(label)}
                   className={width === size ? 'active' : ''}
-                  onClick={() => setWidth(Number(size))}
+                  onClick={() => {
+                    if (width !== Number(size)) void leave(() => setWidth(Number(size)))
+                  }}
                 >
                   <EditorIcon
                     name={
@@ -862,7 +914,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         </main>
         {doc && selected && doc.nodes[selected] ? (
           <Inspector
-            key={`${selected}-${generation}`}
+            key={`${selected}-${generation}-${editingBreakpoint(doc, width)}`}
+            breakpoint={editingBreakpoint(doc, width)}
             ribbonHost={ribbonHost}
             ribbonGroup={ribbonGroup}
             doc={doc}

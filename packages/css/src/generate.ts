@@ -170,7 +170,11 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
       if (!['opacity', 'scale', 'rotate', 'box-shadow'].includes(property)) continue
       const selector = selectorFor(doc, names, style.class, 'none')
       const rule = `${selector}:hover, ${selector}:focus-visible, ${selector}[data-ff-hover-preview] { ${property}: var(${style.property}) !important; }`
-      sections.push(`@media (prefers-reduced-motion: no-preference) { ${rule} }`)
+      const bp = doc.breakpoints[style.breakpoint]
+      const query = bp ? mediaQuery(bp) : undefined
+      sections.push(
+        `@media (prefers-reduced-motion: no-preference) { ${query ? `${query} { ${rule} }` : rule} }`,
+      )
     }
   }
   return { css: `${sections.join('\n\n')}\n`, classNames: names }

@@ -1,5 +1,6 @@
 import type { Document, Node } from '@freeflow/schema'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { formattingOperations } from './formatting.js'
 import type { EditOperation } from './history.js'
 import {
   activePreset,
@@ -10,6 +11,7 @@ import {
 } from './presets.js'
 
 export function PresetManager({
+  breakpoint = 'base',
   doc,
   node,
   computed,
@@ -17,6 +19,7 @@ export function PresetManager({
   save,
   draftChanged,
 }: {
+  breakpoint?: string
   doc: Document
   node: Node
   computed: Record<string, string>
@@ -58,7 +61,7 @@ export function PresetManager({
   const presets = Object.values(doc.classes)
     .filter((cls) => cls.preset && cls.kind === 'class' && !cls.combo?.length)
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
-  const overrides = presetOverrides(doc, node)
+  const overrides = presetOverrides(doc, node, breakpoint)
   const uses = current
     ? Object.values(doc.nodes).filter((item) => item.classes.includes(current.id)).length
     : 0
@@ -94,20 +97,34 @@ export function PresetManager({
       {current ? (
         <>
           <p className="hint">
-            {overrides.length ? 'Customized on this element' : 'Following preset'} · {uses}{' '}
-            {uses === 1 ? 'element' : 'elements'}
+            {overrides.length
+              ? 'Customized at this size'
+              : breakpoint === 'base'
+                ? 'Following preset'
+                : 'Preset / inherited styles'}{' '}
+            · {uses} {uses === 1 ? 'element' : 'elements'}
           </p>
           <button
             type="button"
             disabled={disabled || !!name || !overrides.length || current.locked}
-            onClick={() => void run(() => updatePreset(doc, node))}
+            onClick={() => void run(() => updatePreset(doc, node, breakpoint))}
           >
             Update preset · {uses} {uses === 1 ? 'element' : 'elements'}
           </button>
           <button
             type="button"
             disabled={disabled || !!name || !overrides.length}
-            onClick={() => void run(() => applyPreset(doc, node, current.id))}
+            onClick={() =>
+              void run(() =>
+                formattingOperations(
+                  doc,
+                  node,
+                  Object.fromEntries(overrides.map((style) => [style.property, null])),
+                  undefined,
+                  breakpoint,
+                ),
+              )
+            }
           >
             Reset to preset
           </button>
@@ -147,7 +164,7 @@ export function PresetManager({
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            void run(() => createPreset(doc, node, name, computed))
+            void run(() => createPreset(doc, node, name, computed, undefined, breakpoint))
           }}
         >
           <label>
