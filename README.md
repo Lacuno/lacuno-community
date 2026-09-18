@@ -24,7 +24,7 @@ editing. Run `pnpm setup:env` and `pnpm dev`, then open `http://localhost:3000`.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Data model, compiler, editor, server, storage, publishing, tech stack |
 | [docs/AGENTS.md](docs/AGENTS.md) | The agent layer: in-app agent, MCP, skills, proposals, safety |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Phases and milestones |
-| [docs/LANDSCAPE.md](docs/LANDSCAPE.md) | What Webstudio, Webflow, Framer, Onlook, Plasmic and Puck do, and where we differ |
+| [docs/LANDSCAPE.md](docs/LANDSCAPE.md) | Competitor research: Webstudio, Webflow, Framer, Base44 and others; where we differ |
 | [docs/STACK.md](docs/STACK.md) | Pinned technology choices with reasons and fallbacks |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Decision log. Every big call, the alternatives, and why |
 | [templates/freeflow/README.md](templates/freeflow/README.md) | Copy, customize and build the runnable default template |
