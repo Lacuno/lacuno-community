@@ -19,7 +19,8 @@
     "dev": "pnpm --filter @freeflow/editor build && pnpm --filter @freeflow/server dev",
     "setup:env": "node scripts/setup-env.mjs",
     "lighthouse": "tsx scripts/lighthouse.ts",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "smoke:docker": "node scripts/docker-smoke.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",

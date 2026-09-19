@@ -4,9 +4,9 @@
 
 Design visually like Webflow. Publish blazing-fast static sites built by Astro. Let AI agents work
 alongside you on the same document, on the canvas and from the terminal. Run it all on your own server
-with one command.
+on infrastructure you control.
 
-> Status: pre-alpha. Phase 0 is complete: the schema, document operations, CSS generator, static
+> Phase 0 is complete: the schema, document operations, CSS generator, static
 > compiler, CLI, stdio MCP server and default template are working. A first visual editor is now
 > available; the full Editor MVP and hosted service remain in progress. Start with [docs/VISION.md](docs/VISION.md).
 
@@ -14,6 +14,10 @@ Phase 1 now has a [server foundation](apps/server/README.md): email/password ses
 workspaces, template-based site creation, and persistent document editing through an HTTP API.
 The [visual editor](apps/editor/README.md) adds a canvas, layer tree, page previews and basic text/style
 editing. Run `pnpm setup:env` and `pnpm dev`, then open `http://localhost:3000`.
+
+For Docker deployment, follow the [self-hosting guide](docs/SELF_HOSTING.md). Community provides
+the builder and publishing; you manage domains, HTTPS, backups and updates. A future paid Cloud
+service will handle those operations for you. No Cloud service is available yet.
 
 ## Documents
 
@@ -24,6 +28,7 @@ editing. Run `pnpm setup:env` and `pnpm dev`, then open `http://localhost:3000`.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Data model, compiler, editor, server, storage, publishing, tech stack |
 | [docs/AGENTS.md](docs/AGENTS.md) | The agent layer: in-app agent, MCP, skills, proposals, safety |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Phases and milestones |
+| [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) | Docker setup, operator-managed HTTPS, backups, restore and updates |
 | [docs/LANDSCAPE.md](docs/LANDSCAPE.md) | Competitor research: Webstudio, Webflow, Framer, Base44 and others; where we differ |
 | [docs/STACK.md](docs/STACK.md) | Pinned technology choices with reasons and fallbacks |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Decision log. Every big call, the alternatives, and why |
@@ -31,7 +36,7 @@ editing. Run `pnpm setup:env` and `pnpm dev`, then open `http://localhost:3000`.
 
 ## The pitch in five lines
 
-1. **Self-hosted.** One Docker image, SQLite, local or S3 assets, Caddy for TLS. `docker run` and you are live.
+1. **Self-hosted.** One application container, SQLite and filesystem assets. You configure your own domains and HTTPS.
 2. **Open source.** The builder, the compiler, the CMS, the agent, the publishing pipeline. No open-core trapdoor.
 3. **Great UX.** A real CSS editor with classes, breakpoints, states and design tokens. It teaches the box model instead of hiding it.
 4. **Agentic.** An agent on the canvas that proposes changes you can see, plus an MCP server so Claude Code or any agent edits the same document.

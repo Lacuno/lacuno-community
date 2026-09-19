@@ -4,6 +4,10 @@ An authenticated HTTP API for the first Phase 1 milestone. Each account gets a p
 workspace. Sites start from `templates/freeflow`, including its content-addressed assets.
 Document operations reuse `@freeflow/document` validation and revision checks.
 
+For container deployment and operator-managed infrastructure, see the
+[self-hosting guide](../../docs/SELF_HOSTING.md). Managed domain/TLS setup is planned for Cloud,
+not the Community server.
+
 ## Run locally
 
 From the repository root, with Node 22 and pnpm 10:

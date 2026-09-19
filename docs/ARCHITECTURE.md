@@ -18,11 +18,14 @@
                     │                                               │
                     │  SQLite (Drizzle)   git repos    assets (fs/S3)│
                     └──────────────────────────────────────────────┘
-                              Caddy in front: TLS + custom domains
+                         Operator-managed proxy: TLS + host routing
 ```
 
-One process. One port. Caddy is the only other moving part in the default deployment, and only
-because automatic TLS for custom domains is its job.
+The diagram includes planned services, not only implemented endpoints. The current Community
+container exposes the editor/API on port 3000 and published static output on a separate listener
+on port 3001. Builds run in child processes. Operators configure their own reverse proxy, DNS and
+TLS; the application does not provision certificates or configure a proxy. Managed infrastructure
+belongs to the planned Cloud service. See [self-hosting](SELF_HOSTING.md).
 
 ## Monorepo layout
 
@@ -212,10 +215,11 @@ The compiler has no knowledge of the server. The CLI exposes it as `freeflow bui
   `builds/<site>/<build-id>/`. The first publishing milestone atomically updates a SQLite live-release
   pointer after a successful build; the separate static listener resolves that pointer per request.
   Immutable document snapshots and release states live in SQLite, builds run in child processes,
-  and rollback switches the pointer without changing the draft. Per-environment staging and custom
-  domain/TLS management remain planned.
+  and rollback switches the pointer without changing the draft. Per-environment staging remains
+  planned; managed domain/TLS provisioning belongs to Cloud.
 - **Serving.** Published output is served with immutable caching for hashed assets and short
-  caching for HTML. Caddy in front adds TLS and routes custom domains to the right site by host.
+  caching for HTML. An operator-managed reverse proxy terminates TLS and forwards published hosts
+  to the isolated static listener, preserving the Host header.
 - **Forms.** A published form posts to the instance, which validates, stores, notifies and
   optionally forwards to a webhook. Rate limiting and honeypot are built in.
 - **Assets.** Content-addressed. Local disk by default, S3-compatible via config. Served through

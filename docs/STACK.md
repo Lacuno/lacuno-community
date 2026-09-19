@@ -38,7 +38,7 @@ a time, with the test suite green.
 | Git | isomorphic-git or a thin wrapper around the git binary | Sites are repositories. Start with the binary in the container for correctness, revisit if we need pure JS |
 | Build queue | Child process per build | The compiler changes the working directory for Astro, so builds cannot share a process. A separate build worker service is a config option later |
 | Email | Nodemailer with SMTP, Resend as an adapter | Form notifications, magic links |
-| TLS and domains | Caddy | Automatic certificates and host-based routing, configured through its admin API from the server |
+| TLS and domains | Operator's reverse proxy (for example Caddy or nginx) | Community documents manual setup; managed provisioning is future Cloud scope |
 | Container | Distroless-style Node image, single process, one volume | `docker run -v data:/data -p 80:80 freeflow` |
 
 ## Editor

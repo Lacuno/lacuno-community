@@ -53,10 +53,11 @@ An island can embed an app, but Freeflow will not become one.
 5. **Agents are users.** An agent gets the same document, the same permissions model, the same undo
    history and the same audit trail as a human. Its changes are proposals until a human accepts them,
    unless the human says otherwise.
-6. **One container.** Self-hosting has to be boring. SQLite, local disk, one process, one port.
-   Scale-out options exist but are never required.
-7. **Fully open.** No open-core split. The builder, CMS, publishing, domains and agent are all in the
-   same AGPL repository. Paid hosting can exist on top of it, but the product is the repository.
+6. **Self-hostable.** One application container, SQLite and local disk. Separate editor and publishing
+   listeners keep site scripts away from authentication. Operators manage their own infrastructure.
+7. **Open builder, optional managed hosting.** The builder, CMS, publishing and agent belong in the
+   AGPL repository. Community includes self-hosting documentation; operators configure domains,
+   HTTPS, backups and updates themselves. A future paid Cloud service manages that work for them.
 8. **Parity is a test.** What you see on the canvas is what Astro emits. The canvas renderer and the
    compiler share one CSS generator and are snapshot-tested against each other.
 
@@ -64,8 +65,8 @@ An island can embed an app, but Freeflow will not become one.
 
 - A designer builds and publishes a five-page client site with a blog in an afternoon without
   reading docs.
-- A developer runs `docker run` on a VPS and has the builder, the CMS and a published site with TLS
-  in ten minutes.
+- A developer deploys the application container and follows the self-hosting guide to connect their
+  own reverse proxy, domains and TLS. No paid subscription is required to self-host.
 - A founder types "build me a landing page for a bookkeeping SaaS, use our brand skill" and gets a
   proposal on the canvas they can accept, tweak or reject section by section.
 - Claude Code, pointed at the MCP server, adds a pricing page that respects the site's design tokens and

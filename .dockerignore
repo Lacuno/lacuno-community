@@ -1,0 +1,21 @@
+# Only repository inputs required by the build; never include local secrets or site data.
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!LICENSE
+!apps/
+!apps/**
+!packages/
+!packages/**
+!templates/
+!templates/**
+**/node_modules
+**/dist
+**/test
+**/.turbo
+**/.freeflow
+**/.env*
+**/*.log
+**/.DS_Store

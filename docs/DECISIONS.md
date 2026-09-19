@@ -78,6 +78,8 @@ The same mechanism serves human branches. Direct mode exists behind an explicit 
 
 ## D010. AGPL-3.0-or-later for everything, no open core
 
+Clarified by D014: this repository remains AGPL; managed infrastructure is a separate Cloud scope.
+
 **Alternatives.** MIT or Apache. Open core with proprietary hosting features.
 
 **Why.** AGPL keeps hosted forks contributing back while leaving self-hosting and commercial use
@@ -117,3 +119,16 @@ default path. Self-hosting is also faster: no cross-origin connection, no render
 stylesheet. Fonts are therefore either uploaded assets served from the site or system font stacks.
 A font picker that downloads open-licensed fonts into the asset library at design time gives the
 same convenience without the runtime request, and belongs in the editor phase.
+
+## D014. Community provides the builder; Cloud operates the infrastructure
+
+**Decision.** Community retains the editor, compiler, export and self-hosted publishing, history and
+rollback. We provide a container and self-hosting instructions. Operators configure their own DNS,
+reverse proxy, HTTPS, backups, monitoring and upgrades. We do not build integrated domain/TLS
+management into Community. A future paid Cloud service takes care of those operational tasks.
+
+**Why.** Self-hosting remains useful and unrestricted; the commercial value is managed setup and
+ongoing operation. We do not try to prevent operators from using their own domains. This narrows
+the earlier one-command-with-TLS promise in the vision and Phase 1 exit condition. Cloud is planned,
+not shipped; its eventual code/license boundaries require separate review. No repository code is
+relicensed by this decision.

@@ -65,7 +65,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | --- | --- | --- |
 | One-click publish: compile to Astro, build, serve static output from the instance | MVP | |
 | Staging and production environments with separate URLs | MVP | |
-| Custom domains with automatic TLS | MVP | Caddy in front of the container |
+| Managed custom domains and automatic TLS provisioning | Cloud | Community operators configure their own DNS, proxy and certificates |
 | Export the generated Astro project as a zip or push to a git repository | MVP | The escape hatch |
 | Deploy hooks for Cloudflare Pages, Netlify, Vercel, GitHub Pages | Next | Push the built output or the Astro project |
 | Preview URLs per proposal branch | Next | Every agent proposal and every human branch gets one |
@@ -111,9 +111,9 @@ See [AGENTS.md](AGENTS.md). Summary of what ships when:
 
 | Feature | When | Notes |
 | --- | --- | --- |
-| Single Docker image, SQLite, filesystem assets | MVP | |
+| Single Docker image, SQLite, filesystem assets | MVP | Community; see the self-hosting guide |
 | `npx freeflow` for local use | MVP | Same binary, no Docker |
 | Postgres and S3 as optional backends | Next | |
-| Backups: one command exports everything to a tarball | MVP | |
+| Backup and restore documentation | MVP | Operator-managed offline volume backups; managed backups are Cloud scope |
 | Health endpoint, structured logs, metrics | MVP | |
 | Auth: email and password, magic link, OIDC | MVP for password and magic link, Next for OIDC | better-auth |

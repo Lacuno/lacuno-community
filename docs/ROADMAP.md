@@ -2,6 +2,17 @@
 
 Phases, not dates. Each phase has an exit condition we can demonstrate.
 
+## Community and Cloud
+
+Community is the AGPL builder, compiler, export and self-hosted publishing workflow, including
+release history and rollback. Docker packaging and [self-hosting documentation](SELF_HOSTING.md)
+support operators who handle their own infrastructure, domains, HTTPS, backups and updates.
+Community does not provide managed domain/TLS provisioning or a hosting-management interface.
+
+Cloud is a planned paid managed service: hosting, guided domain connection, certificate lifecycle,
+managed deployments, backups, monitoring and updates. It is not implemented and does not change
+this repository's license. See decision D014 for the product boundary.
+
 ## Phase 0. Foundation — complete
 
 Goal: the document, the compiler and an agent can produce a real site before there is an editor.
@@ -45,7 +56,7 @@ and structural undo/redo preserve IDs. Shared component and collection structure
 a separate static serving origin, a published URL, persistent release history, and confirmed rollback
 without changing the editing draft. Failed builds preserve the live site. Source and bundled server
 tests cover publishing and restarts; browser tests cover publishing, republishing and rollback.
-Custom domains/TLS, staging environments, packaging, Yjs sync, collaborative undo and git history
+Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, collaborative undo and git history
 remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 
 - Server with auth, workspaces, sites, SQLite, Yjs sync, git commits.
@@ -53,11 +64,12 @@ remain to be built; this does not yet satisfy the full Phase 1 exit condition.
   design tokens, pages, page settings and SEO, assets, fonts, undo and redo, version history.
 - Components with props and slots.
 - Publish to staging and production from the instance, build history, rollback.
-- Docker image and `npx freeflow`.
+- Docker image and operator-written configuration via the self-hosting guide; `npx freeflow` remains planned.
 - Preview, screenshot and diff tools in MCP.
 
-**Exit:** a five-page site with components, design tokens and dark mode, built in the editor, published on
-a custom domain with TLS from a single container.
+**Community exit:** a five-page site with components, design tokens and dark mode, built in the editor,
+published and rolled back from the container. An operator can deploy it with their own domain and
+TLS using the self-hosting guide; automated domain/TLS management is not a Community exit requirement.
 
 ## Phase 2. Content and forms
 

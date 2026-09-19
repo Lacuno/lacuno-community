@@ -1,0 +1,24 @@
+services:
+  freeflow:
+    build: .
+    image: freeflow-community:local
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env.docker}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      FREEFLOW_PUBLISH_BASE_URL: ${FREEFLOW_PUBLISH_BASE_URL:-http://localhost:3001}
+      FREEFLOW_ALLOW_SIGNUP: ${FREEFLOW_ALLOW_SIGNUP:-false}
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - freeflow-data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  freeflow-data:
