@@ -1024,6 +1024,78 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await saved()
     await page.getByRole('button', { name: 'Assets', exact: true }).click()
     await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-assets.png') })
+    // Page management, validation, confirmation, history and persisted SEO.
+    await page.getByRole('button', { name: 'Pages', exact: true }).click()
+    await page.getByRole('button', { name: 'New page', exact: true }).click()
+    let settings = page.getByRole('dialog', { name: 'New page', exact: true })
+    await settings.getByLabel('Page name', { exact: true }).fill('Contact')
+    await settings.getByLabel('URL path', { exact: true }).fill('/')
+    await settings.getByRole('button', { name: 'Create page', exact: true }).click()
+    await expect.poll(() => settings.getByRole('alert').textContent()).toContain('already uses')
+    await settings.getByLabel('URL path', { exact: true }).fill('/contact')
+    await settings.getByLabel('SEO title', { exact: true }).fill('Contact our team')
+    await settings
+      .getByLabel('SEO description', { exact: true })
+      .fill('Get in touch with Freeflow.')
+    await settings.getByRole('button', { name: 'Create page', exact: true }).click()
+    await expect.poll(() => page.locator('.page-link.active').textContent()).toContain('Contact')
+    await page.getByRole('button', { name: 'Settings for Contact', exact: true }).click()
+    settings = page.getByRole('dialog', { name: 'Page settings', exact: true })
+    await settings.getByLabel('Page name', { exact: true }).fill('Get in touch')
+    await settings.getByLabel('URL path', { exact: true }).fill('/get-in-touch')
+    await settings.getByRole('button', { name: 'Save page', exact: true }).click()
+    await saved()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await page.getByRole('button', { name: 'Settings for Contact', exact: true }).waitFor()
+    await page.getByRole('button', { name: 'Redo', exact: true }).click()
+    await page.getByRole('button', { name: 'Settings for Get in touch', exact: true }).click()
+    await expect
+      .poll(() => settings.getByLabel('URL path', { exact: true }).inputValue())
+      .toBe('/get-in-touch')
+    await page.screenshot({
+      path: path.join(root, '.freeflow/editor-preview/editor-page-settings.png'),
+    })
+    await settings.getByRole('button', { name: 'Duplicate page', exact: true }).click()
+    await expect
+      .poll(() => page.locator('.page-link.active').textContent())
+      .toContain('Get in touch copy')
+    await page.getByRole('button', { name: 'Settings for Get in touch copy', exact: true }).click()
+    await settings.getByRole('button', { name: 'Delete page', exact: true }).click()
+    await settings.getByRole('button', { name: 'Keep page', exact: true }).click()
+    await expect
+      .poll(() =>
+        settings.getByRole('button', { name: 'Confirm delete page', exact: true }).count(),
+      )
+      .toBe(0)
+    await settings.getByRole('button', { name: 'Delete page', exact: true }).click()
+    await settings.getByRole('button', { name: 'Confirm delete page', exact: true }).click()
+    await saved()
+    await expect
+      .poll(() =>
+        page.getByRole('button', { name: 'Settings for Get in touch copy', exact: true }).count(),
+      )
+      .toBe(0)
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await page
+      .getByRole('button', { name: 'Settings for Get in touch copy', exact: true })
+      .waitFor()
+    await page.getByRole('button', { name: 'Redo', exact: true }).click()
+    await saved()
+    await page.reload()
+    await page.getByRole('button', { name: 'Pages', exact: true }).click()
+    await page.getByRole('button', { name: 'Settings for Get in touch', exact: true }).click()
+    await expect
+      .poll(() => settings.getByLabel('SEO title', { exact: true }).inputValue())
+      .toBe('Contact our team')
+    expect(await settings.getByLabel('SEO description', { exact: true }).inputValue()).toBe(
+      'Get in touch with Freeflow.',
+    )
+    await settings.getByRole('button', { name: 'Close', exact: true }).click()
+    await page.getByRole('button', { name: 'Settings for Home', exact: true }).click()
+    expect(
+      await settings.getByRole('button', { name: 'Delete page', exact: true }).isDisabled(),
+    ).toBe(true)
+    await settings.getByRole('button', { name: 'Close', exact: true }).click()
     await page.getByRole('button', { name: 'Back to sites' }).click()
     await page.getByRole('button', { name: 'Sign out', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill('editor@example.test')

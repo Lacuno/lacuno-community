@@ -145,11 +145,11 @@ function renderText(
   const warn = (message: string) => state.warnings.push({ node: node.id, message })
   let inner: string
   if ('type' in node.text && node.text.type === 'doc') {
-    inner = richTextInlineHtml(node.text, warn)
+    inner = richTextInlineHtml(node.text, warn, state.doc.pages)
   } else {
     const v = resolveBinding(state.doc, node.text as Binding, scope, node.id)
     if (v === undefined || v === null) inner = ''
-    else if (isRichText(v)) inner = richTextToHtml(v, warn)
+    else if (isRichText(v)) inner = richTextToHtml(v, warn, state.doc.pages)
     else if (isAsset(v))
       inner = escapeHtml(
         isOptimizedImage(v)

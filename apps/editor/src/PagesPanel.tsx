@@ -1,0 +1,279 @@
+import type { Document, Page } from '@freeflow/schema'
+import { useEffect, useRef, useState } from 'react'
+import { EditorIcon } from './EditorIcon.js'
+import { type EditOperation, pageTree } from './history.js'
+import { duplicatePage, pagePathError } from './pages.js'
+
+export function PagesPanel({
+  doc,
+  selected,
+  disabled,
+  choose,
+  save,
+}: {
+  doc: Document
+  selected: string
+  disabled: boolean
+  choose: (id: string) => void
+  save: (operations: EditOperation[]) => Promise<boolean>
+}) {
+  const [editing, setEditing] = useState<Page | 'new'>()
+  return (
+    <>
+      <div className="panel-title">
+        Pages<span>{Object.keys(doc.pages).length}</span>
+      </div>
+      <div className="pages-toolbar">
+        <button type="button" disabled={disabled} onClick={() => setEditing('new')}>
+          New page
+        </button>
+      </div>
+      <div className="page-list">
+        {Object.values(doc.pages)
+          .sort(
+            (a, b) =>
+              Number(b.path === '/') - Number(a.path === '/') || a.name.localeCompare(b.name),
+          )
+          .map((page) => (
+            <div className="page-row" key={page.id}>
+              <button
+                type="button"
+                className={`page-link ${selected === page.id ? 'active' : ''}`}
+                onClick={() => choose(page.id)}
+              >
+                <EditorIcon name="page" />
+                {page.name}
+                <span className="page-path">{page.collection ? 'CMS' : page.path}</span>
+              </button>
+              <button
+                type="button"
+                className="page-settings-trigger"
+                aria-label={`Settings for ${page.name}`}
+                title="Page settings"
+                disabled={disabled}
+                onClick={() => {
+                  setEditing(page)
+                }}
+              >
+                •••
+              </button>
+            </div>
+          ))}
+      </div>
+      {editing && (
+        <PageSettings
+          key={editing === 'new' ? 'new' : editing.id}
+          doc={doc}
+          page={editing === 'new' ? undefined : editing}
+          disabled={disabled}
+          close={() => setEditing(undefined)}
+          save={save}
+          choose={choose}
+        />
+      )}
+    </>
+  )
+}
+
+function PageSettings({
+  doc,
+  page,
+  disabled,
+  close,
+  save,
+  choose,
+}: {
+  doc: Document
+  page?: Page | undefined
+  disabled: boolean
+  close: () => void
+  save: (operations: EditOperation[]) => Promise<boolean>
+  choose: (id: string) => void
+}) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const [name, setName] = useState(page?.name ?? '')
+  const [path, setPath] = useState(page?.path ?? '')
+  const [title, setTitle] = useState(page?.seo?.title ?? '')
+  const [description, setDescription] = useState(page?.seo?.description ?? '')
+  const [error, setError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  useEffect(() => {
+    dialog.current?.showModal()
+  }, [])
+  const run = async (operations: EditOperation[], id?: string) => {
+    if (await save(operations)) {
+      close()
+      if (id) choose(id)
+    } else setError('Could not save page changes. Check the editor message and try again.')
+  }
+  return (
+    <dialog
+      ref={dialog}
+      className="page-settings-dialog"
+      aria-label={page ? 'Page settings' : 'New page'}
+      onCancel={(event) => {
+        event.preventDefault()
+        close()
+      }}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
+      <header>
+        <h2>{page ? 'Page settings' : 'New page'}</h2>
+        <button type="button" onClick={close} disabled={disabled}>
+          Close
+        </button>
+      </header>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          const issue = !name.trim()
+            ? 'Enter a page name.'
+            : pagePathError(doc, path.trim(), page?.id)
+          if (issue) {
+            setError(issue)
+            return
+          }
+          const seo: NonNullable<Page['seo']> = {
+            ...page?.seo,
+            title: title.trim(),
+            description: description.trim(),
+          }
+          if (!seo.title) delete seo.title
+          if (!seo.description) delete seo.description
+          if (page)
+            void run([
+              { type: 'page.update', id: page.id, name: name.trim(), path: path.trim(), seo },
+            ])
+          else {
+            const id = `p-${crypto.randomUUID()}`
+            void run(
+              [
+                {
+                  type: 'page.create',
+                  id,
+                  name: name.trim(),
+                  path: path.trim(),
+                  seo,
+                  root: {
+                    id: `n-${crypto.randomUUID()}`,
+                    type: 'element',
+                    tag: 'main',
+                    classes: [],
+                    children: [],
+                  },
+                },
+              ],
+              id,
+            )
+          }
+        }}
+      >
+        <label>
+          Page name
+          <input
+            required
+            value={name}
+            disabled={disabled}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+        <label>
+          URL path
+          <input
+            required
+            value={path}
+            disabled={disabled}
+            placeholder="/about"
+            onChange={(event) => setPath(event.target.value)}
+          />
+        </label>
+        <p className="hint">
+          Use / for the home page.
+          {page?.collection ? ' Keep the collection parameter in the path.' : ''} Changing a path
+          does not update existing links.
+        </p>
+        <label>
+          SEO title
+          <input
+            value={title}
+            disabled={disabled}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </label>
+        <label>
+          SEO description
+          <textarea
+            aria-label="SEO description"
+            rows={3}
+            value={description}
+            disabled={disabled}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </label>
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={disabled}>
+          {page ? 'Save page' : 'Create page'}
+        </button>
+      </form>
+      {page && (
+        <div className="page-management-actions">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              try {
+                const result = duplicatePage(doc, page.id)
+                void run(result.operations, result.id)
+              } catch (err) {
+                setError((err as Error).message)
+              }
+            }}
+          >
+            Duplicate page
+          </button>
+          <button
+            type="button"
+            disabled={disabled || Object.keys(doc.pages).length <= 1 || page.path === '/'}
+            onClick={() => setConfirmDelete(true)}
+          >
+            Delete page
+          </button>
+          {(page.path === '/' || Object.keys(doc.pages).length <= 1) && (
+            <p className="hint">
+              The home page and the last remaining page are protected from deletion.
+            </p>
+          )}
+          {confirmDelete && (
+            <div role="alert">
+              <p>
+                Delete “{page.name}” and all its content? Existing links to this page may stop
+                working. You can undo this during this session.
+              </p>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  try {
+                    pageTree(doc, page.root)
+                    void run([{ type: 'page.delete', id: page.id }])
+                  } catch (err) {
+                    setError((err as Error).message)
+                  }
+                }}
+              >
+                Confirm delete page
+              </button>
+              <button type="button" onClick={() => setConfirmDelete(false)}>
+                Keep page
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </dialog>
+  )
+}

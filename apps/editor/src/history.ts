@@ -4,6 +4,8 @@ import type {
   DesignToken,
   Document,
   ElementNode,
+  Node,
+  Page,
   StyleDecl,
   TextNode,
 } from '@freeflow/schema'
@@ -15,7 +17,26 @@ export type InsertNode = (
   | DefinedFields<Omit<TextNode, 'parent' | 'children'>>
 ) & { children?: InsertNode[] }
 
+type TreeFields<T> = T extends Node
+  ? DefinedFields<Omit<T, 'parent' | 'children' | 'overrides'>>
+  : never
+export type PageTree = TreeFields<Exclude<Node, { type: 'code-component' }>> & {
+  children: PageTree[]
+}
+export function pageTree(doc: Document, id: string): PageTree {
+  const node = doc.nodes[id]!
+  if (node.type === 'code-component' || (node.type === 'component' && node.overrides))
+    throw new Error(
+      'Pages with code components or component overrides cannot be copied or deleted yet.',
+    )
+  const { parent: _, children, ...fields } = structuredClone(node)
+  return { ...fields, children: children.map((child) => pageTree(doc, child)) } as PageTree
+}
+
 export type EditOperation =
+  | ({ type: 'page.create'; root: PageTree } & Omit<Page, 'root'>)
+  | { type: 'page.update'; id: string; name?: string; path?: string; seo?: Page['seo'] | null }
+  | { type: 'page.delete'; id: string }
   | {
       type: 'node.update'
       id: string
@@ -70,7 +91,7 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
     const { parent: _, children, ...fields } = node
     return { ...structuredClone(fields), children: children.map(literal) } as InsertNode
   }
-  const materialize = (node: InsertNode, parent: string) => {
+  const materialize = (node: InsertNode | PageTree, parent: string | null) => {
     if (draft.nodes[node.id]) throw new Error('Element ID already exists')
     const { children = [], ...fields } = node
     draft.nodes[node.id] = {
@@ -85,7 +106,40 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
     delete draft.nodes[id]
   }
   for (const operation of operations) {
-    if (operation.type === 'asset.create') {
+    if (operation.type === 'page.create') {
+      const { type: _, root, ...page } = operation
+      materialize(root, null)
+      draft.pages[page.id] = { ...structuredClone(page), root: root.id }
+      undo.unshift({ type: 'page.delete', id: page.id })
+    } else if (operation.type === 'page.delete') {
+      const page = draft.pages[operation.id]
+      if (!page) throw new Error('Page no longer exists')
+      undo.unshift({
+        type: 'page.create',
+        ...structuredClone(page),
+        root: pageTree(draft, page.root),
+      })
+      remove(page.root)
+      delete draft.pages[page.id]
+    } else if (operation.type === 'page.update') {
+      const page = draft.pages[operation.id]
+      if (!page) throw new Error('Page no longer exists')
+      const inverse: EditOperation = { type: 'page.update', id: page.id }
+      if (operation.name !== undefined) {
+        inverse.name = page.name
+        page.name = operation.name
+      }
+      if (operation.path !== undefined) {
+        inverse.path = page.path
+        page.path = operation.path
+      }
+      if (operation.seo !== undefined) {
+        inverse.seo = structuredClone(page.seo ?? null)
+        if (operation.seo === null) delete page.seo
+        else page.seo = structuredClone(operation.seo)
+      }
+      undo.unshift(inverse)
+    } else if (operation.type === 'asset.create') {
       const { type: _, ...asset } = operation
       draft.assets[asset.id] = structuredClone(asset)
       undo.unshift({ type: 'asset.delete', id: asset.id })

@@ -88,6 +88,24 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   revisions rather than reverting someone else's work. Original token values and cleared styles
   are restored, not reconstructed from computed CSS.
 
+## Rich text and links
+
+Select a text element to format the whole text, or double-click it on the canvas and select words.
+Both modes use the same Home toolbar for font, size, bold, italic, color, and links. A scope label
+shows whether changes affect selected words or the whole text (including when only a caret is placed).
+Alignment and line height always affect the whole block. Presets remain visible but are disabled
+during an inline editing session. Links open in a popover without expanding the ribbon.
+Link destinations can be a static page,
+an HTTP(S) URL, email (`mailto:`), telephone (`tel:`), or section anchor (`#section`). Internal links
+store page IDs and resolve the current path when rendered, including after page URL changes.
+Bound collection text and locked elements remain protected.
+
+Done saves the inline editing session as one document-history entry; navigating to another element
+or page also saves pending text. Cancel restores the original content. While editing, use the text
+toolbar or keyboard shortcuts for local undo/redo; after saving, use the editor's normal history.
+The plain-text inspector remains available for unformatted text. Text with inline marks is edited
+on the canvas so its formatting is preserved.
+
 ## Canvas rendering
 
 `@freeflow/renderer` calls the compiler's pure HTML renderer and the existing CSS generator.
@@ -99,8 +117,7 @@ The React shell hosts an iframe with `sandbox="allow-same-origin"` and no script
 also blocks scripts, forms, embedded frames and external resources in the canvas. Parent-side event
 listeners handle selection and suppress link navigation. Site scripts cannot access the editor.
 
-This is a minimal editor: drag-and-drop layout, class renaming/deletion, rich-text editing, visual
-breakpoint/state editing, collaborative Yjs undo, git history and publishing are subsequent milestones.
+Collaborative Yjs undo, git history and publishing remain subsequent milestones.
 The editing workspace currently targets desktop browsers; its mobile button previews the site.
 
 ## Verification

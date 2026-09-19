@@ -1,10 +1,94 @@
-import type { RichText } from '@freeflow/schema'
+import { fixtureDocument, type RichText } from '@freeflow/schema'
 import { describe, expect, it } from 'vitest'
 import { richTextInlineHtml, richTextToHtml } from '../src/richtext.js'
 
 const noWarn = () => {}
 
 describe('richTextToHtml', () => {
+  it('renders inline font families and explicit normal styles safely', () => {
+    const render = (attrs: Record<string, string>) =>
+      richTextInlineHtml(
+        {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Words', marks: [{ type: 'textStyle', attrs }] }],
+            },
+          ],
+        },
+        noWarn,
+      )
+    expect(render({ fontFamily: 'Georgia, serif', fontWeight: '400', fontStyle: 'normal' })).toBe(
+      '<span style="font-family:Georgia, serif;font-weight:400;font-style:normal">Words</span>',
+    )
+    expect(
+      render({
+        fontFamily: 'Arial;position:fixed',
+        fontWeight: '400;color:red',
+        fontStyle: 'italic;color:red',
+      }),
+    ).toBe('Words')
+  })
+  it('resolves page references against current paths and does not render deleted destinations', () => {
+    const doc = fixtureDocument()
+    const rt: RichText = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Home',
+              marks: [{ type: 'link', attrs: { pageId: 'p-home', href: '/stale' } }],
+            },
+          ],
+        },
+      ],
+    }
+    expect(richTextInlineHtml(rt, noWarn, doc.pages)).toBe('<a href="/">Home</a>')
+    doc.pages['p-home']!.path = '/new-home'
+    expect(richTextInlineHtml(rt, noWarn, doc.pages)).toBe('<a href="/new-home">Home</a>')
+    delete doc.pages['p-home']
+    expect(richTextInlineHtml(rt, noWarn, doc.pages)).toBe('Home')
+  })
+  it('renders safe inline colors and sizes, rejecting executable links and CSS injection', () => {
+    const render = (href: string, color: string, fontSize: string) =>
+      richTextInlineHtml(
+        {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Words',
+                  marks: [
+                    { type: 'link', attrs: { href } },
+                    { type: 'textStyle', attrs: { color, fontSize } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        noWarn,
+      )
+    expect(render('https://example.com', '#7047eb', '24px')).toBe(
+      '<a href="https://example.com"><span style="color:#7047eb;font-size:24px">Words</span></a>',
+    )
+    for (const href of [
+      'javascript:alert(1)',
+      'data:text/html,evil',
+      'java\nscript:alert(1)',
+      '//evil.test',
+      '/\\evil.test',
+    ]) {
+      expect(render(href, 'red;background:url(evil)', '20px;position:fixed')).toBe('Words')
+    }
+  })
   it('renders paragraphs, headings, marks and breaks', () => {
     const rt: RichText = {
       type: 'doc',

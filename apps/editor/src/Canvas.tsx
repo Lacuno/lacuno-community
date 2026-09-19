@@ -15,6 +15,8 @@ function highlight(frame: HTMLIFrameElement | null, selected: string) {
 }
 
 export function Canvas({
+  onEditText,
+  editingText,
   onNodeAction,
   bindDragSurface,
   html,
@@ -26,6 +28,8 @@ export function Canvas({
   onComputed,
   livePreview,
 }: {
+  editingText: boolean
+  onEditText: (id: string, element: HTMLElement) => void
   onNodeAction: (action: 'duplicate' | 'delete', id: string) => void
   bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
@@ -37,6 +41,9 @@ export function Canvas({
   onHistory: (direction: 'undo' | 'redo') => void
   onComputed: (value: { id: string; values: Record<string, string> }) => void
 }) {
+  const renderedHtml = useRef(html)
+  // A preview request from the preceding save must not replace an active text editor.
+  if (!editingText) renderedHtml.current = html
   const selectionCleanup = useRef<(() => void) | undefined>(undefined)
   const nameRef = useRef(selectedName)
   nameRef.current = selectedName
@@ -44,6 +51,8 @@ export function Canvas({
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
   useEffect(() => () => dragCleanup.current?.(), [])
   const nodeActionRef = useRef(onNodeAction)
+  const editTextRef = useRef(onEditText)
+  editTextRef.current = onEditText
   nodeActionRef.current = onNodeAction
   const frame = useRef<HTMLIFrameElement>(null)
   const scrollPosition = useRef({ x: 0, y: 0 })
@@ -72,12 +81,13 @@ export function Canvas({
         element = image
         undo.push(() => image.replaceWith(placeholder))
       }
-      if (element) {
+      if (element && !element.hasAttribute('data-freeflow-editing')) {
         const target = element
         // Style previews must preserve child DOM, including its current selection marker.
         const markup = draft.node.text !== undefined ? target.innerHTML : undefined
         const style = target.getAttribute('style')
         undo.push(() => {
+          if (target.hasAttribute('data-freeflow-editing')) return
           if (markup !== undefined) target.innerHTML = markup
           if (style === null) target.removeAttribute('style')
           else target.setAttribute('style', style)
@@ -258,7 +268,7 @@ export function Canvas({
         ref={frame}
         title="Site canvas"
         sandbox="allow-same-origin"
-        srcDoc={html}
+        srcDoc={renderedHtml.current}
         style={{
           width,
           height: `${100 / zoom}%`,
@@ -289,8 +299,11 @@ export function Canvas({
             'div[data-freeflow-node]:empty, section[data-freeflow-node]:empty { min-height: 48px; min-width: 48px; } [data-freeflow-node]:not([data-freeflow-selected]):hover:not(:has([data-freeflow-node]:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }'
           style.textContent += `[data-freeflow-image-placeholder] { min-height:160px !important; min-width:80px; background: #f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; position:relative; } [data-freeflow-image-placeholder]::after { content:""; display:block; width:40px; height:40px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%239187aa' stroke-width='1.5'%3E%3Cpath d='M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8'/%3E%3Ccircle cx='22' cy='10' r='2'/%3E%3C/svg%3E"); }`
           style.textContent += MOTION_CSS
+          style.textContent +=
+            '[data-freeflow-editing] .tiptap {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;cursor:text;user-select:text;} [data-freeflow-editing] .tiptap p {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;margin:0;} [data-freeflow-editing] .tiptap strong {font-weight:bold;} [data-freeflow-editing] .tiptap em {font-style:italic;}'
           doc.head.append(style)
           const pick = (event: Event) => {
+            if ((event.target as Element | null)?.closest?.('[data-freeflow-editing]')) return
             event.preventDefault()
             event.stopPropagation()
             const target = event.target as Element | null
@@ -300,10 +313,21 @@ export function Canvas({
           }
           doc.addEventListener('click', pick, true)
           doc.addEventListener('auxclick', pick, true)
+          doc.addEventListener('dblclick', (event) => {
+            const element = (event.target as Element | null)?.closest?.<HTMLElement>(
+              '[data-freeflow-node]',
+            )
+            const id = element?.dataset.freeflowNode
+            if (id && element && !element.hasAttribute('data-freeflow-editing')) {
+              event.preventDefault()
+              editTextRef.current(id, element)
+            }
+          })
           doc.addEventListener('submit', (event) => event.preventDefault(), true)
           doc.addEventListener(
             'keydown',
             (event) => {
+              if ((event.target as Element | null)?.closest?.('[data-freeflow-editing]')) return
               const direction = historyShortcut(event)
               if (direction) {
                 event.preventDefault()

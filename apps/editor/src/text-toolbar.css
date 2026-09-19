@@ -1,0 +1,98 @@
+.text-toolbar {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+.text-toolbar-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.text-toolbar-fields label,
+.text-link-popover label {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: #62677c;
+}
+.text-toolbar-fields input,
+.text-toolbar-fields select,
+.text-toolbar-fields button {
+  padding: 4px 8px;
+  line-height: normal;
+  height: 30px;
+  min-height: 30px;
+  margin: 0;
+  font-size: 12px;
+}
+.text-toolbar-fields .text-font select {
+  width: 136px;
+}
+.text-toolbar-fields .text-size input {
+  width: 62px;
+}
+.text-toolbar-fields .text-line-height input {
+  width: 70px;
+}
+.text-toolbar-fields .text-alignment select {
+  width: 90px;
+}
+.text-toolbar-fields input[type="color"] {
+  width: 32px;
+  padding: 3px;
+}
+.text-toolbar-fields button[aria-pressed="true"] {
+  background: #eee8ff;
+  color: #7047eb;
+  border-color: #c9b9ff;
+}
+.text-toolbar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+}
+.text-scope {
+  font-size: 11px;
+  color: #757b90;
+  white-space: nowrap;
+}
+.text-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.text-edit-actions button {
+  font-size: 11px;
+  min-height: 24px;
+  padding: 3px 8px;
+}
+.text-edit-actions .error {
+  max-width: 250px;
+  font-size: 11px;
+}
+.text-link-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 16px;
+  width: 320px;
+  border: 1px solid #dedee9;
+  border-radius: 10px;
+  background: white;
+  box-shadow: 0 12px 36px #23213b26;
+}
+.text-link-popover form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.text-link-popover .row {
+  flex-wrap: wrap;
+  gap: 6px;
+}

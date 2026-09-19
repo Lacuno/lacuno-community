@@ -1,7 +1,7 @@
 import { classNames, contextFromDocument, selectorFor, serializeValue } from '@freeflow/css'
 import { applyPatches, type Patch } from '@freeflow/document/patch'
 import { type CssValue, type Document, type Node, parseDocument } from '@freeflow/schema'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal, flushSync } from 'react-dom'
 import { Brand } from './App.js'
 import { AssetsPanel, assetUrl, uploadImage } from './AssetsPanel.js'
@@ -21,8 +21,10 @@ import {
   historyShortcut,
 } from './history.js'
 import { ImageLibrary } from './ImageLibrary.js'
+import type { InlineTarget } from './InlineTextEditor.js'
 import type { LivePreview } from './livePreview.js'
 import { Navigator } from './Navigator.js'
+import { PagesPanel } from './PagesPanel.js'
 import { PresetManager } from './PresetManager.js'
 import { ProjectColors } from './ProjectColors.js'
 import { StructurePanel } from './StructurePanel.js'
@@ -32,10 +34,16 @@ import {
   structureInsertion,
   subtreeRestriction,
 } from './structure.js'
+import { TextToolbar } from './TextToolbar.js'
+import { hasAnchorParent } from './textAncestors.js'
+import { textLink, wholeText } from './textFormatting.js'
 import { useAutosave } from './useAutosave.js'
 import { useStructureDrag } from './useStructureDrag.js'
 
 type Snapshot = { document: Document; revision: number }
+const InlineTextEditor = lazy(() =>
+  import('./InlineTextEditor.js').then((module) => ({ default: module.InlineTextEditor })),
+)
 type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
 type Operation = EditOperation
 const describe = (node: Node) => node.meta?.label ?? ('tag' in node ? node.tag : node.type)
@@ -106,11 +114,16 @@ function Inspector({
   const [presetDraft, setPresetDraft] = useState(false)
   const classId = useRef(`c-${crypto.randomUUID()}`)
   const normalized = normalizeFormatting(changes)
+  const hasInlineOverride = (property: string) =>
+    node.type === 'text' &&
+    node.text.type === 'doc' &&
+    JSON.stringify(wholeText(node, [property])) !== JSON.stringify(node.text)
   const pending = Object.fromEntries(
     Object.entries(normalized).filter(
       ([property, value]) =>
         JSON.stringify(value) !==
-        JSON.stringify(localValue(doc, node, property, breakpoint) ?? null),
+          JSON.stringify(localValue(doc, node, property, breakpoint) ?? null) ||
+        hasInlineOverride(property),
     ),
   )
   const invalid = Object.entries(pending).find(
@@ -170,6 +183,11 @@ function Inspector({
     })
   if (!invalid)
     operations.push(...formattingOperations(doc, node, pending, () => classId.current, breakpoint))
+  if (!invalid && !textDirty && node.type === 'text' && node.text.type === 'doc' && styleDirty) {
+    const updated = wholeText(node, Object.keys(pending))
+    if (JSON.stringify(updated) !== JSON.stringify(node.text))
+      operations.push({ type: 'node.update', id: node.id, text: updated })
+  }
   const autosave = useAutosave(operations, !disabled && !invalid, busy, autoSave)
   const flushRef = useRef(autosave.flush)
   flushRef.current = async () => !invalid && !classDraft && !presetDraft && (await autosave.flush())
@@ -218,7 +236,8 @@ function Inspector({
       const next = { ...previous }
       if (
         JSON.stringify(value) ===
-        JSON.stringify(localValue(doc, node, property, breakpoint) ?? null)
+          JSON.stringify(localValue(doc, node, property, breakpoint) ?? null) &&
+        !hasInlineOverride(property)
       )
         delete next[property]
       else next[property] = value
@@ -253,7 +272,59 @@ function Inspector({
                 draftChanged={setPresetDraft}
               />
             )}
-            <FormattingControls {...controls} groupName={ribbonGroup} ribbon />
+            {ribbonGroup === 'Typography' && node.type === 'text' ? (
+              <TextToolbar
+                doc={doc}
+                scope="Whole text"
+                currentLink={textLink(node)}
+                placeholders={computed}
+                disabled={disabled}
+                values={Object.fromEntries(
+                  [
+                    'font-family',
+                    'font-size',
+                    'font-weight',
+                    'font-style',
+                    'color',
+                    'text-align',
+                    'line-height',
+                  ].map((property) => {
+                    const value =
+                      property in changes
+                        ? changes[property]
+                        : localValue(doc, node, property, breakpoint)
+                    return [
+                      property,
+                      value
+                        ? serializeValue(value, contextFromDocument(doc))
+                        : property in changes ||
+                            property === 'font-size' ||
+                            property === 'line-height'
+                          ? ''
+                          : (computed[property] ?? ''),
+                    ]
+                  }),
+                )}
+                change={(property, value) =>
+                  changeFormatting(property, value ? { type: 'raw', value } : null)
+                }
+                linkDisabled={
+                  busy ||
+                  styleDirty ||
+                  textDirty ||
+                  (node.text.type !== 'doc' && node.text.type !== 'static') ||
+                  node.tag === 'a' ||
+                  hasAnchorParent(doc, node)
+                }
+                link={(attrs) =>
+                  void save([
+                    { type: 'node.update', id: node.id, text: wholeText(node, [], attrs) },
+                  ])
+                }
+              />
+            ) : (
+              <FormattingControls {...controls} groupName={ribbonGroup} ribbon />
+            )}
             <div className="ribbon-reset">
               <button
                 type="button"
@@ -430,8 +501,9 @@ function Inspector({
             </label>
           ) : node.type === 'text' ? (
             <p className="note">
-              This text uses a binding or rich formatting. Content editing for this element comes
-              later.
+              {node.text.type === 'doc'
+                ? 'Double-click this text on the canvas to edit words, formatting, and links.'
+                : 'This text is bound to content and cannot be edited directly.'}
             </p>
           ) : null}
           <FormattingControls {...controls} groupName={ribbonGroup} />
@@ -482,6 +554,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [ribbonHost, setRibbonHost] = useState<HTMLDivElement | null>(null)
   const [ribbonTab, setRibbonTab] = useState('Home')
   const [sidebar, setSidebar] = useState<'Add' | 'Layers' | 'Pages' | 'Assets'>('Layers')
+  const [inlineTarget, setInlineTarget] = useState<InlineTarget>()
   const elementActionsId = useId()
   const ribbonGroup =
     ribbonTab === 'Layout'
@@ -589,6 +662,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       return
     setDirty(false)
     setSaved(false)
+    setInlineTarget(undefined)
     action()
   }
   async function save(operations: Operation[], action: 'edit' | 'undo' | 'redo' | 'auto' = 'edit') {
@@ -688,19 +762,21 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       setUploadingImage(false)
     })
   })
-  const canUndo = !!snapshot && editHistory.undo.length > 0 && !busy && !dirty && !conflict
+  const canUndo =
+    !!snapshot && editHistory.undo.length > 0 && !busy && !dirty && !conflict && !inlineTarget
   const bindDragSurface = useStructureDrag({
     doc,
     root: page?.root,
     uploadImage: dropImage,
-    disabled: busy || dirty || conflict || uploadingImage,
+    disabled: busy || dirty || conflict || uploadingImage || !!inlineTarget,
     save,
     select: (id) => {
       setSelected(id)
       setSidebar('Layers')
     },
   })
-  const canRedo = !!snapshot && editHistory.redo.length > 0 && !busy && !dirty && !conflict
+  const canRedo =
+    !!snapshot && editHistory.redo.length > 0 && !busy && !dirty && !conflict && !inlineTarget
   function travel(direction: 'undo' | 'redo') {
     if (!(direction === 'undo' ? canUndo : canRedo)) return
     const entry = editHistory[direction].at(-1)
@@ -837,6 +913,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
               type="button"
               key={tab}
               aria-pressed={ribbonTab === tab}
+              disabled={!!inlineTarget}
               className={ribbonTab === tab ? 'active' : ''}
               onClick={() => setRibbonTab(tab)}
             >
@@ -850,6 +927,20 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         </nav>
         <div className="ribbon-body">
           <div className="ribbon-controls" ref={setRibbonHost}>
+            {inlineTarget && doc && (
+              <Suspense fallback={<p className="hint">Opening text editor…</p>}>
+                <InlineTextEditor
+                  breakpoint={editingBreakpoint(doc, width)}
+                  target={inlineTarget}
+                  doc={doc}
+                  disabled={busy || conflict}
+                  save={save}
+                  close={() => setInlineTarget(undefined)}
+                  registerFlush={registerFlush}
+                  dirtyChanged={setDirty}
+                />
+              </Suspense>
+            )}
             {(!doc || !selected || !doc.nodes[selected]) && (
               <div className="ribbon-empty">
                 <EditorIcon name="text" />
@@ -864,7 +955,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             <button
               type="button"
               aria-label="Project colors"
-              disabled={busy || dirty || conflict || !doc}
+              disabled={busy || dirty || conflict || !doc || !!inlineTarget}
               onClick={() => setColorsOpen(true)}
             >
               <span className="ribbon-swatches">
@@ -941,40 +1032,21 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             ))}
           </nav>
           <section className="sidebar-content" aria-label={`${sidebar} panel`}>
-            {sidebar === 'Pages' && (
-              <>
-                <div className="panel-title">
-                  Pages<span>{doc ? Object.keys(doc.pages).length : ''}</span>
-                </div>
-                <div className="page-list">
-                  {doc &&
-                    Object.values(doc.pages)
-                      .sort(
-                        (a, b) =>
-                          Number(b.path === '/') - Number(a.path === '/') ||
-                          a.name.localeCompare(b.name),
-                      )
-                      .map((item) => (
-                        <button
-                          type="button"
-                          className={`page-link ${pageId === item.id ? 'active' : ''}`}
-                          key={item.id}
-                          onClick={() =>
-                            leave(() => {
-                              setPageId(item.id)
-                              setSelected('')
-                              setEntryId('')
-                              setError('')
-                            })
-                          }
-                        >
-                          <EditorIcon name="page" />
-                          {item.name}
-                          <span className="page-path">{item.collection ? 'CMS' : item.path}</span>
-                        </button>
-                      ))}
-                </div>
-              </>
+            {sidebar === 'Pages' && doc && (
+              <PagesPanel
+                doc={doc}
+                selected={pageId}
+                disabled={busy || dirty || conflict || !!inlineTarget}
+                save={save}
+                choose={(id) =>
+                  void leave(() => {
+                    setPageId(id)
+                    setSelected('')
+                    setEntryId('')
+                    setError('')
+                  })
+                }
+              />
             )}
             {doc && page && (
               <div hidden={sidebar !== 'Assets'}>
@@ -982,7 +1054,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 <AssetsPanel
                   siteId={siteId}
                   doc={doc}
-                  disabled={busy || dirty || conflict}
+                  disabled={busy || dirty || conflict || !!inlineTarget}
                   save={save}
                   insert={async (assetId) => {
                     let target: ReturnType<typeof insertionTarget>
@@ -1012,7 +1084,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                     doc={doc}
                     root={page.root}
                     selected={selected}
-                    disabled={busy || dirty || conflict}
+                    disabled={busy || dirty || conflict || !!inlineTarget}
                     save={save}
                     select={(id) => {
                       setSelected(id)
@@ -1053,7 +1125,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                       doc={doc}
                       root={page.root}
                       selected={selected}
-                      disabled={busy || dirty || conflict}
+                      disabled={busy || dirty || conflict || !!inlineTarget}
                       save={save}
                       select={setSelected}
                     />
@@ -1064,7 +1136,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                     <Navigator
                       reveal={revealSelection}
                       key={page.root}
-                      disabled={busy || dirty || conflict}
+                      disabled={busy || dirty || conflict || !!inlineTarget}
                       save={save}
                       nodeAction={(action, id) => void nodeAction(action, id)}
                       doc={doc}
@@ -1141,6 +1213,22 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           <div className="canvas-workspace">
             {preview ? (
               <Canvas
+                editingText={!!inlineTarget}
+                onEditText={(id, element) => {
+                  const node = doc?.nodes[id]
+                  if (node?.type !== 'text' || busy || dirty || conflict || inlineTarget) return
+                  if (node.text.type !== 'doc' && node.text.type !== 'static') return
+                  for (
+                    let ancestor: Node | undefined = node;
+                    ancestor;
+                    ancestor = ancestor.parent ? doc?.nodes[ancestor.parent] : undefined
+                  ) {
+                    if (ancestor.meta?.locked) return
+                  }
+                  setSelected(id)
+                  setRibbonTab('Home')
+                  setInlineTarget({ node, element })
+                }}
                 onNodeAction={(action, id) => void nodeAction(action, id)}
                 bindDragSurface={bindDragSurface}
                 onHistory={travel}
@@ -1184,7 +1272,13 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             </details>
           ) : null}
         </main>
-        {doc && selected && doc.nodes[selected] ? (
+        {inlineTarget ? (
+          <aside className="inspector inspector-empty">
+            <h2>Editing text</h2>
+            <p>Select words on the canvas, then use Home to format them or add a link.</p>
+            <p>Done saves your text. Cancel discards this editing session.</p>
+          </aside>
+        ) : doc && selected && doc.nodes[selected] ? (
           <Inspector
             siteId={siteId}
             key={`${selected}-${generation}-${editingBreakpoint(doc, width)}`}

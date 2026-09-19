@@ -13,6 +13,9 @@
     "@freeflow/css": "workspace:*",
     "@freeflow/document": "workspace:*",
     "@freeflow/schema": "workspace:*",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-text-style": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
