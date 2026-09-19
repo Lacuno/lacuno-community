@@ -1,0 +1,59 @@
+import { readFile, realpath, stat } from 'node:fs/promises'
+import path from 'node:path'
+import { Hono } from 'hono'
+import { getMimeType } from 'hono/utils/mime'
+import type { Releases } from './releases.js'
+
+/** This app runs on the publishing listener only: no editor, auth, or draft API routes. */
+export function publishedApp(releases: Releases) {
+  const app = new Hono()
+  app.on(['GET', 'HEAD'], '*', async (c) => {
+    const url = new URL(c.req.url)
+    const site = releases.siteForHost(url.hostname)
+    if (!site) return c.notFound()
+    const current = releases.current(site)
+    if (!current) return c.notFound()
+    let name: string
+    try {
+      name = decodeURIComponent(url.pathname)
+    } catch {
+      return c.notFound()
+    }
+    if (
+      name.includes('\\') ||
+      name.includes('\0') ||
+      name.split('/').some((part) => part === '..' || part.startsWith('.'))
+    )
+      return c.notFound()
+    const immutable = /^\/(?:assets|_astro)\//.test(name)
+    // Old HTML can finish loading its content-addressed assets after an atomic release switch.
+    const candidates = [
+      current,
+      ...(immutable ? releases.readyIds(site).filter((id) => id !== current) : []),
+    ]
+    for (const id of candidates) {
+      const root = path.join(releases.directory(site, id), 'dist')
+      let file = path.join(root, name)
+      try {
+        if ((await stat(file)).isDirectory()) file = path.join(file, 'index.html')
+        const actual = await realpath(file)
+        const actualRoot = await realpath(root)
+        if (!actual.startsWith(actualRoot + path.sep) || !(await stat(actual)).isFile())
+          return c.notFound()
+        const bytes = await readFile(actual)
+        c.header('Content-Type', getMimeType(actual) ?? 'application/octet-stream')
+        c.header('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'no-cache')
+        c.header('X-Content-Type-Options', 'nosniff')
+        c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+        c.header('Origin-Agent-Cluster', '?1')
+        c.header('X-Freeflow-Release', id)
+        return c.req.method === 'HEAD' ? c.body(null) : c.body(new Uint8Array(bytes))
+      } catch (error) {
+        if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? ''))
+          throw error
+      }
+    }
+    return c.notFound()
+  })
+  return app
+}

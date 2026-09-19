@@ -209,7 +209,11 @@ The compiler has no knowledge of the server. The CLI exposes it as `freeflow bui
   proposals, jobs, audit log, and the Yjs update buffer.
 - **Build queue.** A small in-process queue runs each build in a child process, one at a time per
   site, because the build changes its working directory for Astro. Output goes to
-  `builds/<site>/<build-id>/`. Publishing atomically repoints a symlink for the environment.
+  `builds/<site>/<build-id>/`. The first publishing milestone atomically updates a SQLite live-release
+  pointer after a successful build; the separate static listener resolves that pointer per request.
+  Immutable document snapshots and release states live in SQLite, builds run in child processes,
+  and rollback switches the pointer without changing the draft. Per-environment staging and custom
+  domain/TLS management remain planned.
 - **Serving.** Published output is served with immutable caching for hashed assets and short
   caching for HTML. Caddy in front adds TLS and routes custom domains to the right site by host.
 - **Forms.** A published form posts to the instance, which validates, stores, notifies and

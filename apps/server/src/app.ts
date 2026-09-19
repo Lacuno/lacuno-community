@@ -14,6 +14,8 @@ import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { SqlitePersistence } from './persistence.js'
+import { publishedApp } from './published.js'
+import { Releases } from './releases.js'
 
 export type ServerOptions = {
   dataDir: string
@@ -22,6 +24,7 @@ export type ServerOptions = {
   secret: string
   allowSignup?: boolean
   editorDir?: string
+  publishBaseURL?: string
 }
 
 const SiteInput = z.strictObject({ name: z.string().trim().min(1).max(200) })
@@ -35,6 +38,7 @@ export async function createServer(options: ServerOptions) {
   if (options.secret.length < 32) throw new Error('Auth secret must contain at least 32 characters')
   const origin = new URL(options.baseURL).origin
   const { db, sqlite } = openDatabase(options.dataDir)
+  let releases: Releases | undefined
   try {
     const authOptions = {
       database: sqlite,
@@ -48,6 +52,11 @@ export async function createServer(options: ServerOptions) {
     await migrations.runMigrations()
     migrateApplication(sqlite)
     const auth = betterAuth(authOptions)
+    releases = options.publishBaseURL
+      ? new Releases(sqlite, options.dataDir, options.publishBaseURL)
+      : undefined
+    if (releases?.siteForHost(new URL(origin).hostname))
+      throw new Error('The editor hostname cannot be inside the published site namespace')
 
     const app = new Hono<{ Variables: { userId: string; workspaceId: string } }>()
     app.use('/api/*', async (c, next) => {
@@ -60,7 +69,7 @@ export async function createServer(options: ServerOptions) {
       })(c, next),
     )
     app.onError((error, c) => {
-      if (error instanceof HTTPException) return error.getResponse()
+      if (error instanceof HTTPException) return c.json({ error: error.message }, error.status)
       if (error instanceof StaleRevisionError)
         return c.json({ error: error.message, currentRevision: error.current }, 409)
       if (error instanceof OperationError || error instanceof DocumentError)
@@ -175,6 +184,39 @@ export async function createServer(options: ServerOptions) {
     })
     const store = (id: string) =>
       DocumentStore.withPersistence(new SqlitePersistence(db, id, options.dataDir))
+    app.get('/api/sites/:id/releases', (c) =>
+      c.json(
+        releases?.list(c.req.param('id')) ?? {
+          enabled: false,
+          publishedId: null,
+          url: null,
+          releases: [],
+        },
+      ),
+    )
+    app.post('/api/sites/:id/releases', async (c) => {
+      if (!releases) return c.json({ error: 'Publishing is not configured on this server.' }, 503)
+      const input = z
+        .strictObject({
+          expectedRevision: z.number().int().nonnegative(),
+          publishedId: z.string().uuid().nullable(),
+        })
+        .safeParse(await c.req.json().catch(() => null))
+      if (!input.success) return c.json({ error: 'Invalid publish request' }, 400)
+      return c.json(
+        releases.publish(c.req.param('id'), input.data.expectedRevision, input.data.publishedId),
+        202,
+      )
+    })
+    app.post('/api/sites/:id/releases/:releaseId/activate', async (c) => {
+      if (!releases) return c.json({ error: 'Publishing is not configured on this server.' }, 503)
+      const input = z
+        .strictObject({ publishedId: z.string().uuid().nullable() })
+        .safeParse(await c.req.json().catch(() => null))
+      if (!input.success) return c.json({ error: 'Invalid rollback request' }, 400)
+      releases.rollback(c.req.param('id'), c.req.param('releaseId'), input.data.publishedId)
+      return c.json({ publishedId: c.req.param('releaseId') })
+    })
     app.get('/api/sites/:id/document', async (c) => c.json((await store(c.req.param('id'))).read()))
     app.get('/api/sites/:id/preview', async (c) => {
       const { document, revision } = (await store(c.req.param('id'))).read()
@@ -265,11 +307,14 @@ export async function createServer(options: ServerOptions) {
     }
     return {
       app,
+      published: releases ? publishedApp(releases) : undefined,
       close: () => {
+        releases?.close()
         sqlite.close()
       },
     }
   } catch (error) {
+    releases?.close()
     sqlite.close()
     throw error
   }

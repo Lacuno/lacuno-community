@@ -22,6 +22,7 @@ import type { LivePreview } from './livePreview.js'
 import { Navigator } from './Navigator.js'
 import { PagesPanel } from './PagesPanel.js'
 import { ProjectColors } from './ProjectColors.js'
+import { PublishPanel } from './PublishPanel.js'
 import { StructurePanel } from './StructurePanel.js'
 import {
   duplicateSelection,
@@ -68,6 +69,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [conflict, setConflict] = useState(false)
   const [saved, setSaved] = useState(false)
   const [colorsOpen, setColorsOpen] = useState(false)
+  const [publishOpen, setPublishOpen] = useState(false)
   const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
     id: '',
     values: {},
@@ -395,7 +397,30 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         >
           <EditorIcon name="reload" />
         </button>
+        <button
+          type="button"
+          className="publish-trigger publish-action"
+          disabled={!snapshot || busy || conflict || uploadingImage}
+          onClick={async () => {
+            if (!(await pendingFlush.current())) {
+              setError('Finish or correct your pending edits before publishing.')
+              return
+            }
+            setDirty(false)
+            setInlineTarget(undefined)
+            setPublishOpen(true)
+          }}
+        >
+          Publish
+        </button>
       </header>
+      {publishOpen && snapshot && (
+        <PublishPanel
+          siteId={siteId}
+          revision={snapshot.revision}
+          close={() => setPublishOpen(false)}
+        />
+      )}
       <section className="editor-ribbon" aria-label="Formatting ribbon">
         <nav className="ribbon-tabs" aria-label="Formatting categories">
           {['Home', 'Layout', 'Appearance', 'Effects', 'Motion'].map((tab) => (

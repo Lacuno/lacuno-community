@@ -41,7 +41,12 @@ and plain-text/base-class-style edits with conflict protection. Session undo/red
 batches through version-pinned operations, including keyboard shortcuts and original typed values.
 The element palette inserts headings, paragraphs, sections and containers; sibling-order controls
 and structural undo/redo preserve IDs. Shared component and collection structure remains protected.
-Full visual authoring, Yjs sync and collaborative undo, git history and publishing remain to be built.
+**Publishing milestone implemented:** immutable revision snapshots, durable build status and errors,
+a separate static serving origin, a published URL, persistent release history, and confirmed rollback
+without changing the editing draft. Failed builds preserve the live site. Source and bundled server
+tests cover publishing and restarts; browser tests cover publishing, republishing and rollback.
+Custom domains/TLS, staging environments, packaging, Yjs sync, collaborative undo and git history
+remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 
 - Server with auth, workspaces, sites, SQLite, Yjs sync, git commits.
 - Editor: canvas iframe, layer tree, element palette, style panel, classes, breakpoints, states,

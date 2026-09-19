@@ -1,0 +1,99 @@
+.publish-dialog {
+  width: min(660px, calc(100vw - 40px));
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  color: #303342;
+}
+.publish-dialog::backdrop {
+  background: #25263355;
+}
+.publish-dialog header,
+.publish-summary,
+.release-heading,
+.release-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.publish-dialog header {
+  align-items: start;
+}
+.publish-dialog h2 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+.publish-dialog p {
+  font-size: 12px;
+}
+.publish-summary {
+  margin: 20px 0 12px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #f5f2fc;
+}
+.publish-summary p {
+  margin: 4px 0 0;
+}
+.publish-action {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.publish-action:hover:not(:disabled) {
+  background: #5a32cf;
+}
+.editor-header .publish-trigger {
+  padding: 7px 14px;
+  font-size: 12px;
+}
+.release-heading {
+  margin-top: 24px;
+}
+.release-heading h3 {
+  font-size: 14px;
+}
+.release-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.release-list > li {
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+.release-title {
+  font-size: 13px;
+}
+.release-status {
+  font-size: 11px;
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: #f0edf8;
+}
+.release-status[data-status="failed"] {
+  background: #fff0f1;
+  color: #a03240;
+}
+.release-list time {
+  display: block;
+  color: #747981;
+  font-size: 11px;
+  margin: 6px 0 12px;
+}
+.release-list details {
+  font-size: 12px;
+  margin: 10px 0;
+}
+.rollback-confirm {
+  padding: 12px;
+  margin-top: 12px;
+  background: #fff7df;
+  border-radius: 8px;
+}
+.rollback-confirm button + button {
+  margin-left: 8px;
+}

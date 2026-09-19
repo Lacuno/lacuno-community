@@ -11,14 +11,18 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
+    "@freeflow/compiler": "workspace:*",
     "@freeflow/document": "workspace:*",
     "@freeflow/renderer": "workspace:*",
     "@freeflow/schema": "workspace:*",
     "@hono/node-server": "^2.1.1",
+    "astro": "^7.3.2",
     "better-auth": "^1.7.5",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.8",
+    "sharp": "^0.35.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {

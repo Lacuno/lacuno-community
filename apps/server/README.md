@@ -35,6 +35,8 @@ and site creation. `pnpm dev` builds the editor before starting the server.
 | `FREEFLOW_TEMPLATE_DIR` | Repository `templates/freeflow/` | Source template document and assets |
 | `HOST` | `127.0.0.1` | Listen address |
 | `PORT` | `3000` | Listen port |
+| `FREEFLOW_PUBLISH_PORT` | `PORT + 1` | Separate static publishing listener |
+| `FREEFLOW_PUBLISH_BASE_URL` | `http://localhost:<publish port>` when auth uses `localhost`; otherwise disabled | Base origin for `<site-id>.<hostname>` published sites |
 
 Relative directory settings resolve from the repository root. Both source and bundled servers
 automatically load the root `.env`; exported environment variables take precedence. Without `.env`,
@@ -102,6 +104,9 @@ and checks the persisted result.
 | `GET /api/sites/:id/preview?page=<id>&entry=<id>` | Canvas HTML, warnings and revision; entry required for collection pages |
 | `GET /api/sites/:id/assets/:hash` | Authenticated asset bytes belonging to the site |
 | `POST /api/sites/:id/document/apply` | `{expectedRevision,operations,dryRun?}` → operation result |
+| `GET /api/sites/:id/releases` | Publishing configuration, current release, URL and release history |
+| `POST /api/sites/:id/releases` | `{expectedRevision,publishedId}` → `202 {id}`; enqueue an immutable snapshot |
+| `POST /api/sites/:id/releases/:releaseId/activate` | `{publishedId}` → switch live output to a successful release; draft unchanged |
 
 Application routes require a session cookie. JSON writes reject cross-origin requests; API responses
 disable caching. Unknown or inaccessible sites return `404`, missing sessions `401`, invalid input
@@ -115,13 +120,44 @@ revisions. Drizzle handles application queries; Better Auth's built-in SQLite ad
 migrations, run before auth starts. Freeflow's separate migration ledger versions application tables.
 Assets live under `data/sites/<id>/assets/`; their hashes are checked when copying the template.
 
+## Publishing
+
+Use **Publish** in the editor header, then **Publish v1** (or the next version). Pending edits are saved before
+the dialog opens. Build status and errors appear in release history; successful builds expose an
+**Open published site** link. **Restore v1** (or another version) asks for confirmation before switching live output.
+Publishing has its own per-site counter: the first release is v1 regardless of the draft revision.
+Each accepted publish attempt reserves the next version, including failed builds; rollback retains
+the original version. Existing release history is numbered chronologically on upgrade. Document
+revisions remain internal snapshot/concurrency metadata and are not shown in the publishing dialog.
+
+Locally, the default published URL is `http://<site-id>.localhost:3001`. Modern browsers resolve
+`.localhost` to loopback. The static listener has no editor, authentication or draft API routes.
+Production requires an explicit publishing base URL, wildcard DNS and a TLS reverse proxy that
+preserves the Host header and routes published hosts to the publishing port. Use a dedicated
+publishing domain, separate from the editor and its cookies; never proxy published files through
+the editor origin. This milestone does not provision DNS, TLS or external hosting.
+
+Each release stores the exact document and revision in SQLite and copies hash-verified assets into
+`data/builds/<site-id>/<release-id>/`. A child process runs the compiler with a five-minute timeout.
+Only a successful build atomically updates the SQLite live-release pointer. Failed builds leave
+the previous site available; rollback changes this pointer, not the draft. Requests include the
+expected current `publishedId` (initially `null`) to prevent stale publish/rollback actions. Only one
+release per site can be queued or building. Each server instance runs one build at a time.
+
+Queued jobs resume after restart. Graceful shutdown marks its active build failed; after a crash,
+the queue marks it failed once its 30-second worker lease has expired so it can be retried. Multiple
+instances must share both SQLite and the build/asset filesystem. Release history, outputs and failed
+build directories are retained; automatic retention and disk quotas are not implemented yet. Back
+up the database and filesystem together. Hashed assets from older successful releases remain
+available so visitors loading old HTML can finish loading after a release switch.
+
 The document and revision update in one conditional SQL statement. Concurrent writers cannot commit
 the same base revision, including across server instances. Invalid batches and dry runs leave the
 stored document untouched. Failed site creation removes its partially copied assets; a process crash
 during creation can leave an unreferenced asset directory.
 
 The database is authoritative for server sites; these directories are not CLI site folders yet.
-Yjs sync, git snapshots, build/publish endpoints, shared workspace membership, email verification and
+Yjs sync, git snapshots, staging environments, custom-domain management, shared workspace membership, email verification and
 password recovery are later work. The existing CLI/MCP site-folder workflow remains separate.
 
 ```sh

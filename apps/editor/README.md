@@ -123,7 +123,19 @@ The React shell hosts an iframe with `sandbox="allow-same-origin"` and no script
 also blocks scripts, forms, embedded frames and external resources in the canvas. Parent-side event
 listeners handle selection and suppress link navigation. Site scripts cannot access the editor.
 
-Collaborative Yjs undo, git history and publishing remain subsequent milestones.
+## Publishing
+
+The header's **Publish** button saves pending edits and opens a compact publishing dialog. Publish
+the saved revision, follow its queued/building/ready/failed status, inspect errors and warnings, and
+open the published URL. You can close the dialog and keep editing during a build; the live site
+uses the captured snapshot. Release history survives restarts. Restoring a successful release asks
+for confirmation and changes only the live site, leaving your editing draft untouched.
+Release labels use a separate per-site counter (v1, v2, …), independent of document revisions.
+Failed publish attempts retain their version number; rollback restores the original version.
+
+Published content is served on a separate origin. Local defaults use `<site-id>.localhost:3001`;
+see [server configuration](../server/README.md#publishing) for deployment requirements.
+Collaborative Yjs undo and git history remain subsequent milestones.
 The editing workspace currently targets desktop browsers; its mobile button previews the site.
 
 ## Verification

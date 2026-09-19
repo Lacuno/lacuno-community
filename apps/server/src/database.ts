@@ -58,4 +58,46 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version = 2').get()) return
+      sqlite.exec(`
+      CREATE TABLE releases (
+        id TEXT PRIMARY KEY NOT NULL,
+        site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        revision INTEGER NOT NULL,
+        document TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('queued','building','ready','failed')),
+        created_at INTEGER NOT NULL,
+        finished_at INTEGER,
+        error TEXT,
+        warnings TEXT NOT NULL DEFAULT '[]',
+        owner TEXT,
+        lease_until INTEGER
+      );
+      CREATE INDEX releases_site_created ON releases(site_id, created_at DESC);
+      CREATE UNIQUE INDEX releases_one_active ON releases(site_id) WHERE status IN ('queued','building');
+      CREATE TABLE publications (
+        site_id TEXT PRIMARY KEY NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        release_id TEXT NOT NULL REFERENCES releases(id)
+      );
+      INSERT INTO freeflow_migrations(version) VALUES(2);
+    `)
+    })
+    .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version = 3').get()) return
+      sqlite.exec(`
+      ALTER TABLE releases ADD COLUMN version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0);
+      WITH numbered AS (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY created_at, rowid) AS version
+        FROM releases
+      )
+      UPDATE releases SET version = (SELECT version FROM numbered WHERE numbered.id = releases.id);
+      CREATE UNIQUE INDEX releases_site_version ON releases(site_id, version);
+      INSERT INTO freeflow_migrations(version) VALUES(3);
+    `)
+    })
+    .immediate()
 }

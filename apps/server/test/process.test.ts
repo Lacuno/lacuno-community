@@ -1,10 +1,12 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
+import { get } from 'node:http'
 import { createServer as createTcpServer } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
 
 it.each(['source', 'bundle'])(
@@ -18,6 +20,12 @@ it.each(['source', 'bundle'])(
     const port = address.port
     await new Promise<void>((resolve) => reservation.close(() => resolve()))
     const origin = `http://127.0.0.1:${port}`
+    const publicReservation = createTcpServer().listen(0, '127.0.0.1')
+    await once(publicReservation, 'listening')
+    const publicAddress = publicReservation.address()
+    if (!publicAddress || typeof publicAddress === 'string') throw new Error('No publishing port')
+    const publicPort = publicAddress.port
+    await new Promise<void>((resolve) => publicReservation.close(() => resolve()))
     let child: ChildProcess | undefined
     let output = ''
     async function start() {
@@ -36,6 +44,8 @@ it.each(['source', 'bundle'])(
             BETTER_AUTH_URL: origin,
             BETTER_AUTH_SECRET: 'process-test-secret-4c70d141a6994fc4a842',
             FREEFLOW_ALLOW_SIGNUP: 'true',
+            FREEFLOW_PUBLISH_BASE_URL: `http://localhost:${publicPort}`,
+            FREEFLOW_PUBLISH_PORT: String(publicPort),
           },
           stdio: ['ignore', 'pipe', 'pipe'],
         },
@@ -117,9 +127,108 @@ it.each(['source', 'bundle'])(
         revision: 1,
         document: { site: { name: 'Survived process restart' } },
       })
+      const history = async () =>
+        (await (
+          await fetch(`${origin}/api/sites/${id}/releases`, { headers: { cookie } })
+        ).json()) as {
+          publishedId: string | null
+          releases: { status: string; error: string | null }[]
+        }
+      if (entry === 'bundle') {
+        const browser = await chromium.launch({ headless: true })
+        try {
+          const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } })
+          await page.goto(`${origin}/?site=${id}`)
+          await page.getByLabel('Email', { exact: true }).fill(credentials.email)
+          await page.getByLabel('Password', { exact: true }).fill(credentials.password)
+          await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+          await page.getByRole('button', { name: 'Publish', exact: true }).click()
+          await page.getByRole('button', { name: 'Publish v1', exact: true }).click()
+          await page.getByRole('link', { name: 'Open published site' }).waitFor({ timeout: 20000 })
+          const href = await page
+            .getByRole('link', { name: 'Open published site' })
+            .getAttribute('href')
+          expect(href).toBe(`http://${id}.localhost:${publicPort}`)
+          await page.screenshot({
+            path: fileURLToPath(
+              new URL('../../../.freeflow/editor-preview/publishing.png', import.meta.url),
+            ),
+          })
+          await page.setViewportSize({ width: 1100, height: 800 })
+          await page.screenshot({
+            path: fileURLToPath(
+              new URL('../../../.freeflow/editor-preview/publishing-narrow.png', import.meta.url),
+            ),
+          })
+          const live = await browser.newPage()
+          await live.goto(href!)
+          expect(await live.locator('h1').textContent()).toBe('Your website. Your rules.')
+          await page.getByRole('button', { name: 'Close publishing' }).click()
+          const heading = page
+            .frameLocator('iframe[title="Site canvas"]')
+            .locator('[data-freeflow-node="n-home-title"]')
+          await heading.click()
+          await page.getByLabel('Text', { exact: true }).fill('Ready for publishing')
+          await page.getByRole('button', { name: 'Publish', exact: true }).click()
+          await page.getByRole('button', { name: 'Publish v2', exact: true }).click()
+          await page
+            .getByRole('button', { name: 'Restore v1', exact: true })
+            .waitFor({ timeout: 20000 })
+          await live.reload()
+          expect(await live.locator('h1').textContent()).toBe('Ready for publishing')
+          await page.getByRole('button', { name: 'Restore v1', exact: true }).click()
+          await page.getByRole('button', { name: 'Confirm rollback' }).click()
+          await expect
+            .poll(() => page.locator('.publish-summary').textContent())
+            .toContain('Live: v1')
+          await live.reload()
+          expect(await live.locator('h1').textContent()).toBe('Your website. Your rules.')
+          await page.getByRole('button', { name: 'Close publishing' }).click()
+          expect(await heading.textContent()).toBe('Ready for publishing')
+        } finally {
+          await browser.close()
+        }
+      } else {
+        expect(
+          (
+            await post(
+              `/api/sites/${id}/releases`,
+              { expectedRevision: 1, publishedId: null },
+              cookie,
+            )
+          ).status,
+        ).toBe(202)
+        await expect
+          .poll(async () => (await history()).releases[0], { timeout: 20000 })
+          .toMatchObject({ status: 'ready', error: null })
+      }
+      const publishedId = (await history()).publishedId
+      expect(publishedId).toBeTruthy()
+      await stop()
+      await start()
+      expect((await history()).publishedId).toBe(publishedId)
+      // Node fetch overwrites Host; use HTTP directly to exercise wildcard-host routing.
+      await new Promise<void>((resolve, reject) => {
+        get(
+          `http://127.0.0.1:${publicPort}/`,
+          { headers: { host: `${id}.localhost:${publicPort}` } },
+          (response) => {
+            try {
+              expect(response.statusCode).toBe(200)
+              expect(response.headers['x-freeflow-release']).toBe(publishedId)
+              response.resume()
+              response.on('end', resolve)
+            } catch (error) {
+              response.resume()
+              reject(error)
+            }
+          },
+        ).on('error', reject)
+      })
     } finally {
       await stop()
       await rm(dir, { recursive: true, force: true })
     }
   },
+  60000,
 )
