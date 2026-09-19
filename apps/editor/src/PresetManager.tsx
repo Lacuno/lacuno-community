@@ -30,7 +30,7 @@ export function PresetManager({
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
-  const popoverId = useId()
+  const actionsId = useId()
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)
   const nameInput = useRef<HTMLInputElement>(null)
@@ -45,15 +45,8 @@ export function PresetManager({
   }, [])
   useEffect(() => {
     if (!creating) return
-    positionPopover()
     nameInput.current?.focus()
-    window.addEventListener('resize', positionPopover)
-    window.addEventListener('scroll', positionPopover, true)
-    return () => {
-      window.removeEventListener('resize', positionPopover)
-      window.removeEventListener('scroll', positionPopover, true)
-    }
-  }, [creating, positionPopover])
+  }, [creating])
   useEffect(() => {
     draftChanged(!!name)
   }, [name, draftChanged])
@@ -68,15 +61,19 @@ export function PresetManager({
   const run = async (operations: () => EditOperation[]) => {
     setError('')
     try {
-      await save(operations())
+      return await save(operations())
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Could not change preset.')
+      return false
     }
+  }
+  const runAction = async (operations: () => EditOperation[]) => {
+    if (await run(operations)) popover.current?.hidePopover()
   }
   return (
     <section className="preset-manager" aria-label="Formatting presets">
       <label>
-        Preset
+        <span>Preset</span>
         <select
           aria-label="Preset"
           value={current?.id ?? ''}
@@ -94,115 +91,113 @@ export function PresetManager({
           ))}
         </select>
       </label>
-      {current ? (
-        <>
-          <p className="hint">
-            {overrides.length
-              ? 'Customized at this size'
-              : breakpoint === 'base'
-                ? 'Following preset'
-                : 'Preset / inherited styles'}{' '}
-            · {uses} {uses === 1 ? 'element' : 'elements'}
-          </p>
-          <button
-            type="button"
-            disabled={disabled || !!name || !overrides.length || current.locked}
-            onClick={() => void run(() => updatePreset(doc, node, breakpoint))}
-          >
-            Update preset · {uses} {uses === 1 ? 'element' : 'elements'}
-          </button>
-          <button
-            type="button"
-            disabled={disabled || !!name || !overrides.length}
-            onClick={() =>
-              void run(() =>
-                formattingOperations(
-                  doc,
-                  node,
-                  Object.fromEntries(overrides.map((style) => [style.property, null])),
-                  undefined,
-                  breakpoint,
-                ),
-              )
-            }
-          >
-            Reset to preset
-          </button>
-        </>
-      ) : (
-        <p className="hint">Reuse typography, colors, and spacing across your project.</p>
-      )}
+      {!!overrides.length && <span className="preset-customized">Customized</span>}
       <button
         ref={trigger}
         type="button"
+        className="preset-actions-trigger"
+        aria-label="Preset actions"
+        title="Preset actions"
         disabled={disabled}
-        popoverTarget={popoverId}
+        popoverTarget={actionsId}
         aria-haspopup="dialog"
-        aria-expanded={creating}
         onClick={positionPopover}
       >
-        Create preset from selection
+        •••
       </button>
       <div
         ref={popover}
-        id={popoverId}
+        id={actionsId}
         popover="auto"
         role="dialog"
-        aria-label="Create preset"
-        className="preset-creation-popover"
+        aria-label="Preset actions"
+        className="preset-actions-popover"
         onToggle={(event) => {
-          const open = event.newState === 'open'
-          setCreating(open)
-          if (!open) {
-            setName('')
-            setError('')
+          if (event.newState === 'open') {
+            positionPopover()
+            return
           }
+          setCreating(false)
+          setName('')
+          setError('')
         }}
       >
-        <strong>Create preset</strong>
-        <p className="hint">Reuse this element’s typography, colors, and spacing.</p>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            void run(() => createPreset(doc, node, name, computed, undefined, breakpoint))
-          }}
-        >
-          <label>
-            Preset name
-            <input
-              ref={nameInput}
-              value={name}
-              disabled={disabled}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="e.g. Page heading"
-            />
-          </label>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="row">
-            <button type="submit" disabled={disabled || !name.trim()}>
-              Create preset
-            </button>
-            <button
-              type="button"
-              onClick={() => {
+        {creating ? (
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault()
+              if (await run(() => createPreset(doc, node, name, computed, undefined, breakpoint)))
                 popover.current?.hidePopover()
-                trigger.current?.focus()
-              }}
-            >
-              Cancel
+            }}
+          >
+            <strong className="preset-popover-title">Create preset</strong>
+            <p className="hint">Reuse this element’s typography, colors, and spacing.</p>
+            <label>
+              Preset name
+              <input
+                ref={nameInput}
+                value={name}
+                disabled={disabled}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="e.g. Page heading"
+              />
+            </label>
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="row">
+              <button type="submit" disabled={disabled || !name.trim()}>
+                Create preset
+              </button>
+              <button type="button" onClick={() => setCreating(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <strong className="preset-popover-title">Preset actions</strong>
+            <p className="hint">
+              {current
+                ? `${overrides.length ? 'Customized at this size' : breakpoint === 'base' ? 'Following preset' : 'Preset / inherited styles'} · ${uses} ${uses === 1 ? 'element' : 'elements'}`
+                : 'Reuse typography, colors, and spacing across your project.'}
+            </p>
+            {current && (
+              <>
+                <button
+                  type="button"
+                  disabled={disabled || !overrides.length || current.locked}
+                  onClick={() => void runAction(() => updatePreset(doc, node, breakpoint))}
+                >
+                  Update preset · {uses} {uses === 1 ? 'element' : 'elements'}
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled || !overrides.length}
+                  onClick={() =>
+                    void runAction(() =>
+                      formattingOperations(
+                        doc,
+                        node,
+                        Object.fromEntries(overrides.map((style) => [style.property, null])),
+                        undefined,
+                        breakpoint,
+                      ),
+                    )
+                  }
+                >
+                  Reset to preset
+                </button>
+              </>
+            )}
+            <button type="button" disabled={disabled} onClick={() => setCreating(true)}>
+              Create preset from selection
             </button>
-          </div>
-        </form>
+          </>
+        )}
       </div>
-      {error && !creating && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
     </section>
   )
 }

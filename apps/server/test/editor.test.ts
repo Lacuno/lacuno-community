@@ -566,6 +566,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     // Presets retain shared formatting while ordinary edits remain local.
     await page.getByLabel('Size', { exact: true }).fill('38px')
     await saved()
+    await page.getByRole('button', { name: 'Preset actions', exact: true }).click()
     await page.getByRole('button', { name: 'Create preset from selection', exact: true }).click()
     await page.getByLabel('Preset name', { exact: true }).fill('Page heading')
     await page.getByRole('button', { name: 'Create preset', exact: true }).click()
@@ -574,16 +575,22 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     const presetId = await page.getByLabel('Preset', { exact: true }).inputValue()
     await page.getByLabel('Size', { exact: true }).fill('44px')
     await saved()
+    await page.locator('.editor-ribbon').screenshot({
+      path: path.join(root, '.freeflow/editor-preview/editor-preset-customized.png'),
+    })
+    await page.getByRole('button', { name: 'Preset actions', exact: true }).click()
     await page.getByRole('button', { name: 'Reset to preset', exact: true }).click()
     await expect
       .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
       .toBe('38px')
     await page.getByLabel('Size', { exact: true }).fill('46px')
     await saved()
+    await page.getByRole('button', { name: 'Preset actions', exact: true }).click()
     await page.getByRole('button', { name: 'Update preset · 1 element', exact: true }).click()
     await saved()
     await page.getByRole('button', { name: 'Undo', exact: true }).click()
     await saved()
+    await page.getByRole('button', { name: 'Preset actions', exact: true }).click()
     await page.getByRole('button', { name: 'Reset to preset', exact: true }).click()
     await expect
       .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))

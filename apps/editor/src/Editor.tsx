@@ -240,6 +240,19 @@ function Inspector({
       {ribbonHost &&
         createPortal(
           <>
+            {ribbonGroup === 'Typography' && (
+              <PresetManager
+                breakpoint={breakpoint}
+                doc={doc}
+                node={node}
+                computed={computed}
+                disabled={
+                  busy || conflict || locked || textDirty || styleDirty || imageDirty || classDraft
+                }
+                save={save}
+                draftChanged={setPresetDraft}
+              />
+            )}
             <FormattingControls {...controls} groupName={ribbonGroup} ribbon />
             <div className="ribbon-reset">
               <button
@@ -306,17 +319,6 @@ function Inspector({
         </div>
         {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
         {locked && <p className="note">This element or its parent is locked.</p>}
-        <PresetManager
-          breakpoint={breakpoint}
-          doc={doc}
-          node={node}
-          computed={computed}
-          disabled={
-            busy || conflict || locked || textDirty || styleDirty || imageDirty || classDraft
-          }
-          save={save}
-          draftChanged={setPresetDraft}
-        />
         <form
           onSubmit={(event) => {
             event.preventDefault()
