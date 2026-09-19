@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Document } from '@freeflow/schema'
 import { DocumentError } from '@freeflow/schema'
@@ -29,9 +30,13 @@ export class MemoryPersistence implements Persistence {
 
 /** Writes to a sibling temp file and renames over the target, so a crash leaves the old file. */
 async function writeAtomic(file: string, data: string | Uint8Array): Promise<void> {
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`
-  await writeFile(tmp, data)
-  await rename(tmp, file)
+  const tmp = `${file}.${randomUUID()}.tmp`
+  try {
+    await writeFile(tmp, data, { flag: 'wx' })
+    await rename(tmp, file)
+  } finally {
+    await rm(tmp, { force: true })
+  }
 }
 
 export class FolderPersistence implements Persistence {
@@ -67,7 +72,8 @@ export class FolderPersistence implements Persistence {
     try {
       await stat(target)
       return // identical bytes already stored
-    } catch {
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       await writeAtomic(target, bytes)
     }
   }

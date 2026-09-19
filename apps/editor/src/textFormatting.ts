@@ -1,4 +1,23 @@
-import type { RichText, TextNode } from '@freeflow/schema'
+import { type RichText, type TextNode, textStyleProperties } from '@freeflow/schema'
+
+export const textStyleAttributes: Record<string, string> = Object.fromEntries(
+  Object.entries(textStyleProperties).map(([attribute, property]) => [property, attribute]),
+)
+export const textProperties = [...Object.values(textStyleProperties), 'text-align', 'line-height']
+
+export function textDocument(text: TextNode['text']): RichText {
+  if (text.type === 'doc') return structuredClone(text)
+  if (text.type !== 'static') throw new Error('Bound text cannot be edited directly.')
+  return {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: String(text.value) ? [{ type: 'text', text: String(text.value) }] : [],
+      },
+    ],
+  }
+}
 
 type Run = {
   type?: string
@@ -26,28 +45,7 @@ export function wholeText(
   properties: string[],
   link?: { pageId: string | null; href: string | null } | null,
 ): RichText {
-  const document: RichText =
-    node.text.type === 'doc'
-      ? structuredClone(node.text)
-      : {
-          type: 'doc',
-          content: [
-            {
-              type: 'paragraph',
-              content:
-                node.text.type === 'static' && String(node.text.value)
-                  ? [{ type: 'text', text: String(node.text.value) }]
-                  : [],
-            },
-          ],
-        }
-  const attrs: Record<string, string> = {
-    'font-family': 'fontFamily',
-    'font-size': 'fontSize',
-    color: 'color',
-    'font-weight': 'fontWeight',
-    'font-style': 'fontStyle',
-  }
+  const document = textDocument(node.text)
   const visit = (run: Run) => {
     if (run.type === 'text') {
       run.marks = (run.marks ?? []).filter((mark) => {
@@ -56,7 +54,8 @@ export function wholeText(
         if (link !== undefined && mark.type === 'link') return false
         if (mark.type === 'textStyle') {
           for (const property of properties)
-            if (mark.attrs && attrs[property]) delete mark.attrs[attrs[property]!]
+            if (mark.attrs && textStyleAttributes[property])
+              delete mark.attrs[textStyleAttributes[property]!]
           return Object.values(mark.attrs ?? {}).some((value) => value != null)
         }
         return true

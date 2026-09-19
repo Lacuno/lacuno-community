@@ -59,3 +59,20 @@ it('validates path syntax, uniqueness and collection parameters', () => {
   expect(pagePathError(doc, '/posts', 'p-post')).toContain('parameter')
   expect(duplicatePage(doc, 'p-post').operations.at(-1)).toMatchObject({ collection: 'col-posts' })
 })
+
+it('preserves locked and combo classes when duplicating a page', async () => {
+  const doc = fixtureDocument()
+  doc.classes['c-locked'] = { id: 'c-locked', kind: 'local', locked: true }
+  doc.classes['c-parent'] = { id: 'c-parent', kind: 'local' }
+  doc.classes['c-combo'] = { id: 'c-combo', kind: 'local', combo: ['c-parent'] }
+  doc.nodes['n-hero-title']!.classes.push('c-locked', 'c-combo', 'c-parent')
+  const duplicate = duplicatePage(doc, 'p-home')
+  const store = DocumentStore.inMemory(doc)
+  await store.apply({ expectedRevision: 0, operations: duplicate.operations })
+  for (const id of ['c-locked', 'c-combo', 'c-parent']) {
+    expect(
+      Object.values(store.read().document.nodes).filter((node) => node.classes.includes(id)),
+    ).toHaveLength(2)
+    expect(store.read().document.classes[id]).toEqual(doc.classes[id])
+  }
+})

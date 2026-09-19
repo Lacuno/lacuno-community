@@ -151,8 +151,28 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
   if (outDirRel === '')
     throw new BuildError('options', 'outDir must be a subdirectory of the site directory')
   const firstSegment = outDirRel.split(path.sep)[0]
-  if (firstSegment && ['assets', '.freeflow', 'node_modules', 'skills'].includes(firstSegment))
-    throw new BuildError('options', 'outDir must not be assets, .freeflow, node_modules or skills')
+  if (
+    firstSegment &&
+    ['assets', '.freeflow', '.git', 'node_modules', 'skills'].includes(firstSegment.toLowerCase())
+  )
+    throw new BuildError(
+      'options',
+      'outDir must not be assets, .freeflow, .git, node_modules or skills',
+    )
+
+  // A lexical descendant can still point outside the site through a symlinked parent.
+  // Check before writing the scaffold or recursively removing previous build output.
+  let outputParent = site
+  for (const segment of outDirRel.split(path.sep)) {
+    outputParent = path.join(outputParent, segment)
+    try {
+      if ((await lstat(outputParent)).isSymbolicLink())
+        throw new BuildError('options', 'outDir must not traverse symbolic links')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') break
+      throw error
+    }
+  }
 
   const doc = await loadDocument(site)
   if (options.siteUrl) doc.site.url = options.siteUrl.replace(/\/+$/, '')

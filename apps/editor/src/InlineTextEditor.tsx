@@ -4,6 +4,7 @@ import {
   type Document,
   type RichText,
   safeLinkHref,
+  safeTextStyleValue,
   type TextNode,
 } from '@freeflow/schema'
 import { Editor, getSchema, type JSONContent, Mark } from '@tiptap/core'
@@ -14,6 +15,7 @@ import { formattingOperations, normalizeFormatting } from './formatting.js'
 import type { EditOperation } from './history.js'
 import { PresetManager } from './PresetManager.js'
 import { TextToolbar } from './TextToolbar.js'
+import { textDocument, textProperties, textStyleAttributes } from './textFormatting.js'
 
 export type InlineTarget = { node: TextNode; element: HTMLElement }
 
@@ -61,32 +63,9 @@ export function InlineTextEditor({
     const originalStyle = element.getAttribute('style')
     const computed = view?.getComputedStyle(element)
     baseline.current = Object.fromEntries(
-      [
-        'font-family',
-        'font-size',
-        'font-weight',
-        'font-style',
-        'color',
-        'text-align',
-        'line-height',
-      ].map((property) => [property, computed?.getPropertyValue(property) ?? '']),
+      textProperties.map((property) => [property, computed?.getPropertyValue(property) ?? '']),
     )
-    const original = target.node.text
-    const content =
-      original.type === 'doc'
-        ? original
-        : {
-            type: 'doc',
-            content: [
-              {
-                type: 'paragraph',
-                content:
-                  original.type === 'static' && String(original.value)
-                    ? [{ type: 'text', text: String(original.value) }]
-                    : [],
-              },
-            ],
-          }
+    const content = textDocument(target.node.text)
     const Link = Mark.create({
       name: 'link',
       inclusive: false,
@@ -275,17 +254,25 @@ export function InlineTextEditor({
     const value = normalized ? serializeValue(normalized, contextFromDocument(doc)) : ''
     const nextDrafts = { ...drafts, [property]: raw }
     setDrafts(nextDrafts)
+    const accepts = (property: string, value: string) =>
+      !value ||
+      (CSS.supports(property, value) &&
+        (!textStyleAttributes[property] ||
+          safeTextStyleValue(textStyleAttributes[property]!, value) !== undefined))
     invalidDraft.current = Object.entries(nextDrafts).some(([key, entry]) => {
       const normalizedEntry = normalizeFormatting({
         [key]: entry ? { type: 'raw', value: entry } : null,
       })[key]
       return (
-        normalizedEntry &&
-        !CSS.supports(key, serializeValue(normalizedEntry, contextFromDocument(doc)))
+        normalizedEntry && !accepts(key, serializeValue(normalizedEntry, contextFromDocument(doc)))
       )
     })
-    if (value && !CSS.supports(property, value)) {
-      setError(`Enter a valid value for ${property}.`)
+    if (!accepts(property, value)) {
+      setError(
+        property === 'font-size'
+          ? 'Use a font size in px, em, rem, or %, such as 24px.'
+          : `Enter a supported value for ${property}.`,
+      )
       dirtyChanged(true)
       return
     }
@@ -296,13 +283,7 @@ export function InlineTextEditor({
       dirtyChanged(true)
       return
     }
-    const attribute = {
-      'font-family': 'fontFamily',
-      'font-size': 'fontSize',
-      color: 'color',
-      'font-weight': 'fontWeight',
-      'font-style': 'fontStyle',
-    }[property]
+    const attribute = textStyleAttributes[property]
     if (!attribute) return
     act((chain) => {
       if (property === 'font-weight' && value === '700')

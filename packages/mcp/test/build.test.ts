@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { DocumentStore } from '@freeflow/document'
@@ -14,6 +14,30 @@ afterEach(async () => {
 })
 
 describe('asset.import and site.build', () => {
+  it('rejects a symlink escaping the site while allowing an internal symlink', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-links-'))
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-outside-'))
+    dirs.push(dir, outside)
+    await writeFile(path.join(outside, 'private.txt'), 'private')
+    await symlink(path.join(outside, 'private.txt'), path.join(dir, 'escape.txt'))
+    await writeFile(path.join(dir, 'inside.txt'), 'public')
+    await symlink(path.join(dir, 'inside.txt'), path.join(dir, 'alias.txt'))
+    const store = await DocumentStore.create(dir, 'Links')
+    const c = await connect(store, { siteDir: dir })
+    close = c.close
+    const blocked = await c.client.callTool({
+      name: 'asset.import',
+      arguments: { name: 'escape', mime: 'text/plain', path: 'escape.txt' },
+    })
+    expect(blocked.isError).toBe(true)
+    expect(store.revision).toBe(0)
+    const allowed = await c.client.callTool({
+      name: 'asset.import',
+      arguments: { name: 'alias', mime: 'text/plain', path: 'alias.txt' },
+    })
+    expect(allowed.isError).not.toBe(true)
+    expect(store.revision).toBe(1)
+  })
   it('imports from a path and from base64, then builds', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-'))
     dirs.push(dir)

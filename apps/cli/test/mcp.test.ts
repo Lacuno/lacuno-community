@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -13,6 +15,24 @@ afterEach(async () => {
 })
 
 describe('freeflow mcp', () => {
+  it('exits cleanly when its client closes stdin', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-eof-'))
+    dirs.push(dir)
+    await DocumentStore.create(dir, 'EOF')
+    const child = spawn(process.execPath, ['--import', 'tsx', 'apps/cli/src/main.ts', 'mcp', dir], {
+      cwd: path.resolve(import.meta.dirname, '../../..'),
+      stdio: 'pipe',
+    })
+    let stderr = ''
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk
+    })
+    const exited = once(child, 'exit')
+    child.stdin.end()
+    const [code] = await exited
+    expect(stderr).toBe('')
+    expect(code).toBe(0)
+  })
   it('parses the directory argument', () => {
     expect(parseMcpArgs([])).toEqual({ dir: '.' })
     expect(parseMcpArgs(['site'])).toEqual({ dir: 'site' })

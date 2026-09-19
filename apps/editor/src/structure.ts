@@ -1,4 +1,5 @@
 import type { Document } from '@freeflow/schema'
+import { localClassCopier } from './copyLocalClasses.js'
 import type { EditOperation, InsertNode } from './history.js'
 
 export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
@@ -252,7 +253,7 @@ export function duplicateSelection(doc: Document, id: string) {
   const reason = subtreeRestriction(doc, id)
   if (reason) throw new Error(reason)
   const operations: EditOperation[] = []
-  const locals = new Map<string, string>()
+  const copyClasses = localClassCopier(doc, operations)
   const htmlIds = new Map<string, string>()
   const collect = (nodeId: string) => {
     const node = doc.nodes[nodeId]!
@@ -289,18 +290,7 @@ export function duplicateSelection(doc: Document, id: string) {
           .map((value) => htmlIds.get(value) ?? value)
           .join(' ')
     }
-    const classes = node.classes.map((classId) => {
-      const cls = doc.classes[classId]
-      if (cls?.kind !== 'local' || cls.combo?.length || cls.locked) return classId
-      if (!locals.has(classId)) {
-        const next = `c-${crypto.randomUUID()}`
-        locals.set(classId, next)
-        operations.push({ type: 'class.create', id: next, local: true })
-        for (const style of Object.values(doc.styles).filter((style) => style.class === classId))
-          operations.push({ type: 'style.set', ...structuredClone(style), class: next })
-      }
-      return locals.get(classId)!
-    })
+    const classes = copyClasses(node.classes)
     return {
       ...fields,
       id: `n-${crypto.randomUUID()}`,

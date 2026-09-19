@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, readFile, rm, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -68,6 +68,28 @@ describe.skipIf(process.env.FREEFLOW_FAST_TESTS)('build (runs Astro, slow)', () 
 })
 
 describe('build option validation', () => {
+  it('rejects symlinked output parents without deleting external contents', async () => {
+    const dir = await tmp()
+    const outside = await tmp()
+    await mkdir(path.join(outside, 'output'))
+    await writeFile(path.join(outside, 'output', 'keep.txt'), 'keep')
+    await symlink(outside, path.join(dir, 'linked'))
+    await expect(build(dir, { outDir: path.join(dir, 'linked', 'output') })).rejects.toMatchObject({
+      kind: 'options',
+    })
+    expect(await readFile(path.join(outside, 'output', 'keep.txt'), 'utf8')).toBe('keep')
+    expect(existsSync(path.join(dir, '.freeflow'))).toBe(false)
+  })
+
+  it('does not allow build output to replace Git metadata', async () => {
+    const dir = await tmp()
+    await mkdir(path.join(dir, '.git'))
+    await writeFile(path.join(dir, '.git', 'HEAD'), 'ref: refs/heads/main')
+    await expect(build(dir, { outDir: path.join(dir, '.git') })).rejects.toMatchObject({
+      kind: 'options',
+    })
+    expect(await readFile(path.join(dir, '.git', 'HEAD'), 'utf8')).toBe('ref: refs/heads/main')
+  })
   it('rejects an outDir outside the site directory', async () => {
     const dir = await tmp()
     await expect(build(dir, { outDir: '/somewhere/else' })).rejects.toMatchObject({

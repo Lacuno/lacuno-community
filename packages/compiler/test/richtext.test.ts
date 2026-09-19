@@ -5,6 +5,29 @@ import { richTextInlineHtml, richTextToHtml } from '../src/richtext.js'
 const noWarn = () => {}
 
 describe('richTextToHtml', () => {
+  it('renders fractional em sizes and clamps heading levels to integer HTML tags', () => {
+    expect(
+      richTextToHtml(
+        {
+          type: 'doc',
+          content: [
+            {
+              type: 'heading',
+              attrs: { level: 2.7 },
+              content: [
+                {
+                  type: 'text',
+                  text: 'Small',
+                  marks: [{ type: 'textStyle', attrs: { fontSize: '.5rem' } }],
+                },
+              ],
+            },
+          ],
+        },
+        noWarn,
+      ),
+    ).toBe('<h2><span style="font-size:.5rem">Small</span></h2>')
+  })
   it('renders inline font families and explicit normal styles safely', () => {
     const render = (attrs: Record<string, string>) =>
       richTextInlineHtml(

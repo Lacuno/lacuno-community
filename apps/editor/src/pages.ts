@@ -1,4 +1,5 @@
 import { type Document, Page } from '@freeflow/schema'
+import { localClassCopier } from './copyLocalClasses.js'
 import { type EditOperation, type PageTree, pageTree } from './history.js'
 
 export function pagePathError(doc: Document, path: string, except?: string) {
@@ -18,21 +19,10 @@ export function duplicatePage(doc: Document, id: string) {
   const source = doc.pages[id]!
   const root = pageTree(doc, source.root)
   const operations: EditOperation[] = []
-  const locals = new Map<string, string>()
+  const copyClasses = localClassCopier(doc, operations)
   const copy = (tree: PageTree) => {
     tree.id = `n-${crypto.randomUUID()}`
-    tree.classes = tree.classes.map((id) => {
-      const cls = doc.classes[id]
-      if (cls?.kind !== 'local') return id
-      if (!locals.has(id)) {
-        const next = `c-${crypto.randomUUID()}`
-        locals.set(id, next)
-        operations.push({ type: 'class.create', id: next, local: true })
-        for (const style of Object.values(doc.styles).filter((style) => style.class === id))
-          operations.push({ type: 'style.set', ...structuredClone(style), class: next })
-      }
-      return locals.get(id)!
-    })
+    tree.classes = copyClasses(tree.classes)
     tree.children.forEach(copy)
   }
   copy(root)

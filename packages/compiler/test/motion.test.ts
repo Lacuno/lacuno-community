@@ -58,6 +58,10 @@ it('runs entrances once on viewport entry and honors reduced motion in published
     await target.scrollIntoViewIfNeeded()
     expect(await target.getAttribute('data-ff-enter')).toBeNull()
     await target.hover()
+    // Wait for actual animation completion rather than racing the default polling deadline.
+    await target.evaluate(async (element) => {
+      await Promise.all(element.getAnimations().map((animation) => animation.finished))
+    })
     await expect
       .poll(() => target.evaluate((element) => getComputedStyle(element).scale))
       .toBe('1.2')

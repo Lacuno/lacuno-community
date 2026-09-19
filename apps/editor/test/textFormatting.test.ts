@@ -1,6 +1,13 @@
 import { fixtureDocument, type TextNode } from '@freeflow/schema'
 import { expect, it } from 'vitest'
-import { wholeText } from '../src/textFormatting.js'
+import { textDocument, wholeText } from '../src/textFormatting.js'
+
+it('does not silently replace bound text with an empty document', () => {
+  expect(() => textDocument({ type: 'field', field: 'f-title' })).toThrow('Bound text')
+  expect(textDocument({ type: 'static', value: false })).toMatchObject({
+    content: [{ content: [{ text: 'false' }] }],
+  })
+})
 
 it('whole-text edits remove only the corresponding overrides without mutating the source', () => {
   const node = fixtureDocument().nodes['n-hero-title'] as TextNode

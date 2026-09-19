@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, realpath } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { build } from '@freeflow/compiler/build'
 import type { DocumentStore } from '@freeflow/document'
@@ -98,7 +98,13 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           const resolved = resolve(root, file)
           if (resolved !== root && !resolved.startsWith(root + sep))
             throw new InputError('path must be inside the site folder')
-          bytes = new Uint8Array(await readFile(resolved))
+          const [canonicalRoot, canonicalFile] = await Promise.all([
+            realpath(root),
+            realpath(resolved),
+          ])
+          if (canonicalFile !== canonicalRoot && !canonicalFile.startsWith(canonicalRoot + sep))
+            throw new InputError('path must be inside the site folder, including symlinks')
+          bytes = new Uint8Array(await readFile(canonicalFile))
         } else {
           bytes = new Uint8Array(Buffer.from(base64 as string, 'base64'))
         }

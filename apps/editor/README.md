@@ -29,7 +29,7 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   in Layers and populated with Inside selection. Move up/down changes the selected sibling order.
   These actions save immediately and support undo/redo with stable element IDs. Locked elements,
   component interiors and collection structure stay protected.
-- Edit plain text in the inspector. Structured rich text and content bindings remain read-only.
+- Edit plain text in the inspector or rich text directly on the canvas. Content bindings remain read-only.
 - Open **Advanced: shared classes** to create, assign or remove reusable classes. Expand a
   class to see the elements and pages/components using it. These changes save immediately and support
   undo/redo; pending formatting must finish first.
@@ -89,6 +89,12 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   are restored, not reconstructed from computed CSS.
 
 ## Rich text and links
+
+Editor layout/control styles live in `editor-chrome.css`; `style.css` contains global primitives
+and account/site-selection screens. The shared text toolbar owns `text-toolbar.css`.
+`Inspector.tsx` owns selection drafts and formatting; `Editor.tsx` coordinates documents,
+navigation, saving, and history. Inline style names and supported values are shared with the
+compiler through the schema package, so a valid inline draft survives rendering after save.
 
 Select a text element to format the whole text, or double-click it on the canvas and select words.
 Both modes use the same Home toolbar for font, size, bold, italic, color, and links. A scope label

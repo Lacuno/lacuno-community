@@ -234,6 +234,13 @@ it('edits selected canvas words, preserves selection through tools, saves page l
     await editable.press('ArrowRight')
     await expect.poll(() => page.locator('.text-scope').textContent()).toBe('Whole text')
     await page.getByLabel('Size', { exact: true }).fill('24px')
+    await page.getByLabel('Size', { exact: true }).fill('calc(12px + 1vw)')
+    expect(await page.getByRole('button', { name: 'Done editing text' }).isDisabled()).toBe(true)
+    expect(
+      await page.getByRole('region', { name: 'Text formatting' }).getByRole('alert').textContent(),
+    ).toContain('Use a font size')
+    await page.getByLabel('Size', { exact: true }).fill('.5rem')
+    expect(await page.getByRole('button', { name: 'Done editing text' }).isEnabled()).toBe(true)
     await expect
       .poll(() =>
         editable

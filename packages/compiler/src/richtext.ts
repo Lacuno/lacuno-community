@@ -1,4 +1,10 @@
-import { type Document, type RichText, safeLinkHref } from '@freeflow/schema'
+import {
+  type Document,
+  type RichText,
+  safeLinkHref,
+  safeTextStyleValue,
+  textStyleProperties,
+} from '@freeflow/schema'
 import { escapeAttr, escapeHtml, type Warn } from './html.js'
 
 type PmNode = {
@@ -59,17 +65,10 @@ function renderMarks(
       }
       case 'textStyle': {
         const styles: string[] = []
-        const color = String(mark.attrs?.color ?? '')
-        const size = String(mark.attrs?.fontSize ?? '')
-        const family = String(mark.attrs?.fontFamily ?? '')
-        const weight = String(mark.attrs?.fontWeight ?? '')
-        const style = String(mark.attrs?.fontStyle ?? '')
-        if (/^[\w\s,"'-]+$/.test(family)) styles.push(`font-family:${family}`)
-        if (/^[1-9]00$/.test(weight)) styles.push(`font-weight:${weight}`)
-        if (/^(normal|italic)$/.test(style)) styles.push(`font-style:${style}`)
-        if (/^(#[\da-f]{3,8}|[a-z]+|(?:rgb|hsl)a?\([\d\s.,%/+-]+\))$/i.test(color))
-          styles.push(`color:${color}`)
-        if (/^\d+(?:\.\d+)?(?:px|em|rem|%)$/.test(size)) styles.push(`font-size:${size}`)
+        for (const [attribute, property] of Object.entries(textStyleProperties)) {
+          const value = safeTextStyleValue(attribute, mark.attrs?.[attribute])
+          if (value) styles.push(`${property}:${value}`)
+        }
         if (styles.length) out = `<span style="${escapeAttr(styles.join(';'))}">${out}</span>`
         break
       }
@@ -94,7 +93,7 @@ function renderNode(node: PmNode, warn: Warn, pages?: Document['pages']): string
       return '<hr>'
     case 'heading': {
       const raw = Number(node.attrs?.level)
-      const level = Number.isFinite(raw) ? Math.min(6, Math.max(1, raw)) : 2
+      const level = Number.isFinite(raw) ? Math.min(6, Math.max(1, Math.trunc(raw))) : 2
       return `<h${level}>${renderChildren(node, warn, pages)}</h${level}>`
     }
     case 'codeBlock':
