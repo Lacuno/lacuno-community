@@ -2,10 +2,10 @@ import { readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { Hono } from 'hono'
 import { getMimeType } from 'hono/utils/mime'
-import type { Releases } from './releases.js'
+import type { PublicationReader } from './publication-reader.js'
 
 /** This app runs on the publishing listener only: no editor, auth, or draft API routes. */
-export function publishedApp(releases: Releases) {
+export function publishedApp(releases: PublicationReader) {
   const app = new Hono()
   app.on(['GET', 'HEAD'], '*', async (c) => {
     const url = new URL(c.req.url)

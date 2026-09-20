@@ -74,6 +74,14 @@ off-host storage. Treat only operator-owned backups as trusted: checksums detect
 
 ## Working on Freeflow
 
+For maintenance tooling, `node apps/server/dist/published-main.js` runs only the published-site
+listener against an existing database opened read-only. Set `FREEFLOW_DATA_DIR`,
+`FREEFLOW_PUBLISH_BASE_URL`, `FREEFLOW_PUBLISH_PORT` and `HOST` explicitly. It does not migrate data,
+run builds, expose the editor or accept authenticated management requests. `--list` prints the
+current site/release IDs for operator health checks. The normal server reuses the same publication
+reader and file-serving rules. This process can serve existing releases while an editor runtime is
+stopped for a controlled upgrade; mount its data read-only and keep it isolated from management traffic.
+
 ```sh
 pnpm install
 pnpm check        # lint, typecheck, tests

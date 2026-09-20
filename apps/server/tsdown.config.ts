@@ -1,7 +1,13 @@
 import { defineConfig } from 'tsdown'
 
 export default defineConfig({
-  entry: ['src/main.ts', 'src/build-worker.ts', 'src/setup-token.ts', 'src/backup-cli.ts'],
+  entry: [
+    'src/main.ts',
+    'src/build-worker.ts',
+    'src/setup-token.ts',
+    'src/backup-cli.ts',
+    'src/published-main.ts',
+  ],
   format: 'esm',
   platform: 'node',
   target: 'node22',

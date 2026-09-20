@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { hashAsset, parseDocument } from '@freeflow/schema'
 import type Database from 'better-sqlite3'
 import { HTTPException } from 'hono/http-exception'
+import { PublicationReader } from './publication-reader.js'
 
 type ReleaseRow = {
   id: string
@@ -25,33 +26,15 @@ const conflict = (message: string) => new HTTPException(409, { message })
 const leaseMs = 30_000
 
 /** Durable release queue. SQLite claims serialize each site even with multiple API instances. */
-export class Releases {
+export class Releases extends PublicationReader {
   private owner = randomUUID()
   private stopped = false
   private running = false
   private timer: ReturnType<typeof setInterval>
   private child: ChildProcess | undefined
-  readonly dataDir: string
-  private base: URL
 
-  constructor(
-    private sqlite: Database.Database,
-    dataDir: string,
-    baseURL: string,
-  ) {
-    this.dataDir = path.resolve(dataDir)
-    this.base = new URL(baseURL)
-    if (
-      !['http:', 'https:'].includes(this.base.protocol) ||
-      this.base.username ||
-      this.base.password ||
-      this.base.pathname !== '/' ||
-      this.base.search ||
-      this.base.hash
-    )
-      throw new Error('Published base URL must be an HTTP(S) origin without a path or credentials')
-    if (this.base.hostname.includes(':') || /^\d+\.\d+\.\d+\.\d+$/.test(this.base.hostname))
-      throw new Error('Published base URL needs a hostname, such as localhost or sites.example.net')
+  constructor(sqlite: Database.Database, dataDir: string, baseURL: string) {
+    super(sqlite, dataDir, baseURL)
     this.timer = setInterval(() => {
       void this.tick()
     }, 1000)
@@ -59,33 +42,6 @@ export class Releases {
     queueMicrotask(() => {
       void this.tick()
     })
-  }
-
-  url(siteId: string) {
-    const url = new URL(this.base)
-    url.hostname = `${siteId}.${url.hostname}`
-    return url.origin
-  }
-
-  siteForHost(hostname: string) {
-    const suffix = `.${this.base.hostname}`
-    if (!hostname.endsWith(suffix)) return
-    const id = hostname.slice(0, -suffix.length)
-    return /^[0-9a-f-]{36}$/.test(id) ? id : undefined
-  }
-
-  directory(siteId: string, releaseId: string) {
-    return path.join(this.dataDir, 'builds', siteId, releaseId)
-  }
-
-  current(siteId: string): string | null {
-    return (
-      (
-        this.sqlite.prepare('SELECT release_id FROM publications WHERE site_id = ?').get(siteId) as
-          | { release_id: string }
-          | undefined
-      )?.release_id ?? null
-    )
   }
 
   list(siteId: string) {
@@ -109,16 +65,6 @@ export class Releases {
         warnings: JSON.parse(row.warnings) as { node?: string; message: string }[],
       })),
     }
-  }
-
-  readyIds(siteId: string) {
-    return (
-      this.sqlite
-        .prepare(
-          "SELECT id FROM releases WHERE site_id = ? AND status = 'ready' ORDER BY created_at DESC, rowid DESC",
-        )
-        .all(siteId) as { id: string }[]
-    ).map((row) => row.id)
   }
 
   publish(siteId: string, revision: number, publishedId: string | null) {
