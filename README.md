@@ -48,6 +48,30 @@ service will handle those operations for you. No Cloud service is available yet.
 
 AGPL-3.0-or-later for the whole project. See [docs/DECISIONS.md](docs/DECISIONS.md) for the reasoning.
 
+## Operator backups
+
+After building the server, its offline operator tool can snapshot a running instance without
+stopping the editor or published-site listener:
+
+```sh
+node apps/server/dist/backup-cli.js backup /absolute/live-data /absolute/new-backup
+node apps/server/dist/backup-cli.js verify /absolute/new-backup
+node apps/server/dist/backup-cli.js restore /absolute/new-backup /absolute/empty-restored-data
+```
+
+The SQLite online snapshot contains drafts, accounts, release history and publication pointers.
+The tool copies referenced immutable assets and every ready release's published output, then writes
+a checksummed completion manifest. Unfinished builds become failed in the restored snapshot and can
+be published again. Temporary build files and unreferenced uploads are not included. This relies on
+the current no-pruning policy for immutable assets/releases; future garbage collection must coordinate
+with backups. A missing file or bad checksum fails the backup rather than producing a partial success.
+
+Restore verifies the complete inventory and SQLite integrity and only writes to an empty directory.
+It does not replace or restart a live instance. Use the same server version and preserve the original
+environment/secrets separately; managed gateway instances also require the same issuer and audience.
+Backups contain sensitive account and site data, are not encrypted, and are not a substitute for
+off-host storage. Treat only operator-owned backups as trusted: checksums detect corruption, not forgery.
+
 ## Working on Freeflow
 
 ```sh

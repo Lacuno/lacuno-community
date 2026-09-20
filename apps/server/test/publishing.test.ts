@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { mkdtemp, rm, symlink } from 'node:fs/promises'
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, it } from 'vitest'
 import { createServer, type ServerOptions } from '../src/app.js'
+import { backupWorkspace, restoreWorkspace, verifyBackup } from '../src/backup.js'
 import { openDatabase } from '../src/database.js'
 
 const origin = 'http://localhost:3000'
@@ -114,6 +115,51 @@ it('publishes pinned snapshots, isolates drafts, preserves live output on failur
     expect(published.headers.get('x-freeflow-release')).toBe(firstId)
     const originalHtml = await published.text()
     expect(originalHtml).not.toContain('An unpublished draft')
+    const recovery = await mkdtemp(path.join(os.tmpdir(), 'freeflow-recovery-'))
+    try {
+      const backup = path.join(recovery, 'backup')
+      let done = false
+      const copying = backupWorkspace(dir, backup).finally(() => {
+        done = true
+      })
+      let reads = 0
+      while (!done) {
+        const live = await server.published!.request(`${liveURL}/`)
+        expect(live.status).toBe(200)
+        expect(await live.text()).toBe(originalHtml)
+        reads++
+      }
+      await copying
+      expect(reads).toBeGreaterThan(0)
+      await verifyBackup(backup)
+      await expect(backupWorkspace(dir, path.join(dir, 'unsafe'))).rejects.toThrow('outside')
+      await expect(restoreWorkspace(backup, dir)).rejects.toThrow('empty')
+      const restoredDir = path.join(recovery, 'restored')
+      await restoreWorkspace(backup, restoredDir)
+      const restored = await createServer({ ...options, dataDir: restoredDir })
+      try {
+        expect(await (await restored.published!.request(`${liveURL}/`)).text()).toBe(originalHtml)
+        const document = await restored.app.request(`${origin}${route}/document`, {
+          headers: { cookie },
+        })
+        expect(document.status).toBe(200)
+        const data = openDatabase(restoredDir)
+        expect(
+          (
+            data.sqlite.prepare('SELECT document FROM sites WHERE id=?').get(id) as {
+              document: string
+            }
+          ).document,
+        ).toContain('An unpublished draft')
+        data.sqlite.close()
+      } finally {
+        restored.close()
+      }
+      await writeFile(path.join(backup, 'freeflow.sqlite'), 'corrupted')
+      await expect(verifyBackup(backup)).rejects.toThrow('checksum')
+    } finally {
+      await rm(recovery, { recursive: true, force: true })
+    }
     expect((await server.published!.request(`${liveURL}/about`)).status).toBe(200)
     expect((await server.published!.request(`${liveURL}/freeflow.json`)).status).toBe(404)
     for (const suffix of [
