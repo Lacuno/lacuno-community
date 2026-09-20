@@ -1,5 +1,7 @@
 import type {
   AssetRef,
+  Component,
+  ComponentInstanceNode,
   CssValue,
   DesignToken,
   Document,
@@ -25,7 +27,7 @@ export type PageTree = TreeFields<Exclude<Node, { type: 'code-component' }>> & {
 }
 export function pageTree(doc: Document, id: string): PageTree {
   const node = doc.nodes[id]!
-  if (node.type === 'code-component' || (node.type === 'component' && node.overrides))
+  if (node.type === 'code-component' || (node.type === 'component' && node.overrides?.length))
     throw new Error(
       'Pages with code components or component overrides cannot be copied or deleted yet.',
     )
@@ -34,6 +36,18 @@ export function pageTree(doc: Document, id: string): PageTree {
 }
 
 export type EditOperation =
+  | { type: 'component.unextract'; id: string; instance: string }
+  | ({ type: 'component.create'; root: PageTree } & Omit<Component, 'root'>)
+  | { type: 'component.delete'; id: string }
+  | { type: 'component.update'; id: string; name?: string; props?: Component['props'] }
+  | {
+      type: 'component.extract'
+      node: string
+      id: string
+      instance: string
+      name: string
+      props: Component['props']
+    }
   | ({ type: 'page.create'; root: PageTree } & Omit<Page, 'root'>)
   | { type: 'page.update'; id: string; name?: string; path?: string; seo?: Page['seo'] | null }
   | { type: 'page.delete'; id: string }
@@ -44,6 +58,7 @@ export type EditOperation =
       classes?: string[]
       meta?: NonNullable<ElementNode['meta']> | null
       attrs?: NonNullable<ElementNode['attrs']> | null
+      props?: ComponentInstanceNode['props'] | null
     }
   | ({ type: 'asset.create' } & AssetRef)
   | { type: 'asset.delete'; id: string }
@@ -53,7 +68,7 @@ export type EditOperation =
   | { type: 'designToken.delete'; id: string }
   | { type: 'designToken.setValue'; id: string; mode: string; value: CssValue }
   | { type: 'designToken.clearValue'; id: string; mode: string }
-  | { type: 'node.create'; parent: string; index?: number; node: InsertNode }
+  | { type: 'node.create'; parent: string; index?: number; node: InsertNode | PageTree }
   | { type: 'node.move'; id: string; parent: string; index: number }
   | { type: 'node.delete'; id: string }
   | ({ type: 'style.set' } & StyleDecl)
@@ -84,13 +99,7 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
       throw new Error('Cannot change a root or detached element')
     return { parent, index }
   }
-  const literal = (id: string): InsertNode => {
-    const node = draft.nodes[id]
-    if (!node || (node.type !== 'element' && node.type !== 'text'))
-      throw new Error('This element cannot be restored by the editor yet')
-    const { parent: _, children, ...fields } = node
-    return { ...structuredClone(fields), children: children.map(literal) } as InsertNode
-  }
+  const literal = (id: string) => pageTree(draft, id)
   const materialize = (node: InsertNode | PageTree, parent: string | null) => {
     if (draft.nodes[node.id]) throw new Error('Element ID already exists')
     const { children = [], ...fields } = node
@@ -106,7 +115,65 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
     delete draft.nodes[id]
   }
   for (const operation of operations) {
-    if (operation.type === 'page.create') {
+    if (operation.type === 'component.extract') {
+      const before = position(operation.node)
+      draft.nodes[before.parent]!.children[before.index] = operation.instance
+      draft.nodes[operation.node]!.parent = null
+      draft.components[operation.id] = {
+        id: operation.id,
+        root: operation.node,
+        name: operation.name,
+        props: structuredClone(operation.props),
+      }
+      draft.nodes[operation.instance] = {
+        id: operation.instance,
+        type: 'component',
+        component: operation.id,
+        parent: before.parent,
+        children: [],
+        classes: [],
+      }
+      undo.unshift({ type: 'component.unextract', id: operation.id, instance: operation.instance })
+    } else if (operation.type === 'component.unextract') {
+      const component = draft.components[operation.id]!
+      const before = position(operation.instance)
+      undo.unshift({
+        type: 'component.extract',
+        id: component.id,
+        instance: operation.instance,
+        node: component.root,
+        name: component.name,
+        props: structuredClone(component.props),
+      })
+      draft.nodes[before.parent]!.children[before.index] = component.root
+      draft.nodes[component.root]!.parent = before.parent
+      delete draft.nodes[operation.instance]
+      delete draft.components[component.id]
+    } else if (operation.type === 'component.create') {
+      const { type: _, root, ...component } = operation
+      materialize(root, null)
+      draft.components[component.id] = { ...structuredClone(component), root: root.id }
+      undo.unshift({ type: 'component.delete', id: component.id })
+    } else if (operation.type === 'component.delete') {
+      const component = draft.components[operation.id]!
+      undo.unshift({
+        type: 'component.create',
+        ...structuredClone(component),
+        root: literal(component.root),
+      })
+      remove(component.root)
+      delete draft.components[component.id]
+    } else if (operation.type === 'component.update') {
+      const component = draft.components[operation.id]!
+      undo.unshift({
+        type: 'component.update',
+        id: component.id,
+        ...(operation.name !== undefined ? { name: component.name } : {}),
+        ...(operation.props ? { props: structuredClone(component.props) } : {}),
+      })
+      if (operation.name !== undefined) component.name = operation.name
+      if (operation.props) component.props = structuredClone(operation.props)
+    } else if (operation.type === 'page.create') {
       const { type: _, root, ...page } = operation
       materialize(root, null)
       draft.pages[page.id] = { ...structuredClone(page), root: root.id }
@@ -178,6 +245,12 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
       const node = draft.nodes[operation.id]
       if (!node) throw new Error('Element no longer exists')
       const inverse: EditOperation = { type: 'node.update', id: operation.id }
+      if (operation.props !== undefined) {
+        if (node.type !== 'component') throw new Error('Only component instances have properties')
+        inverse.props = structuredClone(node.props ?? null)
+        if (operation.props === null) delete node.props
+        else node.props = structuredClone(operation.props)
+      }
       if (operation.text !== undefined) {
         if (node.type !== 'text') throw new Error('Cannot record a text edit for this element')
         inverse.text = structuredClone(node.text)

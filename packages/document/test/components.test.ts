@@ -96,4 +96,39 @@ describe('components', () => {
     failing([{ type: 'component.extract', node: 'n-home', name: 'x' }], /root node/)
     failing([{ type: 'component.extract', node: 'nope', name: 'x' }], /unknown node nope/)
   })
+  it('unextracts atomically with original IDs and refuses unresolved component bindings', () => {
+    const before = fixtureDocument()
+    const extracted = run(
+      [
+        {
+          type: 'component.extract',
+          node: 'n-hero',
+          id: 'cmp-hero',
+          instance: 'n-hero-instance',
+          name: 'Hero',
+        },
+      ],
+      before,
+    ).document
+    expect(
+      run([{ type: 'component.unextract', id: 'cmp-hero', instance: 'n-hero-instance' }], extracted)
+        .document,
+    ).toEqual(before)
+    const bound = run(
+      [
+        {
+          type: 'component.update',
+          id: 'cmp-hero',
+          props: [{ name: 'title', type: 'string', default: 'Title' }],
+        },
+        { type: 'node.update', id: 'n-hero-title', text: { type: 'prop', prop: 'title' } },
+      ],
+      extracted,
+    ).document
+    failing(
+      [{ type: 'component.unextract', id: 'cmp-hero', instance: 'n-hero-instance' }],
+      /component-scoped/,
+      bound,
+    )
+  })
 })

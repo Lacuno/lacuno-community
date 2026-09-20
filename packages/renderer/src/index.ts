@@ -10,10 +10,42 @@ export function renderCanvas(
   page: Page,
   entry: Entry | undefined,
   siteId: string,
+  editingComponent?: string,
 ): CanvasResult {
+  if (editingComponent) {
+    const component = doc.components[editingComponent]
+    if (!component) throw new Error('Component not found')
+    const body = `n-${crypto.randomUUID()}`
+    const instance = `n-${crypto.randomUUID()}`
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [body]: {
+          id: body,
+          type: 'element',
+          tag: 'body',
+          parent: null,
+          children: [instance],
+          classes: [...doc.nodes[page.root]!.classes],
+          ...(doc.nodes[page.root]!.attrs ? { attrs: doc.nodes[page.root]!.attrs } : {}),
+        },
+        [instance]: {
+          id: instance,
+          type: 'component',
+          component: component.id,
+          parent: body,
+          children: [],
+          classes: [],
+        },
+      },
+    }
+    page = { ...page, root: body }
+  }
   const assetUrl = (hash: string) => `/api/sites/${encodeURIComponent(siteId)}/assets/${hash}`
   const result = render(doc, page, entry, {
     annotateNodes: true,
+    ...(editingComponent ? { editingComponent } : {}),
     resolveAsset: (asset) => assetUrl(asset.hash),
     resolveImage: (asset) => ({
       src: assetUrl(asset.hash),

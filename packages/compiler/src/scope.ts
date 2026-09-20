@@ -13,6 +13,7 @@ import { RenderError } from './errors.js'
 
 /** One component instance being rendered. Slot children render in the outer scope. */
 export type Frame = {
+  instance?: NodeId
   component: Component
   values: Record<string, unknown>
   slots: Map<string, NodeId[]>

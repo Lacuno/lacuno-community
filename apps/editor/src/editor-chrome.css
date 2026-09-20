@@ -834,7 +834,10 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 270px minmax(350px, 1fr) 294px;
+  grid-template-columns: calc(270px + var(--sidebar-extra, 0px)) minmax(350px, 1fr) 294px;
+}
+.editor-body[data-sidebar-expanded="true"] {
+  --sidebar-extra: 96px;
 }
 .editor .panel-title {
   display: flex;
@@ -1122,7 +1125,7 @@
 
 @media (max-width: 1150px) {
   .editor-body {
-    grid-template-columns: 240px minmax(350px, 1fr) 266px;
+    grid-template-columns: calc(240px + var(--sidebar-extra, 0px)) minmax(350px, 1fr) 266px;
   }
   .editor-header .site-name {
     max-width: 230px;
@@ -1264,9 +1267,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 0 0 44px;
+  flex: 0 0 calc(44px + var(--sidebar-extra, 0px));
   gap: 8px;
-  padding-top: 10px;
+  padding-block: 10px;
   border-right: 1px solid var(--border);
   background: #faf9fd;
 }
@@ -1283,6 +1286,22 @@
 .sidebar-rail button[aria-pressed="true"] {
   background: #eee7ff;
   color: #693cdd;
+}
+.sidebar-rail .sidebar-expand {
+  margin-top: auto;
+  flex-shrink: 0;
+}
+.sidebar-rail :where(.editor-icon) {
+  flex-shrink: 0;
+}
+:where([data-sidebar-expanded="true"]) .sidebar-rail :where(button) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: calc(100% - 10px);
+  padding-inline: 8px;
+  font-size: 12px;
 }
 .sidebar-content {
   flex: 1;

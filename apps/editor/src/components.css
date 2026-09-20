@@ -1,0 +1,144 @@
+.components-library {
+  padding: 12px;
+}
+.component-create {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.components-library h3 {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.component-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.component-row .component-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 10px 0;
+}
+.component-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.component-name small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.component-name .editor-icon,
+.component-inspector .selection-heading .editor-icon {
+  color: #7145d7;
+  flex-shrink: 0;
+}
+.component-row .component-insert,
+.component-dialog .component-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.component-dialog .component-close {
+  font-size: 22px;
+  line-height: 1;
+}
+.component-dialog form,
+.component-inspector section {
+  display: grid;
+  gap: 12px;
+}
+.component-dialog form {
+  margin-top: 16px;
+}
+.component-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.component-dialog-actions .primary {
+  width: auto;
+}
+.component-fields {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.component-fields summary,
+.component-secondary summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.component-dialog .component-field-choice {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 12px;
+}
+.component-field-choice input {
+  width: auto;
+  margin-top: 2px;
+}
+.component-field-choice span {
+  overflow-wrap: anywhere;
+}
+.component-inspector section,
+.component-secondary {
+  padding: 16px 17px;
+  border-bottom: 1px solid var(--border);
+}
+.component-inspector label {
+  margin: 0;
+  font-size: 11px;
+}
+.component-inspector .hint {
+  margin: 0;
+}
+.component-inspector input,
+.component-inspector select {
+  font-size: 12px;
+}
+.component-inspector h3 {
+  margin: 0;
+  font-size: 12px;
+}
+.component-inspector .component-text-action {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #7145d7;
+  font-size: 12px;
+}
+.component-secondary button {
+  margin-top: 12px;
+}
+.component-editing-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #dfd4f9;
+  background: #f4efff;
+  color: #513190;
+  font-size: 12px;
+}
+.component-editing-bar span {
+  flex: 1;
+}

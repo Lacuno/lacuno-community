@@ -1,6 +1,6 @@
 import type { Document } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
-import type { EditOperation, InsertNode } from './history.js'
+import type { EditOperation, InsertNode, PageTree } from './history.js'
 
 export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
 export type Structure = (typeof structures)[number]
@@ -20,15 +20,15 @@ const containers = new Set([
   'figcaption',
 ])
 
-/** Structural changes in this milestone are limited to unlocked page-owned elements. */
+/** Definitions stay protected unless explicitly opened in the shared-component editor. */
 export function structureRestriction(doc: Document, id: string): string | undefined {
   const roots = new Set(Object.values(doc.components).map((component) => component.root))
   for (let current: string | null = id; current; current = doc.nodes[current]?.parent ?? null) {
     const node = doc.nodes[current]
     if (!node) return 'This element no longer exists.'
     if (node.meta?.locked) return 'This element or one of its parents is locked.'
-    if (roots.has(current) || node.type === 'component' || node.type === 'slot')
-      return 'Component structure editing comes later.'
+    if (roots.has(current) || (node.type === 'component' && current !== id) || node.type === 'slot')
+      return 'Component structure is protected. Open the shared design to edit it; slots are not editable here yet.'
     if (node.type === 'collection-list') return 'Collection structure editing comes later.'
   }
   return undefined
@@ -242,7 +242,10 @@ export function subtreeRestriction(doc: Document, id: string): string | undefine
   if (reason) return reason
   const node = doc.nodes[id]!
   if (!node.parent) return 'The page root cannot be duplicated or deleted.'
-  if (node.type !== 'element' && node.type !== 'text') return 'This element is not supported yet.'
+  if (node.type !== 'element' && node.type !== 'text' && node.type !== 'component')
+    return 'This element is not supported yet.'
+  if (node.type === 'component' && node.overrides?.length)
+    return 'Subtree overrides cannot be edited here yet.'
   for (const child of node.children) {
     const restriction = subtreeRestriction(doc, child)
     if (restriction) return restriction
@@ -264,9 +267,10 @@ export function duplicateSelection(doc: Document, id: string) {
   }
   collect(id)
 
-  const copy = (nodeId: string): InsertNode => {
+  const copy = (nodeId: string): PageTree => {
     const node = doc.nodes[nodeId]!
-    if (node.type !== 'element' && node.type !== 'text') throw new Error('Unsupported element')
+    if (node.type !== 'element' && node.type !== 'text' && node.type !== 'component')
+      throw new Error('Unsupported element')
     const { parent: _, children, ...fields } = structuredClone(node)
     for (const [attribute, binding] of Object.entries(fields.attrs ?? {})) {
       if (binding.type !== 'static' || typeof binding.value !== 'string') continue
@@ -296,7 +300,7 @@ export function duplicateSelection(doc: Document, id: string) {
       id: `n-${crypto.randomUUID()}`,
       classes,
       children: children.map(copy),
-    } as InsertNode
+    } as PageTree
   }
   const node = copy(id)
   node.meta = {

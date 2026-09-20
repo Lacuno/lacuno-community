@@ -26,6 +26,7 @@ export type RenderState = {
   page: string
   warnings: Warning[]
   annotateNodes?: boolean
+  editingComponent?: string
   resolveAsset?: (asset: AssetRef) => string
 }
 
@@ -86,7 +87,27 @@ function resolveAttrs(
       out[name] = String(v)
     }
   }
-  if (state.annotateNodes) out['data-freeflow-node'] = nodeId
+  if (state.annotateNodes) {
+    const frame = scope.frames.find(
+      (frame) => frame.instance && frame.component.id !== state.editingComponent,
+    )
+    if (!frame) out['data-freeflow-node'] = nodeId
+    else {
+      // Alias components have another instance as their root; annotate the rendered root.
+      let root = frame.component.root
+      const seen = new Set<string>()
+      while (!seen.has(root)) {
+        seen.add(root)
+        const node = state.doc.nodes[root]
+        if (node?.type !== 'component') break
+        root = state.doc.components[node.component]!.root
+      }
+      if (root === nodeId) {
+        out['data-freeflow-node'] = frame.instance!
+        out['data-freeflow-component'] = frame.component.id
+      }
+    }
+  }
   const node = state.doc.nodes[nodeId]
   if (
     node &&
@@ -191,7 +212,13 @@ function renderInstance(
   for (const [name, binding] of Object.entries(node.props ?? {})) {
     values[name] = resolveBinding(state.doc, binding, scope, node.id)
   }
-  const frame: Frame = { component, values, slots: slotContent(node.children, state), outer: scope }
+  const frame: Frame = {
+    instance: node.id,
+    component,
+    values,
+    slots: slotContent(node.children, state),
+    outer: scope,
+  }
   const inner: Scope = { ...scope, frames: [...scope.frames, frame] }
   return renderNode(component.root, inner, state)
 }

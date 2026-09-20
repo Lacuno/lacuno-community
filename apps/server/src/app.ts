@@ -305,7 +305,13 @@ export async function createServer(options: ServerOptions) {
         : undefined
       if (page.collection && !entry)
         return c.json({ error: 'Choose a collection entry to preview' }, 400)
-      return c.json({ ...renderCanvas(document, page, entry, c.req.param('id')), revision })
+      const component = c.req.query('component')
+      if (component && !document.components[component])
+        return c.json({ error: 'Component not found' }, 404)
+      return c.json({
+        ...renderCanvas(document, page, entry, c.req.param('id'), component),
+        revision,
+      })
     })
     app.post('/api/sites/:id/assets/upload', async (c) => {
       const input = z

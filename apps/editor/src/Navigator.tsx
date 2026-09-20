@@ -8,6 +8,7 @@ import { structureRestriction } from './structure.js'
 type Props = {
   doc: Document
   root: string
+  rootLabel?: string
   selected: string
   reveal: number
   disabled: boolean
@@ -20,6 +21,7 @@ type Props = {
 export function Navigator({
   doc,
   root,
+  rootLabel,
   selected,
   reveal,
   disabled,
@@ -49,8 +51,7 @@ export function Navigator({
   const childrenOf = (id: string) => {
     const node = doc.nodes[id]
     if (!node) return []
-    const component = node.type === 'component' ? doc.components[node.component]?.root : undefined
-    return component ? [component, ...node.children] : node.children
+    return node.type === 'component' ? [] : node.children
   }
   // biome-ignore lint/correctness/useExhaustiveDependencies: clicking the current canvas selection must reveal it again.
   useEffect(() => {
@@ -62,9 +63,7 @@ export function Navigator({
         return true
       }
       const node = doc.nodes[id]
-      const component =
-        node?.type === 'component' ? doc.components[node.component]?.root : undefined
-      return [...(component ? [component] : []), ...(node?.children ?? [])].some((child) =>
+      return (node?.type === 'component' ? [] : (node?.children ?? [])).some((child) =>
         visit(child, [...path, id]),
       )
     }
@@ -121,9 +120,10 @@ export function Navigator({
     if (!node || path.includes(id) || depth > 50) return null
     const children = childrenOf(id)
     const label =
+      (node.type === 'component' ? doc.components[node.component]?.name : undefined) ??
       node.meta?.label ??
       (id === root
-        ? 'Body'
+        ? (rootLabel ?? 'Body')
         : 'tag' in node
           ? ((
               {

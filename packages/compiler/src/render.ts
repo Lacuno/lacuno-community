@@ -12,6 +12,7 @@ export type RenderContext = {
   resolveImage: ImageResolver
   /** Canvas-only metadata; omitted from published output. */
   annotateNodes?: boolean
+  editingComponent?: string
   resolveAsset?: (asset: AssetRef) => string
   /** Overrides `doc.site.url`. */
   siteUrl?: string
@@ -58,6 +59,7 @@ export function render(
     page: page.id,
     warnings: [],
     ...(ctx.annotateNodes ? { annotateNodes: true } : {}),
+    ...(ctx.editingComponent ? { editingComponent: ctx.editingComponent } : {}),
     ...(ctx.resolveAsset ? { resolveAsset: ctx.resolveAsset } : {}),
   }
   const siteUrl = normalizeSiteUrl(ctx.siteUrl ?? doc.site.url)
