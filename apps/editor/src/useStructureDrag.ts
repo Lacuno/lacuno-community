@@ -1,5 +1,7 @@
 import type { Document as SiteDocument } from '@freeflow/schema'
 import { useEffect, useRef } from 'react'
+import { createDragPreview } from './dragPreview.js'
+import { canvasDropTarget, layoutAxis } from './dragTarget.js'
 import type { EditOperation } from './history.js'
 import {
   canContain,
@@ -12,6 +14,7 @@ import {
 } from './structure.js'
 
 type Options = {
+  siteId: string
   doc: SiteDocument | undefined
   root: string | undefined
   disabled: boolean
@@ -34,8 +37,8 @@ export function useStructureDrag(options: Options) {
 function createController(getOptions: () => Options) {
   let item: DragItem | undefined
   const clearers = new Set<() => void>()
-  const clear = () => {
-    for (const reset of clearers) reset()
+  const clear = (except?: () => void) => {
+    for (const reset of clearers) if (reset !== except) reset()
   }
   const end = () => {
     item = undefined
@@ -51,10 +54,30 @@ function createController(getOptions: () => Options) {
       'position:absolute;left:0;top:0;transform:translateY(-100%);padding:3px 6px;background:#7952ed;color:white;font:12px sans-serif;white-space:nowrap;border-radius:3px;'
     indicator.append(label)
     surface.body.append(indicator)
+    let preview: ReturnType<typeof createDragPreview>
+    let previewItem: DragItem | undefined
     const reset = () => {
       indicator.style.display = 'none'
+      preview?.clear()
+      if (!item) {
+        preview?.dispose()
+        preview = undefined
+        previewItem = undefined
+      }
     }
     clearers.add(reset)
+    const previewTarget = (event: DragEvent) => {
+      const { doc, root, disabled, siteId } = getOptions()
+      if (!item || !doc || !root || disabled || !surface.defaultView?.frameElement) return
+      const target = canvasDropTarget(surface, doc, root, item, event.clientX, event.clientY)
+      if (!target) return
+      if (previewItem !== item) {
+        preview?.dispose()
+        preview = createDragPreview(surface, doc, item, siteId)
+        previewItem = item
+      }
+      return preview ? target : undefined
+    }
     const elementAt = (event: DragEvent) =>
       (event.target as Element | null)?.closest?.<HTMLElement>(
         '[data-drag-preset], [data-drag-node], [data-freeflow-node]',
@@ -67,14 +90,10 @@ function createController(getOptions: () => Options) {
       const rect = element.getBoundingClientRect()
       const parentStyle =
         element.parentElement && surface.defaultView?.getComputedStyle(element.parentElement)
-      const horizontal =
-        !element.dataset.dragNode &&
-        (parentStyle?.display === 'grid' ||
-          (parentStyle?.display === 'flex' && parentStyle.flexDirection.startsWith('row')))
-      const reverse =
-        !element.dataset.dragNode &&
-        parentStyle?.display === 'flex' &&
-        parentStyle.flexDirection.endsWith('reverse')
+      const { horizontal, reverse } =
+        !element.dataset.dragNode && parentStyle
+          ? layoutAxis(parentStyle)
+          : { horizontal: false, reverse: false }
       const fraction = horizontal
         ? (event.clientX - rect.left) / Math.max(1, rect.width)
         : (event.clientY - rect.top) / Math.max(1, rect.height)
@@ -153,6 +172,14 @@ function createController(getOptions: () => Options) {
       }
       if (!item) return
       event.preventDefault()
+      const projected = previewTarget(event)
+      if (projected) {
+        clear(reset)
+        indicator.style.display = 'none'
+        preview!.show(projected)
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'preset' in item ? 'copy' : 'move'
+        return
+      }
       clear()
       const target = resolve(event)
       if (event.dataTransfer)
@@ -183,16 +210,26 @@ function createController(getOptions: () => Options) {
       if (!item) return
       event.preventDefault()
       event.stopPropagation()
-      const target = resolve(event)
+      const projected = previewTarget(event)
+      if (!projected) clear()
+      const target = projected ?? resolve(event)
       const source = item
-      end()
       const { doc, root, save, select } = getOptions()
-      if (!target || !doc || !root) return
+      if (!target || !doc || !root) {
+        end()
+        return
+      }
       const edit = dropEdit(doc, root, source, target.id, target.position)
+      // Keep the last projection while the save is in flight instead of snapping back on drop.
+      const pending = projected && edit.operations.length ? preview : undefined
+      if (pending) preview = undefined
+      end()
       if (edit.operations.length)
-        void save(edit.operations).then((saved) => {
-          if (saved) select(edit.node.id)
-        })
+        void save(edit.operations)
+          .then((saved) => {
+            if (saved) select(edit.node.id)
+          })
+          .finally(() => pending?.dispose())
     }
     const leave = (event: DragEvent) => {
       if (!event.relatedTarget) reset()
@@ -201,6 +238,7 @@ function createController(getOptions: () => Options) {
       if (event.key === 'Escape') end()
     }
     surface.addEventListener('dragstart', start, true)
+    surface.addEventListener('dragenter', over, true)
     surface.addEventListener('dragover', over, true)
     surface.addEventListener('drop', drop, true)
     surface.addEventListener('dragend', end, true)
@@ -208,12 +246,14 @@ function createController(getOptions: () => Options) {
     surface.addEventListener('keydown', key, true)
     return () => {
       surface.removeEventListener('dragstart', start, true)
+      surface.removeEventListener('dragenter', over, true)
       surface.removeEventListener('dragover', over, true)
       surface.removeEventListener('drop', drop, true)
       surface.removeEventListener('dragend', end, true)
       surface.removeEventListener('dragleave', leave, true)
       surface.removeEventListener('keydown', key, true)
       clearers.delete(reset)
+      preview?.dispose()
       indicator.remove()
       end()
     }

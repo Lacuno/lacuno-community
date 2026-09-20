@@ -779,7 +779,8 @@ it('edits a real template in the browser, persists changes, and protects drafts 
         .poll(
           async () =>
             (await page.locator('[data-freeflow-drop-indicator]').isVisible()) ||
-            (await canvas.locator('[data-freeflow-drop-indicator]').isVisible()),
+            (await canvas.locator('[data-freeflow-drop-indicator]').isVisible()) ||
+            (await canvas.locator('[data-freeflow-sort-gap]').count()) === 1,
         )
         .toBe(true)
       // Cancel the native drag session (the browser action behind Escape).

@@ -257,6 +257,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const canUndo =
     !!snapshot && editHistory.undo.length > 0 && !busy && !dirty && !conflict && !inlineTarget
   const bindDragSurface = useStructureDrag({
+    siteId,
     doc,
     root: page?.root,
     uploadImage: dropImage,

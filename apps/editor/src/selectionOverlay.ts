@@ -26,6 +26,7 @@ export function selectionOverlay(doc: Document, name: () => string): () => void 
     const element = doc.querySelector('[data-freeflow-selected]')
     const bounds = element?.getBoundingClientRect()
     const visible =
+      !doc.querySelector('[data-freeflow-sort-gap]') &&
       bounds &&
       bounds.width > 0 &&
       bounds.height > 0 &&
