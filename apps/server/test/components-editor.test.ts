@@ -146,6 +146,37 @@ it('creates, customizes, edits and detaches reusable components through distinct
     await settings.getByLabel(component.props[0]!.label!, { exact: true }).fill('Shared default')
     await settings.getByRole('button', { name: 'Save component settings', exact: true }).click()
     await expect.poll(() => settings.count()).toBe(0)
+    await page.getByRole('button', { name: 'Component settings…', exact: true }).click()
+    expect(
+      await settings
+        .getByRole('button', { name: `Remove field ${component.props[0]!.label}` })
+        .isDisabled(),
+    ).toBe(true)
+    await settings.getByLabel('Text to expose').selectOption('n-home-note-copy')
+    await settings.getByRole('button', { name: 'Add text field', exact: true }).click()
+    await settings.getByRole('button', { name: 'Cancel', exact: true }).click()
+    expect((await snapshot()).components[component.id]!.props).toHaveLength(1)
+    await page.getByRole('button', { name: 'Component settings…', exact: true }).click()
+    await settings.getByLabel('Text to expose').selectOption('n-home-note-copy')
+    await settings.getByRole('button', { name: 'Add text field', exact: true }).click()
+    await settings
+      .getByRole('textbox', { name: 'Field name for', exact: false })
+      .last()
+      .fill('Description')
+    await settings
+      .getByLabel(`Field name for ${component.props[0]!.name}`, { exact: true })
+      .fill('Eyebrow')
+    await page.screenshot({
+      path: path.join(root, '.freeflow/editor-preview/component-fields.png'),
+    })
+    await settings.getByRole('button', { name: 'Save component settings', exact: true }).click()
+    await expect.poll(() => settings.count()).toBe(0)
+    expect((await snapshot()).components[component.id]!.props).toHaveLength(2)
+    await page.getByRole('button', { name: 'Component settings…', exact: true }).click()
+    await settings.getByRole('button', { name: 'Remove field Description', exact: true }).click()
+    await settings.getByRole('button', { name: 'Save component settings', exact: true }).click()
+    await expect.poll(() => settings.count()).toBe(0)
+    expect((await snapshot()).components[component.id]!.props).toHaveLength(1)
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect
       .poll(() => canvas.getByText('Shared text changed on the canvas', { exact: true }).count())

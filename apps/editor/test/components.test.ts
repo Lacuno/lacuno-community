@@ -6,10 +6,106 @@ import {
   componentWouldCycle,
   detachComponent,
   extractComponent,
+  fieldRemovalReason,
   insertComponent,
+  updateComponentFields,
 } from '../src/components.js'
 import { captureEdit, type EditOperation } from '../src/history.js'
 import { structureRestriction } from '../src/structure.js'
+
+it('manages fields after creation with stable keys, safe removal and atomic undo', async () => {
+  const original = fixtureDocument()
+  const title = original.nodes['n-hero-title']!
+  if (title.type === 'text') title.text = { type: 'static', value: 'Original title' }
+  const extraction = extractComponent(original, 'n-hero-title', 'Title', [])
+  const store = DocumentStore.inMemory(original)
+  await store.apply({ expectedRevision: store.revision, operations: extraction.operations })
+  const before = store.read().document
+  const component = before.components[extraction.component]!
+  const props = [
+    { name: 'headline', type: 'string' as const, label: 'Headline', default: 'Original title' },
+  ]
+  const added = captureEdit(
+    before,
+    updateComponentFields(before, component, component.name, props, { 'n-hero-title': 'headline' }),
+  )
+  await store.apply({ expectedRevision: store.revision, operations: added.redo })
+  expect(store.read().document.nodes['n-hero-title']).toMatchObject({
+    text: { type: 'prop', prop: 'headline' },
+  })
+  await store.apply({ expectedRevision: store.revision, operations: added.undo })
+  expect({ ...store.read().document, revision: before.revision }).toEqual(before)
+  await store.apply({ expectedRevision: store.revision, operations: added.redo })
+  await store.apply({
+    expectedRevision: store.revision,
+    operations: [
+      {
+        type: 'node.update',
+        id: extraction.instance,
+        props: { headline: { type: 'static', value: 'Custom title' } },
+      },
+    ],
+  })
+  let doc = store.read().document
+  const renamed = updateComponentFields(
+    doc,
+    doc.components[component.id]!,
+    component.name,
+    [{ ...props[0]!, label: 'New label' }],
+    {},
+  )
+  await store.apply({ expectedRevision: store.revision, operations: renamed })
+  doc = store.read().document
+  expect(doc.nodes[extraction.instance]).toMatchObject({
+    props: { headline: { value: 'Custom title' } },
+  })
+  expect(fieldRemovalReason(doc, doc.components[component.id]!, 'headline')).toContain(
+    'custom content',
+  )
+  expect(() =>
+    updateComponentFields(doc, doc.components[component.id]!, component.name, [], {}),
+  ).toThrow('custom content')
+  await store.apply({
+    expectedRevision: store.revision,
+    operations: [{ type: 'node.update', id: extraction.instance, props: null }],
+  })
+  doc = store.read().document
+  const removed = captureEdit(
+    doc,
+    updateComponentFields(doc, doc.components[component.id]!, component.name, [], {}),
+  )
+  await store.apply({ expectedRevision: store.revision, operations: removed.redo })
+  expect(store.read().document.nodes['n-hero-title']).toMatchObject({
+    text: { type: 'static', value: 'Original title' },
+  })
+  expect(store.read().document.components[component.id]!.props).toEqual([])
+  await store.apply({ expectedRevision: store.revision, operations: removed.undo })
+  expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
+  expect(() =>
+    updateComponentFields(
+      doc,
+      doc.components[component.id]!,
+      component.name,
+      [{ ...props[0]!, label: ' ' }],
+      {},
+    ),
+  ).toThrow('name')
+  expect(() =>
+    updateComponentFields(
+      doc,
+      doc.components[component.id]!,
+      component.name,
+      [...props, { ...props[0]!, name: 'other' }],
+      {},
+    ),
+  ).toThrow('unique')
+  doc = structuredClone(doc)
+  doc.nodes['n-hero-title']!.attrs = { title: { type: 'prop', prop: 'headline' } }
+  expect(fieldRemovalReason(doc, doc.components[component.id]!, 'headline')).toContain('attribute')
+  delete doc.nodes['n-hero-title']!.attrs
+  doc.nodes['n-hero-title']!.meta = { locked: true }
+  expect(fieldRemovalReason(doc, doc.components[component.id]!, 'headline')).toContain('protected')
+})
 
 it('extracts a component with exposed text, retaining IDs and round-tripping undo/redo', async () => {
   const original = fixtureDocument()

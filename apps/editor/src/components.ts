@@ -1,7 +1,7 @@
 import type { Binding, Component, ComponentInstanceNode, Document, Node } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type EditOperation, type PageTree, pageTree } from './history.js'
-import { insertionTarget, subtreeRestriction } from './structure.js'
+import { insertionTarget, structureRestriction, subtreeRestriction } from './structure.js'
 
 export function componentUsage(doc: Document, id: string) {
   return Object.values(doc.nodes).filter(
@@ -68,6 +68,82 @@ export function extractComponent(doc: Document, id: string, name: string, expose
     ),
   ]
   return { component, instance, operations }
+}
+
+/** Only bindings in this definition's scope belong to its props, not nested definitions. */
+function componentNodes(doc: Document, root: string): Node[] {
+  const node = doc.nodes[root]
+  if (!node) return []
+  return [node, ...node.children.flatMap((id) => componentNodes(doc, id))]
+}
+
+export function fieldRemovalReason(doc: Document, component: Component, name: string): string {
+  const prop = component.props.find((prop) => prop.name === name)
+  if (prop?.type !== 'string' || typeof prop.default !== 'string')
+    return 'Only plain-text fields with a text default can be removed here.'
+  if (
+    Object.values(doc.nodes).some(
+      (node) =>
+        node.type === 'component' &&
+        node.component === component.id &&
+        node.props?.[name] !== undefined,
+    )
+  )
+    return 'Some instances have custom content for this field. Reset that content before removing it.'
+  for (const node of componentNodes(doc, component.root)) {
+    const bindings = [
+      ...Object.values(node.attrs ?? {}),
+      ...(node.type === 'component' ? Object.values(node.props ?? {}) : []),
+    ]
+    if (bindings.some((binding) => binding.type === 'prop' && binding.prop === name))
+      return 'This field is also used by an attribute or nested component and cannot be removed here.'
+    if (
+      node.type === 'text' &&
+      node.text.type === 'prop' &&
+      node.text.prop === name &&
+      structureRestriction(componentEditingDocument(doc, component.id), node.id)
+    )
+      return 'This field is used by protected content and cannot be removed here.'
+  }
+  return ''
+}
+
+export function updateComponentFields(
+  doc: Document,
+  component: Component,
+  name: string,
+  props: Component['props'],
+  exposed: Record<string, string>,
+): EditOperation[] {
+  const issue = componentNameError(doc, name, component.id)
+  if (issue) throw new Error(issue)
+  const labels = props.map((prop) => (prop.label ?? prop.name).trim().toLowerCase())
+  if (labels.some((label) => !label)) throw new Error('Every field needs a name.')
+  if (new Set(labels).size !== labels.length) throw new Error('Field names must be unique.')
+  const operations: EditOperation[] = []
+  for (const prop of component.props) {
+    if (props.some((next) => next.name === prop.name)) continue
+    const reason = fieldRemovalReason(doc, component, prop.name)
+    if (reason) throw new Error(reason)
+    for (const node of componentNodes(doc, component.root)) {
+      if (node.type === 'text' && node.text.type === 'prop' && node.text.prop === prop.name)
+        operations.push({
+          type: 'node.update',
+          id: node.id,
+          text: { type: 'static', value: prop.default as string },
+        })
+    }
+  }
+  const available = componentTextFields(doc, component.root)
+  for (const [id, field] of Object.entries(exposed)) {
+    if (!props.some((prop) => prop.name === field)) continue
+    const node = available.find((node) => node.id === id)
+    if (!node || structureRestriction(componentEditingDocument(doc, component.id), id))
+      throw new Error('This text is no longer available to expose.')
+    operations.push({ type: 'node.update', id, text: { type: 'prop', prop: field } })
+  }
+  operations.push({ type: 'component.update', id: component.id, name: name.trim(), props })
+  return operations
 }
 
 export function componentWouldCycle(doc: Document, component: string, editing: string): boolean {

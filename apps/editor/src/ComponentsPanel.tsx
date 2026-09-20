@@ -7,6 +7,8 @@ import {
   componentUsage,
   componentWouldCycle,
   extractComponent,
+  fieldRemovalReason,
+  updateComponentFields,
 } from './components.js'
 import { EditorIcon } from './EditorIcon.js'
 import type { EditOperation } from './history.js'
@@ -447,11 +449,14 @@ export function ComponentSettingsDialog({
   close: () => void
 }) {
   const [name, setName] = useState(component.name)
+  const [fields, setFields] = useState(component.props)
+  const [exposed, setExposed] = useState<Record<string, string>>({})
+  const [textToExpose, setTextToExpose] = useState('')
   const [defaults, setDefaults] = useState<Record<string, Binding>>({})
   const [error, setError] = useState('')
   const editable = {
     ...component,
-    props: component.props.filter((prop) =>
+    props: fields.filter((prop) =>
       ['string', 'number', 'boolean', 'option', 'link'].includes(prop.type),
     ),
   }
@@ -465,7 +470,7 @@ export function ComponentSettingsDialog({
             setError(issue)
             return
           }
-          const props = component.props.map((prop) =>
+          const props = fields.map((prop) =>
             defaults[prop.name]?.type === 'static'
               ? {
                   ...prop,
@@ -473,11 +478,12 @@ export function ComponentSettingsDialog({
                 }
               : prop,
           )
-          if (
-            await save([{ type: 'component.update', id: component.id, name: name.trim(), props }])
-          )
-            close()
-          else setError('Could not save component settings. Check the editor message.')
+          try {
+            if (await save(updateComponentFields(doc, component, name, props, exposed))) close()
+            else setError('Could not save component settings. Check the editor message.')
+          } catch (error) {
+            setError((error as Error).message)
+          }
         }}
       >
         <label>
@@ -488,6 +494,95 @@ export function ComponentSettingsDialog({
             onChange={(event) => setName(event.target.value)}
           />
         </label>
+        <h3>Editable fields</h3>
+        <p className="hint">
+          Rename fields without changing instance content. Removing a field makes its default text
+          shared again; custom instance content must be reset first.
+        </p>
+        {fields.map((prop) => {
+          const existing = component.props.some((field) => field.name === prop.name)
+          const reason = existing ? fieldRemovalReason(doc, component, prop.name) : ''
+          return (
+            <div className="component-field-settings" key={prop.name}>
+              <label>
+                Field name
+                <input
+                  aria-label={`Field name for ${prop.name}`}
+                  value={prop.label ?? prop.name}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    setFields(
+                      fields.map((field) =>
+                        field.name === prop.name ? { ...field, label: event.target.value } : field,
+                      ),
+                    )
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                disabled={disabled || !!reason}
+                title={reason || 'Make this text shared again'}
+                aria-label={`Remove field ${prop.label ?? prop.name}`}
+                onClick={() => {
+                  setFields(fields.filter((field) => field.name !== prop.name))
+                  setExposed(
+                    Object.fromEntries(
+                      Object.entries(exposed).filter(([, name]) => name !== prop.name),
+                    ),
+                  )
+                }}
+              >
+                Remove
+              </button>
+              {reason && <p className="hint">{reason}</p>}
+            </div>
+          )
+        })}
+        <p className="hint">
+          Only shared plain text can be exposed here. Rich text stays in the shared design.
+        </p>
+        <label>
+          Text to expose
+          <select
+            value={textToExpose}
+            disabled={disabled}
+            onChange={(event) => setTextToExpose(event.target.value)}
+          >
+            <option value="">Select shared text…</option>
+            {componentTextFields(doc, component.root)
+              .filter((node) => !exposed[node.id])
+              .map((node) => (
+                <option key={node.id} value={node.id}>
+                  {node.text.type === 'static' ? String(node.text.value) : node.id}
+                </option>
+              ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          disabled={disabled || !textToExpose}
+          onClick={() => {
+            const node = componentTextFields(doc, component.root).find(
+              (node) => node.id === textToExpose,
+            )
+            if (node?.text.type !== 'static') return
+            const field = `content${crypto.randomUUID().replaceAll('-', '')}`
+            setFields([
+              ...fields,
+              {
+                name: field,
+                type: 'string',
+                label: node.meta?.label ?? String(node.text.value).slice(0, 48),
+                default: node.text.value,
+              },
+            ])
+            setExposed({ ...exposed, [node.id]: field })
+            setTextToExpose('')
+          }}
+        >
+          <EditorIcon name="plus" /> Add text field
+        </button>
         <h3>Default content</h3>
         <p className="hint">Defaults affect instances without their own content overrides.</p>
         <PropertyFields
