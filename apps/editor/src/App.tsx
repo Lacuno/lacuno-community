@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from './api.js'
+import { ApiError, api } from './api.js'
 import { Editor } from './Editor.js'
 
 type User = { name: string; email: string }
@@ -18,11 +18,17 @@ export function Brand() {
 function Auth({ onLogin }: { onLogin: (user: User) => void }) {
   const [signup, setSignup] = useState(false)
   const [allowed, setAllowed] = useState(false)
+  const [setup, setSetup] = useState(false)
+  const [configured, setConfigured] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => {
-    api<{ allowSignup: boolean }>('/api/config')
-      .then((data) => setAllowed(data.allowSignup))
+    api<{ allowSignup: boolean; setupRequired: boolean }>('/api/config')
+      .then((data) => {
+        setAllowed(data.allowSignup)
+        setSetup(data.setupRequired)
+        setConfigured(true)
+      })
       .catch((e) => setError(message(e)))
   }, [])
   return (
@@ -53,29 +59,35 @@ function Auth({ onLogin }: { onLogin: (user: User) => void }) {
             const data = new FormData(event.currentTarget)
             try {
               const result = await api<{ user: User }>(
-                `/api/auth/${signup ? 'sign-up' : 'sign-in'}/email`,
+                setup ? '/api/setup' : `/api/auth/${signup ? 'sign-up' : 'sign-in'}/email`,
                 {
                   email: data.get('email'),
                   password: data.get('password'),
-                  ...(signup ? { name: data.get('name') } : {}),
+                  ...(signup || setup ? { name: data.get('name') } : {}),
+                  ...(setup ? { token: String(data.get('token')).trim() } : {}),
                 },
               )
               onLogin(result.user)
             } catch (e) {
               setError(message(e))
+              if (setup && e instanceof ApiError && e.status === 409) setSetup(false)
             } finally {
               setBusy(false)
             }
           }}
         >
           <p className="eyebrow">LET’S GET STARTED</p>
-          <h2>{signup ? 'Create your account' : 'Welcome back'}</h2>
+          <h2>
+            {setup ? 'Set up your Freeflow' : signup ? 'Create your account' : 'Welcome back'}
+          </h2>
           <p className="muted">
-            {signup
-              ? 'A workspace for everything you’ll make.'
-              : 'Sign in to your Freeflow workspace.'}
+            {setup
+              ? 'Create your owner account. Registration closes automatically afterward.'
+              : signup
+                ? 'A workspace for everything you’ll make.'
+                : 'Sign in to your Freeflow workspace.'}
           </p>
-          {signup && (
+          {(signup || setup) && (
             <label>
               Your name
               <input name="name" required autoComplete="name" />
@@ -92,16 +104,43 @@ function Auth({ onLogin }: { onLogin: (user: User) => void }) {
               type="password"
               required
               minLength={8}
-              autoComplete={signup ? 'new-password' : 'current-password'}
+              autoComplete={signup || setup ? 'new-password' : 'current-password'}
             />
           </label>
+          {setup && (
+            <>
+              <label>
+                Setup token
+                <input
+                  name="token"
+                  type="password"
+                  required
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-describedby="setup-token-help"
+                />
+              </label>
+              <p className="muted" id="setup-token-help">
+                Retrieve your one-time token from the server with <code>pnpm owner:token</code>. For
+                Docker, use the token command in the self-hosting guide.
+              </p>
+            </>
+          )}
           {error && (
             <p role="alert" className="error">
               {error}
             </p>
           )}
-          <button className="primary" disabled={busy} type="submit">
-            {busy ? 'Please wait…' : signup ? 'Create account' : 'Sign in'}
+          <button className="primary" disabled={busy || !configured} type="submit">
+            {busy
+              ? 'Please wait…'
+              : !configured
+                ? 'Loading…'
+                : setup
+                  ? 'Create owner account'
+                  : signup
+                    ? 'Create account'
+                    : 'Sign in'}
             <span aria-hidden="true">→</span>
           </button>
           {allowed && (

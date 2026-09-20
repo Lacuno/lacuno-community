@@ -20,7 +20,7 @@ openssl rand -hex 32
 ```
 
 Put the generated value in `BETTER_AUTH_SECRET` in `.env.docker`. Keep this file private and keep
-the same secret across restarts and updates. Set `FREEFLOW_ALLOW_SIGNUP=true` temporarily.
+the same secret across restarts and updates. Leave `FREEFLOW_ALLOW_SIGNUP=false`.
 
 ```sh
 docker compose --env-file .env.docker up -d --build
@@ -28,10 +28,25 @@ docker compose --env-file .env.docker ps
 docker compose --env-file .env.docker logs --tail=100 freeflow
 ```
 
-Open `http://localhost:3000`, create an account and a site, then publish v1. The published URL is
+Open `http://localhost:3000`. On a fresh private instance, the first-run screen asks you to create
+the owner account. Retrieve its one-time setup token from your server terminal:
+
+```sh
+docker compose --env-file .env.docker exec freeflow node apps/server/dist/setup-token.js
+```
+
+Paste the token into the setup form with your name, email and password. Treat the token as a secret:
+anyone with it can claim the unconfigured instance. It is not exposed by the API or printed in server
+logs, survives restarts before setup, and is invalidated when the owner account is created.
+Registration remains closed automatically, including after restarts. New private instances permit
+one owner account; an environment-variable change cannot reopen registration on that instance.
+
+Create a site, then publish v1. The published URL is
 `http://<site-id>.localhost:3001`. Modern browsers resolve `.localhost` to loopback; this local URL
-is not reachable by visitors on other machines. Set `FREEFLOW_ALLOW_SIGNUP=false` and run
-`docker compose --env-file .env.docker up -d` again to disable new registrations.
+is not reachable by visitors on other machines. Existing installations retain their accounts and
+registration configuration; owner setup does not remove or convert existing users. The legacy
+`FREEFLOW_ALLOW_SIGNUP=true` option remains for explicitly configured multi-account instances, not
+for the default Community setup. Keep it disabled on an existing instance to stop public signup.
 
 The container runs as UID/GID 1000, with production dependencies, no compiler toolchain, and a
 health check on `/health`. Both host ports bind to loopback by default. SQLite, assets, snapshots
@@ -121,6 +136,9 @@ older application image may require restoring its matching database backup; publ
 does not roll back application/database versions.
 
 - **Missing secret:** generate and set `BETTER_AUTH_SECRET`; it must contain at least 32 characters.
+- **Setup token:** start the server before running the token command. After setup it reports that
+  no setup is pending. It is not an account-recovery mechanism; do not delete users from SQLite to
+  reopen setup. Existing accounts should sign in normally.
 - **Sign-in/write failures:** check the exact public `BETTER_AUTH_URL`, HTTPS and proxy routing.
 - **Published 404:** check the live release, UUID hostname and preserved Host header on port 3001.
 - **Permission errors:** check volume ownership, especially with host bind mounts.

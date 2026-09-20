@@ -55,7 +55,7 @@ try {
       '--env',
       'FREEFLOW_PUBLISH_BASE_URL=http://localhost:3001',
       '--env',
-      'FREEFLOW_ALLOW_SIGNUP=true',
+      'FREEFLOW_ALLOW_SIGNUP=false',
       image,
     )
   await launch(volume)
@@ -82,12 +82,16 @@ try {
       headers: { origin, cookie, 'content-type': 'application/json' },
       body: JSON.stringify(body),
     })
-  const registered = await post('/api/auth/sign-up/email', {
+  const setupToken = await docker('exec', name, 'node', 'apps/server/dist/setup-token.js')
+  const registered = await post('/api/setup', {
+    token: setupToken,
     name: 'Docker smoke',
     email: 'docker@example.test',
     password: randomBytes(24).toString('hex'),
   })
   assert(registered.ok, `Registration failed: ${await registered.text()}`)
+  const config = await (await fetch(`${api}/api/config`)).json()
+  assert(!config.allowSignup && !config.setupRequired, 'Registration must close after owner setup')
   const cookie = registered.headers
     .getSetCookie()
     .map((value) => value.split(';')[0])

@@ -13,6 +13,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
+import { OwnerSetup } from './owner-setup.js'
 import { SqlitePersistence } from './persistence.js'
 import { publishedApp } from './published.js'
 import { Releases } from './releases.js'
@@ -51,7 +52,14 @@ export async function createServer(options: ServerOptions) {
     const migrations = await getMigrations(authOptions)
     await migrations.runMigrations()
     migrateApplication(sqlite)
+    const setup = new OwnerSetup(sqlite, options.allowSignup ?? false)
+    if (setup.singleOwner) authOptions.emailAndPassword.disableSignUp = true
     const auth = betterAuth(authOptions)
+    // Only the token-protected setup endpoint can reach this registration-enabled handler.
+    const setupAuth = betterAuth({
+      ...authOptions,
+      emailAndPassword: { enabled: true, disableSignUp: false },
+    })
     releases = options.publishBaseURL
       ? new Releases(sqlite, options.dataDir, options.publishBaseURL)
       : undefined
@@ -78,7 +86,48 @@ export async function createServer(options: ServerOptions) {
       return c.json({ error: 'Internal server error' }, 500)
     })
     app.get('/health', (c) => c.json({ status: 'ok' }))
-    app.get('/api/config', (c) => c.json({ allowSignup: options.allowSignup ?? false }))
+    app.get('/api/config', (c) =>
+      c.json({
+        allowSignup: !setup.singleOwner && (options.allowSignup ?? false),
+        setupRequired: setup.required,
+      }),
+    )
+    app.post('/api/setup', async (c) => {
+      if (!setup.required)
+        return c.json({ error: 'Owner setup is already complete or unavailable.' }, 409)
+      if (c.req.header('origin') !== origin || c.req.header('sec-fetch-site') === 'cross-site')
+        return c.json({ error: 'Untrusted origin' }, 403)
+      if (c.req.header('content-type')?.split(';')[0]?.trim() !== 'application/json')
+        return c.json({ error: 'Expected application/json' }, 415)
+      const input = z
+        .strictObject({
+          name: z.string().trim().min(1).max(200),
+          email: z.email(),
+          password: z.string().min(8).max(128),
+          token: z.string().max(128),
+        })
+        .safeParse(await c.req.json().catch(() => null))
+      if (!input.success)
+        return c.json({ error: 'Enter your name, email, password and setup token.' }, 400)
+      if (!setup.accepts(input.data.token)) return c.json({ error: 'Invalid setup token.' }, 403)
+      const { token: _, ...account } = input.data
+      const response = await setupAuth.handler(
+        new Request(`${origin}/api/auth/sign-up/email`, {
+          method: 'POST',
+          headers: c.req.raw.headers,
+          body: JSON.stringify(account),
+        }),
+      )
+      if (response.ok) setup.complete()
+      else if (!setup.required)
+        return c.json(
+          { error: 'Owner setup was completed in another session. Sign in instead.' },
+          409,
+        )
+      else if (response.status === 422)
+        return c.json({ error: 'The owner account could not be created. Please try again.' }, 503)
+      return response
+    })
     app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
     app.use('/api/*', async (c, next) => {
       // Require same-origin JSON writes even for endpoints outside Better Auth's CSRF checks.

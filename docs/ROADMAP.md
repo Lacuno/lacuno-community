@@ -46,6 +46,8 @@ email/password sessions, a private default workspace per user, site creation fro
 template (including assets), and authenticated document reads and version-pinned operations.
 SQLite persists documents, sessions and rate-limit counters. Tests cover a real server process
 restart, ownership isolation, atomic invalid batches, dry runs and conflicting writes.
+New Community instances have token-protected first-run owner setup with automatic registration
+closure. Better Auth remains responsible for credentials and sessions; existing accounts are preserved.
 The [first visual editor](../apps/editor/README.md) adds sign-in and site selection, a sandboxed canvas
 using the compiler's renderer, page and collection-entry previews, a layer tree, viewport presets,
 and plain-text/base-class-style edits with conflict protection. Session undo/redo now reverses saved

@@ -132,3 +132,15 @@ ongoing operation. We do not try to prevent operators from using their own domai
 the earlier one-command-with-TLS promise in the vision and Phase 1 exit condition. Cloud is planned,
 not shipped; its eventual code/license boundaries require separate review. No repository code is
 relicensed by this decision.
+
+## D015. Community keeps authentication with a private owner setup
+
+**Decision.** Keep Better Auth for Community passwords and sessions. A new private instance uses
+a server-side one-time token to create one owner account, then closes registration. SQLite enforces
+the single-owner constraint. Existing accounts and deliberately configured legacy registration are
+preserved; opening registration is not the default onboarding path. Cloud can add organizations,
+invitations, roles, billing and managed recovery separately.
+
+**Why.** Authentication protects the editor and publish controls on an internet-reachable instance.
+Removing it would shift that protection onto operators or require us to maintain password/session
+security ourselves. A setup token prevents the first visitor from claiming an unconfigured server.

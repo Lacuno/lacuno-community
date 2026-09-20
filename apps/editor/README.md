@@ -11,8 +11,10 @@ pnpm setup:env
 pnpm dev
 ```
 
-Open `http://localhost:3000` (or your configured server URL). Create an account if registration is
-enabled, then create a site from the default template. `pnpm dev` builds the editor and starts the
+Open `http://localhost:3000` (or your configured server URL). On a fresh private instance, run
+`pnpm owner:token` in another terminal and enter the one-time token in the owner setup form.
+Registration closes automatically after setup. Existing users sign in as usual. Then create a site
+from the default template. `pnpm dev` builds the editor and starts the
 server at the same origin, so sessions and API requests require no development CORS exception.
 
 For frontend development, run `pnpm --filter @freeflow/editor dev` in a second terminal. It watches

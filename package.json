@@ -18,6 +18,7 @@
     "server": "pnpm run dev",
     "dev": "pnpm --filter @freeflow/editor build && pnpm --filter @freeflow/server dev",
     "setup:env": "node scripts/setup-env.mjs",
+    "owner:token": "pnpm --filter @freeflow/server exec tsx src/setup-token.ts",
     "lighthouse": "tsx scripts/lighthouse.ts",
     "smoke": "tsx scripts/smoke.ts",
     "smoke:docker": "node scripts/docker-smoke.mjs"

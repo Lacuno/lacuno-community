@@ -14,6 +14,8 @@ Phase 1 now has a [server foundation](apps/server/README.md): email/password ses
 workspaces, template-based site creation, and persistent document editing through an HTTP API.
 The [visual editor](apps/editor/README.md) adds a canvas, layer tree, page previews and basic text/style
 editing. Run `pnpm setup:env` and `pnpm dev`, then open `http://localhost:3000`.
+On a new private instance, run `pnpm owner:token` in another terminal and use the one-time token
+to create your owner account. Registration closes automatically afterward.
 
 For Docker deployment, follow the [self-hosting guide](docs/SELF_HOSTING.md). Community provides
 the builder and publishing; you manage domains, HTTPS, backups and updates. A future paid Cloud

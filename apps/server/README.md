@@ -18,15 +18,17 @@ pnpm setup:env
 pnpm dev
 ```
 
-The setup script creates a gitignored root `.env` with local defaults, registration enabled and a
+The setup script creates a gitignored root `.env` with local defaults, registration disabled and a
 random auth secret. It preserves an existing `.env`, including its secret, when rerun. Edit `.env`
 to customize the settings; restart the server after changes.
 
 `pnpm run server` is an equivalent command. Use the explicit `run`: `pnpm server` invokes pnpm's
 built-in package-store server command instead of this project's script.
 
-Keep the secret stable across restarts. Registration is disabled unless `FREEFLOW_ALLOW_SIGNUP=true`.
-Enable it to create your account, then restart with it disabled. The server binds to `127.0.0.1:3000`
+Keep the secret stable across restarts. New private instances use one-time owner setup: start the
+server, run `pnpm owner:token` in another terminal, and enter the token in the browser's setup form.
+The token is invalidated after account creation; registration stays closed permanently for that
+single-owner instance. Existing accounts are preserved. The server binds to `127.0.0.1:3000`
 by default. Open `http://localhost:3000` for the [visual editor](../editor/README.md), including sign-in
 and site creation. `pnpm dev` builds the editor before starting the server.
 
@@ -34,7 +36,7 @@ and site creation. `pnpm dev` builds the editor before starting the server.
 | --- | --- | --- |
 | `BETTER_AUTH_SECRET` | Required, at least 32 characters | Session signing secret |
 | `BETTER_AUTH_URL` | `http://localhost:3000` (uses `PORT`) | Canonical origin for authentication and write requests |
-| `FREEFLOW_ALLOW_SIGNUP` | `false` | Explicitly allow account registration |
+| `FREEFLOW_ALLOW_SIGNUP` | `false` | Legacy opt-in public registration; cannot reopen a single-owner instance |
 | `FREEFLOW_DATA_DIR` | Repository `data/` | SQLite database and per-site assets |
 | `FREEFLOW_TEMPLATE_DIR` | Repository `templates/freeflow/` | Source template document and assets |
 | `HOST` | `127.0.0.1` | Listen address |
@@ -45,7 +47,7 @@ and site creation. `pnpm dev` builds the editor before starting the server.
 Relative directory settings resolve from the repository root. Both source and bundled servers
 automatically load the root `.env`; exported environment variables take precedence. Without `.env`,
 you can supply the settings through the environment. The defaults in the table apply when a setting
-is absent; the generated local `.env` explicitly enables registration for account creation.
+is absent. Existing `.env` files are preserved, including older registration settings.
 
 To run the bundled entry point:
 
@@ -56,7 +58,9 @@ pnpm --filter @freeflow/server start
 
 ## Try the milestone
 
-With registration enabled, these commands create an account, sign in and create a site. Use your own
+For an explicitly configured legacy multi-account instance with registration enabled, these commands
+create an account, sign in and create a site. Default Community installations use the owner setup
+screen instead (then the sign-in and site-creation commands below work normally). Use your own
 email and password. The cookie jar contains a session credential; keep it private and delete it afterward.
 
 ```sh
@@ -97,6 +101,8 @@ and checks the persisted result.
 | Method and path | Result |
 | --- | --- |
 | `GET /health` | Unauthenticated liveness check |
+| `GET /api/config` | Public registration availability and `setupRequired`; never includes the token |
+| `POST /api/setup` | One-time owner creation: `{name,email,password,token}`; requires the exact editor Origin |
 | `POST /api/auth/sign-up/email` | Register when enabled: `{name,email,password}` |
 | `POST /api/auth/sign-in/email` | Sign in: `{email,password}`; sets a session cookie |
 | `GET /api/auth/get-session` | Current Better Auth session |
@@ -116,6 +122,8 @@ Application routes require a session cookie. JSON writes reject cross-origin req
 disable caching. Unknown or inaccessible sites return `404`, missing sessions `401`, invalid input
 `400`, and stale edits `409` with `currentRevision`. Request bodies are limited to 2 MiB and batches
 to 1,000 operations. Authentication endpoints use Better Auth's rate limiting and CSRF checks.
+The setup endpoint additionally requires a 256-bit server-side token. SQLite enforces one owner
+even across simultaneous setup requests. Owner passwords and sessions still use Better Auth.
 
 ## Persistence and scope
 

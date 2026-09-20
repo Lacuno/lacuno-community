@@ -1,15 +1,7 @@
 import path from 'node:path'
-import { loadEnvFile } from 'node:process'
-import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { createServer } from './app.js'
-
-const root = fileURLToPath(new URL('../../../', import.meta.url))
-try {
-  loadEnvFile(path.join(root, '.env'))
-} catch (error) {
-  if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-}
+import { root } from './environment.js'
 
 const port = Number(process.env.PORT ?? 3000)
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid PORT')

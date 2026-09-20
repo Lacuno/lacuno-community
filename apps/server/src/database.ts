@@ -100,4 +100,13 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version = 4').get()) return
+      sqlite.exec(`
+      CREATE TABLE owner_setup (id INTEGER PRIMARY KEY CHECK(id = 1), token TEXT);
+      INSERT INTO freeflow_migrations(version) VALUES(4);
+    `)
+    })
+    .immediate()
 }
