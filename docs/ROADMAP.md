@@ -11,7 +11,8 @@ Community does not provide managed domain/TLS provisioning or a hosting-manageme
 
 Cloud is a planned paid managed service: hosting, guided domain connection, certificate lifecycle,
 managed deployments, backups, monitoring and updates. It is not implemented and does not change
-this repository's license. See decision D014 for the product boundary.
+this repository's license. See decision D014 for the product boundary and
+[Cloud integration](CLOUD.md) for the separate repository's initial scope and remaining runtime work.
 
 ## Phase 0. Foundation — complete
 
