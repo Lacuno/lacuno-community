@@ -8,6 +8,10 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invali
 const secret = process.env.BETTER_AUTH_SECRET
 if (!secret) throw new Error('Set BETTER_AUTH_SECRET to a random secret of at least 32 characters')
 const baseURL = process.env.BETTER_AUTH_URL ?? `http://localhost:${port}`
+const gatewayIssuer = process.env.FREEFLOW_GATEWAY_ISSUER
+const gatewaySecret = process.env.FREEFLOW_GATEWAY_SECRET
+if (!!gatewayIssuer !== !!gatewaySecret)
+  throw new Error('Gateway issuer and secret must be configured together')
 const publishPort = Number(process.env.FREEFLOW_PUBLISH_PORT ?? port + 1)
 const publishBaseURL =
   process.env.FREEFLOW_PUBLISH_BASE_URL ??
@@ -21,6 +25,9 @@ const server = await createServer({
   dataDir: path.resolve(root, process.env.FREEFLOW_DATA_DIR ?? 'data'),
   templateDir: path.resolve(root, process.env.FREEFLOW_TEMPLATE_DIR ?? 'templates/freeflow'),
   baseURL,
+  ...(gatewayIssuer && gatewaySecret
+    ? { gateway: { issuer: gatewayIssuer, secret: gatewaySecret } }
+    : {}),
   ...(publishBaseURL ? { publishBaseURL } : {}),
   secret,
   editorDir: path.join(root, 'apps/editor/dist'),

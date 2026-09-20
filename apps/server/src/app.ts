@@ -13,6 +13,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
+import { GatewayAuth, type GatewayOptions } from './gateway-auth.js'
 import { OwnerSetup } from './owner-setup.js'
 import { SqlitePersistence } from './persistence.js'
 import { publishedApp } from './published.js'
@@ -26,6 +27,7 @@ export type ServerOptions = {
   allowSignup?: boolean
   editorDir?: string
   publishBaseURL?: string
+  gateway?: GatewayOptions
 }
 
 const SiteInput = z.strictObject({ name: z.string().trim().min(1).max(200) })
@@ -52,8 +54,11 @@ export async function createServer(options: ServerOptions) {
     const migrations = await getMigrations(authOptions)
     await migrations.runMigrations()
     migrateApplication(sqlite)
-    const setup = new OwnerSetup(sqlite, options.allowSignup ?? false)
-    if (setup.singleOwner) authOptions.emailAndPassword.disableSignUp = true
+    if (!options.gateway && sqlite.prepare('SELECT id FROM gateway_mode WHERE id=1').get())
+      throw new Error('Gateway configuration is required for this managed instance')
+    const gateway = options.gateway ? new GatewayAuth(sqlite, options.gateway, origin) : undefined
+    const setup = gateway ? undefined : new OwnerSetup(sqlite, options.allowSignup ?? false)
+    if (gateway || setup?.singleOwner) authOptions.emailAndPassword.disableSignUp = true
     const auth = betterAuth(authOptions)
     // Only the token-protected setup endpoint can reach this registration-enabled handler.
     const setupAuth = betterAuth({
@@ -66,7 +71,13 @@ export async function createServer(options: ServerOptions) {
     if (releases?.siteForHost(new URL(origin).hostname))
       throw new Error('The editor hostname cannot be inside the published site namespace')
 
-    const app = new Hono<{ Variables: { userId: string; workspaceId: string } }>()
+    const app = new Hono<{
+      Variables: {
+        userId: string
+        workspaceId: string
+        gatewayUser: { id: string; name: string; email: string }
+      }
+    }>()
     app.use('/api/*', async (c, next) => {
       c.header('Cache-Control', 'no-store')
       await next()
@@ -88,11 +99,27 @@ export async function createServer(options: ServerOptions) {
     app.get('/health', (c) => c.json({ status: 'ok' }))
     app.get('/api/config', (c) =>
       c.json({
-        allowSignup: !setup.singleOwner && (options.allowSignup ?? false),
-        setupRequired: setup.required,
+        allowSignup: !gateway && !setup?.singleOwner && (options.allowSignup ?? false),
+        setupRequired: setup?.required ?? false,
+        ...(gateway ? { authentication: 'gateway', gatewayProtocol: 1 } : {}),
       }),
     )
+    if (gateway) {
+      app.use('*', async (c, next) => {
+        try {
+          c.set('gatewayUser', await gateway.authenticate(c.req.raw))
+        } catch {
+          return c.json({ error: 'Authenticated gateway required' }, 401)
+        }
+        await next()
+      })
+      app.get('/api/auth/get-session', (c) => c.json({ user: c.get('gatewayUser') }))
+      app.on(['GET', 'POST'], '/api/auth/*', (c) =>
+        c.json({ error: 'Authentication is managed by the gateway' }, 403),
+      )
+    }
     app.post('/api/setup', async (c) => {
+      if (!setup) return c.json({ error: 'Owner setup is unavailable in gateway mode' }, 403)
       if (!setup.required)
         return c.json({ error: 'Owner setup is already complete or unavailable.' }, 409)
       if (c.req.header('origin') !== origin || c.req.header('sec-fetch-site') === 'cross-site')
@@ -141,7 +168,9 @@ export async function createServer(options: ServerOptions) {
         if (c.req.header('content-type')?.split(';')[0]?.trim() !== 'application/json')
           return c.json({ error: 'Expected application/json' }, 415)
       }
-      const session = await auth.api.getSession({ headers: c.req.raw.headers })
+      const session = gateway
+        ? { user: { id: gateway.ownerId } }
+        : await auth.api.getSession({ headers: c.req.raw.headers })
       if (!session) return c.json({ error: 'Authentication required' }, 401)
       c.set('userId', session.user.id)
       db.insert(workspaces)

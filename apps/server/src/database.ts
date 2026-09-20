@@ -109,4 +109,15 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version=5').get()) return
+      sqlite.exec(`
+      CREATE TABLE gateway_mode (id INTEGER PRIMARY KEY CHECK(id=1),issuer TEXT NOT NULL,audience TEXT NOT NULL);
+      CREATE TABLE gateway_nonce (id TEXT PRIMARY KEY,expires_at INTEGER NOT NULL);
+      CREATE INDEX gateway_nonce_expiry ON gateway_nonce(expires_at);
+      INSERT INTO freeflow_migrations(version) VALUES(5);
+    `)
+    })
+    .immediate()
 }

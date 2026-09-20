@@ -281,8 +281,11 @@ export function App() {
       user={user}
       open={open}
       logout={() => {
-        api('/api/auth/sign-out', {})
-          .then(() => setUser(null))
+        api<{ redirectURL?: string }>('/api/auth/sign-out', {})
+          .then((result) => {
+            if (result.redirectURL) location.assign(result.redirectURL)
+            else setUser(null)
+          })
           .catch((e) => setError(message(e)))
       }}
     />

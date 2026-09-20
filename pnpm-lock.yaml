@@ -163,6 +163,9 @@ importers:
       hono:
         specifier: ^4.13.8
         version: 4.13.8
+      jose:
+        specifier: 6.2.12
+        version: 6.2.12
       sharp:
         specifier: ^0.35.4
         version: 0.35.4(@types/node@24.13.4)
