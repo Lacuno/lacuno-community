@@ -197,6 +197,39 @@ it('creates, customizes, edits and detaches reusable components through distinct
     await page.reload()
     await expect.poll(() => canvas.getByText('Only this instance', { exact: true }).count()).toBe(1)
     await expect.poll(() => canvas.getByText('Shared default', { exact: true }).count()).toBe(1)
+    await page.getByRole('button', { name: 'Components', exact: true }).click()
+    await page.getByRole('button', { name: 'Actions for Promo panel', exact: true }).click()
+    const manage = page.getByRole('dialog', { name: 'Manage Promo panel', exact: true })
+    await manage.getByText('Delete component', { exact: true }).click()
+    await manage
+      .getByText('Used by 2 instances. Remove or detach them before deleting this component.', {
+        exact: true,
+      })
+      .waitFor()
+    expect(await manage.getByRole('button', { name: 'Confirm delete component' }).count()).toBe(0)
+    await manage.getByRole('button', { name: 'Duplicate component', exact: true }).click()
+    await expect.poll(() => manage.count()).toBe(0)
+    const copy = Object.values((await snapshot()).components).find(
+      (item) => item.name === 'Promo panel copy',
+    )!
+    expect(copy).toBeDefined()
+    await page.getByRole('button', { name: 'Actions for Promo panel copy', exact: true }).click()
+    const copyDialog = page.getByRole('dialog', { name: 'Manage Promo panel copy', exact: true })
+    await copyDialog.getByText('Delete component', { exact: true }).click()
+    await copyDialog.getByRole('button', { name: 'Delete component…', exact: true }).click()
+    await copyDialog.getByRole('button', { name: 'Keep component', exact: true }).click()
+    expect((await snapshot()).components[copy.id]).toBeDefined()
+    await copyDialog.getByRole('button', { name: 'Delete component…', exact: true }).click()
+    await page.screenshot({
+      path: path.join(root, '.freeflow/editor-preview/component-management.png'),
+    })
+    await copyDialog.getByRole('button', { name: 'Confirm delete component', exact: true }).click()
+    await expect.poll(() => copyDialog.count()).toBe(0)
+    expect((await snapshot()).components[copy.id]).toBeUndefined()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect
+      .poll(async () => (await snapshot()).components[copy.id]?.name)
+      .toBe('Promo panel copy')
     expect(errors).toEqual([])
   } finally {
     await browser.close()

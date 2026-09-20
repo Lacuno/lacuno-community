@@ -726,6 +726,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                   Components <span>{Object.keys(doc.components).length}</span>
                 </div>
                 <ComponentsPanel
+                  save={save}
                   doc={doc}
                   editing={editingComponent?.id ?? ''}
                   disabled={busy || dirty || conflict || !!inlineTarget}

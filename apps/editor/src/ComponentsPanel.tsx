@@ -2,10 +2,12 @@ import type { Binding, Component, Document } from '@freeflow/schema'
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import {
   type ComponentInstance,
+  componentDeletionReason,
   componentNameError,
   componentTextFields,
   componentUsage,
   componentWouldCycle,
+  duplicateComponent,
   extractComponent,
   fieldRemovalReason,
   updateComponentFields,
@@ -25,6 +27,7 @@ export function ComponentsPanel({
   create,
   insert,
   edit,
+  save,
 }: {
   doc: Document
   editing: string
@@ -33,9 +36,21 @@ export function ComponentsPanel({
   create: () => void
   insert: (id: string) => void
   edit: (id: string) => void
+  save: Save
 }) {
+  const [actions, setActions] = useState('')
   return (
     <section className="components-library" aria-label="Components">
+      {doc.components[actions] && (
+        <ComponentActionsDialog
+          key={actions}
+          doc={doc}
+          component={doc.components[actions]!}
+          disabled={disabled}
+          save={save}
+          close={() => setActions('')}
+        />
+      )}
       <button
         type="button"
         className="component-create"
@@ -78,12 +93,124 @@ export function ComponentsPanel({
             >
               <EditorIcon name="plus" />
             </button>
+            <button
+              type="button"
+              className="component-insert"
+              aria-label={`Actions for ${component.name}`}
+              title={`Actions for ${component.name}`}
+              aria-haspopup="dialog"
+              disabled={disabled}
+              onClick={() => setActions(component.id)}
+            >
+              ⋯
+            </button>
           </div>
         ))}
       {!Object.keys(doc.components).length && (
         <p className="hint">Your reusable components will appear here.</p>
       )}
     </section>
+  )
+}
+
+function ComponentActionsDialog({
+  doc,
+  component,
+  disabled,
+  save,
+  close,
+}: {
+  doc: Document
+  component: Component
+  disabled: boolean
+  save: Save
+  close: () => void
+}) {
+  const [name, setName] = useState(() => {
+    let name = `${component.name} copy`
+    for (let index = 2; componentNameError(doc, name); index++)
+      name = `${component.name} copy ${index}`
+    return name
+  })
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [error, setError] = useState('')
+  const reason = componentDeletionReason(doc, component.id)
+  const run = async (operations: EditOperation[]) => {
+    if (await save(operations)) close()
+    else setError('Could not save component changes. Check the editor message and try again.')
+  }
+  return (
+    <ComponentDialog title={`Manage ${component.name}`} disabled={disabled} close={close}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          try {
+            void run(duplicateComponent(doc, component.id, name))
+          } catch (error) {
+            setError((error as Error).message)
+          }
+        }}
+      >
+        <h3>Duplicate component</h3>
+        <p className="hint">
+          Create an independent definition with copied local styles. Shared classes and nested
+          components stay linked. Existing instances are unchanged.
+        </p>
+        <label>
+          Copy name
+          <input
+            value={name}
+            disabled={disabled}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+        <button type="submit" disabled={disabled || !name.trim()}>
+          Duplicate component
+        </button>
+        <details className="component-secondary">
+          <summary>Delete component</summary>
+          {reason ? (
+            <p className="hint">{reason}</p>
+          ) : (
+            <>
+              <p className="hint">
+                This component is unused. Deleting it removes its definition from the library. You
+                can undo this during this session.
+              </p>
+              {confirmDelete ? (
+                <div role="alert">
+                  <p>Delete “{component.name}”?</p>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => void run([{ type: 'component.delete', id: component.id }])}
+                  >
+                    Confirm delete component
+                  </button>
+                  <button type="button" disabled={disabled} onClick={() => setConfirmDelete(false)}>
+                    Keep component
+                  </button>
+                </div>
+              ) : (
+                <button type="button" disabled={disabled} onClick={() => setConfirmDelete(true)}>
+                  Delete component…
+                </button>
+              )}
+            </>
+          )}
+        </details>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <footer className="component-dialog-actions">
+          <button type="button" disabled={disabled} onClick={close}>
+            Close
+          </button>
+        </footer>
+      </form>
+    </ComponentDialog>
   )
 }
 

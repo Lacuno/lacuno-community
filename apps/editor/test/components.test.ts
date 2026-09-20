@@ -2,9 +2,11 @@ import { DocumentStore } from '@freeflow/document'
 import { fixtureDocument } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import {
+  componentDeletionReason,
   componentEditingDocument,
   componentWouldCycle,
   detachComponent,
+  duplicateComponent,
   extractComponent,
   fieldRemovalReason,
   insertComponent,
@@ -12,6 +14,55 @@ import {
 } from '../src/components.js'
 import { captureEdit, type EditOperation } from '../src/history.js'
 import { structureRestriction } from '../src/structure.js'
+
+it('duplicates definitions with fresh nodes and local styles, then deletes and restores unused copies', async () => {
+  const store = DocumentStore.inMemory(fixtureDocument())
+  await store.apply({
+    expectedRevision: store.revision,
+    operations: [
+      { type: 'class.create', id: 'c-component-local', local: true },
+      {
+        type: 'style.set',
+        class: 'c-component-local',
+        breakpoint: 'base',
+        state: 'none',
+        property: 'color',
+        value: { type: 'raw', value: 'red' },
+      },
+      {
+        type: 'component.create',
+        id: 'cmp-test',
+        name: 'Test',
+        root: {
+          type: 'element',
+          tag: 'div',
+          classes: ['c-component-local'],
+          children: [{ type: 'component', component: 'cmp-card' }],
+        },
+      },
+    ],
+  })
+  const before = store.read().document
+  const duplicate = captureEdit(before, duplicateComponent(before, 'cmp-test', 'Test copy'))
+  await store.apply({ expectedRevision: store.revision, operations: duplicate.redo })
+  const doc = store.read().document
+  const copied = Object.values(doc.components).find((component) => component.name === 'Test copy')!
+  const root = doc.nodes[copied.root]!
+  expect(copied.root).not.toBe(before.components['cmp-test']!.root)
+  expect(root.classes).not.toEqual(['c-component-local'])
+  expect(doc.nodes[root.children[0]!]).toMatchObject({ type: 'component', component: 'cmp-card' })
+  expect(componentDeletionReason(doc, 'cmp-card')).toContain('Used by')
+  expect(componentDeletionReason(doc, copied.id)).toBe('')
+  expect(() => duplicateComponent(doc, 'cmp-test', 'Test copy')).toThrow('already')
+  const deletion = captureEdit(doc, [{ type: 'component.delete', id: copied.id }])
+  await store.apply({ expectedRevision: store.revision, operations: deletion.redo })
+  expect(store.read().document.components[copied.id]).toBeUndefined()
+  expect(store.read().document.components['cmp-card']).toEqual(doc.components['cmp-card'])
+  await store.apply({ expectedRevision: store.revision, operations: deletion.undo })
+  expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
+  await store.apply({ expectedRevision: store.revision, operations: duplicate.undo })
+  expect({ ...store.read().document, revision: before.revision }).toEqual(before)
+})
 
 it('manages fields after creation with stable keys, safe removal and atomic undo', async () => {
   const original = fixtureDocument()

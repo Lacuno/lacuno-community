@@ -9,6 +9,46 @@ export function componentUsage(doc: Document, id: string) {
   ).length
 }
 
+export function duplicateComponent(doc: Document, id: string, name: string): EditOperation[] {
+  const component = doc.components[id]
+  if (!component) throw new Error('Component no longer exists.')
+  const issue = componentNameError(doc, name)
+  if (issue) throw new Error(issue)
+  const operations: EditOperation[] = []
+  const copyClasses = localClassCopier(doc, operations)
+  const copy = (tree: PageTree): PageTree => ({
+    ...tree,
+    id: `n-${crypto.randomUUID()}`,
+    classes: copyClasses(tree.classes),
+    children: tree.children.map(copy),
+  })
+  const root = copy(pageTree(doc, component.root))
+  operations.push({
+    type: 'component.create',
+    ...structuredClone(component),
+    id: `cmp-${crypto.randomUUID()}`,
+    name: name.trim(),
+    root,
+  })
+  return operations
+}
+
+export function componentDeletionReason(doc: Document, id: string): string {
+  const component = doc.components[id]
+  if (!component) return 'Component no longer exists.'
+  const count = componentUsage(doc, id)
+  if (count)
+    return `Used by ${count} ${count === 1 ? 'instance' : 'instances'}. Remove or detach them before deleting this component.`
+  try {
+    pageTree(doc, component.root)
+  } catch {
+    return 'This component contains content that cannot be restored with undo yet.'
+  }
+  if (componentNodes(doc, component.root).some((node) => node.meta?.locked))
+    return 'Unlock this component’s content before deleting it.'
+  return ''
+}
+
 /** Structure tools can edit this definition, while every other definition remains protected. */
 export function componentEditingDocument(doc: Document, id: string) {
   if (!id) return doc
