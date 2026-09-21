@@ -1,4 +1,7 @@
-import type { Binding, CssValue, Document, Node, NodeId } from '@freeflow/schema'
+import type { CssValue, Document, Node, NodeId } from '@freeflow/schema'
+import { nodeBindings } from '@freeflow/schema'
+
+export { nodeBindings }
 
 export function subtreeIds(doc: Document, rootId: NodeId): NodeId[] {
   const out: NodeId[] = []
@@ -80,17 +83,6 @@ export function cssValueReferences(value: CssValue, into: Refs): void {
   }
 }
 
-/** Every binding a node carries: its attrs, a bound text value, and a component's props. */
-export function nodeBindings(node: Node): Binding[] {
-  return [
-    ...Object.values(node.attrs ?? {}),
-    ...(node.type === 'text' && node.text.type !== 'doc' ? [node.text] : []),
-    ...(node.type === 'component' || node.type === 'code-component'
-      ? Object.values(node.props ?? {})
-      : []),
-  ]
-}
-
 function valueRefs(values: readonly CssValue[]): Refs {
   const refs: Refs = { designTokens: new Set(), assets: new Set() }
   for (const v of values) cssValueReferences(v, refs)
@@ -148,6 +140,14 @@ export function referencesToCollection(doc: Document, id: string): string[] {
       )
         out.push(`collections.${col.id}.fields.${f.id}`)
   return out.sort()
+}
+
+/** Where a page is used: node bindings, so a page with a link pointing at it cannot be deleted. */
+export function referencesToPage(doc: Document, id: string): string[] {
+  return Object.values(doc.nodes)
+    .filter((n) => nodeBindings(n).some((b) => b.type === 'page' && b.page === id))
+    .map((n) => `nodes.${n.id}`)
+    .sort()
 }
 
 export function referencesToField(doc: Document, fieldId: string): string[] {

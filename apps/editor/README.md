@@ -26,12 +26,21 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
 - Choose a page in the left panel. Collection pages also offer an entry selector.
 - Click the canvas or a layer to select an element. Desktop, tablet and mobile buttons change the
   iframe viewport; the canvas scales to fit available space without changing its media-query width.
-- Use Add element to insert a heading, paragraph, section with starter content, or empty container.
-  Choose an explicit destination and optionally reuse a style class. Empty containers can be selected
+- Use Add element to insert a heading, paragraph, image, section with starter content, or empty
+  container, and from the **Actions** group a **Link** or a **Button**. Both are `a` elements whose
+  destination starts on the current page, so they are focusable and styleable straight away; a
+  button also gets local padding, radius, colour and weight. Choose an explicit destination and
+  optionally reuse a style class. Empty containers can be selected
   in Layers and populated with Inside selection. Move up/down changes the selected sibling order.
+  **Wrap selection in…** puts a section, container, stack, row, grid or **Link** around the
+  selection; the link wrapper keeps the wrapped content's look and is refused inside another link.
   These actions save immediately and support undo/redo with stable element IDs. Locked elements,
   component interiors and collection structure stay protected.
 - Edit plain text in the inspector or rich text directly on the canvas. Content bindings remain read-only.
+- **Link target** appears in the Design inspector for any `a` element. It names the current
+  destination and opens the same page-or-URL popover the text toolbar uses. Choosing a page stores a
+  reference to it, so the link follows the page through a path change; a URL is stored as typed.
+  Removing a destination is not offered: a link without one is not a link.
 - Open **Advanced: shared classes** to create, assign or remove reusable classes. Expand a
   class to see the elements and pages/components using it. These changes save immediately and support
   undo/redo; pending formatting must finish first.
@@ -112,9 +121,10 @@ Both modes use the same Home toolbar for font, size, bold, italic, color, and li
 shows whether changes affect selected words or the whole text (including when only a caret is placed).
 Alignment and line height always affect the whole block. Presets remain visible but are disabled
 during an inline editing session. Links open in a popover without expanding the ribbon.
-Link destinations can be a static page,
+Link destinations can be a page,
 an HTTP(S) URL, email (`mailto:`), telephone (`tel:`), or section anchor (`#section`). Internal links
-store page IDs and resolve the current path when rendered, including after page URL changes.
+store page IDs and resolve the current path when rendered, including after page URL changes. The
+popover itself is `LinkTarget.tsx`, shared by the text toolbar and the inspector's Link target.
 Bound collection text and locked elements remain protected.
 
 Done saves the inline editing session as one document-history entry; navigating to another element
@@ -161,7 +171,8 @@ pnpm --filter @freeflow/editor test
 Renderer tests compare all fixture and default-template pages and entries with compiler markup and
 CSS. Server tests cover preview/asset access control. A Playwright test covers account creation,
 canvas selection, direct formatting without classes, reset formatting, text/style edits, reload persistence, stale-write protection, mobile viewport,
-collection previews, sandbox isolation, insertion, sibling moves, class assignment, shared colors and variants, color conflicts, slow and failed autosaves, navigation flushes, undo/redo, sign-out and sign-in. Unit tests exercise undo
+collection previews, sandbox isolation, insertion, button insertion with a page destination that
+survives publishing and a page path change, sibling moves, class assignment, shared colors and variants, color conflicts, slow and failed autosaves, navigation flushes, undo/redo, sign-out and sign-in. Unit tests exercise undo
 patches, restoration of rich text and typed CSS, history bounds and branching, and shortcuts.
 The browser test saves a desktop screenshot under
 `.freeflow/editor-preview/` for visual inspection.

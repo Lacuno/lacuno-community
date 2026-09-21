@@ -53,8 +53,9 @@ The [first visual editor](../apps/editor/README.md) adds sign-in and site select
 using the compiler's renderer, page and collection-entry previews, a layer tree, viewport presets,
 and plain-text/base-class-style edits with conflict protection. Session undo/redo now reverses saved
 batches by replaying their patches inverted, including keyboard shortcuts and original typed values.
-The element palette inserts headings, paragraphs, sections and containers; sibling-order controls
-and structural undo/redo preserve IDs. Shared component and collection structure remains protected.
+The element palette inserts headings, paragraphs, images, sections, containers, links and buttons;
+sibling-order controls and structural undo/redo preserve IDs. Shared component and collection
+structure remains protected.
 **Publishing milestone implemented:** immutable revision snapshots, durable build status and errors,
 a separate static serving origin, a published URL, persistent release history, and confirmed rollback
 without changing the editing draft. Failed builds preserve the live site. Source and bundled server
@@ -63,6 +64,10 @@ tests cover publishing and restarts; browser tests cover publishing, republishin
 focus-visible, active, visited, first-child, last-child, odd and even; the canvas forces the picked
 state on the selected element; published CSS carries the real pseudo-class rules. The Motion tab's
 hover shortcut is gone, and documents that used it are rewritten when they are read.
+**Links and buttons implemented:** the palette's Actions group inserts a link or a button, Wrap
+selection offers Link, and an `a` element's destination is editable in the inspector through the
+same page-or-URL popover the text toolbar uses. A destination can be a page reference, which the
+compiler resolves to the page's path, so a link follows a page through a path change.
 Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 

@@ -1,8 +1,7 @@
-import { type Document, safeLinkHref } from '@freeflow/schema'
-import { type ReactNode, useId, useRef, useState } from 'react'
+import type { Document } from '@freeflow/schema'
+import type { ReactNode } from 'react'
 import { pickerHex } from './colors.js'
-import { ErrorNote } from './Dialog.js'
-import { placePopover } from './popover.js'
+import { LinkTarget, type LinkValue } from './LinkTarget.js'
 import './text-toolbar.css'
 
 export function TextToolbar({
@@ -25,14 +24,9 @@ export function TextToolbar({
   linkDisabled?: boolean
   currentLink?: Record<string, unknown> | undefined
   change: (property: string, value: string) => void
-  link: (attrs: { pageId: string | null; href: string | null } | null) => void
+  link: (attrs: LinkValue | null) => void
   children?: ReactNode
 }) {
-  const popoverId = useId()
-  const popover = useRef<HTMLDivElement>(null)
-  const [pageId, setPageId] = useState('')
-  const [url, setUrl] = useState('')
-  const [error, setError] = useState('')
   const bold = Number(values['font-weight']) >= 600
   const italic = values['font-style'] === 'italic'
   return (
@@ -98,20 +92,17 @@ export function TextToolbar({
             onChange={(event) => change('color', event.target.value)}
           />
         </label>
-        <button
-          type="button"
+        <LinkTarget
+          doc={doc}
+          label="Link"
           disabled={disabled || linkDisabled}
-          popoverTarget={popoverId}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={(event) => {
-            setPageId(typeof currentLink?.pageId === 'string' ? currentLink.pageId : '')
-            setUrl(typeof currentLink?.href === 'string' ? currentLink.href : '')
-            placePopover(event.currentTarget, popover.current)
-            setError('')
+          current={{
+            pageId: typeof currentLink?.pageId === 'string' ? currentLink.pageId : undefined,
+            href: typeof currentLink?.href === 'string' ? currentLink.href : undefined,
           }}
-        >
-          Link
-        </button>
+          apply={link}
+          remove={() => link(null)}
+        />
         <label className="text-alignment" title="Applies to the whole text block">
           Alignment
           <select
@@ -140,77 +131,6 @@ export function TextToolbar({
       <div className="text-toolbar-footer">
         <span className="text-scope">{scope}</span>
         <div className="text-edit-actions">{children}</div>
-      </div>
-      <div
-        ref={popover}
-        id={popoverId}
-        popover="auto"
-        className="text-link-popover"
-        role="dialog"
-        aria-label="Link destination"
-      >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (!pageId && !safeLinkHref(url)) {
-              setError('Enter an https:// URL, /path, #section, mailto: or tel: destination.')
-              return
-            }
-            link({ pageId: pageId || null, href: pageId ? null : url.trim() })
-            popover.current?.hidePopover()
-          }}
-        >
-          <strong>Link destination</strong>
-          <label>
-            Link to page
-            <select
-              aria-label="Link to page"
-              value={pageId}
-              disabled={disabled}
-              onChange={(event) => setPageId(event.target.value)}
-            >
-              <option value="">URL or email</option>
-              {Object.values(doc.pages)
-                .filter((page) => !page.collection)
-                .map((page) => (
-                  <option key={page.id} value={page.id}>
-                    {page.name}
-                  </option>
-                ))}
-            </select>
-          </label>
-          {!pageId && (
-            <label>
-              Destination
-              <input
-                aria-label="Link destination"
-                disabled={disabled}
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder="https://example.com"
-              />
-            </label>
-          )}
-          <ErrorNote message={error} />
-          <div className="row">
-            <button type="submit" disabled={disabled}>
-              Apply link
-            </button>
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => {
-                link(null)
-                popover.current?.hidePopover()
-              }}
-            >
-              Remove link
-            </button>
-            <button type="button" onClick={() => popover.current?.hidePopover()}>
-              Cancel link
-            </button>
-          </div>
-        </form>
       </div>
     </section>
   )

@@ -176,8 +176,8 @@ function PageSettings({
         <p className="hint">
           Use / for the home page.
           {page?.collection ? ' Keep the collection parameter in the path.' : ''} Changing a path
-          updates rich-text page links automatically; manually entered URL links keep their original
-          path.
+          updates links that point at this page automatically; manually entered URL links keep their
+          original path.
         </p>
         <label>
           SEO title

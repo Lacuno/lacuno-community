@@ -10,11 +10,21 @@ import {
   siblingMove,
   structureInsertion,
   structureRestriction,
-  structures,
   subtreeRestriction,
+  wrappers,
   wrapSelection,
 } from '../src/structure.js'
 import { commit } from './helpers.js'
+
+/** The properties a preset's local class declares, keyed by property. */
+const styleValues = (operations: Operation[]) =>
+  Object.fromEntries(
+    operations.flatMap((operation) =>
+      operation.type === 'style.set' && operation.value.type === 'raw'
+        ? [[operation.property, operation.value.value]]
+        : [],
+    ),
+  )
 
 it('round-trips insertion, subtree edits and sibling moves with stable IDs', async () => {
   const original = fixtureDocument()
@@ -60,7 +70,7 @@ it('offers valid destinations and protects locked ancestors and shared component
     expect(structureRestriction(doc, component.root)).toContain('Component')
 })
 
-it.each(structures)(
+it.each(wrappers)(
   'wraps content in %s without losing identity and restores it on undo',
   async (preset) => {
     const original = fixtureDocument()
@@ -83,6 +93,66 @@ it.each(structures)(
     expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
   },
 )
+
+it('builds link and button presets bound to the current page', () => {
+  const link = presetNode('link', '', '', 'p-home')
+  expect(link).toMatchObject({
+    type: 'text',
+    tag: 'a',
+    text: { type: 'static', value: 'Link' },
+    meta: { label: 'Link' },
+    attrs: { href: { type: 'page', page: 'p-home' } },
+  })
+  expect(link.classes).toEqual([])
+  const button = structureInsertion(
+    'button',
+    { parent: 'n-hero-inner', index: 0 },
+    '',
+    false,
+    '',
+    'p-home',
+  )
+  expect(button.node).toMatchObject({
+    tag: 'a',
+    text: { type: 'static', value: 'Button' },
+    meta: { label: 'Button' },
+    attrs: { href: { type: 'page', page: 'p-home' } },
+  })
+  expect(button.operations).toContainEqual({
+    type: 'class.create',
+    id: button.node.classes[0],
+    local: true,
+  })
+  expect(styleValues(button.operations)).toEqual({
+    display: 'inline-block',
+    padding: '12px 20px',
+    'border-radius': '8px',
+    background: '#6434d9',
+    color: 'white',
+    'text-decoration': 'none',
+    'font-weight': '600',
+  })
+})
+
+it('wraps a selection in a link and refuses to nest one link inside another', () => {
+  const doc = fixtureDocument()
+  const wrap = wrapSelection(doc, 'n-hero-title', 'link')
+  expect(wrap.node).toMatchObject({
+    type: 'element',
+    tag: 'a',
+    attrs: { href: { type: 'page', page: 'p-home' } },
+  })
+  expect(styleValues(wrap.operations)).toEqual({
+    display: 'block',
+    color: 'inherit',
+    'text-decoration': 'none',
+  })
+  // The selection is already a link.
+  expect(() => wrapSelection(doc, 'n-hero-cta', 'link')).toThrow('another link')
+  const nested = fixtureDocument()
+  ;(nested.nodes['n-hero'] as { tag: string }).tag = 'a'
+  expect(() => wrapSelection(nested, 'n-hero-title', 'link')).toThrow('another link')
+})
 
 it('protects roots and locked selections from wrapping and creates empty layout blocks', () => {
   const doc = fixtureDocument()

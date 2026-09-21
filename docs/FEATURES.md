@@ -9,7 +9,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | --- | --- | --- |
 | Canvas in an isolated iframe with click, drag, resize, marquee select | MVP | Editor chrome never leaks CSS into the site |
 | Layer tree (navigator) with drag reorder, rename, hide, lock | MVP | |
-| Element palette: div, section, container, heading, paragraph, text span, link, button, image, video, list, form controls, embed | MVP | Semantic tag is chosen per element, not implied by a component name |
+| Element palette: div, section, container, heading, paragraph, text span, link, button, image, video, list, form controls, embed | MVP | Semantic tag is chosen per element, not implied by a component name. In: section, container, stack, row, grid, heading, paragraph, image, link and button, plus Wrap selection in any structure or a link. A link and a button are both `a` elements; a form button waits for forms |
 | Style panel: box model, size, position, display, flex, grid, typography, backgrounds, borders, shadows, effects, transforms, overflow, cursor | MVP | Every CSS property reachable, common ones with visual controls |
 | Classes and combo classes | MVP | Webflow model. Styles attach to classes, elements reference classes |
 | Breakpoint cascade | MVP | Desktop-first base with tablet, mobile landscape, mobile portrait. Custom breakpoints. Container queries as a per-element option |

@@ -23,6 +23,14 @@ describe('resolveBinding', () => {
     )
   })
 
+  it('resolves a page binding to the page path, params included', () => {
+    expect(resolveBinding(doc, { type: 'page', page: 'p-home' }, empty, 'n')).toBe('/')
+    expect(resolveBinding(doc, { type: 'page', page: 'p-post' }, empty, 'n')).toBe('/blog/[slug]')
+    expect(() => resolveBinding(doc, { type: 'page', page: 'p-nope' }, empty, 'n')).toThrow(
+      'unknown page p-nope',
+    )
+  })
+
   it('resolves fields from the current entry', () => {
     expect(resolveBinding(doc, { type: 'field', field: 'f-title' }, withEntry, 'n')).toBe(
       'Hello world',

@@ -3,15 +3,19 @@ import type { Document } from '@freeflow/schema'
 import { useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
 import {
+  actions,
   insertionTarget,
   nodeLabel,
   type Placement,
   type Preset,
-  type Structure,
+  pageOf,
   siblingMove,
   structureInsertion,
   structures,
   subtreeRestriction,
+  type Wrapper,
+  wrappers,
+  wrapRestriction,
   wrapSelection,
 } from './structure.js'
 
@@ -37,13 +41,8 @@ export function StructurePanel({
   const [preset, setPreset] = useState<Preset>('heading')
   const [placement, setPlacement] = useState<Placement>('page')
   const [classId, setClassId] = useState('')
-  const [wrapper, setWrapper] = useState<Structure>('container')
-  let wrapReason = ''
-  try {
-    insertionTarget(doc, root, selected, 'after')
-  } catch (error) {
-    wrapReason = (error as Error).message
-  }
+  const [wrapper, setWrapper] = useState<Wrapper>('container')
+  const wrapReason = wrapRestriction(doc, selected, wrapper) ?? ''
   let target: ReturnType<typeof insertionTarget> | undefined
   let reason = ''
   try {
@@ -63,6 +62,7 @@ export function StructurePanel({
             { label: 'Structure', items: structures },
             { label: 'Text', items: ['heading', 'paragraph'] as const },
             { label: 'Media', items: ['image'] as const },
+            { label: 'Actions', items: actions },
           ].map((group) => (
             <section className="insert-category" key={group.label}>
               <h3>{group.label}</h3>
@@ -136,7 +136,14 @@ export function StructurePanel({
             disabled={disabled || !target}
             onClick={async () => {
               if (!target) return
-              const { node, operations } = structureInsertion(preset, target, classId, false)
+              const { node, operations } = structureInsertion(
+                preset,
+                target,
+                classId,
+                false,
+                '',
+                pageOf(doc, root),
+              )
               if (await save(operations)) select(node.id)
             }}
           >
@@ -172,9 +179,9 @@ export function StructurePanel({
                 <select
                   aria-label="Wrap structure"
                   value={wrapper}
-                  onChange={(event) => setWrapper(event.target.value as Structure)}
+                  onChange={(event) => setWrapper(event.target.value as Wrapper)}
                 >
-                  {structures.map((name) => (
+                  {wrappers.map((name) => (
                     <option key={name} value={name}>
                       {name[0]!.toUpperCase() + name.slice(1)}
                     </option>
@@ -233,4 +240,6 @@ const tilePaths: Record<Preset, string> = {
   grid: 'M4 4h24v24H4zM16 4v24M4 16h24',
   heading: 'M7 5v22M25 5v22M7 16h18',
   paragraph: 'M6 7h20M6 13h20M6 19h20M6 25h12',
+  link: 'M13 19l6-6M11 15l-3 3a5 5 0 007 7l3-3M21 17l3-3a5 5 0 00-7-7l-3 3',
+  button: 'M4 8h24v12H4zM17 18l9 4-4 1.5-1.5 4z',
 }

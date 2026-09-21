@@ -69,6 +69,18 @@ describe('document schema', () => {
     expect(msgs).toContain('unknown collection col-nope')
   })
 
+  it('accepts a page binding and rejects one pointing at an unknown page', () => {
+    const doc = fixtureDocument()
+    doc.nodes['n-hero-cta']!.attrs = { href: { type: 'page', page: 'p-home' } }
+    expect(parseDocument(JSON.parse(JSON.stringify(doc))).nodes['n-hero-cta']!.attrs).toEqual({
+      href: { type: 'page', page: 'p-home' },
+    })
+    doc.nodes['n-hero-cta']!.attrs = { href: { type: 'page', page: 'p-nope' } }
+    expect(checkReferences(doc)).toEqual([
+      { path: 'nodes.n-hero-cta', message: 'unknown page p-nope' },
+    ])
+  })
+
   it('rejects a style whose key does not match its coordinates', () => {
     const doc = fixtureDocument()
     const [key, decl] = Object.entries(doc.styles)[0]!

@@ -1,4 +1,5 @@
 import { Document } from './document.js'
+import { nodeBindings } from './nodes.js'
 import { BASE_BREAKPOINT_ID, styleKey } from './styles.js'
 
 export type Issue = { path: string; message: string }
@@ -57,6 +58,9 @@ export function checkReferences(doc: Document): Issue[] {
     }
     for (const cls of node.classes) {
       if (!doc.classes[cls]) add(`nodes.${id}`, `unknown class ${cls}`)
+    }
+    for (const b of nodeBindings(node)) {
+      if (b.type === 'page' && !doc.pages[b.page]) add(`nodes.${id}`, `unknown page ${b.page}`)
     }
     if (node.type === 'component' && !doc.components[node.component])
       add(`nodes.${id}`, `unknown component ${node.component}`)

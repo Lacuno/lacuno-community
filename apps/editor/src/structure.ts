@@ -6,7 +6,13 @@ import { type InsertNode, type PageTree, pageTree } from './history.js'
 
 export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
 export type Structure = (typeof structures)[number]
-export type Preset = 'heading' | 'paragraph' | 'image' | Structure
+export const actions = ['link', 'button'] as const
+export type Action = (typeof actions)[number]
+export type Preset = 'heading' | 'paragraph' | 'image' | Structure | Action
+/** Wrap in link builds an `a` around the selection; the palette's Link is a text node. */
+type Buildable = Preset | 'link-wrapper'
+export const wrappers = [...structures, 'link'] as const
+export type Wrapper = (typeof wrappers)[number]
 export type Placement = 'inside' | 'after' | 'page'
 const containers = new Set([
   'div',
@@ -42,6 +48,25 @@ export function isLocked(doc: Document, id: string) {
   for (let current: string | null = id; current; current = doc.nodes[current]?.parent ?? null)
     if (doc.nodes[current]?.meta?.locked) return true
   return false
+}
+
+/** True when this node sits inside a link: nested anchors are invalid HTML. */
+export function hasAnchorParent(doc: Document, node: Node): boolean {
+  for (
+    let parent = node.parent ? doc.nodes[node.parent] : undefined;
+    parent;
+    parent = parent.parent ? doc.nodes[parent.parent] : undefined
+  ) {
+    if ('tag' in parent && parent.tag === 'a') return true
+  }
+  return false
+}
+
+/** The page a node belongs to, so a new link can point at it. Empty inside a component. */
+export function pageOf(doc: Document, id: string): string {
+  let root = id
+  for (let parent = doc.nodes[root]?.parent; parent; parent = doc.nodes[root]?.parent) root = parent
+  return Object.values(doc.pages).find((page) => page.root === root)?.id ?? ''
 }
 
 /** True when this node or any ancestor is the shared root of a component definition. */
@@ -102,7 +127,12 @@ export function siblingMove(doc: Document, id: string, direction: -1 | 1): Opera
   return { type: 'node.move', id, parent: parent.id, index }
 }
 
-export function presetNode(preset: Preset, classId: string, assetId = ''): InsertNode {
+export function presetNode(
+  preset: Buildable,
+  classId: string,
+  assetId = '',
+  pageId = '',
+): InsertNode {
   const makeId = () => `n-${crypto.randomUUID()}`
   const text = (tag: string, label: string, value: string): InsertNode => ({
     id: makeId(),
@@ -127,9 +157,25 @@ export function presetNode(preset: Preset, classId: string, assetId = ''): Inser
     }
   }
   const classes = classId ? [classId] : []
+  // A page binding keeps the link pointing at the page after a path change.
+  const href = pageId ? { attrs: { href: { type: 'page' as const, page: pageId } } } : {}
   if (preset === 'heading') return { ...text('h2', 'Heading', 'Your new heading'), classes }
   if (preset === 'paragraph')
     return { ...text('p', 'Paragraph', 'Write something worth sharing.'), classes }
+  if (preset === 'link' || preset === 'button') {
+    const label = preset === 'link' ? 'Link' : 'Button'
+    return { ...text('a', label, label), classes, ...href }
+  }
+  if (preset === 'link-wrapper')
+    return {
+      id: makeId(),
+      type: 'element',
+      tag: 'a',
+      classes,
+      ...href,
+      meta: { label: 'Link' },
+      children: [],
+    }
   return {
     id: makeId(),
     type: 'element',
@@ -146,7 +192,7 @@ export function presetNode(preset: Preset, classId: string, assetId = ''): Inser
   }
 }
 
-const defaults: Record<Structure | 'image', Record<string, string>> = {
+const defaults: Record<Structure | 'image' | 'button' | 'link-wrapper', Record<string, string>> = {
   image: {
     display: 'block',
     'max-width': '100%',
@@ -160,23 +206,34 @@ const defaults: Record<Structure | 'image', Record<string, string>> = {
   stack: { display: 'flex', 'flex-direction': 'column', gap: '16px' },
   row: { display: 'flex', 'flex-direction': 'row', 'flex-wrap': 'wrap', gap: '16px' },
   grid: { display: 'grid', 'grid-template-columns': 'repeat(3, minmax(0, 1fr))', gap: '16px' },
+  button: {
+    display: 'inline-block',
+    padding: '12px 20px',
+    'border-radius': '8px',
+    background: '#6434d9',
+    color: 'white',
+    'text-decoration': 'none',
+    'font-weight': '600',
+  },
+  'link-wrapper': { display: 'block', color: 'inherit', 'text-decoration': 'none' },
 }
 
 export function structureInsertion(
-  preset: Preset,
+  preset: Buildable,
   target: { parent: string; index: number },
   classId = '',
   empty = false,
   assetId = '',
+  pageId = '',
 ): { node: InsertNode; operations: Operation[] } {
-  const node = presetNode(preset, classId, assetId)
+  const node = presetNode(preset, classId, assetId, pageId)
   if (empty) node.children = []
   const operations: Operation[] = []
   if (preset in defaults) {
     const id = `c-${crypto.randomUUID()}`
     node.classes.push(id)
     operations.push({ type: 'class.create', id, local: true })
-    for (const [property, value] of Object.entries(defaults[preset as Structure | 'image'])) {
+    for (const [property, value] of Object.entries(defaults[preset as keyof typeof defaults])) {
       operations.push({
         type: 'style.set',
         class: id,
@@ -191,9 +248,30 @@ export function structureInsertion(
   return { node, operations }
 }
 
-export function wrapSelection(doc: Document, id: string, preset: Structure) {
+/** Why this wrapper cannot go around the selection, if it cannot. */
+export function wrapRestriction(doc: Document, id: string, preset: Wrapper): string | undefined {
+  try {
+    insertionTarget(doc, '', id, 'after')
+  } catch (error) {
+    return (error as Error).message
+  }
+  const node = doc.nodes[id]!
+  if (preset === 'link' && (('tag' in node && node.tag === 'a') || hasAnchorParent(doc, node)))
+    return 'A link cannot be wrapped in another link.'
+}
+
+export function wrapSelection(doc: Document, id: string, preset: Wrapper) {
+  const reason = wrapRestriction(doc, id, preset)
+  if (reason) throw new Error(reason)
   const target = insertionTarget(doc, '', id, 'after')
-  const result = structureInsertion(preset, { ...target, index: target.index - 1 }, '', true)
+  const result = structureInsertion(
+    preset === 'link' ? 'link-wrapper' : preset,
+    { ...target, index: target.index - 1 },
+    '',
+    true,
+    '',
+    pageOf(doc, id),
+  )
   result.operations.push({ type: 'node.move', id, parent: result.node.id, index: 0 })
   return result
 }
@@ -250,7 +328,14 @@ export function dropEdit(
 ) {
   const target = dropTarget(doc, root, item, id, position)
   if ('preset' in item)
-    return structureInsertion(item.preset, target, item.classId, false, item.assetId)
+    return structureInsertion(
+      item.preset,
+      target,
+      item.classId,
+      false,
+      item.assetId,
+      pageOf(doc, root),
+    )
   const node = doc.nodes[item.id]!
   const unchanged =
     node.parent === target.parent && doc.nodes[target.parent]!.children[target.index] === item.id

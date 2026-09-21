@@ -12,24 +12,14 @@ import { EditorIcon } from './EditorIcon.js'
 import { FormattingControls } from './FormattingControls.js'
 import { formattingOperations, localClass, localValue, normalizeFormatting } from './formatting.js'
 import { ImageLibrary } from './ImageLibrary.js'
+import { LinkTarget } from './LinkTarget.js'
 import { PresetManager } from './PresetManager.js'
 import { placePopover } from './popover.js'
 import { stateInfo } from './states.js'
-import { isLocked, isShared, nodeLabel } from './structure.js'
+import { hasAnchorParent, isLocked, isShared, nodeLabel } from './structure.js'
 import { TextToolbar } from './TextToolbar.js'
 import { textLink, textProperties, wholeText } from './textFormatting.js'
 import { useAutosave } from './useAutosave.js'
-
-function hasAnchorParent(doc: Document, node: Node): boolean {
-  for (
-    let parent = node.parent ? doc.nodes[node.parent] : undefined;
-    parent;
-    parent = parent.parent ? doc.nodes[parent.parent] : undefined
-  ) {
-    if ('tag' in parent && parent.tag === 'a') return true
-  }
-  return false
-}
 
 function editableText(node: Node): string | undefined {
   if (node.type !== 'text') return undefined
@@ -86,6 +76,8 @@ export function Inspector({
   const scopeInfoId = useId()
   const scopeInfo = useRef<HTMLDivElement>(null)
   const isImage = node.type === 'element' && node.tag === 'img'
+  const isLink = 'tag' in node && node.tag === 'a'
+  const linkHref = isLink ? node.attrs?.href : undefined
   const originalAlt = node.attrs?.alt?.type === 'static' ? String(node.attrs.alt.value) : ''
   const originalAsset = node.attrs?.src?.type === 'asset' ? node.attrs.src.asset : ''
   const [imageAlt, setImageAlt] = useState(originalAlt)
@@ -350,6 +342,44 @@ export function Inspector({
         </div>
         {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
         {locked && <p className="note">This element or its parent is locked.</p>}
+        {isLink && (
+          <div className="link-target-row">
+            <span>Link target</span>
+            <strong>
+              {linkHref?.type === 'page'
+                ? (doc.pages[linkHref.page]?.name ?? 'Unknown page')
+                : linkHref?.type === 'static'
+                  ? String(linkHref.value)
+                  : 'No destination yet'}
+            </strong>
+            <LinkTarget
+              doc={doc}
+              label="Change"
+              disabled={disabled || !settled}
+              current={
+                linkHref?.type === 'page'
+                  ? { pageId: linkHref.page }
+                  : linkHref?.type === 'static'
+                    ? { href: String(linkHref.value) }
+                    : undefined
+              }
+              apply={(value) =>
+                void save([
+                  {
+                    type: 'node.update',
+                    id: node.id,
+                    attrs: {
+                      ...node.attrs,
+                      href: value.pageId
+                        ? { type: 'page', page: value.pageId }
+                        : { type: 'static', value: value.href ?? '' },
+                    },
+                  },
+                ])
+              }
+            />
+          </div>
+        )}
         <form
           onSubmit={(event) => {
             event.preventDefault()

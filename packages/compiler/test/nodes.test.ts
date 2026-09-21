@@ -102,6 +102,35 @@ describe('renderNode: elements and text', () => {
     )
   })
 
+  it('renders a page binding as the page path, params as written', () => {
+    const doc = fixtureDocument()
+    doc.pages['p-about'] = { id: 'p-about', name: 'About', path: '/about', root: 'n-about' }
+    doc.nodes['n-about'] = {
+      id: 'n-about',
+      type: 'element',
+      tag: 'main',
+      parent: null,
+      children: [],
+      classes: [],
+    }
+    doc.nodes.link = {
+      id: 'link',
+      type: 'element',
+      tag: 'a',
+      parent: null,
+      children: [],
+      classes: [],
+      attrs: { href: { type: 'page', page: 'p-about' } },
+    }
+    expect(renderNode('link', empty, state(doc))).toBe('<a href="/about"></a>')
+    doc.nodes.post = {
+      ...doc.nodes.link,
+      id: 'post',
+      attrs: { href: { type: 'page', page: 'p-post' } },
+    }
+    expect(renderNode('post', empty, state(doc))).toBe('<a href="/blog/[slug]"></a>')
+  })
+
   it('links an image asset bound to a non-src attribute through the resolver, not a dead public path', () => {
     const doc = fixtureDocument()
     doc.nodes.link = {

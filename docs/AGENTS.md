@@ -45,6 +45,10 @@ The same tool set, exposed for external agents such as Claude Code, Cursor and C
 - **Phase 0 tools.** `guide`, `document.read`, `page.outline`, `node.get`, `styles.get`,
   `entries.list`, `document.apply`, `asset.import` and `site.build`, plus the document schema and
   operations schema resources.
+- **Bindings.** A node attribute, a bound text value and a component prop each hold a binding:
+  `static`, `field`, `designToken`, `asset`, `prop` or `page`. A `page` binding names a page id and
+  compiles to that page's path, so a link survives a path change; deleting a referenced page is
+  refused with the referencing node ids.
 - **Version-pinned mutations.** Every write names the document version it read. A stale write is
   rejected with the current version so the agent re-reads and retries instead of overwriting.
 - **Dry run** on every mutating tool returns the resulting diff without applying it.

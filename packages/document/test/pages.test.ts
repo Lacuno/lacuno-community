@@ -74,6 +74,49 @@ describe('pages', () => {
     failing([{ type: 'page.update', id: 'nope', name: 'x' }], /unknown page nope/)
     failing([{ type: 'page.delete', id: 'nope' }], /unknown page nope/)
   })
+  it('refuses deleting a page a node binding points at, and allows it once the node is gone', () => {
+    const doc = run([
+      {
+        type: 'node.create',
+        parent: 'n-hero-inner',
+        node: {
+          type: 'element',
+          tag: 'a',
+          id: 'n-link',
+          attrs: { href: { type: 'page', page: 'p-post' } },
+        },
+      },
+    ]).document
+    const e = failing([{ type: 'page.delete', id: 'p-post' }], /page p-post is referenced/, doc)
+    expect(e.referencedBy).toEqual(['nodes.n-link'])
+    const after = run(
+      [
+        { type: 'node.delete', id: 'n-link' },
+        { type: 'page.delete', id: 'p-post' },
+      ],
+      doc,
+    )
+    expect(after.document.pages['p-post']).toBeUndefined()
+  })
+
+  it('deletes a page that only links to itself', () => {
+    const root = fixtureDocument().pages['p-post']!.root
+    const doc = run([
+      {
+        type: 'node.create',
+        parent: root,
+        node: {
+          type: 'element',
+          tag: 'a',
+          id: 'n-self',
+          attrs: { href: { type: 'page', page: 'p-post' } },
+        },
+      },
+    ]).document
+    const after = run([{ type: 'page.delete', id: 'p-post' }], doc)
+    expect(after.document.pages['p-post']).toBeUndefined()
+    expect(after.document.nodes['n-self']).toBeUndefined()
+  })
 })
 
 describe('folders', () => {

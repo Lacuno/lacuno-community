@@ -19,9 +19,9 @@
   font-size: 11px;
   color: #62677c;
 }
-.text-toolbar-fields input,
-.text-toolbar-fields select,
-.text-toolbar-fields button {
+/* Direct children only: the shared link popover sits in this row but keeps its own sizing. */
+.text-toolbar-fields > label :where(input, select),
+.text-toolbar-fields > button {
   padding: 4px 8px;
   line-height: normal;
   height: 30px;

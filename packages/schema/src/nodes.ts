@@ -7,6 +7,7 @@ import {
   DesignTokenId,
   FieldId,
   NodeId,
+  PageId,
 } from './ids.js'
 
 /**
@@ -25,6 +26,7 @@ export const Binding = z.discriminatedUnion('type', [
   z.object({ type: z.literal('designToken'), designToken: DesignTokenId }),
   z.object({ type: z.literal('asset'), asset: AssetId }),
   z.object({ type: z.literal('prop'), prop: z.string().min(1) }),
+  z.object({ type: z.literal('page'), page: PageId }),
 ])
 export type Binding = z.infer<typeof Binding>
 
@@ -143,3 +145,14 @@ export type ElementNode = z.infer<typeof ElementNode>
 export type TextNode = z.infer<typeof TextNode>
 export type CollectionListNode = z.infer<typeof CollectionListNode>
 export type ComponentInstanceNode = z.infer<typeof ComponentInstanceNode>
+
+/** Every binding a node carries: its attrs, a bound text value, and a component's props. */
+export function nodeBindings(node: Node): Binding[] {
+  return [
+    ...Object.values(node.attrs ?? {}),
+    ...(node.type === 'text' && node.text.type !== 'doc' ? [node.text] : []),
+    ...(node.type === 'component' || node.type === 'code-component'
+      ? Object.values(node.props ?? {})
+      : []),
+  ]
+}

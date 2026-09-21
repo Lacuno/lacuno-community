@@ -49,6 +49,12 @@ export function resolveBinding(doc: Document, b: Binding, scope: Scope, nodeId: 
         throw new RenderError(`unknown field ${b.field}`, nodeId)
       return scope.entry.fields[b.field] as Resolved
     }
+    case 'page': {
+      const p = doc.pages[b.page]
+      if (!p) throw new RenderError(`unknown page ${b.page}`, nodeId)
+      // The path as written, params included, matching what a rich-text link mark resolves to.
+      return p.path
+    }
     case 'prop': {
       const frame = scope.frames[scope.frames.length - 1]
       if (!frame) throw new RenderError('prop binding outside a component', nodeId)

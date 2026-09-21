@@ -4,6 +4,7 @@ import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
+import { referencesToPage, subtreeIds } from '../references.js'
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 
 const PagePath = Page.shape.path
@@ -74,6 +75,10 @@ const pageDelete = defineOperation(
   z.strictObject({ type: z.literal('page.delete'), id: PageId }),
   (op, ctx) => {
     const page = ctx.require(ctx.doc.pages[op.id], `unknown page ${op.id}`, op.id)
+    // Links on the page itself go with it; only links elsewhere keep it alive.
+    const own = new Set(subtreeIds(ctx.doc, page.root).map((id) => `nodes.${id}`))
+    const referencedBy = referencesToPage(ctx.doc, op.id).filter((ref) => !own.has(ref))
+    if (referencedBy.length) ctx.fail(`page ${op.id} is referenced`, { id: op.id, referencedBy })
     return [{ op: 'delete', path: ['pages', op.id] }, ...deleteSubtreePatches(ctx.doc, page.root)]
   },
 )
