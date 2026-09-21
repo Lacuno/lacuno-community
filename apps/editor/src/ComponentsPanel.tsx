@@ -1,7 +1,6 @@
-import type { Binding, Component, Document } from '@freeflow/schema'
+import type { Binding, Component, ComponentInstanceNode, Document } from '@freeflow/schema'
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import {
-  type ComponentInstance,
   componentDeletionReason,
   componentNameError,
   componentTextFields,
@@ -9,11 +8,13 @@ import {
   componentWouldCycle,
   duplicateComponent,
   extractComponent,
+  fieldName,
   fieldRemovalReason,
   updateComponentFields,
 } from './components.js'
 import { EditorIcon } from './EditorIcon.js'
 import type { EditOperation } from './history.js'
+import { isLocked } from './structure.js'
 import { useAutosave } from './useAutosave.js'
 import './components.css'
 
@@ -95,7 +96,7 @@ export function ComponentsPanel({
             </button>
             <button
               type="button"
-              className="component-insert"
+              className="component-actions"
               aria-label={`Actions for ${component.name}`}
               title={`Actions for ${component.name}`}
               aria-haspopup="dialog"
@@ -329,7 +330,7 @@ export function CreateComponentDialog({
                     )
                   }
                 />
-                <span>{node.text.type === 'static' ? String(node.text.value) : ''}</span>
+                <span>{node.text.value}</span>
               </label>
             ))}
           </details>
@@ -468,7 +469,7 @@ export function ComponentInstancePanel({
   detach,
 }: {
   doc: Document
-  node: ComponentInstance
+  node: ComponentInstanceNode
   busy: boolean
   conflict: boolean
   save: Save
@@ -481,14 +482,7 @@ export function ComponentInstancePanel({
   const usage = componentUsage(doc, component.id)
   const [values, setValues] = useState(node.props ?? {})
   const dirty = JSON.stringify(values) !== JSON.stringify(node.props ?? {})
-  let locked = false
-  for (
-    let current: (typeof doc.nodes)[string] | undefined = node;
-    current;
-    current = current.parent ? doc.nodes[current.parent] : undefined
-  ) {
-    if (current.meta?.locked) locked = true
-  }
+  const locked = isLocked(doc, node.id)
   const autosave = useAutosave(
     dirty
       ? [{ type: 'node.update', id: node.id, props: Object.keys(values).length ? values : null }]
@@ -681,7 +675,7 @@ export function ComponentSettingsDialog({
               .filter((node) => !exposed[node.id])
               .map((node) => (
                 <option key={node.id} value={node.id}>
-                  {node.text.type === 'static' ? String(node.text.value) : node.id}
+                  {node.text.value}
                 </option>
               ))}
           </select>
@@ -693,14 +687,14 @@ export function ComponentSettingsDialog({
             const node = componentTextFields(doc, component.root).find(
               (node) => node.id === textToExpose,
             )
-            if (node?.text.type !== 'static') return
-            const field = `content${crypto.randomUUID().replaceAll('-', '')}`
+            if (!node) return
+            const field = fieldName(fields)
             setFields([
               ...fields,
               {
                 name: field,
                 type: 'string',
-                label: node.meta?.label ?? String(node.text.value).slice(0, 48),
+                label: node.meta?.label ?? node.text.value.slice(0, 48),
                 default: node.text.value,
               },
             ])

@@ -45,6 +45,7 @@
   flex-shrink: 0;
 }
 .component-row .component-insert,
+.component-row .component-actions,
 .component-dialog .component-close {
   display: grid;
   place-items: center;

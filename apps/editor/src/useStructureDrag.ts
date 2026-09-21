@@ -1,7 +1,7 @@
 import type { Document as SiteDocument } from '@freeflow/schema'
 import { useEffect, useRef } from 'react'
 import { createDragPreview } from './dragPreview.js'
-import { canvasDropTarget, layoutAxis } from './dragTarget.js'
+import { canvasDropTarget } from './dragTarget.js'
 import type { EditOperation } from './history.js'
 import {
   canContain,
@@ -66,46 +66,39 @@ function createController(getOptions: () => Options) {
       }
     }
     clearers.add(reset)
-    const previewTarget = (event: DragEvent) => {
-      const { doc, root, disabled, siteId } = getOptions()
-      if (!item || !doc || !root || disabled || !surface.defaultView?.frameElement) return
-      const target = canvasDropTarget(surface, doc, root, item, event.clientX, event.clientY)
-      if (!target) return
-      if (previewItem !== item) {
-        preview?.dispose()
-        preview = createDragPreview(surface, doc, item, siteId)
-        previewItem = item
-      }
-      return preview ? target : undefined
-    }
+    const onCanvas = !!surface.defaultView?.frameElement
     const elementAt = (event: DragEvent) =>
       (event.target as Element | null)?.closest?.<HTMLElement>(
         '[data-drag-preset], [data-drag-node], [data-freeflow-node]',
       )
-    const resolve = (event: DragEvent) => {
+    // The canvas hit-tests real geometry; layer rows are a plain vertical list.
+    const locate = (event: DragEvent) => {
       const { doc, root, disabled } = getOptions()
+      if (!item || !doc || !root || disabled) return
+      if (onCanvas) return canvasDropTarget(surface, doc, root, item, event.clientX, event.clientY)
       const element = elementAt(event)
-      const id = element?.dataset.dragNode ?? element?.dataset.freeflowNode
-      if (!item || !doc || !root || disabled || !element || !id) return
+      const id = element?.dataset.dragNode
+      if (!element || !id) return
       const rect = element.getBoundingClientRect()
-      const parentStyle =
-        element.parentElement && surface.defaultView?.getComputedStyle(element.parentElement)
-      const { horizontal, reverse } =
-        !element.dataset.dragNode && parentStyle
-          ? layoutAxis(parentStyle)
-          : { horizontal: false, reverse: false }
-      const fraction = horizontal
-        ? (event.clientX - rect.left) / Math.max(1, rect.width)
-        : (event.clientY - rect.top) / Math.max(1, rect.height)
+      const fraction = (event.clientY - rect.top) / Math.max(1, rect.height)
       const inside = canContain(doc, id) && (id === root || (fraction > 0.25 && fraction < 0.75))
       const leading = fraction < 0.5
-      const position: DropPosition = inside ? 'inside' : leading !== !!reverse ? 'before' : 'after'
+      const position: DropPosition = inside ? 'inside' : leading ? 'before' : 'after'
       try {
-        dropTarget(doc, root, item, id, position)
+        const destination = dropTarget(doc, root, item, id, position)
+        return { ...destination, id, position, rect, horizontal: false, leading }
       } catch {
         return
       }
-      return { id, position, rect, horizontal, leading, doc }
+    }
+    const ensurePreview = () => {
+      const { doc, siteId } = getOptions()
+      if (previewItem !== item && doc) {
+        preview?.dispose()
+        preview = createDragPreview(surface, doc, item!, siteId)
+        previewItem = item
+      }
+      return preview
     }
     const start = (event: DragEvent) => {
       end()
@@ -172,20 +165,23 @@ function createController(getOptions: () => Options) {
       }
       if (!item) return
       event.preventDefault()
-      const projected = previewTarget(event)
-      if (projected) {
+      const target = locate(event)
+      if (event.dataTransfer)
+        event.dataTransfer.dropEffect = target ? ('preset' in item ? 'copy' : 'move') : 'none'
+      if (!target) {
+        clear()
+        return
+      }
+      const projection = onCanvas && ensurePreview()
+      if (projection) {
         clear(reset)
         indicator.style.display = 'none'
-        preview!.show(projected)
-        if (event.dataTransfer) event.dataTransfer.dropEffect = 'preset' in item ? 'copy' : 'move'
+        projection.show(target)
         return
       }
       clear()
-      const target = resolve(event)
-      if (event.dataTransfer)
-        event.dataTransfer.dropEffect = target ? ('preset' in item ? 'copy' : 'move') : 'none'
-      if (!target) return
-      const { rect, position, horizontal, leading, id, doc } = target
+      const { rect, position, horizontal, leading, id } = target
+      const doc = getOptions().doc!
       const inside = position === 'inside'
       Object.assign(indicator.style, {
         display: 'block',
@@ -210,9 +206,7 @@ function createController(getOptions: () => Options) {
       if (!item) return
       event.preventDefault()
       event.stopPropagation()
-      const projected = previewTarget(event)
-      if (!projected) clear()
-      const target = projected ?? resolve(event)
+      const target = locate(event)
       const source = item
       const { doc, root, save, select } = getOptions()
       if (!target || !doc || !root) {
@@ -221,7 +215,7 @@ function createController(getOptions: () => Options) {
       }
       const edit = dropEdit(doc, root, source, target.id, target.position)
       // Keep the last projection while the save is in flight instead of snapping back on drop.
-      const pending = projected && edit.operations.length ? preview : undefined
+      const pending = edit.operations.length ? preview : undefined
       if (pending) preview = undefined
       end()
       if (edit.operations.length)

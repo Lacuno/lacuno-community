@@ -2,7 +2,7 @@ import type { Document as SiteDocument } from '@freeflow/schema'
 import { dragInsertion } from './dragInsertion.js'
 import type { DragItem } from './structure.js'
 
-export type DragDestination = { parent: string; index: number; id: string }
+type DragDestination = { parent: string; index: number; id: string }
 
 /** A sandboxed visual projection; the real canvas and its hit geometry never move. */
 export function createDragPreview(

@@ -67,7 +67,7 @@ export function canvasDropTarget(
         : 'after'
     try {
       const destination = dropTarget(doc, root, item, id, position)
-      return { id, position, ...destination }
+      return { ...destination, id, position, rect, horizontal, leading: offset < size / 2 }
     } catch {
       return
     }

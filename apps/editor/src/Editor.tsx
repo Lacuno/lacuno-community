@@ -40,6 +40,7 @@ import { StructurePanel } from './StructurePanel.js'
 import {
   duplicateSelection,
   insertionTarget,
+  isLocked,
   structureInsertion,
   subtreeRestriction,
 } from './structure.js'
@@ -52,14 +53,20 @@ const InlineTextEditor = lazy(() =>
 type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
 type Operation = EditOperation
 const describe = (node: Node) => node.meta?.label ?? ('tag' in node ? node.tag : node.type)
+const sidebars = {
+  Add: 'plus',
+  Layers: 'layers',
+  Components: 'component',
+  Pages: 'page',
+  Assets: 'image',
+} as const
+type Sidebar = keyof typeof sidebars
 
 export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot>()
   const [ribbonHost, setRibbonHost] = useState<HTMLDivElement | null>(null)
   const [ribbonTab, setRibbonTab] = useState('Home')
-  const [sidebar, setSidebar] = useState<'Add' | 'Layers' | 'Components' | 'Pages' | 'Assets'>(
-    'Layers',
-  )
+  const [sidebar, setSidebar] = useState<Sidebar>('Layers')
   const [inlineTarget, setInlineTarget] = useState<InlineTarget>()
   const elementActionsId = useId()
   const ribbonGroup =
@@ -108,17 +115,26 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const page = doc?.pages[pageId]
   const editingComponent = doc?.components[componentId]
   const editingId = editingComponent?.id ?? ''
+  const componentRef = useRef(componentId)
+  componentRef.current = componentId
   const editableDoc = useMemo(
-    () => doc && componentEditingDocument(doc, editingComponent?.id ?? ''),
-    [doc, editingComponent?.id],
+    () => doc && componentEditingDocument(doc, editingId),
+    [doc, editingId],
   )
+  // Nothing may change the document while a save is in flight, edits are pending or it conflicts.
+  const unsettled = busy || dirty || conflict
+  const frozen = unsettled || !!inlineTarget
   const editingRoot = editingComponent?.root ?? page?.root
   const entries = page?.collection ? (doc?.entries[page.collection] ?? []) : []
   const activeEntry = entries.find((entry) => entry.id === entryId)?.id ?? entries[0]?.id ?? ''
   const acceptSnapshot = useCallback((next: Snapshot, reset = true) => {
     next.document = parseDocument(next.document)
     setSnapshot(next)
-    setComponentId((current) => (next.document.components[current] ? current : ''))
+    if (componentRef.current && !next.document.components[componentRef.current]) {
+      // The edited definition was deleted: leave the shared editor the same way Done does.
+      setComponentId('')
+      setSelected(next.document.nodes[returnSelection.current] ? returnSelection.current : '')
+    }
     setPageId((current) =>
       next.document.pages[current]
         ? current
@@ -142,7 +158,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: a different page or entry must discard the prior canvas.
   useEffect(() => {
     setPreview(undefined)
-  }, [pageId, activeEntry, editingComponent?.id])
+  }, [pageId, activeEntry, editingId])
   useEffect(() => {
     if (!pageId || revision === undefined) return
     const controller = new AbortController()
@@ -230,7 +246,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
     }
   }
   async function nodeAction(action: 'duplicate' | 'delete', id: string) {
-    if (!editableDoc || busy || dirty || conflict || subtreeRestriction(editableDoc, id)) return
+    if (!editableDoc || unsettled || subtreeRestriction(editableDoc, id)) return
     if (action === 'duplicate') {
       const edit = duplicateSelection(editableDoc, id)
       if (await save(edit.operations)) setSelected(edit.node.id)
@@ -249,7 +265,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const addComponent = async (id: string) => {
     if (!doc || !editingRoot) return
     try {
-      const edit = insertComponent(doc, id, editingRoot, selected, editingComponent?.id)
+      const edit = insertComponent(doc, id, editingRoot, selected, editingId)
       if (await save(edit.operations)) {
         setSelected(edit.id)
         setSidebar('Layers')
@@ -278,7 +294,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
     }
   }
   useEffect(() => {
-    if (!imageUpload || !doc || busy || dirty || conflict) return
+    if (!imageUpload || !doc || unsettled) return
     const { id, asset } = imageUpload
     setImageUpload(undefined)
     const node = doc.nodes[id]
@@ -301,22 +317,20 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       setUploadingImage(false)
     })
   })
-  const canUndo =
-    !!snapshot && editHistory.undo.length > 0 && !busy && !dirty && !conflict && !inlineTarget
+  const canUndo = !!snapshot && editHistory.undo.length > 0 && !frozen
   const bindDragSurface = useStructureDrag({
     siteId,
     doc: editableDoc,
     root: editingRoot,
     uploadImage: dropImage,
-    disabled: busy || dirty || conflict || uploadingImage || !!inlineTarget,
+    disabled: frozen || uploadingImage,
     save,
     select: (id) => {
       setSelected(id)
       setSidebar('Layers')
     },
   })
-  const canRedo =
-    !!snapshot && editHistory.redo.length > 0 && !busy && !dirty && !conflict && !inlineTarget
+  const canRedo = !!snapshot && editHistory.redo.length > 0 && !frozen
   function travel(direction: 'undo' | 'redo') {
     if (!(direction === 'undo' ? canUndo : canRedo)) return
     const entry = editHistory[direction].at(-1)
@@ -529,7 +543,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             <button
               type="button"
               aria-label="Project colors"
-              disabled={busy || dirty || conflict || !doc || !!inlineTarget}
+              disabled={frozen || !doc}
               onClick={() => setColorsOpen(true)}
             >
               <span className="ribbon-swatches">
@@ -583,7 +597,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         <CreateComponentDialog
           doc={editableDoc}
           selected={selected}
-          disabled={busy || dirty || conflict}
+          disabled={unsettled}
           save={save}
           created={setSelected}
           close={() => setComponentDialog(undefined)}
@@ -593,7 +607,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         <ComponentSettingsDialog
           doc={doc}
           component={editingComponent}
-          disabled={busy || dirty || conflict}
+          disabled={unsettled}
           save={save}
           close={() => setComponentDialog(undefined)}
         />
@@ -601,7 +615,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       {componentDialog === 'detach' && doc && doc.nodes[selected]?.type === 'component' && (
         <DetachComponentDialog
           name={doc.components[doc.nodes[selected].component]!.name}
-          disabled={busy || dirty || conflict}
+          disabled={unsettled}
           close={() => setComponentDialog(undefined)}
           confirm={async () => {
             try {
@@ -619,7 +633,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       <div className="editor-body" data-sidebar-expanded={sidebarExpanded}>
         <aside className="layers-panel">
           <nav className="sidebar-rail" aria-label="Editor panels">
-            {(['Add', 'Layers', 'Components', 'Pages', 'Assets'] as const).map((name) => (
+            {(Object.keys(sidebars) as Sidebar[]).map((name) => (
               <button
                 key={name}
                 type="button"
@@ -628,19 +642,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 aria-pressed={sidebar === name}
                 onClick={() => setSidebar(name)}
               >
-                <EditorIcon
-                  name={
-                    name === 'Add'
-                      ? 'plus'
-                      : name === 'Layers'
-                        ? 'layers'
-                        : name === 'Components'
-                          ? 'component'
-                          : name === 'Assets'
-                            ? 'image'
-                            : 'page'
-                  }
-                />
+                <EditorIcon name={sidebars[name]} />
                 {sidebarExpanded && <span>{name}</span>}
               </button>
             ))}
@@ -661,7 +663,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
               <PagesPanel
                 doc={doc}
                 selected={pageId}
-                disabled={busy || dirty || conflict || !!inlineTarget}
+                disabled={frozen}
                 save={save}
                 choose={(id) =>
                   void leave(() => {
@@ -680,7 +682,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 <AssetsPanel
                   siteId={siteId}
                   doc={editableDoc}
-                  disabled={busy || dirty || conflict || !!inlineTarget}
+                  disabled={frozen}
                   save={save}
                   insert={async (assetId) => {
                     let target: ReturnType<typeof insertionTarget>
@@ -710,7 +712,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                     doc={editableDoc}
                     root={editingRoot}
                     selected={selected}
-                    disabled={busy || dirty || conflict || !!inlineTarget}
+                    disabled={frozen}
                     save={save}
                     select={(id) => {
                       setSelected(id)
@@ -728,8 +730,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 <ComponentsPanel
                   save={save}
                   doc={doc}
-                  editing={editingComponent?.id ?? ''}
-                  disabled={busy || dirty || conflict || !!inlineTarget}
+                  editing={editingId}
+                  disabled={frozen}
                   createReason={
                     !selected
                       ? 'Select an element or container on the canvas to create a component.'
@@ -778,61 +780,10 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                       doc={editableDoc}
                       root={editingRoot}
                       selected={selected}
-                      disabled={busy || dirty || conflict || !!inlineTarget}
+                      disabled={frozen}
                       save={save}
                       select={setSelected}
                     />
-                    <div className="element-edit-actions">
-                      {editableDoc.nodes[selected]?.type === 'component' ? (
-                        <>
-                          <button
-                            type="button"
-                            disabled={busy || dirty || conflict || !!inlineTarget}
-                            onClick={() => {
-                              document.getElementById(elementActionsId)?.hidePopover()
-                              const node = editableDoc.nodes[selected]
-                              if (node?.type === 'component') editComponent(node.component)
-                            }}
-                          >
-                            Edit shared component
-                          </button>
-                          <button
-                            type="button"
-                            disabled={
-                              busy ||
-                              dirty ||
-                              conflict ||
-                              !!inlineTarget ||
-                              !!subtreeRestriction(editableDoc, selected)
-                            }
-                            onClick={() => {
-                              document.getElementById(elementActionsId)?.hidePopover()
-                              setComponentDialog('detach')
-                            }}
-                          >
-                            Detach from component…
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={
-                            busy ||
-                            dirty ||
-                            conflict ||
-                            !!inlineTarget ||
-                            !!editingComponent ||
-                            !!subtreeRestriction(editableDoc, selected)
-                          }
-                          onClick={() => {
-                            document.getElementById(elementActionsId)?.hidePopover()
-                            setComponentDialog('create')
-                          }}
-                        >
-                          Create component…
-                        </button>
-                      )}
-                    </div>
                   </div>
                 )}
                 <div className="layer-list">
@@ -841,7 +792,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                       rootLabel={editingComponent?.name ?? 'Body'}
                       reveal={revealSelection}
                       key={editingRoot}
-                      disabled={busy || dirty || conflict || !!inlineTarget}
+                      disabled={frozen}
                       save={save}
                       nodeAction={(action, id) => void nodeAction(action, id)}
                       doc={editableDoc}
@@ -875,7 +826,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
               </span>
               <button
                 type="button"
-                disabled={busy || dirty || conflict || !!inlineTarget}
+                disabled={frozen}
                 onClick={() => setComponentDialog('settings')}
               >
                 Component settings…
@@ -949,15 +900,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 editingText={!!inlineTarget}
                 onEditText={(id, element) => {
                   const node = doc?.nodes[id]
-                  if (node?.type !== 'text' || busy || dirty || conflict || inlineTarget) return
+                  if (node?.type !== 'text' || frozen || !doc || isLocked(doc, id)) return
                   if (node.text.type !== 'doc' && node.text.type !== 'static') return
-                  for (
-                    let ancestor: Node | undefined = node;
-                    ancestor;
-                    ancestor = ancestor.parent ? doc?.nodes[ancestor.parent] : undefined
-                  ) {
-                    if (ancestor.meta?.locked) return
-                  }
                   setSelected(id)
                   setRibbonTab('Home')
                   setInlineTarget({ node, element })

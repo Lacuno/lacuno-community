@@ -1,6 +1,7 @@
+import { subtreeIds } from '@freeflow/document'
 import type { Document } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
-import type { EditOperation, InsertNode, PageTree } from './history.js'
+import { type EditOperation, type InsertNode, type PageTree, pageTree } from './history.js'
 
 export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
 export type Structure = (typeof structures)[number]
@@ -27,11 +28,19 @@ export function structureRestriction(doc: Document, id: string): string | undefi
     const node = doc.nodes[current]
     if (!node) return 'This element no longer exists.'
     if (node.meta?.locked) return 'This element or one of its parents is locked.'
-    if (roots.has(current) || (node.type === 'component' && current !== id) || node.type === 'slot')
-      return 'Component structure is protected. Open the shared design to edit it; slots are not editable here yet.'
+    if (node.type === 'slot') return 'Slots are not editable here yet.'
+    if (roots.has(current) || (node.type === 'component' && current !== id))
+      return 'Component structure is protected. Open the shared design to edit it.'
     if (node.type === 'collection-list') return 'Collection structure editing comes later.'
   }
   return undefined
+}
+
+/** True when this node or any ancestor is locked. */
+export function isLocked(doc: Document, id: string) {
+  for (let current: string | null = id; current; current = doc.nodes[current]?.parent ?? null)
+    if (doc.nodes[current]?.meta?.locked) return true
+  return false
 }
 
 export function insertionTarget(
@@ -252,27 +261,17 @@ export function subtreeRestriction(doc: Document, id: string): string | undefine
   }
 }
 
-export function duplicateSelection(doc: Document, id: string) {
-  const reason = subtreeRestriction(doc, id)
-  if (reason) throw new Error(reason)
-  const operations: EditOperation[] = []
+/** A deep copy with fresh node ids, copied local classes and in-page references remapped. */
+export function copySubtree(doc: Document, id: string, operations: EditOperation[]): PageTree {
   const copyClasses = localClassCopier(doc, operations)
   const htmlIds = new Map<string, string>()
-  const collect = (nodeId: string) => {
-    const node = doc.nodes[nodeId]!
-    const value = node.attrs?.id
+  for (const nodeId of subtreeIds(doc, id)) {
+    const value = doc.nodes[nodeId]!.attrs?.id
     if (value?.type === 'static' && typeof value.value === 'string')
       htmlIds.set(value.value, `${value.value}-copy-${crypto.randomUUID().slice(0, 8)}`)
-    node.children.forEach(collect)
   }
-  collect(id)
-
-  const copy = (nodeId: string): PageTree => {
-    const node = doc.nodes[nodeId]!
-    if (node.type !== 'element' && node.type !== 'text' && node.type !== 'component')
-      throw new Error('Unsupported element')
-    const { parent: _, children, ...fields } = structuredClone(node)
-    for (const [attribute, binding] of Object.entries(fields.attrs ?? {})) {
+  const copy = (tree: PageTree): PageTree => {
+    for (const [attribute, binding] of Object.entries(tree.attrs ?? {})) {
       if (binding.type !== 'static' || typeof binding.value !== 'string') continue
       if (attribute === 'id') binding.value = htmlIds.get(binding.value) ?? binding.value
       else if (attribute === 'href' && binding.value.startsWith('#'))
@@ -294,15 +293,21 @@ export function duplicateSelection(doc: Document, id: string) {
           .map((value) => htmlIds.get(value) ?? value)
           .join(' ')
     }
-    const classes = copyClasses(node.classes)
     return {
-      ...fields,
+      ...tree,
       id: `n-${crypto.randomUUID()}`,
-      classes,
-      children: children.map(copy),
-    } as PageTree
+      classes: copyClasses(tree.classes),
+      children: tree.children.map(copy),
+    }
   }
-  const node = copy(id)
+  return copy(pageTree(doc, id))
+}
+
+export function duplicateSelection(doc: Document, id: string) {
+  const reason = subtreeRestriction(doc, id)
+  if (reason) throw new Error(reason)
+  const operations: EditOperation[] = []
+  const node = copySubtree(doc, id, operations)
   node.meta = {
     ...node.meta,
     label: `${doc.nodes[id]!.meta?.label ?? ('tag' in doc.nodes[id]! ? doc.nodes[id]!.tag : 'Element')} copy`,

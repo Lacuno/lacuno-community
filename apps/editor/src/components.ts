@@ -1,13 +1,18 @@
-import type { Binding, Component, ComponentInstanceNode, Document, Node } from '@freeflow/schema'
+import { instancesOfComponent, subtreeIds } from '@freeflow/document'
+import type { Binding, Component, Document, Node } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type EditOperation, type PageTree, pageTree } from './history.js'
-import { insertionTarget, structureRestriction, subtreeRestriction } from './structure.js'
+import {
+  copySubtree,
+  insertionTarget,
+  structureRestriction,
+  subtreeRestriction,
+} from './structure.js'
 
-export function componentUsage(doc: Document, id: string) {
-  return Object.values(doc.nodes).filter(
-    (node) => node.type === 'component' && node.component === id,
-  ).length
-}
+export const componentUsage = (doc: Document, id: string) => instancesOfComponent(doc, id).length
+
+const componentNodes = (doc: Document, root: string) =>
+  subtreeIds(doc, root).map((id) => doc.nodes[id]!)
 
 export function duplicateComponent(doc: Document, id: string, name: string): EditOperation[] {
   const component = doc.components[id]
@@ -15,14 +20,7 @@ export function duplicateComponent(doc: Document, id: string, name: string): Edi
   const issue = componentNameError(doc, name)
   if (issue) throw new Error(issue)
   const operations: EditOperation[] = []
-  const copyClasses = localClassCopier(doc, operations)
-  const copy = (tree: PageTree): PageTree => ({
-    ...tree,
-    id: `n-${crypto.randomUUID()}`,
-    classes: copyClasses(tree.classes),
-    children: tree.children.map(copy),
-  })
-  const root = copy(pageTree(doc, component.root))
+  const root = copySubtree(doc, component.root, operations)
   operations.push({
     type: 'component.create',
     ...structuredClone(component),
@@ -39,12 +37,16 @@ export function componentDeletionReason(doc: Document, id: string): string {
   const count = componentUsage(doc, id)
   if (count)
     return `Used by ${count} ${count === 1 ? 'instance' : 'instances'}. Remove or detach them before deleting this component.`
-  try {
-    pageTree(doc, component.root)
-  } catch {
-    return 'This component contains content that cannot be restored with undo yet.'
-  }
-  if (componentNodes(doc, component.root).some((node) => node.meta?.locked))
+  const nodes = componentNodes(doc, component.root)
+  // Undo recreates the definition from a copy, which these node kinds do not support yet.
+  if (
+    nodes.some(
+      (node) =>
+        node.type === 'code-component' || (node.type === 'component' && node.overrides?.length),
+    )
+  )
+    return 'Components with code components or instance overrides cannot be deleted yet.'
+  if (nodes.some((node) => node.meta?.locked))
     return 'Unlock this component’s content before deleting it.'
   return ''
 }
@@ -69,18 +71,25 @@ export function componentNameError(doc: Document, name: string, except?: string)
   return ''
 }
 
-export function componentTextFields(
-  doc: Document,
-  root: string,
-): Extract<Node, { type: 'text' }>[] {
+/** A text node whose content is a plain string and can therefore become an instance field. */
+export type StaticText = Extract<Node, { type: 'text' }> & {
+  text: { type: 'static'; value: string }
+}
+export function componentTextFields(doc: Document, root: string): StaticText[] {
   const node = doc.nodes[root]
   if (!node || node.type === 'component') return []
-  return [
-    ...(node.type === 'text' && node.text.type === 'static' && typeof node.text.value === 'string'
-      ? [node]
-      : []),
-    ...node.children.flatMap((child) => componentTextFields(doc, child)),
-  ]
+  const own =
+    node.type === 'text' && node.text.type === 'static' && typeof node.text.value === 'string'
+      ? [node as StaticText]
+      : []
+  return [...own, ...node.children.flatMap((child) => componentTextFields(doc, child))]
+}
+
+/** The next free generated field name, so extraction and later additions match. */
+export function fieldName(props: Component['props']) {
+  let index = props.length + 1
+  while (props.some((prop) => prop.name === `content${index}`)) index++
+  return `content${index}`
 }
 
 export function extractComponent(doc: Document, id: string, name: string, exposed: string[]) {
@@ -90,13 +99,14 @@ export function extractComponent(doc: Document, id: string, name: string, expose
   const component = `cmp-${crypto.randomUUID()}`
   const instance = `n-${crypto.randomUUID()}`
   const fields = componentTextFields(doc, id).filter((node) => exposed.includes(node.id))
-  const props: Component['props'] = fields.map((node, index) => ({
-    name: `content${index + 1}`,
-    type: 'string',
-    label:
-      node.meta?.label ?? String(node.text.type === 'static' ? node.text.value : '').slice(0, 48),
-    default: node.text.type === 'static' ? node.text.value : '',
-  }))
+  const props: Component['props'] = []
+  for (const node of fields)
+    props.push({
+      name: fieldName(props),
+      type: 'string',
+      label: node.meta?.label ?? node.text.value.slice(0, 48),
+      default: node.text.value,
+    })
   const operations: EditOperation[] = [
     { type: 'component.extract', node: id, id: component, instance, name: name.trim(), props },
     ...fields.map(
@@ -108,13 +118,6 @@ export function extractComponent(doc: Document, id: string, name: string, expose
     ),
   ]
   return { component, instance, operations }
-}
-
-/** Only bindings in this definition's scope belong to its props, not nested definitions. */
-function componentNodes(doc: Document, root: string): Node[] {
-  const node = doc.nodes[root]
-  if (!node) return []
-  return [node, ...node.children.flatMap((id) => componentNodes(doc, id))]
 }
 
 export function fieldRemovalReason(doc: Document, component: Component, name: string): string {
@@ -314,5 +317,3 @@ export function detachComponent(doc: Document, id: string) {
   )
   return { node, operations }
 }
-
-export type ComponentInstance = ComponentInstanceNode

@@ -28,9 +28,7 @@ export type PageTree = TreeFields<Exclude<Node, { type: 'code-component' }>> & {
 export function pageTree(doc: Document, id: string): PageTree {
   const node = doc.nodes[id]!
   if (node.type === 'code-component' || (node.type === 'component' && node.overrides?.length))
-    throw new Error(
-      'Pages with code components or component overrides cannot be copied or deleted yet.',
-    )
+    throw new Error('Code components and instance overrides cannot be copied or deleted yet.')
   const { parent: _, children, ...fields } = structuredClone(node)
   return { ...fields, children: children.map((child) => pageTree(doc, child)) } as PageTree
 }
