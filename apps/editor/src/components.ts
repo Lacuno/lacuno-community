@@ -1,7 +1,7 @@
-import { instancesOfComponent, subtreeIds } from '@freeflow/document'
+import { instancesOfComponent, type Operation, subtreeIds } from '@freeflow/document'
 import type { Binding, Component, Document, Node } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
-import { type EditOperation, type PageTree, pageTree } from './history.js'
+import { type PageTree, pageTree } from './history.js'
 import {
   copySubtree,
   insertionTarget,
@@ -14,12 +14,12 @@ export const componentUsage = (doc: Document, id: string) => instancesOfComponen
 const componentNodes = (doc: Document, root: string) =>
   subtreeIds(doc, root).map((id) => doc.nodes[id]!)
 
-export function duplicateComponent(doc: Document, id: string, name: string): EditOperation[] {
+export function duplicateComponent(doc: Document, id: string, name: string): Operation[] {
   const component = doc.components[id]
   if (!component) throw new Error('Component no longer exists.')
   const issue = componentNameError(doc, name)
   if (issue) throw new Error(issue)
-  const operations: EditOperation[] = []
+  const operations: Operation[] = []
   const root = copySubtree(doc, component.root, operations)
   operations.push({
     type: 'component.create',
@@ -107,10 +107,10 @@ export function extractComponent(doc: Document, id: string, name: string, expose
       label: node.meta?.label ?? node.text.value.slice(0, 48),
       default: node.text.value,
     })
-  const operations: EditOperation[] = [
+  const operations: Operation[] = [
     { type: 'component.extract', node: id, id: component, instance, name: name.trim(), props },
     ...fields.map(
-      (node, index): EditOperation => ({
+      (node, index): Operation => ({
         type: 'node.update',
         id: node.id,
         text: { type: 'prop', prop: props[index]!.name },
@@ -157,13 +157,13 @@ export function updateComponentFields(
   name: string,
   props: Component['props'],
   exposed: Record<string, string>,
-): EditOperation[] {
+): Operation[] {
   const issue = componentNameError(doc, name, component.id)
   if (issue) throw new Error(issue)
   const labels = props.map((prop) => (prop.label ?? prop.name).trim().toLowerCase())
   if (labels.some((label) => !label)) throw new Error('Every field needs a name.')
   if (new Set(labels).size !== labels.length) throw new Error('Field names must be unique.')
-  const operations: EditOperation[] = []
+  const operations: Operation[] = []
   for (const prop of component.props) {
     if (props.some((next) => next.name === prop.name)) continue
     const reason = fieldRemovalReason(doc, component, prop.name)
@@ -225,7 +225,7 @@ export function insertComponent(
     target = insertionTarget(editable, root, root, 'inside')
   }
   const id = `n-${crypto.randomUUID()}`
-  const operations: EditOperation[] = [
+  const operations: Operation[] = [
     {
       type: 'node.create',
       ...target,
@@ -245,7 +245,7 @@ export function detachComponent(doc: Document, id: string) {
   if (instance.overrides?.length)
     throw new Error('Detaching instances with subtree overrides is not supported.')
   const component = doc.components[instance.component]!
-  const operations: EditOperation[] = []
+  const operations: Operation[] = []
   const copyClasses = localClassCopier(doc, operations)
   const values = new Map(
     component.props.map((prop) => [prop.name, instance.props?.[prop.name] ?? prop.default]),

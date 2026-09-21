@@ -1,4 +1,4 @@
-import { DocumentStore } from '@freeflow/document'
+import { DocumentStore, type Operation } from '@freeflow/document'
 import { fixtureDocument } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import {
@@ -12,8 +12,8 @@ import {
   insertComponent,
   updateComponentFields,
 } from '../src/components.js'
-import { captureEdit, type EditOperation } from '../src/history.js'
 import { structureRestriction } from '../src/structure.js'
+import { commit } from './helpers.js'
 
 it('duplicates definitions with fresh nodes and local styles, then deletes and restores unused copies', async () => {
   const store = DocumentStore.inMemory(fixtureDocument())
@@ -43,8 +43,7 @@ it('duplicates definitions with fresh nodes and local styles, then deletes and r
     ],
   })
   const before = store.read().document
-  const duplicate = captureEdit(before, duplicateComponent(before, 'cmp-test', 'Test copy'))
-  await store.apply({ expectedRevision: store.revision, operations: duplicate.redo })
+  const duplicate = await commit(store, duplicateComponent(before, 'cmp-test', 'Test copy'))
   const doc = store.read().document
   const copied = Object.values(doc.components).find((component) => component.name === 'Test copy')!
   const root = doc.nodes[copied.root]!
@@ -54,13 +53,12 @@ it('duplicates definitions with fresh nodes and local styles, then deletes and r
   expect(componentDeletionReason(doc, 'cmp-card')).toContain('Used by')
   expect(componentDeletionReason(doc, copied.id)).toBe('')
   expect(() => duplicateComponent(doc, 'cmp-test', 'Test copy')).toThrow('already')
-  const deletion = captureEdit(doc, [{ type: 'component.delete', id: copied.id }])
-  await store.apply({ expectedRevision: store.revision, operations: deletion.redo })
+  const deletion = await commit(store, [{ type: 'component.delete', id: copied.id }])
   expect(store.read().document.components[copied.id]).toBeUndefined()
   expect(store.read().document.components['cmp-card']).toEqual(doc.components['cmp-card'])
-  await store.apply({ expectedRevision: store.revision, operations: deletion.undo })
+  await store.apply({ expectedRevision: store.revision, patches: deletion.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
-  await store.apply({ expectedRevision: store.revision, operations: duplicate.undo })
+  await store.apply({ expectedRevision: store.revision, patches: duplicate.undo })
   expect({ ...store.read().document, revision: before.revision }).toEqual(before)
 })
 
@@ -76,17 +74,16 @@ it('manages fields after creation with stable keys, safe removal and atomic undo
   const props = [
     { name: 'headline', type: 'string' as const, label: 'Headline', default: 'Original title' },
   ]
-  const added = captureEdit(
-    before,
+  const added = await commit(
+    store,
     updateComponentFields(before, component, component.name, props, { 'n-hero-title': 'headline' }),
   )
-  await store.apply({ expectedRevision: store.revision, operations: added.redo })
   expect(store.read().document.nodes['n-hero-title']).toMatchObject({
     text: { type: 'prop', prop: 'headline' },
   })
-  await store.apply({ expectedRevision: store.revision, operations: added.undo })
+  await store.apply({ expectedRevision: store.revision, patches: added.undo })
   expect({ ...store.read().document, revision: before.revision }).toEqual(before)
-  await store.apply({ expectedRevision: store.revision, operations: added.redo })
+  await store.apply({ expectedRevision: store.revision, patches: added.redo })
   await store.apply({
     expectedRevision: store.revision,
     operations: [
@@ -121,16 +118,15 @@ it('manages fields after creation with stable keys, safe removal and atomic undo
     operations: [{ type: 'node.update', id: extraction.instance, props: null }],
   })
   doc = store.read().document
-  const removed = captureEdit(
-    doc,
+  const removed = await commit(
+    store,
     updateComponentFields(doc, doc.components[component.id]!, component.name, [], {}),
   )
-  await store.apply({ expectedRevision: store.revision, operations: removed.redo })
   expect(store.read().document.nodes['n-hero-title']).toMatchObject({
     text: { type: 'static', value: 'Original title' },
   })
   expect(store.read().document.components[component.id]!.props).toEqual([])
-  await store.apply({ expectedRevision: store.revision, operations: removed.undo })
+  await store.apply({ expectedRevision: store.revision, patches: removed.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
   expect(() =>
     updateComponentFields(
@@ -163,17 +159,16 @@ it('extracts a component with exposed text, retaining IDs and round-tripping und
   const title = original.nodes['n-hero-title']!
   if (title.type === 'text') title.text = { type: 'static', value: 'Original title' }
   const edit = extractComponent(original, 'n-hero-title', 'Hero title', ['n-hero-title'])
-  const history = captureEdit(original, edit.operations)
   const store = DocumentStore.inMemory(original)
-  await store.apply({ expectedRevision: store.revision, operations: history.redo })
+  const history = await commit(store, edit.operations)
   const doc = store.read().document
   expect(doc.components[edit.component]!.root).toBe('n-hero-title')
   expect(doc.nodes['n-hero-title']!.parent).toBe(null)
   expect(doc.nodes['n-hero-title']).toMatchObject({ text: { type: 'prop', prop: 'content1' } })
   expect(doc.nodes[edit.instance]).toMatchObject({ type: 'component', component: edit.component })
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: original.revision }).toEqual(original)
-  await store.apply({ expectedRevision: store.revision, operations: history.redo })
+  await store.apply({ expectedRevision: store.revision, patches: history.redo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })
 
@@ -191,21 +186,18 @@ it('inserts, customizes, detaches and restores an instance without changing shar
     parent,
     extraction.instance,
   )
-  const inserted = captureEdit(store.read().document, insertion.operations)
-  await store.apply({ expectedRevision: store.revision, operations: inserted.redo })
-  const change: EditOperation[] = [
+  const inserted = await commit(store, insertion.operations)
+  const change: Operation[] = [
     {
       type: 'node.update',
       id: insertion.id,
       props: { content1: { type: 'static', value: 'Only this instance' } },
     },
   ]
-  const contentHistory = captureEdit(store.read().document, change)
-  await store.apply({ expectedRevision: store.revision, operations: change })
+  const contentHistory = await commit(store, change)
   const before = store.read().document
   const detach = detachComponent(before, insertion.id)
-  const history = captureEdit(before, detach.operations)
-  await store.apply({ expectedRevision: store.revision, operations: history.redo })
+  const history = await commit(store, detach.operations)
   expect(store.read().document.nodes[detach.node.id]).toMatchObject({
     type: 'text',
     text: { type: 'static', value: 'Only this instance' },
@@ -213,11 +205,11 @@ it('inserts, customizes, detaches and restores an instance without changing shar
   expect(store.read().document.components[extraction.component]).toEqual(
     before.components[extraction.component],
   )
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: before.revision }).toEqual(before)
-  await store.apply({ expectedRevision: store.revision, operations: contentHistory.undo })
+  await store.apply({ expectedRevision: store.revision, patches: contentHistory.undo })
   expect(store.read().document.nodes[insertion.id]).not.toHaveProperty('props')
-  await store.apply({ expectedRevision: store.revision, operations: inserted.undo })
+  await store.apply({ expectedRevision: store.revision, patches: inserted.undo })
   expect(store.read().document.nodes[insertion.id]).toBeUndefined()
 })
 
@@ -254,7 +246,7 @@ it('protects definitions outside explicit edit mode, rejects locks and indirect 
 it('restores component names/defaults and preserves the linked instance when detach is unsupported', async () => {
   const doc = fixtureDocument()
   const store = DocumentStore.inMemory(doc)
-  const history = captureEdit(doc, [
+  const history = await commit(store, [
     {
       type: 'component.update',
       id: 'cmp-card',
@@ -262,8 +254,7 @@ it('restores component names/defaults and preserves the linked instance when det
       props: doc.components['cmp-card']!.props,
     },
   ])
-  await store.apply({ expectedRevision: store.revision, operations: history.redo })
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
   const instance = Object.values(doc.nodes).find((node) => node.type === 'component')!
   if (instance.type !== 'component') throw new Error('Fixture needs a component')

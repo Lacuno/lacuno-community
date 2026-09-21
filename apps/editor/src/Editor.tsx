@@ -1,4 +1,5 @@
-import { applyPatches, type Patch } from '@freeflow/document/patch'
+import type { Operation } from '@freeflow/document'
+import { applyPatches, invertPatches, type Patch } from '@freeflow/document/patch'
 import { type Document, type Node, parseDocument } from '@freeflow/schema'
 import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
@@ -22,13 +23,7 @@ import {
   insertComponent,
 } from './components.js'
 import { EditorIcon } from './EditorIcon.js'
-import {
-  captureEdit,
-  committedHistory,
-  type EditOperation,
-  emptyHistory,
-  historyShortcut,
-} from './history.js'
+import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { Inspector } from './Inspector.js'
 import type { LivePreview } from './livePreview.js'
@@ -51,7 +46,6 @@ const InlineTextEditor = lazy(() =>
   import('./InlineTextEditor.js').then((module) => ({ default: module.InlineTextEditor })),
 )
 type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
-type Operation = EditOperation
 const describe = (node: Node) => node.meta?.label ?? ('tag' in node ? node.tag : node.type)
 const sidebars = {
   Add: 'plus',
@@ -201,26 +195,29 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
     setInlineTarget(undefined)
     action()
   }
-  async function save(operations: Operation[], action: 'edit' | 'undo' | 'redo' | 'auto' = 'edit') {
-    if (!snapshot || conflict || inFlight.current || operations.length === 0) return false
+  /** Commits one batch and, once it lands, adopts its patches. `step` is the entry undo/redo replays. */
+  async function commit(
+    body: { operations: Operation[] } | { patches: Patch[] },
+    action: 'edit' | 'undo' | 'redo' | 'auto',
+    step?: HistoryEntry,
+  ) {
+    const batch = 'patches' in body ? body.patches : body.operations
+    if (!snapshot || conflict || inFlight.current || batch.length === 0) return false
     inFlight.current = true
     autoFlight.current = action === 'auto'
     setBusy(true)
     setError('')
     setSaved(false)
     try {
-      const entry =
-        action === 'edit' || action === 'auto'
-          ? captureEdit(snapshot.document, operations)
-          : editHistory[action].at(-1)
-      if (!entry) return false
       const result = await api<{ revision: number; patches: Patch[] }>(
         `/api/sites/${siteId}/document/apply`,
-        {
-          expectedRevision: snapshot.revision,
-          operations,
-        },
+        { expectedRevision: snapshot.revision, ...body },
       )
+      // Invert against the document the server planned from, so an undo restores it exactly.
+      const entry = step ?? {
+        undo: invertPatches(snapshot.document, result.patches),
+        redo: result.patches,
+      }
       // Use this commit's patches, not a follow-up read that could include someone else's edits.
       const document = applyPatches(snapshot.document, result.patches)
       flushSync(() => {
@@ -228,7 +225,9 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           { document: { ...document, revision: result.revision }, revision: result.revision },
           action !== 'auto',
         )
-        setEditHistory(committedHistory(editHistory, action === 'auto' ? 'edit' : action, entry))
+        // A batch that changed nothing leaves nothing to undo.
+        if (step || result.patches.length)
+          setEditHistory(committedHistory(editHistory, action === 'auto' ? 'edit' : action, entry))
         setSaved(true)
       })
       return true
@@ -246,6 +245,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       setBusy(false)
     }
   }
+  const save = (operations: Operation[], action: 'edit' | 'auto' = 'edit') =>
+    commit({ operations }, action)
   async function nodeAction(action: 'duplicate' | 'delete', id: string) {
     if (!editableDoc || unsettled || subtreeRestriction(editableDoc, id)) return
     if (action === 'duplicate') {
@@ -335,7 +336,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   function travel(direction: 'undo' | 'redo') {
     if (!(direction === 'undo' ? canUndo : canRedo)) return
     const entry = editHistory[direction].at(-1)
-    if (entry) void save(entry[direction], direction)
+    if (entry) void commit({ patches: entry[direction] }, direction, entry)
   }
   const travelRef = useRef(travel)
   travelRef.current = travel

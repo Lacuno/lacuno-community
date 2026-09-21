@@ -10,13 +10,13 @@ import { OPERATIONS_BY_TYPE, type Operation } from './operations/index.js'
 import { applyPatches, type Patch } from './patch.js'
 import { FolderPersistence, MemoryPersistence, type Persistence } from './persistence.js'
 
+/** Either named operations to plan, or the patches of an earlier commit to replay: never both. */
 export type Batch = {
   /** The revision the caller read. A different current revision rejects the batch. */
   expectedRevision: number
-  operations: Operation[]
   /** Plan and validate, return the patches, commit nothing. */
   dryRun?: boolean
-}
+} & ({ operations: Operation[]; patches?: never } | { patches: Patch[]; operations?: never })
 
 export type ApplyResult = {
   /** The new revision, or the unchanged one for a dry run. */
@@ -124,7 +124,13 @@ export class DocumentStore {
   private async applyNow(batch: Batch): Promise<ApplyResult> {
     if (batch.expectedRevision !== this.document.revision)
       throw new StaleRevisionError(batch.expectedRevision, this.document.revision)
-    const planned = planBatch(this.document, batch.operations, OPERATIONS_BY_TYPE)
+    const { operations, patches } = batch
+    if ((operations === undefined) === (patches === undefined))
+      throw new DocumentError([{ path: 'batch', message: 'send either operations or patches' }])
+    // Replayed patches (an editor undo) skip planning, but parseDocument below still gates them.
+    const planned = patches
+      ? { document: applyPatches(this.document, patches), patches, created: {}, warnings: [] }
+      : planBatch(this.document, operations!, OPERATIONS_BY_TYPE)
     const validated = parseDocument(planned.document)
     const base = { patches: planned.patches, created: planned.created, warnings: planned.warnings }
     if (batch.dryRun) return { revision: this.document.revision, ...base }

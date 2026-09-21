@@ -1,3 +1,4 @@
+import type { Operation } from '@freeflow/document'
 import type { Binding, Component, ComponentInstanceNode, Document } from '@freeflow/schema'
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import {
@@ -13,12 +14,11 @@ import {
   updateComponentFields,
 } from './components.js'
 import { EditorIcon } from './EditorIcon.js'
-import type { EditOperation } from './history.js'
 import { isLocked } from './structure.js'
 import { useAutosave } from './useAutosave.js'
 import './components.css'
 
-type Save = (operations: EditOperation[]) => Promise<boolean>
+type Save = (operations: Operation[]) => Promise<boolean>
 
 export function ComponentsPanel({
   doc,
@@ -136,7 +136,7 @@ function ComponentActionsDialog({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
   const reason = componentDeletionReason(doc, component.id)
-  const run = async (operations: EditOperation[]) => {
+  const run = async (operations: Operation[]) => {
     if (await save(operations)) close()
     else setError('Could not save component changes. Check the editor message and try again.')
   }

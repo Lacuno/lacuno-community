@@ -86,8 +86,8 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   `⌘/Ctrl Z` to undo and `⌘/Ctrl Shift Z` (or `Ctrl Y`) to redo, in the editor or canvas. Text fields
   retain native text undo. History becomes available once pending changes finish saving.
 - History holds the latest 100 saves in the open editor. A new edit clears redo; reloading or leaving
-  the site clears history. Undo/redo writes a new revision through the same API and rejects stale
-  revisions rather than reverting someone else's work. Original token values and cleared styles
+  the site clears history. Undo/redo replays that save's patches, inverted, through the same API and
+  rejects stale revisions rather than reverting someone else's work. Original token values and cleared styles
   are restored, not reconstructed from computed CSS.
 
 ## Rich text and links
@@ -152,7 +152,7 @@ pnpm --filter @freeflow/editor test
 Renderer tests compare all fixture and default-template pages and entries with compiler markup and
 CSS. Server tests cover preview/asset access control. A Playwright test covers account creation,
 canvas selection, direct formatting without classes, reset formatting, text/style edits, reload persistence, stale-write protection, mobile viewport,
-collection previews, sandbox isolation, insertion, sibling moves, class assignment, shared colors and variants, color conflicts, slow and failed autosaves, navigation flushes, undo/redo, sign-out and sign-in. Unit tests exercise inverse
-batches, restoration of rich text and typed CSS, history bounds and branching, and shortcuts.
+collection previews, sandbox isolation, insertion, sibling moves, class assignment, shared colors and variants, color conflicts, slow and failed autosaves, navigation flushes, undo/redo, sign-out and sign-in. Unit tests exercise undo
+patches, restoration of rich text and typed CSS, history bounds and branching, and shortcuts.
 The browser test saves a desktop screenshot under
 `.freeflow/editor-preview/` for visual inspection.

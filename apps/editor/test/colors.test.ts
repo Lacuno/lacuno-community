@@ -1,4 +1,4 @@
-import { DocumentStore } from '@freeflow/document'
+import { DocumentStore, type Operation } from '@freeflow/document'
 import { fixtureDocument, styleKey } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import {
@@ -8,7 +8,7 @@ import {
   defaultMode,
   referencesColor,
 } from '../src/colors.js'
-import { captureEdit, type EditOperation } from '../src/history.js'
+import { commit } from './helpers.js'
 
 it('round-trips classes, color variants and shared typed references in one saved batch', async () => {
   const original = fixtureDocument()
@@ -19,7 +19,7 @@ it('round-trips classes, color variants and shared typed references in one saved
     state: 'none' as const,
     property: 'color',
   }
-  const operations: EditOperation[] = [
+  const operations: Operation[] = [
     { type: 'class.create', id: 'c-new-color', name: 'shared-color' },
     {
       type: 'node.update',
@@ -53,18 +53,17 @@ it('round-trips classes, color variants and shared typed references in one saved
       value: { type: 'color', value: '#fedcba' },
     },
   ]
-  const entry = captureEdit(original, operations)
   const store = DocumentStore.inMemory(original)
-  await store.apply({ expectedRevision: store.revision, operations })
+  const entry = await commit(store, operations)
   const edited = store.read().document
   expect(edited.styles[styleKey(coordinates)]!.value).toEqual({
     type: 'designToken',
     ref: 'dt-new-light',
   })
   expect(colorPreview(edited, 'dt-new-light')).toBe('#fedcba')
-  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+  await store.apply({ expectedRevision: store.revision, patches: entry.undo })
   expect({ ...store.read().document, revision: original.revision }).toEqual(original)
-  await store.apply({ expectedRevision: store.revision, operations: entry.redo })
+  await store.apply({ expectedRevision: store.revision, patches: entry.redo })
   expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
 })
 
@@ -85,7 +84,7 @@ it('restores missing mode overrides and preserves aliases', async () => {
     values: { [mode]: { type: 'designToken', ref: 'dt-test' } },
   }
   expect(colorPreview(doc, 'dt-alias', 'test-mode')).toBe('#123456')
-  const operations: EditOperation[] = [
+  const operations: Operation[] = [
     {
       type: 'designToken.setValue',
       id: 'dt-alias',
@@ -93,10 +92,9 @@ it('restores missing mode overrides and preserves aliases', async () => {
       value: { type: 'color', value: '#ffffff' },
     },
   ]
-  const entry = captureEdit(doc, operations)
   const store = DocumentStore.inMemory(doc)
-  await store.apply({ expectedRevision: store.revision, operations })
-  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+  const entry = await commit(store, operations)
+  await store.apply({ expectedRevision: store.revision, patches: entry.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })
 

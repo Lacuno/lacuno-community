@@ -1,7 +1,7 @@
+import type { Operation } from '@freeflow/document'
 import type { AssetRef, Document } from '@freeflow/schema'
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
-import type { EditOperation } from './history.js'
 
 export const imageAssets = (doc: Document) =>
   Object.values(doc.assets).filter((asset) => asset.kind === 'image' || asset.kind === 'svg')
@@ -36,7 +36,7 @@ export function AssetsPanel({
   siteId: string
   doc: Document
   disabled: boolean
-  save: (operations: EditOperation[]) => Promise<boolean>
+  save: (operations: Operation[]) => Promise<boolean>
   insert: (assetId: string) => void
 }) {
   const [loading, setLoading] = useState(false)

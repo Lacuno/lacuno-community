@@ -2,7 +2,6 @@ import { DocumentStore } from '@freeflow/document'
 import { fixtureDocument, styleKey } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import { formattingOperations } from '../src/formatting.js'
-import { captureEdit } from '../src/history.js'
 import {
   activePreset,
   applyPreset,
@@ -11,6 +10,7 @@ import {
   presetValues,
   updatePreset,
 } from '../src/presets.js'
+import { commit } from './helpers.js'
 
 it('creates a linked preset with typed colors and round-trips create, undo and redo', async () => {
   const doc = fixtureDocument()
@@ -26,9 +26,8 @@ it('creates a linked preset with typed colors and round-trips create, undo and r
   const original = structuredClone(doc)
   const values = presetValues(doc, node, {})
   const operations = createPreset(doc, node, 'Page heading', {}, 'c-preset')
-  const entry = captureEdit(doc, operations)
   const store = DocumentStore.inMemory(doc)
-  await store.apply({ expectedRevision: store.revision, operations })
+  const entry = await commit(store, operations)
   const created = store.read().document
   expect(activePreset(created, created.nodes[node.id]!)?.name).toBe('Page heading')
   expect(presetOverrides(created, created.nodes[node.id]!)).toEqual([])
@@ -38,9 +37,9 @@ it('creates a linked preset with typed colors and round-trips create, undo and r
         ?.value,
     ).toEqual(value)
   }
-  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+  await store.apply({ expectedRevision: store.revision, patches: entry.undo })
   expect({ ...store.read().document, revision: original.revision }).toEqual(original)
-  await store.apply({ expectedRevision: store.revision, operations: entry.redo })
+  await store.apply({ expectedRevision: store.revision, patches: entry.redo })
   expect({ ...store.read().document, revision: created.revision }).toEqual(created)
   expect(() => createPreset(created, node, 'page heading', {})).toThrow('already in use')
 })
@@ -76,12 +75,11 @@ it('updates the shared preset only explicitly, resets overrides, and restores bo
   expect(get().styles[key]).toEqual(previous)
   const before = get()
   const operations = updatePreset(before, before.nodes[nodeId]!)
-  const history = captureEdit(before, operations)
-  await store.apply({ expectedRevision: store.revision, operations })
+  const history = await commit(store, operations)
   expect(get().styles[key]?.value).toEqual({ type: 'unit', value: 42, unit: 'px' })
   expect(get().nodes[other.id]?.classes).toContain('c-preset')
   expect(presetOverrides(get(), get().nodes[nodeId]!)).toEqual([])
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...get(), revision: before.revision }).toEqual(before)
   await store.apply({
     expectedRevision: store.revision,

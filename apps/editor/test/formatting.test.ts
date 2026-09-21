@@ -2,7 +2,7 @@ import { DocumentStore } from '@freeflow/document'
 import { fixtureDocument, styleKey } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import { formattingOperations, localClass, normalizeFormatting } from '../src/formatting.js'
-import { captureEdit } from '../src/history.js'
+import { commit } from './helpers.js'
 
 it('formats only the selected element and round-trips automatic local style creation', async () => {
   const doc = fixtureDocument()
@@ -15,26 +15,24 @@ it('formats only the selected element and round-trips automatic local style crea
     { 'font-size': { type: 'unit', value: 31, unit: 'px' } },
     () => 'c-direct',
   )
-  const entry = captureEdit(doc, operations)
   const store = DocumentStore.inMemory(doc)
-  await store.apply({ expectedRevision: store.revision, operations })
+  const entry = await commit(store, operations)
   const edited = store.read().document
   expect(localClass(edited, edited.nodes[node.id]!)).toBe('c-direct')
   for (const [key, style] of Object.entries(original.styles))
     expect(edited.styles[key]).toEqual(style)
   for (const other of Object.values(original.nodes).filter((item) => item.id !== node.id))
     expect(edited.nodes[other.id]).toEqual(other)
-  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+  await store.apply({ expectedRevision: store.revision, patches: entry.undo })
   expect({ ...store.read().document, revision: original.revision }).toEqual(original)
-  await store.apply({ expectedRevision: store.revision, operations: entry.redo })
+  await store.apply({ expectedRevision: store.revision, patches: entry.redo })
   expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
   const reset = formattingOperations(edited, edited.nodes[node.id]!, { 'font-size': null })
-  const resetHistory = captureEdit(edited, reset)
-  await store.apply({ expectedRevision: store.revision, operations: reset })
+  const resetHistory = await commit(store, reset)
   expect(
     Object.values(store.read().document.styles).some((style) => style.class === 'c-direct'),
   ).toBe(false)
-  await store.apply({ expectedRevision: store.revision, operations: resetHistory.undo })
+  await store.apply({ expectedRevision: store.revision, patches: resetHistory.undo })
   expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
 })
 

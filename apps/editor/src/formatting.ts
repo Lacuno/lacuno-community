@@ -1,7 +1,7 @@
 import { classNames, selectorFor } from '@freeflow/css'
+import type { Operation } from '@freeflow/document'
 import type { CssValue, Document, Node, StyleDecl } from '@freeflow/schema'
 import { styleKey } from '@freeflow/schema'
-import type { EditOperation } from './history.js'
 
 export const formattingGroups = [
   {
@@ -142,8 +142,8 @@ export function formattingOperations(
   changes: Record<string, CssValue | null>,
   makeId = () => `c-${crypto.randomUUID()}`,
   breakpoint = 'base',
-): EditOperation[] {
-  const operations: EditOperation[] = []
+): Operation[] {
+  const operations: Operation[] = []
   let id = localClass(doc, node)
   if (
     !id &&

@@ -1,7 +1,8 @@
+import type { Operation } from '@freeflow/document'
 import type { Document, Page } from '@freeflow/schema'
 import { useEffect, useRef, useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
-import { type EditOperation, pageTree } from './history.js'
+import { pageTree } from './history.js'
 import { duplicatePage, pagePathError } from './pages.js'
 
 export function PagesPanel({
@@ -15,7 +16,7 @@ export function PagesPanel({
   selected: string
   disabled: boolean
   choose: (id: string) => void
-  save: (operations: EditOperation[]) => Promise<boolean>
+  save: (operations: Operation[]) => Promise<boolean>
 }) {
   const [editing, setEditing] = useState<Page | 'new'>()
   return (
@@ -87,7 +88,7 @@ function PageSettings({
   page?: Page | undefined
   disabled: boolean
   close: () => void
-  save: (operations: EditOperation[]) => Promise<boolean>
+  save: (operations: Operation[]) => Promise<boolean>
   choose: (id: string) => void
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -100,7 +101,7 @@ function PageSettings({
   useEffect(() => {
     dialog.current?.showModal()
   }, [])
-  const run = async (operations: EditOperation[], id?: string) => {
+  const run = async (operations: Operation[], id?: string) => {
     if (await save(operations)) {
       close()
       if (id) choose(id)

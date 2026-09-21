@@ -1,6 +1,6 @@
+import type { Operation } from '@freeflow/document'
 import type { Document } from '@freeflow/schema'
 import { useState } from 'react'
-import type { EditOperation } from './history.js'
 import {
   insertionTarget,
   type Placement,
@@ -29,7 +29,7 @@ export function StructurePanel({
   root: string
   selected: string
   disabled: boolean
-  save: (operations: EditOperation[]) => Promise<boolean>
+  save: (operations: Operation[]) => Promise<boolean>
   select: (id: string) => void
 }) {
   const [preset, setPreset] = useState<Preset>('heading')

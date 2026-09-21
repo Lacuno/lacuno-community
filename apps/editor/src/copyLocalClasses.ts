@@ -1,8 +1,8 @@
+import type { Operation } from '@freeflow/document'
 import type { Document } from '@freeflow/schema'
-import type { EditOperation } from './history.js'
 
 /** Copy editable local styles once per duplicated subtree; shared/locked/combo classes retain identity. */
-export function localClassCopier(doc: Document, operations: EditOperation[]) {
+export function localClassCopier(doc: Document, operations: Operation[]) {
   const copies = new Map<string, string>()
   const comboParents = new Set(Object.values(doc.classes).flatMap((cls) => cls.combo ?? []))
   return (classes: string[]) =>

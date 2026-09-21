@@ -1,7 +1,7 @@
+import type { Operation } from '@freeflow/document'
 import type { Document, Node } from '@freeflow/schema'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { formattingOperations } from './formatting.js'
-import type { EditOperation } from './history.js'
 import {
   activePreset,
   applyPreset,
@@ -24,7 +24,7 @@ export function PresetManager({
   node: Node
   computed: Record<string, string>
   disabled: boolean
-  save: (operations: EditOperation[]) => Promise<boolean>
+  save: (operations: Operation[]) => Promise<boolean>
   draftChanged: (dirty: boolean) => void
 }) {
   const [name, setName] = useState('')
@@ -58,7 +58,7 @@ export function PresetManager({
   const uses = current
     ? Object.values(doc.nodes).filter((item) => item.classes.includes(current.id)).length
     : 0
-  const run = async (operations: () => EditOperation[]) => {
+  const run = async (operations: () => Operation[]) => {
     setError('')
     try {
       return await save(operations())
@@ -67,7 +67,7 @@ export function PresetManager({
       return false
     }
   }
-  const runAction = async (operations: () => EditOperation[]) => {
+  const runAction = async (operations: () => Operation[]) => {
     if (await run(operations)) popover.current?.hidePopover()
   }
   return (

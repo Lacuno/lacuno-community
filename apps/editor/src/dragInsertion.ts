@@ -19,7 +19,7 @@ export function dragInsertion(
   )
   const draft = { ...doc, classes: { ...doc.classes }, styles: {} as SiteDocument['styles'] }
   for (const operation of insertion.operations) {
-    if (operation.type === 'class.create')
+    if (operation.type === 'class.create' && operation.id)
       draft.classes[operation.id] = { id: operation.id, kind: 'local' }
     if (operation.type === 'style.set') {
       const { type: _, ...style } = operation

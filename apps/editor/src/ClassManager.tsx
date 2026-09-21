@@ -1,6 +1,6 @@
+import type { Operation } from '@freeflow/document'
 import type { Document, Node } from '@freeflow/schema'
 import { useEffect, useState } from 'react'
-import type { EditOperation } from './history.js'
 
 export function ClassManager({
   doc,
@@ -13,7 +13,7 @@ export function ClassManager({
   node: Node
   disabled: boolean
   draftChanged: (dirty: boolean) => void
-  save: (operations: EditOperation[]) => Promise<boolean>
+  save: (operations: Operation[]) => Promise<boolean>
 }) {
   const [name, setName] = useState('')
   const [existing, setExisting] = useState('')

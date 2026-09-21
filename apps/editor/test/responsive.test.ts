@@ -3,8 +3,8 @@ import { fixtureDocument, styleKey } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import { breakpointMedia, editingBreakpoint } from '../src/breakpoints.js'
 import { formattingOperations, localValue } from '../src/formatting.js'
-import { captureEdit } from '../src/history.js'
 import { applyPreset, createPreset, presetValues, updatePreset } from '../src/presets.js'
+import { commit } from './helpers.js'
 
 it('writes and resets only the selected breakpoint and round-trips undo', async () => {
   const doc = fixtureDocument()
@@ -46,14 +46,13 @@ it('writes and resets only the selected breakpoint and round-trips undo', async 
     undefined,
     mobile,
   )
-  const entry = captureEdit(current, reset)
-  await apply(reset)
+  const entry = await commit(store, reset)
   expect(
     presetValues(store.read().document, store.read().document.nodes[node.id]!, {}, mobile)[
       'font-size'
     ],
   ).toEqual({ type: 'unit', value: 60, unit: 'px' })
-  await apply(entry.undo)
+  await store.apply({ expectedRevision: store.revision, patches: entry.undo })
   expect(
     localValue(store.read().document, store.read().document.nodes[node.id]!, 'font-size', mobile),
   ).toEqual({ type: 'unit', value: 24, unit: 'px' })

@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { PatchError } from './errors.js'
 
 export type PathSegment = string | number
@@ -13,6 +14,18 @@ export type Patch =
   | { op: 'insert'; path: Path; index: number; value: unknown }
   | { op: 'remove'; path: Path; index: number }
   | { op: 'move'; path: Path; from: number; to: number }
+
+const PatchPath = z.array(z.union([z.string(), z.number().int()]))
+const index = z.number().int().nonnegative()
+
+/** The wire form of a patch, for a client replaying the patches of an earlier commit. */
+export const Patch = z.discriminatedUnion('op', [
+  z.strictObject({ op: z.literal('set'), path: PatchPath, value: z.unknown() }),
+  z.strictObject({ op: z.literal('delete'), path: PatchPath }),
+  z.strictObject({ op: z.literal('insert'), path: PatchPath, index, value: z.unknown() }),
+  z.strictObject({ op: z.literal('remove'), path: PatchPath, index }),
+  z.strictObject({ op: z.literal('move'), path: PatchPath, from: index, to: index }),
+])
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -117,4 +130,43 @@ export function applyPatches<T>(root: T, patches: readonly Patch[]): T {
   let current: unknown = root
   for (const patch of patches) current = applyOne(current, patch)
   return current as T
+}
+
+/** The value at `path`, or undefined when a segment is missing. */
+function lookup(root: unknown, path: Path): { value: unknown } | undefined {
+  let node = root
+  for (const key of path) {
+    if (Array.isArray(node) && typeof key === 'number') node = node[key]
+    else if (isObject(node) && String(key) in node) node = node[String(key)]
+    else return undefined
+    if (node === undefined) return undefined
+  }
+  return { value: node }
+}
+
+/**
+ * The patches that turn `applyPatches(before, patches)` back into `before`, in reverse order.
+ * Every inverse is read from the pre-image, so an undo restores absent keys as absent.
+ */
+export function invertPatches<T>(before: T, patches: readonly Patch[]): Patch[] {
+  const inverse: Patch[] = []
+  let current: unknown = before
+  for (const patch of patches) {
+    const found = lookup(current, patch.path)
+    const { path } = patch
+    if (patch.op === 'set')
+      inverse.unshift(found ? { op: 'set', path, value: found.value } : { op: 'delete', path })
+    else if (patch.op === 'delete') inverse.unshift({ op: 'set', path, value: found?.value })
+    else if (patch.op === 'insert') inverse.unshift({ op: 'remove', path, index: patch.index })
+    else if (patch.op === 'remove')
+      inverse.unshift({
+        op: 'insert',
+        path,
+        index: patch.index,
+        value: arrayAt(found?.value, patch)[patch.index],
+      })
+    else inverse.unshift({ op: 'move', path, from: patch.to, to: patch.from })
+    current = applyOne(current, patch)
+  }
+  return inverse
 }

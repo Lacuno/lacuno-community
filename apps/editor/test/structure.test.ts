@@ -1,7 +1,6 @@
-import { DocumentStore } from '@freeflow/document'
+import { DocumentStore, type Operation } from '@freeflow/document'
 import { fixtureDocument } from '@freeflow/schema'
 import { expect, it } from 'vitest'
-import { captureEdit, type EditOperation } from '../src/history.js'
 import {
   dropEdit,
   dropTarget,
@@ -15,13 +14,14 @@ import {
   subtreeRestriction,
   wrapSelection,
 } from '../src/structure.js'
+import { commit } from './helpers.js'
 
 it('round-trips insertion, subtree edits and sibling moves with stable IDs', async () => {
   const original = fixtureDocument()
   const parent = original.nodes['n-hero-title']!.parent!
   let sequence = 0
   const node = presetNode('section', '', () => `n-insert-${++sequence}`)
-  const operations: EditOperation[] = [
+  const operations: Operation[] = [
     { type: 'node.create', parent, node },
     {
       type: 'node.update',
@@ -30,18 +30,16 @@ it('round-trips insertion, subtree edits and sibling moves with stable IDs', asy
     },
     { type: 'node.move', id: node.id, parent, index: 0 },
   ]
-  const entry = captureEdit(original, operations)
   const store = DocumentStore.inMemory(original)
-  await store.apply({ expectedRevision: store.revision, operations })
+  const entry = await commit(store, operations)
   const edited = store.read().document
   expect(edited.nodes[parent]!.children[0]).toBe(node.id)
-  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+  await store.apply({ expectedRevision: store.revision, patches: entry.undo })
   expect({ ...store.read().document, revision: original.revision }).toEqual(original)
-  await store.apply({ expectedRevision: store.revision, operations: entry.redo })
+  await store.apply({ expectedRevision: store.revision, patches: entry.redo })
   expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
-  const removal = captureEdit(store.read().document, [{ type: 'node.delete', id: node.id }])
-  await store.apply({ expectedRevision: store.revision, operations: removal.redo })
-  await store.apply({ expectedRevision: store.revision, operations: removal.undo })
+  const removal = await commit(store, [{ type: 'node.delete', id: node.id }])
+  await store.apply({ expectedRevision: store.revision, patches: removal.undo })
   expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
 })
 
@@ -71,9 +69,8 @@ it.each(structures)(
     const before = original.nodes[id]!
     const parent = original.nodes[before.parent!]!
     const { node, operations } = wrapSelection(original, id, preset)
-    const entry = captureEdit(original, operations)
     const store = DocumentStore.inMemory(original)
-    await store.apply({ expectedRevision: store.revision, operations })
+    const entry = await commit(store, operations)
     const edited = store.read().document
     expect(edited.nodes[parent.id]!.children[parent.children.indexOf(id)]).toBe(node.id)
     expect(edited.nodes[node.id]!.children).toEqual([id])
@@ -81,9 +78,9 @@ it.each(structures)(
     expect(Object.values(edited.styles).some((style) => node.classes.includes(style.class))).toBe(
       true,
     )
-    await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+    await store.apply({ expectedRevision: store.revision, patches: entry.undo })
     expect({ ...store.read().document, revision: original.revision }).toEqual(original)
-    await store.apply({ expectedRevision: store.revision, operations: entry.redo })
+    await store.apply({ expectedRevision: store.revision, patches: entry.redo })
     expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
   },
 )
@@ -122,10 +119,9 @@ it('drops before and after siblings with post-removal indices and reversible rep
   expect(dropTarget(doc, root, { id: last }, first, 'before').index).toBe(0)
   expect(dropEdit(doc, root, { id: first }, first, 'after').operations).toEqual([])
   const edit = dropEdit(doc, root, { id: 'n-hero-title' }, first, 'inside')
-  const history = captureEdit(doc, edit.operations)
-  await store.apply({ expectedRevision: store.revision, operations: edit.operations })
+  const history = await commit(store, edit.operations)
   expect(store.read().document.nodes[first]!.children).toEqual(['n-hero-title'])
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })
 
@@ -148,16 +144,14 @@ it('rejects moving a container into a descendant and round-trips drag insertion'
   const root = doc.nodes['n-hero-title']!.parent!
   const store = DocumentStore.inMemory(doc)
   const row = dropEdit(doc, root, { preset: 'row' }, 'n-hero-title', 'after')
-  const history = captureEdit(doc, row.operations)
-  await store.apply({ expectedRevision: store.revision, operations: row.operations })
+  const history = await commit(store, row.operations)
   const child = dropEdit(store.read().document, root, { preset: 'stack' }, row.node.id, 'inside')
-  const childHistory = captureEdit(store.read().document, child.operations)
-  await store.apply({ expectedRevision: store.revision, operations: child.operations })
+  const childHistory = await commit(store, child.operations)
   expect(() =>
     dropTarget(store.read().document, root, { id: row.node.id }, child.node.id, 'inside'),
   ).toThrow('itself')
-  await store.apply({ expectedRevision: store.revision, operations: childHistory.undo })
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: childHistory.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })
 
@@ -169,9 +163,8 @@ it('duplicates a subtree with independent local styles and unique HTML ids, then
     'aria-labelledby': { type: 'static', value: 'hero-title' },
   }
   const edit = duplicateSelection(doc, id)
-  const history = captureEdit(doc, edit.operations)
   const store = DocumentStore.inMemory(doc)
-  await store.apply({ expectedRevision: store.revision, operations: edit.operations })
+  const history = await commit(store, edit.operations)
   const result = store.read().document
   const copy = result.nodes[edit.node.id]!
   expect(copy.id).not.toBe(id)
@@ -179,7 +172,7 @@ it('duplicates a subtree with independent local styles and unique HTML ids, then
   expect(copy.attrs!['aria-labelledby']).toEqual(copy.attrs!.id)
   for (const cls of copy.classes.filter((cls) => result.classes[cls]?.kind === 'local'))
     expect(doc.nodes[id]!.classes).not.toContain(cls)
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
   expect(subtreeRestriction(doc, '')).toBeTruthy()
   doc.nodes[id]!.meta = { locked: true }
@@ -190,12 +183,11 @@ it('renames an element and restores absent metadata exactly', async () => {
   const doc = fixtureDocument()
   const id = 'n-hero-title'
   delete doc.nodes[id]!.meta
-  const operations: EditOperation[] = [{ type: 'node.update', id, meta: { label: 'Hero title' } }]
-  const history = captureEdit(doc, operations)
+  const operations: Operation[] = [{ type: 'node.update', id, meta: { label: 'Hero title' } }]
   const store = DocumentStore.inMemory(doc)
-  await store.apply({ expectedRevision: store.revision, operations })
+  const history = await commit(store, operations)
   expect(store.read().document.nodes[id]!.meta?.label).toBe('Hero title')
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })
 
@@ -205,12 +197,11 @@ it('round-trips image registration, insertion, replacement and alt text through 
   const asset = { ...originalAsset, id: 'a-new-image', name: 'New image' }
   const parent = doc.nodes['n-hero-title']!.parent!
   const inserted = structureInsertion('image', { parent, index: 0 }, '', false, asset.id)
-  const operations: EditOperation[] = [{ type: 'asset.create', ...asset }, ...inserted.operations]
-  const history = captureEdit(doc, operations)
+  const operations: Operation[] = [{ type: 'asset.create', ...asset }, ...inserted.operations]
   const store = DocumentStore.inMemory(doc)
-  await store.apply({ expectedRevision: store.revision, operations })
+  const history = await commit(store, operations)
   const beforeEdit = store.read().document
-  const update: EditOperation[] = [
+  const update: Operation[] = [
     {
       type: 'node.update',
       id: inserted.node.id,
@@ -220,15 +211,14 @@ it('round-trips image registration, insertion, replacement and alt text through 
       },
     },
   ]
-  const updateHistory = captureEdit(beforeEdit, update)
-  await store.apply({ expectedRevision: store.revision, operations: update })
+  const updateHistory = await commit(store, update)
   expect(store.read().document.nodes[inserted.node.id]!.attrs!.alt).toEqual({
     type: 'static',
     value: 'A description',
   })
-  await store.apply({ expectedRevision: store.revision, operations: updateHistory.undo })
+  await store.apply({ expectedRevision: store.revision, patches: updateHistory.undo })
   expect({ ...store.read().document, revision: beforeEdit.revision }).toEqual(beforeEdit)
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })
 
@@ -241,14 +231,13 @@ it('inserts an image without selecting an existing asset and restores its placeh
   const node = store.read().document.nodes[inserted.node.id]!
   expect(node.attrs?.src).toBeUndefined()
   const asset = Object.values(doc.assets)[0]!
-  const edit = captureEdit(store.read().document, [
+  const edit = await commit(store, [
     {
       type: 'node.update',
       id: node.id,
       attrs: { ...node.attrs, src: { type: 'asset', asset: asset.id } },
     },
   ])
-  await store.apply({ expectedRevision: store.revision, operations: edit.redo })
-  await store.apply({ expectedRevision: store.revision, operations: edit.undo })
+  await store.apply({ expectedRevision: store.revision, patches: edit.undo })
   expect(store.read().document.nodes[node.id]).toEqual(node)
 })

@@ -1,3 +1,4 @@
+import type { Operation } from '@freeflow/document'
 import { type Document, designTokenCssName } from '@freeflow/schema'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -8,7 +9,6 @@ import {
   projectColors,
   referencesColor,
 } from './colors.js'
-import type { EditOperation } from './history.js'
 import type { LivePreview } from './livePreview.js'
 import { useAutosave } from './useAutosave.js'
 
@@ -28,9 +28,9 @@ export function ProjectColors({
   conflict: boolean
   error: string
   dirtyChanged: (value: boolean) => void
-  save: (ops: EditOperation[]) => Promise<boolean>
+  save: (ops: Operation[]) => Promise<boolean>
   close: () => void
-  autoSave: (ops: EditOperation[]) => Promise<boolean>
+  autoSave: (ops: Operation[]) => Promise<boolean>
   previewChanged: (preview: LivePreview) => void
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -171,10 +171,10 @@ function ColorForm({
   busy: boolean
   conflict: boolean
   dirtyChanged: (dirty: boolean) => void
-  save: (ops: EditOperation[]) => Promise<boolean>
+  save: (ops: Operation[]) => Promise<boolean>
   created: (id: string) => void
   variant: () => void
-  autoSave: (ops: EditOperation[]) => Promise<boolean>
+  autoSave: (ops: Operation[]) => Promise<boolean>
   previewChanged: (preview: LivePreview) => void
   registerFlush: (flush: () => Promise<boolean>) => void
 }) {
@@ -191,7 +191,7 @@ function ColorForm({
   const valid =
     CSS.supports('color', value.trim()) &&
     !/var\(|currentcolor|inherit|initial|unset|revert/i.test(value)
-  const operations: EditOperation[] =
+  const operations: Operation[] =
     token && dirty && valid
       ? [
           {

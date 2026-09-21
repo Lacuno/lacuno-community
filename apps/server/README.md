@@ -113,7 +113,7 @@ and checks the persisted result.
 | `GET /api/sites/:id/document` | `{document,revision}` |
 | `GET /api/sites/:id/preview?page=<id>&entry=<id>` | Canvas HTML, warnings and revision; entry required for collection pages |
 | `GET /api/sites/:id/assets/:hash` | Authenticated asset bytes belonging to the site |
-| `POST /api/sites/:id/document/apply` | `{expectedRevision,operations,dryRun?}` → operation result |
+| `POST /api/sites/:id/document/apply` | `{expectedRevision,operations,dryRun?}`, or `{expectedRevision,patches}` to replay an earlier commit → operation result |
 | `GET /api/sites/:id/releases` | Publishing configuration, current release, URL and release history |
 | `POST /api/sites/:id/releases` | `{expectedRevision,publishedId}` → `202 {id}`; enqueue an immutable snapshot |
 | `POST /api/sites/:id/releases/:releaseId/activate` | `{publishedId}` → switch live output to a successful release; draft unchanged |
@@ -121,7 +121,7 @@ and checks the persisted result.
 Application routes require a session cookie. JSON writes reject cross-origin requests; API responses
 disable caching. Unknown or inaccessible sites return `404`, missing sessions `401`, invalid input
 `400`, and stale edits `409` with `currentRevision`. Request bodies are limited to 2 MiB and batches
-to 1,000 operations. Authentication endpoints use Better Auth's rate limiting and CSRF checks.
+to 1,000 operations or 5,000 patches. Authentication endpoints use Better Auth's rate limiting and CSRF checks.
 The setup endpoint additionally requires a 256-bit server-side token. SQLite enforces one owner
 even across simultaneous setup requests. Owner passwords and sessions still use Better Auth.
 

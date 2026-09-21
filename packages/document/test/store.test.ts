@@ -5,8 +5,9 @@ import path from 'node:path'
 import { type Document, DocumentError, fixtureDocument } from '@freeflow/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { OperationError, RevisionRewoundError, StaleRevisionError } from '../src/errors.js'
+import type { Patch } from '../src/patch.js'
 import { MemoryPersistence } from '../src/persistence.js'
-import { DocumentStore, kindForMime } from '../src/store.js'
+import { type Batch, DocumentStore, kindForMime } from '../src/store.js'
 
 const dirs: string[] = []
 async function tmp(): Promise<string> {
@@ -50,6 +51,30 @@ describe('DocumentStore in memory', () => {
     } catch (e) {
       expect(e).toMatchObject({ expected: 5, current: 1 })
     }
+  })
+
+  it('replays patches through the same validation gate and refuses an ambiguous batch', async () => {
+    const store = DocumentStore.inMemory(fixtureDocument())
+    await store.apply({
+      expectedRevision: 0,
+      operations: [{ type: 'class.create', id: 'c-new', name: 'new' }],
+    })
+    const undo: Patch[] = [{ op: 'delete', path: ['classes', 'c-new'] }]
+    const result = await store.apply({ expectedRevision: 1, patches: undo })
+    expect(result).toMatchObject({ revision: 2, patches: undo, created: {}, warnings: [] })
+    expect(store.read().document.classes['c-new']).toBeUndefined()
+    // Patches still have to leave a document that parses, so they cannot write what an
+    // operation could not.
+    await expect(
+      store.apply({
+        expectedRevision: 2,
+        patches: [{ op: 'set', path: ['site', 'name'], value: 7 }],
+      }),
+    ).rejects.toBeInstanceOf(DocumentError)
+    expect(store.revision).toBe(2)
+    const ambiguous = { expectedRevision: 2, operations: [], patches: undo }
+    await expect(store.apply(ambiguous as unknown as Batch)).rejects.toThrow('either operations')
+    await expect(store.apply({ expectedRevision: 2 } as Batch)).rejects.toThrow('either operations')
   })
 
   it('is atomic: a failing later operation leaves nothing applied', async () => {

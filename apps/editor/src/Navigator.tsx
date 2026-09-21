@@ -1,7 +1,7 @@
+import type { Operation } from '@freeflow/document'
 import type { Document } from '@freeflow/schema'
 import { useEffect, useRef, useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
-import type { EditOperation } from './history.js'
 import { presetValues } from './presets.js'
 import { structureRestriction } from './structure.js'
 
@@ -14,7 +14,7 @@ type Props = {
   disabled: boolean
   select: (id: string) => void
   actions: (id: string) => void
-  save: (operations: EditOperation[]) => Promise<boolean>
+  save: (operations: Operation[]) => Promise<boolean>
   nodeAction: (action: 'duplicate' | 'delete', id: string) => void
 }
 

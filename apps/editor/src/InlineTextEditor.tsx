@@ -1,4 +1,5 @@
 import { contextFromDocument, serializeValue } from '@freeflow/css'
+import type { Operation } from '@freeflow/document'
 import {
   type CssValue,
   type Document,
@@ -12,7 +13,6 @@ import { Color, FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-s
 import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useRef, useState } from 'react'
 import { formattingOperations, normalizeFormatting } from './formatting.js'
-import type { EditOperation } from './history.js'
 import { PresetManager } from './PresetManager.js'
 import { TextToolbar } from './TextToolbar.js'
 import { textDocument, textProperties, textStyleAttributes } from './textFormatting.js'
@@ -33,7 +33,7 @@ export function InlineTextEditor({
   target: InlineTarget
   doc: Document
   disabled: boolean
-  save: (operations: EditOperation[]) => Promise<boolean>
+  save: (operations: Operation[]) => Promise<boolean>
   close: () => void
   registerFlush: (flush: () => Promise<boolean>) => void
   dirtyChanged: (dirty: boolean) => void

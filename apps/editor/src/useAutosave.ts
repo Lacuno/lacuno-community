@@ -1,12 +1,12 @@
+import type { Operation } from '@freeflow/document'
 import { useEffect, useRef, useState } from 'react'
-import type { EditOperation } from './history.js'
 
 /** Serialize edits, group typing into one history step, and flush before navigation. */
 export function useAutosave(
-  operations: EditOperation[],
+  operations: Operation[],
   enabled: boolean,
   busy: boolean,
-  save: (operations: EditOperation[]) => Promise<boolean>,
+  save: (operations: Operation[]) => Promise<boolean>,
 ) {
   const key = JSON.stringify(operations)
   const current = useRef({ operations, enabled, save, key, busy })

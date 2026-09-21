@@ -1,8 +1,8 @@
 import { classNames, selectorFor } from '@freeflow/css'
+import type { Operation } from '@freeflow/document'
 import { type CssValue, type Document, type Node, styleKey } from '@freeflow/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
 import { formattingGroups, formattingOperations, localClass } from './formatting.js'
-import type { EditOperation } from './history.js'
 
 const properties = new Set<string>(
   formattingGroups.flatMap((group) => group.fields.map((field) => field.property)),
@@ -67,20 +67,20 @@ export function presetOverrides(doc: Document, node: Node, breakpoint = 'base') 
   )
 }
 
-export function applyPreset(doc: Document, node: Node, id: string): EditOperation[] {
+export function applyPreset(doc: Document, node: Node, id: string): Operation[] {
   const preset = doc.classes[id]
   if (id && (!preset?.preset || preset.kind !== 'class' || preset.combo?.length))
     throw new Error('Choose a valid preset.')
   // Isolate imported shared local classes before clearing formatting, just as direct edits do.
   const clear = Object.fromEntries([...properties].map((property) => [property, null]))
-  const operations: EditOperation[] = []
+  const operations: Operation[] = []
   const draft = structuredClone(doc)
   if (id) {
     for (const bp of Object.keys(doc.breakpoints)) {
       const next = formattingOperations(draft, draft.nodes[node.id]!, clear, undefined, bp)
       operations.push(...next)
       for (const op of next) {
-        if (op.type === 'class.create') draft.classes[op.id] = { id: op.id, kind: 'local' }
+        if (op.type === 'class.create' && op.id) draft.classes[op.id] = { id: op.id, kind: 'local' }
         else if (op.type === 'node.update' && op.classes) draft.nodes[node.id]!.classes = op.classes
         else if (op.type === 'style.set') {
           const { type: _, ...style } = op
@@ -105,7 +105,7 @@ export function createPreset(
   computed: Record<string, string>,
   id = `c-${crypto.randomUUID()}`,
   breakpoint = 'base',
-): EditOperation[] {
+): Operation[] {
   const trimmed = name.trim()
   if (!trimmed) throw new Error('Give your preset a name.')
   if (Object.values(doc.classes).some((cls) => cls.name?.toLowerCase() === trimmed.toLowerCase()))
@@ -119,7 +119,7 @@ export function createPreset(
   return [
     { type: 'class.create', id, name: trimmed, preset: true },
     ...Object.entries(values).map(
-      ([property, value]): EditOperation => ({
+      ([property, value]): Operation => ({
         type: 'style.set',
         class: id,
         breakpoint: 'base',
@@ -150,7 +150,7 @@ export function createPreset(
         return Object.entries(presetValues(doc, node, {}, bp))
           .filter(([property]) => explicit.has(property))
           .map(
-            ([property, value]): EditOperation => ({
+            ([property, value]): Operation => ({
               type: 'style.set',
               class: id,
               breakpoint: bp,
@@ -164,13 +164,13 @@ export function createPreset(
   ]
 }
 
-export function updatePreset(doc: Document, node: Node, breakpoint = 'base'): EditOperation[] {
+export function updatePreset(doc: Document, node: Node, breakpoint = 'base'): Operation[] {
   const preset = activePreset(doc, node)
   if (!preset || preset.locked) throw new Error('This preset cannot be updated.')
   const overrides = presetOverrides(doc, node, breakpoint)
   return [
     ...overrides.map(
-      (style): EditOperation => ({
+      (style): Operation => ({
         ...structuredClone(style),
         type: 'style.set',
         class: preset.id,

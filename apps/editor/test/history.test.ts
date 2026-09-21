@@ -1,78 +1,19 @@
 import { DocumentStore } from '@freeflow/document'
-import { fixtureDocument, styleKey } from '@freeflow/schema'
+import { fixtureDocument } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import {
-  captureEdit,
   committedHistory,
-  type EditOperation,
   emptyHistory,
+  type HistoryEntry,
   historyShortcut,
 } from '../src/history.js'
-
-it('undoes one mixed save exactly, including rich text, tokens, important and missing styles', async () => {
-  const original = fixtureDocument()
-  const color = { class: 'c-page', breakpoint: 'base', state: 'none' as const, property: 'color' }
-  original.styles[styleKey(color)]!.important = true
-  const operations: EditOperation[] = [
-    { type: 'node.update', id: 'n-hero-title', text: { type: 'static', value: 'New heading' } },
-    { type: 'style.set', ...color, value: { type: 'color', value: '#ffffff' } },
-    { type: 'style.set', ...color, value: { type: 'color', value: '#000000' } },
-    { type: 'style.clear', ...color, property: 'font-family' },
-    {
-      type: 'style.set',
-      ...color,
-      property: 'outline-offset',
-      value: { type: 'unit', value: 2, unit: 'px' },
-    },
-  ]
-  const untouched = structuredClone(original)
-  const entry = captureEdit(original, operations)
-  expect(original).toEqual(untouched)
-  const store = DocumentStore.inMemory(original)
-  await store.apply({ expectedRevision: store.revision, operations })
-  const edited = store.read().document
-  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
-  expect({ ...store.read().document, revision: original.revision }).toEqual(original)
-  await store.apply({ expectedRevision: store.revision, operations: entry.redo })
-  expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
-})
-
-it('restores a deleted combo class, its lock and its styles', async () => {
-  const original = fixtureDocument()
-  const store = DocumentStore.inMemory(original)
-  await store.apply({
-    expectedRevision: store.revision,
-    operations: [
-      { type: 'class.create', id: 'c-combo', name: 'card-wide', combo: ['c-page'], locked: true },
-      {
-        type: 'style.set',
-        class: 'c-combo',
-        breakpoint: 'base',
-        state: 'none',
-        property: 'color',
-        value: { type: 'color', value: '#123456' },
-      },
-    ],
-  })
-  const before = store.read().document
-  const entry = captureEdit(before, [{ type: 'class.delete', id: 'c-combo' }])
-  await store.apply({
-    expectedRevision: store.revision,
-    operations: [{ type: 'class.delete', id: 'c-combo' }],
-  })
-  expect(store.read().document.classes['c-combo']).toBeUndefined()
-  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
-  expect({ ...store.read().document, revision: before.revision }).toEqual(before)
-})
+import { commit } from './helpers.js'
 
 it('keeps rejected undos from overwriting a later revision', async () => {
-  const original = fixtureDocument()
-  const edits: EditOperation[] = [
+  const store = DocumentStore.inMemory(fixtureDocument())
+  const entry = await commit(store, [
     { type: 'node.update', id: 'n-hero-title', text: { type: 'static', value: 'Mine' } },
-  ]
-  const entry = captureEdit(original, edits)
-  const store = DocumentStore.inMemory(original)
-  await store.apply({ expectedRevision: store.revision, operations: edits })
+  ])
   const revision = store.revision
   await store.apply({
     expectedRevision: revision,
@@ -81,16 +22,17 @@ it('keeps rejected undos from overwriting a later revision', async () => {
     ],
   })
   const latest = store.read()
-  await expect(store.apply({ expectedRevision: revision, operations: entry.undo })).rejects.toThrow(
+  await expect(store.apply({ expectedRevision: revision, patches: entry.undo })).rejects.toThrow(
     'stale revision',
   )
   expect(store.read()).toEqual(latest)
 })
 
 it('clears redo after a new edit and bounds history to 100 saved batches', () => {
-  const entry = captureEdit(fixtureDocument(), [
-    { type: 'node.update', id: 'n-hero-title', text: { type: 'static', value: 'Changed' } },
-  ])
+  const entry: HistoryEntry = {
+    undo: [{ op: 'delete', path: ['classes', 'c-new'] }],
+    redo: [{ op: 'set', path: ['classes', 'c-new'], value: { id: 'c-new', kind: 'local' } }],
+  }
   let history = committedHistory(emptyHistory(), 'edit', entry)
   history = committedHistory(history, 'undo', entry)
   expect(history.undo).toEqual([])

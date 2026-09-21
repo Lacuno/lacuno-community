@@ -1,8 +1,8 @@
+import type { Operation } from '@freeflow/document'
 import type { Document as SiteDocument } from '@freeflow/schema'
 import { useEffect, useRef } from 'react'
 import { createDragPreview } from './dragPreview.js'
 import { canvasDropTarget } from './dragTarget.js'
-import type { EditOperation } from './history.js'
 import {
   canContain,
   type DragItem,
@@ -18,7 +18,7 @@ type Options = {
   doc: SiteDocument | undefined
   root: string | undefined
   disabled: boolean
-  save: (operations: EditOperation[]) => Promise<boolean>
+  save: (operations: Operation[]) => Promise<boolean>
   uploadImage: (id: string, file: File) => void
   select: (id: string) => void
 }

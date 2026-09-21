@@ -1,8 +1,8 @@
-import { DocumentStore } from '@freeflow/document'
+import { DocumentStore, type Operation } from '@freeflow/document'
 import { fixtureDocument } from '@freeflow/schema'
 import { expect, it } from 'vitest'
-import { captureEdit, type EditOperation } from '../src/history.js'
 import { duplicatePage, pagePathError } from '../src/pages.js'
+import { commit } from './helpers.js'
 
 it('duplicates entire pages with stable undo/redo, independent local styles, and shared components', async () => {
   const original = fixtureDocument()
@@ -11,8 +11,7 @@ it('duplicates entire pages with stable undo/redo, independent local styles, and
   node.classes.push('c-local-test')
   const store = DocumentStore.inMemory(original)
   const copy = duplicatePage(original, 'p-home')
-  const history = captureEdit(original, copy.operations)
-  await store.apply({ expectedRevision: store.revision, operations: copy.operations })
+  const history = await commit(store, copy.operations)
   const copied = store.read().document
   expect(copied.pages[copy.id]?.path).toBe('/home-copy')
   expect(
@@ -20,20 +19,19 @@ it('duplicates entire pages with stable undo/redo, independent local styles, and
   ).toHaveLength(1)
   expect(Object.keys(copied.components)).toEqual(Object.keys(original.components))
   expect(duplicatePage(copied, 'p-home').operations.at(-1)).toMatchObject({ path: '/home-copy-2' })
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: original.revision }).toEqual(original)
-  await store.apply({ expectedRevision: store.revision, operations: history.redo })
+  await store.apply({ expectedRevision: store.revision, patches: history.redo })
   expect({ ...store.read().document, revision: copied.revision }).toEqual(copied)
-  const removal = captureEdit(copied, [{ type: 'page.delete', id: copy.id }])
-  await store.apply({ expectedRevision: store.revision, operations: removal.redo })
-  await store.apply({ expectedRevision: store.revision, operations: removal.undo })
+  const removal = await commit(store, [{ type: 'page.delete', id: copy.id }])
+  await store.apply({ expectedRevision: store.revision, patches: removal.undo })
   expect({ ...store.read().document, revision: copied.revision }).toEqual(copied)
 })
 
 it('restores names, paths and absent SEO exactly', async () => {
   const original = fixtureDocument()
   delete original.pages['p-home']!.seo
-  const operations: EditOperation[] = [
+  const operations: Operation[] = [
     {
       type: 'page.update',
       id: 'p-home',
@@ -42,10 +40,9 @@ it('restores names, paths and absent SEO exactly', async () => {
       seo: { title: 'Start here', description: 'Our site' },
     },
   ]
-  const history = captureEdit(original, operations)
   const store = DocumentStore.inMemory(original)
-  await store.apply({ expectedRevision: store.revision, operations })
-  await store.apply({ expectedRevision: store.revision, operations: history.undo })
+  const history = await commit(store, operations)
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
   expect({ ...store.read().document, revision: original.revision }).toEqual(original)
 })
 

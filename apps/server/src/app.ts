@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { DocumentStore, Operation, OperationError, StaleRevisionError } from '@freeflow/document'
+import {
+  DocumentStore,
+  Operation,
+  OperationError,
+  Patch,
+  PatchError,
+  StaleRevisionError,
+} from '@freeflow/document'
 import { renderCanvas } from '@freeflow/renderer'
 import { DocumentError, hashAsset, parseDocument } from '@freeflow/schema'
 import { serveStatic } from '@hono/node-server/serve-static'
@@ -33,7 +40,9 @@ export type ServerOptions = {
 const SiteInput = z.strictObject({ name: z.string().trim().min(1).max(200) })
 const BatchInput = z.strictObject({
   expectedRevision: z.number().int().nonnegative(),
-  operations: z.array(Operation).min(1).max(1000),
+  operations: z.array(Operation).min(1).max(1000).optional(),
+  /** The patches of an earlier commit, replayed to undo or redo it. */
+  patches: z.array(Patch).min(1).max(5000).optional(),
   dryRun: z.boolean().optional(),
 })
 
@@ -91,7 +100,11 @@ export async function createServer(options: ServerOptions) {
       if (error instanceof HTTPException) return c.json({ error: error.message }, error.status)
       if (error instanceof StaleRevisionError)
         return c.json({ error: error.message, currentRevision: error.current }, 409)
-      if (error instanceof OperationError || error instanceof DocumentError)
+      if (
+        error instanceof OperationError ||
+        error instanceof DocumentError ||
+        error instanceof PatchError
+      )
         return c.json({ error: error.message }, 400)
       console.error(error)
       return c.json({ error: 'Internal server error' }, 500)
@@ -377,11 +390,15 @@ export async function createServer(options: ServerOptions) {
         return c.json({ error: 'Invalid operation batch', issues: input.error.issues }, 400)
       const batch = input.data
       return c.json(
-        await (await store(c.req.param('id'))).apply({
-          expectedRevision: batch.expectedRevision,
-          operations: batch.operations as Operation[],
-          ...(batch.dryRun === undefined ? {} : { dryRun: batch.dryRun }),
-        }),
+        await (await store(c.req.param('id'))).apply(
+          batch.patches
+            ? { expectedRevision: batch.expectedRevision, patches: batch.patches as Patch[] }
+            : {
+                expectedRevision: batch.expectedRevision,
+                operations: batch.operations as Operation[],
+                ...(batch.dryRun === undefined ? {} : { dryRun: batch.dryRun }),
+              },
+        ),
       )
     })
     if (options.editorDir) {

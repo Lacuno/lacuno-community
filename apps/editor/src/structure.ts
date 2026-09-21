@@ -1,7 +1,7 @@
-import { subtreeIds } from '@freeflow/document'
+import { type Operation, subtreeIds } from '@freeflow/document'
 import type { Document } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
-import { type EditOperation, type InsertNode, type PageTree, pageTree } from './history.js'
+import { type InsertNode, type PageTree, pageTree } from './history.js'
 
 export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
 export type Structure = (typeof structures)[number]
@@ -63,11 +63,7 @@ export function insertionTarget(
   }
 }
 
-export function siblingMove(
-  doc: Document,
-  id: string,
-  direction: -1 | 1,
-): EditOperation | undefined {
+export function siblingMove(doc: Document, id: string, direction: -1 | 1): Operation | undefined {
   if (structureRestriction(doc, id)) return undefined
   const node = doc.nodes[id]
   const parent = node?.parent ? doc.nodes[node.parent] : undefined
@@ -149,10 +145,10 @@ export function structureInsertion(
   classId = '',
   empty = false,
   assetId = '',
-): { node: InsertNode; operations: EditOperation[] } {
+): { node: InsertNode; operations: Operation[] } {
   const node = presetNode(preset, classId, undefined, assetId)
   if (empty) node.children = []
-  const operations: EditOperation[] = []
+  const operations: Operation[] = []
   if (preset in defaults) {
     const id = `c-${crypto.randomUUID()}`
     node.classes.push(id)
@@ -241,7 +237,7 @@ export function dropEdit(
     node.parent === target.parent && doc.nodes[target.parent]!.children[target.index] === item.id
   return {
     node,
-    operations: unchanged ? [] : [{ type: 'node.move', id: item.id, ...target } as EditOperation],
+    operations: unchanged ? [] : [{ type: 'node.move', id: item.id, ...target } as Operation],
   }
 }
 
@@ -262,7 +258,7 @@ export function subtreeRestriction(doc: Document, id: string): string | undefine
 }
 
 /** A deep copy with fresh node ids, copied local classes and in-page references remapped. */
-export function copySubtree(doc: Document, id: string, operations: EditOperation[]): PageTree {
+export function copySubtree(doc: Document, id: string, operations: Operation[]): PageTree {
   const copyClasses = localClassCopier(doc, operations)
   const htmlIds = new Map<string, string>()
   for (const nodeId of subtreeIds(doc, id)) {
@@ -306,7 +302,7 @@ export function copySubtree(doc: Document, id: string, operations: EditOperation
 export function duplicateSelection(doc: Document, id: string) {
   const reason = subtreeRestriction(doc, id)
   if (reason) throw new Error(reason)
-  const operations: EditOperation[] = []
+  const operations: Operation[] = []
   const node = copySubtree(doc, id, operations)
   node.meta = {
     ...node.meta,
