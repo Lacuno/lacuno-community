@@ -1,7 +1,7 @@
 import { classNames, compareSelectors } from '@freeflow/css'
 import type { Operation } from '@freeflow/document'
 import { nodesUsingClass } from '@freeflow/document/references'
-import type { CssValue, Document, Node, StyleDecl } from '@freeflow/schema'
+import type { CssValue, Document, Node, State, StyleDecl } from '@freeflow/schema'
 import { styleKey } from '@freeflow/schema'
 
 export const formattingGroups = [
@@ -104,10 +104,6 @@ export const formattingGroups = [
       { property: '--ff-delay', label: 'Delay' },
       { property: '--ff-easing', label: 'Easing' },
       { property: '--ff-entrance', label: 'Entrance' },
-      { property: '--ff-hover-opacity', label: 'Hover opacity' },
-      { property: '--ff-hover-scale', label: 'Hover scale' },
-      { property: '--ff-hover-rotate', label: 'Hover rotation' },
-      { property: '--ff-hover-box-shadow', label: 'Hover shadow' },
     ],
   },
 ] as const
@@ -129,11 +125,10 @@ export function localValue(
   node: Node,
   property: string,
   breakpoint = 'base',
+  state: State = 'none',
 ): CssValue | undefined {
   const id = localClass(doc, node)
-  return id
-    ? doc.styles[styleKey({ class: id, breakpoint, state: 'none', property })]?.value
-    : undefined
+  return id ? doc.styles[styleKey({ class: id, breakpoint, state, property })]?.value : undefined
 }
 export function formattingOperations(
   doc: Document,
@@ -141,6 +136,7 @@ export function formattingOperations(
   changes: Record<string, CssValue | null>,
   makeId = () => `c-${crypto.randomUUID()}`,
   breakpoint = 'base',
+  state: State = 'none',
 ): Operation[] {
   const operations: Operation[] = []
   let id = localClass(doc, node)
@@ -152,7 +148,7 @@ export function formattingOperations(
           node.classes.includes(style.class) &&
           doc.classes[style.class]?.kind === 'local' &&
           style.breakpoint === breakpoint &&
-          style.state === 'none' &&
+          style.state === state &&
           style.property in changes,
       ))
   ) {
@@ -183,14 +179,14 @@ export function formattingOperations(
       }
     }
     for (const style of inherited.values()) {
-      if (style.breakpoint === breakpoint && style.state === 'none' && style.property in changes)
+      if (style.breakpoint === breakpoint && style.state === state && style.property in changes)
         continue
       operations.push({ type: 'style.set', ...style })
     }
   }
   if (!id) return operations
   for (const [property, value] of Object.entries(changes)) {
-    const coordinates = { class: id, breakpoint, state: 'none' as const, property }
+    const coordinates = { class: id, breakpoint, state, property }
     if (value) {
       const important = Object.values(doc.styles).some(
         (style) =>

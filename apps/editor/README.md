@@ -62,12 +62,21 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   and inset controls. Existing custom transforms and complex shadows remain editable as CSS.
   Effects preview immediately, autosave, support undo/redo, and reset with **Reset formatting**.
   Rotation and scale use individual CSS properties, so they compose with existing transforms.
-- **Motion** configures hover/focus opacity, scale, rotation, and shadow plus duration, delay,
-  and easing. Entrances include fade and slides from four directions, played once when an element
-  enters the viewport. Preview buttons replay hover or entrance effects in the sandboxed canvas.
+- **Motion** configures duration, delay, and easing, which apply to entrances and to state changes
+  alike. Entrances include fade and slides from four directions, played once when an element
+  enters the viewport. **Preview entrance** replays one in the sandboxed canvas.
   Reduced-motion preferences disable motion in both preview and published output. Published
   entrance animations use a small IntersectionObserver script; content remains visible without
   JavaScript or observer support. Motion settings autosave, support undo/reset, and travel with presets.
+  The former hover shortcut (hover opacity, scale, rotation, and shadow) is gone: write those in the
+  Hover state instead. Documents that used it are rewritten into real hover and focus-visible
+  declarations when they are read.
+- **States** are picked beside the breakpoint label in the Design inspector: None, Hover, Focus,
+  Focus visible, Active, Visited, First child, Last child, Odd and Even. Every style control then
+  reads and writes that state's declarations for the selected element, purple fields marking the
+  ones this state owns. The canvas forces the picked state on the selected element so you can see
+  it without hovering; switching state discards pending edits, as switching breakpoint does.
+  Published CSS carries the real pseudo-class rules and nothing about the forced preview.
 - **Presets** in the Design inspector reuse typography, colors, spacing, borders, and effects across breakpoints. Create
   one from the selected element, then apply it immediately from the picker on other elements.
   Applying a preset replaces local formatting across all breakpoints; choosing **No preset** removes its link.
@@ -75,7 +84,7 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   **Update preset** merges them into the shared preset and displays the number of affected elements.
   Other elements keep their own local overrides. Color references stay linked. Preset creation,
   application, reset, and updates support undo/redo. New presets retain responsive formatting. Updating or resetting a preset affects only the active
-  breakpoint; preset assignment remains shared across sizes. Interaction-state styling stays in the underlying classes.
+  breakpoint; preset assignment remains shared across sizes. Presets capture base-state formatting only.
 - Text, formatting and existing project colors preview immediately and save automatically after a
   400 ms pause. No Save button is required. Writes are serialized; typing during a request remains
   responsive and queues the latest changes. Switching selection or page flushes pending edits.
@@ -137,7 +146,7 @@ Failed publish attempts retain their version number; rollback restores the origi
 
 Published content is served on a separate origin. Local defaults use `<site-id>.localhost:3001`;
 see [server configuration](../server/README.md#publishing) for deployment requirements.
-Collaborative Yjs undo and git history remain subsequent milestones.
+Realtime Yjs sync and git history remain subsequent milestones.
 The editing workspace currently targets desktop browsers; its mobile button previews the site.
 
 ## Verification

@@ -1,4 +1,4 @@
-import type { Entry, Page } from '@freeflow/schema'
+import type { Entry, Page, State } from '@freeflow/schema'
 import { Canvas, type LivePreview } from './Canvas.js'
 import { componentUsage } from './components.js'
 import { EditorIcon } from './EditorIcon.js'
@@ -18,6 +18,9 @@ export function CanvasPanel({
   preview,
   width,
   setWidth,
+  state,
+  states,
+  setState,
   selected,
   setSelected,
   reveal,
@@ -38,6 +41,9 @@ export function CanvasPanel({
   preview: Preview | undefined
   width: number
   setWidth: (width: number) => void
+  state: State
+  states: State[]
+  setState: (state: State) => void
   selected: string
   setSelected: (id: string) => void
   reveal: () => void
@@ -136,6 +142,9 @@ export function CanvasPanel({
             onComputed={setComputed}
             html={preview.html}
             width={width}
+            state={state}
+            states={states}
+            onState={(next) => void leave(() => setState(next))}
             selected={selected}
             selectedName={doc?.nodes[selected] ? nodeLabel(doc.nodes[selected]!) : ''}
             select={(id) => {

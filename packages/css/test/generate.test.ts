@@ -135,6 +135,15 @@ describe('generateStylesheet', () => {
     expect(css.indexOf('.button:hover {')).toBeLessThan(css.indexOf('.button.primary {'))
   })
 
+  it('adds a forced form for every state only when previewing states', () => {
+    const doc = fixtureDocument()
+    const forced = generateStylesheet(doc, { reset: false, previewStates: true }).css
+    expect(forced).toContain('.button:hover, .button[data-ff-state~="hover"] {')
+    expect(forced).toContain('.button {\n')
+    expect(generateStylesheet(doc, { reset: false }).css).toContain('.button:hover {')
+    expect(generateStylesheet(doc, { reset: false }).css).not.toContain('data-ff-state')
+  })
+
   it('emits nothing for an empty document beyond the reset', () => {
     const { css } = generateStylesheet(createEmptyDocument())
     expect(css.trim().endsWith('a { color: inherit; }')).toBe(true)

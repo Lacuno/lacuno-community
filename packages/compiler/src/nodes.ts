@@ -7,6 +7,7 @@ import type {
   Node,
   NodeId,
   RichText,
+  State,
 } from '@freeflow/schema'
 import { isImage } from './assets.js'
 import { RenderError } from './errors.js'
@@ -32,11 +33,18 @@ export type RenderState = {
   editingComponent?: string
 }
 
-/** The classes a `--ff-` declaration targets, gathered once so marking a node is a set lookup. */
+const INTERACTIVE_STATES: readonly State[] = ['hover', 'focus', 'focus-visible', 'active']
+
+/**
+ * The classes a `--ff-` declaration or an interactive state targets, gathered once so marking a
+ * node is a set lookup. A state a visitor triggers should ease in, a structural one should not.
+ */
 export function motionClasses(doc: Document): ReadonlySet<string> {
   return new Set(
     Object.values(doc.styles)
-      .filter((style) => style.property.startsWith('--ff-'))
+      .filter(
+        (style) => style.property.startsWith('--ff-') || INTERACTIVE_STATES.includes(style.state),
+      )
       .map((style) => style.class),
   )
 }

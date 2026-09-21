@@ -16,7 +16,10 @@ describe('render', () => {
     expect(result.body).toContain(
       '<h1 class="heading ff-l-hero-title">Design it. Publish it. Own it.</h1>',
     )
-    expect(result.body).toContain('<a class="button primary" href="/blog">Read the blog</a>')
+    // `.button` styles a hover state, so the anchor is marked for the motion transition.
+    expect(result.body).toContain(
+      '<a class="button primary" data-freeflow-motion="" href="/blog">Read the blog</a>',
+    )
     expect(result.body).toContain('<h3>Third post</h3>')
     expect(assembleDocument(result)).toMatchSnapshot()
   })

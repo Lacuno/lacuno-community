@@ -3,10 +3,8 @@ import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 export function MotionControls(props: StyleControls) {
   const { disabled, node } = props
   const { overridden, value: read, set } = useStyleField(props)
-  const preview = (kind: string) =>
-    window.dispatchEvent(
-      new CustomEvent('freeflow:motion-preview', { detail: { id: node.id, kind } }),
-    )
+  const preview = () =>
+    window.dispatchEvent(new CustomEvent('freeflow:motion-preview', { detail: { id: node.id } }))
   return (
     <div className="motion-controls">
       <div className="motion-timing">
@@ -65,59 +63,14 @@ export function MotionControls(props: StyleControls) {
         <button
           type="button"
           disabled={disabled || read('--ff-entrance', 'none') === 'none'}
-          onClick={() => preview('entrance')}
+          onClick={preview}
         >
           Preview entrance
         </button>
       </div>
-      <div className="motion-hover">
-        {[
-          { key: 'opacity', label: 'Hover opacity (%)', factor: 100, unit: '', min: 0, max: 100 },
-          { key: 'scale', label: 'Hover scale (%)', factor: 100, unit: '', min: 0, max: 1000 },
-          {
-            key: 'rotate',
-            label: 'Hover rotation (°)',
-            factor: 1,
-            unit: 'deg',
-            min: -360,
-            max: 360,
-          },
-        ].map(({ key, label, factor, unit, min, max }) => (
-          <NumberField
-            key={key}
-            label={label}
-            value={read(`--ff-hover-${key}`)}
-            factor={factor}
-            unit={unit}
-            min={min}
-            max={max}
-            placeholder="Unchanged"
-            disabled={disabled}
-            overridden={overridden(`--ff-hover-${key}`)}
-            set={(next) => set(`--ff-hover-${key}`, next)}
-          />
-        ))}
-        <label>
-          Hover shadow
-          <select
-            aria-label="Hover shadow"
-            data-overridden={overridden('--ff-hover-box-shadow')}
-            disabled={disabled}
-            value={read('--ff-hover-box-shadow')}
-            onChange={(event) => set('--ff-hover-box-shadow', event.target.value)}
-          >
-            <option value="">Unchanged</option>
-            <option value="none">None</option>
-            <option value="0px 4px 12px 0px #00000026">Soft</option>
-            <option value="0px 12px 32px 0px #00000033">Elevated</option>
-          </select>
-        </label>
-        <button type="button" disabled={disabled} onClick={() => preview('hover')}>
-          Preview hover
-        </button>
-      </div>
       <p className="hint">
-        Entrances play once on entering the viewport. Reduced-motion preferences are respected.
+        Entrances play once on entering the viewport. Timing applies to state changes too, such as a
+        hover you set with the state picker. Reduced-motion preferences are respected.
       </p>
     </div>
   )

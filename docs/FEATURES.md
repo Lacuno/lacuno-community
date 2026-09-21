@@ -13,7 +13,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Style panel: box model, size, position, display, flex, grid, typography, backgrounds, borders, shadows, effects, transforms, overflow, cursor | MVP | Every CSS property reachable, common ones with visual controls |
 | Classes and combo classes | MVP | Webflow model. Styles attach to classes, elements reference classes |
 | Breakpoint cascade | MVP | Desktop-first base with tablet, mobile landscape, mobile portrait. Custom breakpoints. Container queries as a per-element option |
-| States: hover, focus, focus-visible, active, visited, disabled, checked, first, last, nth, placeholder, before, after | MVP | |
+| States: hover, focus, focus-visible, active, visited, disabled, checked, first, last, nth, placeholder, before, after | MVP | The picker offers hover, focus, focus-visible, active, visited, first, last, odd and even; the rest wait for form controls in the palette and a content field |
 | Design tokens: color, spacing, typography, radius, shadow, with modes such as light and dark | MVP | Compiled to CSS custom properties |
 | Fluid typography and spacing with clamp | MVP | A design token can be a scale, not just a value |
 | Components with props, slots and variants | MVP | Instance overrides are explicit and visible in the tree |
@@ -78,7 +78,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | --- | --- | --- |
 | Accounts, workspaces, sites | MVP | |
 | Roles: owner, designer, content editor, viewer | MVP | Content editors never see the style panel |
-| Undo and redo across the whole document | MVP | Yjs UndoManager |
+| Undo and redo across the whole document | MVP | Inverse patches of each committed batch |
 | Realtime multiplayer with presence | Next | Same Yjs document over WebSocket |
 | Comments pinned to elements | Next | Also how humans talk to the agent about a specific element |
 | Branches and proposals with visual diff | Next | Git-backed. Agent proposals use the same mechanism |

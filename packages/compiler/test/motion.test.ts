@@ -9,15 +9,15 @@ import { assembleDocument, render } from '../src/render.js'
 it('runs entrances once on viewport entry and honors reduced motion in published HTML', async () => {
   const doc = fixtureDocument()
   const id = 'l-hero-title'
-  for (const [property, value] of Object.entries({
-    '--ff-entrance': 'ff-slide-up',
-    '--ff-duration': '1000ms',
-    '--ff-hover-scale': '1.2',
-  })) {
+  for (const [state, property, value] of [
+    ['none', '--ff-entrance', 'ff-slide-up'],
+    ['none', '--ff-duration', '1000ms'],
+    ['hover', 'scale', '1.2'],
+  ] as const) {
     const style = {
       class: id,
       breakpoint: 'base',
-      state: 'none' as const,
+      state,
       property,
       value: { type: 'raw' as const, value },
     }
@@ -67,8 +67,8 @@ it('runs entrances once on viewport entry and honors reduced motion in published
       .toBe('1.2')
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await expect
-      .poll(() => target.evaluate((element) => getComputedStyle(element).scale))
-      .toBe('none')
+      .poll(() => target.evaluate((element) => getComputedStyle(element).transitionDuration))
+      .toBe('0s')
     expect(await target.evaluate((element) => element.getAnimations().length)).toBe(0)
     await page.setContent(html)
     await target.scrollIntoViewIfNeeded()
@@ -88,16 +88,16 @@ it('keeps mobile hover overrides out of desktop output', async () => {
   const mobile = Object.values(doc.breakpoints)
     .filter((bp) => bp.maxWidth !== undefined)
     .sort((a, b) => a.maxWidth! - b.maxWidth!)[0]!
-  for (const [breakpoint, property, value] of [
-    ['base', 'scale', '1.1'],
-    [mobile.id, '--ff-hover-scale', '1.2'],
-  ]) {
+  for (const [breakpoint, state, value] of [
+    ['base', 'none', '1.1'],
+    [mobile.id, 'hover', '1.2'],
+  ] as const) {
     const style = {
       class: id,
-      breakpoint: breakpoint!,
-      state: 'none' as const,
-      property: property!,
-      value: { type: 'raw' as const, value: value! },
+      breakpoint,
+      state,
+      property: 'scale',
+      value: { type: 'raw' as const, value },
     }
     doc.styles[styleKey(style)] = style
   }

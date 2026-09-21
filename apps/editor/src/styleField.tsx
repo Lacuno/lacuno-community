@@ -1,10 +1,11 @@
 import { contextFromDocument, serializeValue } from '@freeflow/css'
-import type { CssValue, Document, Node } from '@freeflow/schema'
+import type { CssValue, Document, Node, State } from '@freeflow/schema'
 import { localValue } from './formatting.js'
 import { presetValues } from './presets.js'
 
 export type StyleControls = {
   breakpoint?: string
+  state?: State
   doc: Document
   node: Node
   computed: Record<string, string>
@@ -13,20 +14,23 @@ export type StyleControls = {
   disabled: boolean
 }
 
-/** Read and write the effective value of one style property at the edited breakpoint. */
+/** Read and write the effective value of one style property at the edited breakpoint and state. */
 export function useStyleField({
   breakpoint = 'base',
+  state = 'none',
   doc,
   node,
   computed,
   changes,
   change,
 }: StyleControls) {
-  const inherited = presetValues(doc, node, computed, breakpoint)
+  const inherited = presetValues(doc, node, computed, breakpoint, state)
   return {
     overridden: (property: string) =>
-      breakpoint !== 'base' &&
-      !!(property in changes ? changes[property] : localValue(doc, node, property, breakpoint)),
+      (breakpoint !== 'base' || state !== 'none') &&
+      !!(property in changes
+        ? changes[property]
+        : localValue(doc, node, property, breakpoint, state)),
     value: (property: string, fallback = '') => {
       const item = property in changes ? changes[property] : inherited[property]
       return item ? serializeValue(item, contextFromDocument(doc)) : fallback

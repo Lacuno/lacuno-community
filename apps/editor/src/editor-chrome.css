@@ -1251,6 +1251,15 @@
   line-height: 1.6;
 }
 
+.responsive-scope .state-badge {
+  margin-left: 8px;
+  margin-right: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #6434d9;
+  color: white;
+  font-weight: 600;
+}
 .editor [data-overridden="true"] :is(input, select),
 .editor :is(input, select, button)[data-overridden="true"] {
   border-color: #b8a1f5;

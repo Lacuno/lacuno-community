@@ -1,4 +1,5 @@
 import { MOTION_CSS } from '@freeflow/css'
+import type { State } from '@freeflow/schema'
 import { useEffect, useRef, useState } from 'react'
 import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
@@ -12,6 +13,7 @@ export type LivePreview = {
     attrs?: Record<string, string>
     selector?: string
     media?: string
+    state?: string
     styles: Record<string, string | null>
   }
   colors?: Record<string, string>
@@ -21,11 +23,15 @@ function nodeElement(doc: Document | null | undefined, id: string) {
   return doc?.querySelector<HTMLElement>(`[data-freeflow-node="${CSS.escape(id)}"]`) ?? undefined
 }
 
-function highlight(frame: HTMLIFrameElement | null, selected: string) {
+/** The selection marker, and the state the picker forces on the selected element. */
+function highlight(frame: HTMLIFrameElement | null, selected: string, state: State) {
   const doc = frame?.contentDocument
   if (!doc) return
   doc.querySelector('[data-freeflow-selected]')?.removeAttribute('data-freeflow-selected')
-  nodeElement(doc, selected)?.setAttribute('data-freeflow-selected', '')
+  doc.querySelector('[data-ff-state]')?.removeAttribute('data-ff-state')
+  const element = nodeElement(doc, selected)
+  element?.setAttribute('data-freeflow-selected', '')
+  if (state !== 'none') element?.setAttribute('data-ff-state', state)
 }
 
 export function Canvas({
@@ -35,6 +41,9 @@ export function Canvas({
   bindDragSurface,
   html,
   width,
+  state,
+  states,
+  onState,
   selected,
   selectedName,
   select,
@@ -49,6 +58,9 @@ export function Canvas({
   livePreview: LivePreview
   html: string
   width: number
+  state: State
+  states: State[]
+  onState: (state: State) => void
   selected: string
   selectedName: string
   select: (id: string) => void
@@ -105,8 +117,13 @@ export function Canvas({
           target.setAttribute(attribute, value)
         }
         if (draft.node.text !== undefined) target.textContent = draft.node.text
+        // No inline style can express a pseudo-class, so a state preview goes through a rule.
+        const forced =
+          draft.node.state && draft.node.state !== 'none' ? draft.node.selector : undefined
+        const declarations: string[] = []
         for (const [property, value] of Object.entries(draft.node.styles)) {
-          if (value !== null) target.style.setProperty(property, value, 'important')
+          if (value !== null && forced) declarations.push(`${property}: ${value} !important;`)
+          else if (value !== null) target.style.setProperty(property, value, 'important')
           else if (draft.node.selector) {
             for (const sheet of doc.styleSheets) {
               let rules: CSSRuleList
@@ -142,6 +159,12 @@ export function Canvas({
               clearRules(rules)
             }
           }
+        }
+        if (forced && declarations.length) {
+          const sheet = doc.createElement('style')
+          sheet.textContent = `${forced} { ${declarations.join(' ')} }`
+          doc.head.append(sheet)
+          undo.push(() => sheet.remove())
         }
       }
     }
@@ -185,6 +208,9 @@ export function Canvas({
     onEditText,
     livePreview,
     selected,
+    state,
+    states,
+    onState,
     select,
     onHistory,
     onComputed,
@@ -197,11 +223,11 @@ export function Canvas({
   useEffect(() => {
     latest.current.paint()
   }, [livePreview])
-  // biome-ignore lint/correctness/useExhaustiveDependencies: changing the iframe width changes its computed responsive styles.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: width and state change the element's computed styles.
   useEffect(() => {
-    highlight(frame.current, selected)
+    highlight(frame.current, selected, state)
     latest.current.reportStyles()
-  }, [selected, width])
+  }, [selected, width, state])
   useEffect(() => {
     const workspace = shell.current?.parentElement
     if (!workspace) return
@@ -215,7 +241,7 @@ export function Canvas({
     let timer: ReturnType<typeof setTimeout> | undefined
     let cleanup: (() => void) | undefined
     const preview = (event: Event) => {
-      const { id, kind } = (event as CustomEvent<{ id: string; kind: string }>).detail
+      const { id } = (event as CustomEvent<{ id: string }>).detail
       if (id !== latest.current.selected) return
       cleanup?.()
       clearTimeout(timer)
@@ -234,20 +260,13 @@ export function Canvas({
       const computed = doc.defaultView!.getComputedStyle(element)
       const duration = Number.parseFloat(computed.getPropertyValue('--ff-duration')) || 400
       const delay = Number.parseFloat(computed.getPropertyValue('--ff-delay')) || 0
-      if (kind === 'entrance') {
-        for (const property of ['opacity', 'translate']) {
-          const value = element.style.getPropertyValue(property)
-          if (value) element.style.setProperty(property, value)
-        }
-        element.removeAttribute('data-ff-enter')
-        void element.offsetWidth
-        element.setAttribute('data-ff-enter', '')
-      } else {
-        for (const property of ['opacity', 'scale', 'rotate', 'box-shadow']) {
-          const value = computed.getPropertyValue(`--ff-hover-${property}`).trim()
-          if (value) element.style.setProperty(property, value, 'important')
-        }
+      for (const property of ['opacity', 'translate']) {
+        const value = element.style.getPropertyValue(property)
+        if (value) element.style.setProperty(property, value)
       }
+      element.removeAttribute('data-ff-enter')
+      void element.offsetWidth
+      element.setAttribute('data-ff-enter', '')
       timer = setTimeout(
         () => {
           cleanup?.()
@@ -291,7 +310,15 @@ export function Canvas({
             image.replaceWith(placeholder)
           }
           selectionCleanup.current?.()
-          selectionCleanup.current = selectionOverlay(doc, () => latest.current.selectedName)
+          selectionCleanup.current = selectionOverlay(
+            doc,
+            () => ({
+              name: latest.current.selectedName,
+              state: latest.current.state,
+              states: latest.current.states,
+            }),
+            (next) => latest.current.onState(next),
+          )
           dragCleanup.current?.()
           for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
             element.draggable = true
@@ -304,8 +331,9 @@ export function Canvas({
           style.textContent +=
             '[data-freeflow-editing] .tiptap {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;cursor:text;user-select:text;} [data-freeflow-editing] .tiptap p {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;margin:0;} [data-freeflow-editing] .tiptap strong {font-weight:bold;} [data-freeflow-editing] .tiptap em {font-style:italic;}'
           doc.head.append(style)
+          const chrome = '[data-freeflow-editing], [data-freeflow-selection-overlay]'
           const pick = (event: Event) => {
-            if ((event.target as Element | null)?.closest?.('[data-freeflow-editing]')) return
+            if ((event.target as Element | null)?.closest?.(chrome)) return
             event.preventDefault()
             event.stopPropagation()
             const target = event.target as Element | null
@@ -329,7 +357,7 @@ export function Canvas({
           doc.addEventListener(
             'keydown',
             (event) => {
-              if ((event.target as Element | null)?.closest?.('[data-freeflow-editing]')) return
+              if ((event.target as Element | null)?.closest?.(chrome)) return
               const direction = historyShortcut(event)
               if (direction) {
                 event.preventDefault()
@@ -357,7 +385,7 @@ export function Canvas({
             },
             true,
           )
-          highlight(frame.current, latest.current.selected)
+          highlight(frame.current, latest.current.selected, latest.current.state)
           restore.current = undefined
           latest.current.paint()
           latest.current.reportStyles()

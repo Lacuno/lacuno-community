@@ -121,14 +121,15 @@ and written back on the next commit.
 
 ## Live document and persistence
 
-- In the editor, the document is a Yjs doc. Panels subscribe to slices. Undo and redo use the
-  Yjs UndoManager with origin tagging so one agent proposal or one drag is one undo step.
-- The server keeps the Yjs doc in memory per open site, syncs over WebSocket, and persists updates
-  to SQLite as they arrive so a crash loses nothing.
+- In the editor, undo and redo replay a committed batch's patches inverted, so one agent proposal
+  or one drag is one undo step.
+- Yjs sync is deferred. When it lands, the document becomes a Yjs doc that panels subscribe to, and
+  the server keeps it in memory per open site, syncs over WebSocket, and persists updates to SQLite
+  as they arrive so a crash loses nothing.
 - **Operations and revision.** Every change, from the editor or an agent, is a named operation
   (`node.create`, `style.set`, `designToken.setValue` and so on) with a Zod schema. Operations
   compile to five primitive patches (set, delete, insert, remove, move) that a plain-object
-  applier runs today and a Yjs transaction runs in Phase 1. A document store owns the revision
+  applier runs, and whose inverses are what undo replays. A document store owns the revision
   counter: a batch names the revision it read, a stale batch is rejected, a dry run returns the
   patches without committing, and the whole result is validated before commit. Nothing outside
   the store's commit path can bump the revision.
@@ -159,7 +160,9 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
 - Each class becomes one selector. Combo classes are emitted as compound selectors in node order,
   so `.button.primary` styles only apply where both are present, matching Webflow semantics.
 - Breakpoints become media queries in cascade order. Base styles first, then narrower widths.
-- States map to pseudo-classes and pseudo-elements.
+- States map to pseudo-classes and pseudo-elements. The canvas stylesheet, and only that one,
+  also emits each state rule as `<selector>[data-ff-state~="<state>"]`, so the editor can force the
+  picked state on the selected element.
 - Output is deterministic: sorted keys, stable formatting, so diffs are readable and snapshot tests
   are stable.
 - The same function runs in the canvas iframe and in the compiler. Parity tests render fixture

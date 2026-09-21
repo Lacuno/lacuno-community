@@ -204,6 +204,40 @@ describe('document schema', () => {
   })
 })
 
+describe('hover shortcut migration', () => {
+  it('rewrites --ff-hover-* into hover and focus-visible declarations', () => {
+    const doc = fixtureDocument()
+    const cls = 'c-button'
+    for (const property of ['opacity', 'scale', 'rotate', 'box-shadow']) {
+      const style = {
+        class: cls,
+        breakpoint: 'base',
+        state: 'none' as const,
+        property: `--ff-hover-${property}`,
+        value: { type: 'raw' as const, value: '1.2' },
+      }
+      doc.styles[styleKey(style)] = style
+    }
+    const migrated = parseDocument(JSON.parse(JSON.stringify(doc)))
+    for (const property of ['opacity', 'scale', 'rotate', 'box-shadow']) {
+      expect(migrated.styles[`${cls}|base|none|--ff-hover-${property}`]).toBeUndefined()
+      for (const state of ['hover', 'focus-visible'])
+        expect(migrated.styles[`${cls}|base|${state}|${property}`]).toEqual({
+          class: cls,
+          breakpoint: 'base',
+          state,
+          property,
+          value: { type: 'raw', value: '1.2' },
+        })
+    }
+  })
+
+  it('leaves a document without the shortcut alone', () => {
+    const doc = fixtureDocument()
+    expect(parseDocument(JSON.parse(JSON.stringify(doc))).styles).toEqual(doc.styles)
+  })
+})
+
 describe('helpers', () => {
   it('style keys join the four coordinates', () => {
     const k = styleKey({ class: 'a', breakpoint: 'base', state: 'hover', property: 'color' })

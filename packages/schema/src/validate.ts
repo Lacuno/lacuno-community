@@ -137,6 +137,23 @@ export class DocumentError extends Error {
   }
 }
 
+/**
+ * Documents written before element states stored hover styles as `--ff-hover-*` custom
+ * properties. Rewrite them into the real declarations the style panel now writes. Removable
+ * once no document predates the release that added element states.
+ */
+function migrateHoverShortcut(doc: Document): void {
+  for (const [key, decl] of Object.entries(doc.styles)) {
+    if (decl.state !== 'none' || !decl.property.startsWith('--ff-hover-')) continue
+    delete doc.styles[key]
+    const property = decl.property.slice('--ff-hover-'.length)
+    for (const state of ['hover', 'focus-visible'] as const) {
+      const moved = { ...decl, state, property }
+      doc.styles[styleKey(moved)] = moved
+    }
+  }
+}
+
 /** Parse unknown JSON into a Document, running both Zod and referential checks. Throws. */
 export function parseDocument(input: unknown): Document {
   const result = Document.safeParse(input)
@@ -145,6 +162,7 @@ export function parseDocument(input: unknown): Document {
       result.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
     )
   }
+  migrateHoverShortcut(result.data)
   const issues = checkReferences(result.data)
   if (issues.length) throw new DocumentError(issues)
   return result.data

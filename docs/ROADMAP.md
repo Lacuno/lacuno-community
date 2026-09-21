@@ -59,11 +59,17 @@ and structural undo/redo preserve IDs. Shared component and collection structure
 a separate static serving origin, a published URL, persistent release history, and confirmed rollback
 without changing the editing draft. Failed builds preserve the live site. Source and bundled server
 tests cover publishing and restarts; browser tests cover publishing, republishing and rollback.
-Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, collaborative undo and git history
-remain to be built; this does not yet satisfy the full Phase 1 exit condition.
+**Element states implemented:** a picker beside the breakpoint label edits hover, focus,
+focus-visible, active, visited, first-child, last-child, odd and even; the canvas forces the picked
+state on the selected element; published CSS carries the real pseudo-class rules. The Motion tab's
+hover shortcut is gone, and documents that used it are rewritten when they are read.
+Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
+and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 
-- Server with auth, workspaces, sites, SQLite, Yjs sync, git commits.
-- Editor: canvas iframe, layer tree, element palette, style panel, classes, breakpoints, states,
+- Server with auth, workspaces, sites, SQLite, git commits. Yjs sync deferred; undo ships as
+  inverse patches.
+- Editor: canvas iframe, layer tree, element palette, style panel, classes, breakpoints,
+  states (implemented: hover, focus, focus-visible, active, visited, first, last, odd, even),
   design tokens, pages, page settings and SEO, assets, fonts, undo and redo, version history.
 - Components with props and slots.
 - Publish to staging and production from the instance, build history, rollback.

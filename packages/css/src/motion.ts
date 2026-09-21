@@ -1,6 +1,6 @@
 /** Shared motion rules for published pages and the editor's trusted preview. */
 export const MOTION_CSS = `
-* { --ff-duration: 400ms; --ff-delay: 0ms; --ff-easing: ease-out; --ff-entrance: none; --ff-hover-opacity: initial; --ff-hover-scale: initial; --ff-hover-rotate: initial; --ff-hover-box-shadow: initial; }
+* { --ff-duration: 400ms; --ff-delay: 0ms; --ff-easing: ease-out; --ff-entrance: none; }
 @keyframes ff-fade { from { opacity: 0; } }
 @keyframes ff-slide-up { from { opacity: 0; translate: 0 24px; } }
 @keyframes ff-slide-down { from { opacity: 0; translate: 0 -24px; } }
@@ -8,7 +8,7 @@ export const MOTION_CSS = `
 @keyframes ff-slide-right { from { opacity: 0; translate: -24px 0; } }
 @media (prefers-reduced-motion: no-preference) {
   [data-freeflow-motion] {
-    transition-property: opacity, scale, rotate, box-shadow;
+    transition-property: opacity, scale, rotate, translate, transform, box-shadow, background-color, color, border-color, outline-color;
     transition-duration: var(--ff-duration, 400ms);
     transition-delay: var(--ff-delay, 0ms);
     transition-timing-function: var(--ff-easing, ease-out);

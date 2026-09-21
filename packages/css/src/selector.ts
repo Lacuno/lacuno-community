@@ -91,12 +91,17 @@ function paddingFor(doc: Document, names: ClassNames): { shared: number; presets
   return pad
 }
 
-/** `.button.primary:hover` for a combo class with a state. */
+/**
+ * `.button.primary:hover` for a combo class with a state. `forced` adds the canvas's second
+ * form, `.button.primary[data-ff-state~="hover"]`, so the editor can show a state that is not
+ * really on.
+ */
 export function selectorFor(
   doc: Document,
   names: ClassNames,
   classId: string,
   state: State,
+  forced = false,
 ): string {
   const cls = doc.classes[classId]
   if (!cls) throw new Error(`unknown class ${classId}`)
@@ -112,7 +117,10 @@ export function selectorFor(
     const specificity = pad.shared + (cls.kind === 'local' && pad.presets ? 3 : 1)
     while (chain.length < specificity) chain.push(`.${names.get(classId)}`)
   }
-  return `${chain.join('')}${STATE_SELECTOR[state]}`
+  const base = chain.join('')
+  return forced && state !== 'none'
+    ? `${base}${STATE_SELECTOR[state]}, ${base}[data-ff-state~="${state}"]`
+    : `${base}${STATE_SELECTOR[state]}`
 }
 
 /** Emission order: fewer compound parts first, then alphabetical, so combos follow their parents. */

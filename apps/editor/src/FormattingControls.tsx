@@ -1,5 +1,5 @@
 import { contextFromDocument, serializeValue } from '@freeflow/css'
-import type { CssValue, Document, Node } from '@freeflow/schema'
+import type { CssValue, Document, Node, State } from '@freeflow/schema'
 import { colorLabel, colorProperties, projectColors } from './colors.js'
 import { EffectsControls } from './EffectsControls.js'
 import { formattingGroups, localValue } from './formatting.js'
@@ -31,6 +31,7 @@ const choiceLabel = (value: string) =>
 
 export function FormattingControls({
   breakpoint = 'base',
+  state = 'none',
   doc,
   node,
   changes,
@@ -44,13 +45,14 @@ export function FormattingControls({
   ribbon?: boolean
   computed: Record<string, string>
   breakpoint?: string
+  state?: State
   doc: Document
   node: Node
   changes: Record<string, CssValue | null>
   change: (property: string, value: CssValue | null) => void
   disabled: boolean
 }) {
-  const controls = { breakpoint, doc, node, computed, changes, change, disabled }
+  const controls = { breakpoint, state, doc, node, computed, changes, change, disabled }
   return (
     <div className={`formatting-controls ${ribbon ? 'ribbon-formatting' : 'inspector-formatting'}`}>
       {formattingGroups
@@ -85,7 +87,7 @@ export function FormattingControls({
                     const value =
                       property in changes
                         ? changes[property]
-                        : localValue(doc, node, property, breakpoint)
+                        : localValue(doc, node, property, breakpoint, state)
                     const ref = value?.type === 'designToken' ? value.ref : ''
                     const text = value ? serializeValue(value, contextFromDocument(doc)) : ''
                     const color = colorProperties.has(property)
@@ -93,12 +95,12 @@ export function FormattingControls({
                       <div
                         key={property}
                         data-property={property}
-                        data-overridden={breakpoint !== 'base' && !!value}
+                        data-overridden={(breakpoint !== 'base' || state !== 'none') && !!value}
                         title={
                           value
-                            ? breakpoint === 'base'
+                            ? breakpoint === 'base' && state === 'none'
                               ? 'Local base style'
-                              : 'Local override at this breakpoint'
+                              : 'Local override at this breakpoint and state'
                             : 'Inherited from wider styles or the preset'
                         }
                         className={color || property === 'font-family' ? 'formatting-wide' : ''}
@@ -148,7 +150,7 @@ export function FormattingControls({
                               >
                                 <option value="">
                                   {computed[property]
-                                    ? choiceLabel(computed[property]!)
+                                    ? `From style · ${choiceLabel(computed[property]!)}`
                                     : 'From style'}
                                 </option>
                                 {text && !(field.choices as readonly string[]).includes(text) && (

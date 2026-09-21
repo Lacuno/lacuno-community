@@ -10,6 +10,8 @@ export type GenerateOptions = {
   assetUrl?: (asset: AssetRef) => string
   /** Emit a small reset before site rules. On by default. */
   reset?: boolean
+  /** Also emit each state rule in its forced form, for the editor canvas only. */
+  previewStates?: boolean
 }
 
 export type Stylesheet = {
@@ -93,6 +95,7 @@ function generateRules(
   ctx: ValueContext,
   decls: StyleDecl[],
   indent: string,
+  previewStates: boolean,
 ): string {
   // Class emission order: sorted by output selector so combos come after their parents
   // (".a.b" > ".a") and the cascade is predictable.
@@ -125,7 +128,7 @@ function generateRules(
             `${indent}  ${d.property}: ${serializeValue(d.value, ctx)}${d.important ? ' !important' : ''};`,
         )
       rules.push(
-        `${indent}${selectorFor(doc, names, classId, state)} {\n${lines.join('\n')}\n${indent}}`,
+        `${indent}${selectorFor(doc, names, classId, state, previewStates)} {\n${lines.join('\n')}\n${indent}}`,
       )
     }
   }
@@ -147,24 +150,10 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
     const own = decls.filter((d) => d.breakpoint === bp.id)
     if (!own.length) continue
     const mq = mediaQuery(bp)
-    const body = generateRules(doc, names, ctx, own, mq ? '  ' : '')
+    const body = generateRules(doc, names, ctx, own, mq ? '  ' : '', !!options.previewStates)
     sections.push(mq ? `${mq} {\n${body}\n}` : body)
   }
 
-  const motion = decls.filter((style) => style.property.startsWith('--ff-'))
-  if (motion.length) {
-    sections.push(MOTION_CSS)
-    for (const style of motion.filter((item) => item.property.startsWith('--ff-hover-'))) {
-      const property = style.property.slice('--ff-hover-'.length)
-      if (!['opacity', 'scale', 'rotate', 'box-shadow'].includes(property)) continue
-      const selector = selectorFor(doc, names, style.class, 'none')
-      const rule = `${selector}:hover, ${selector}:focus-visible, ${selector}[data-ff-hover-preview] { ${property}: var(${style.property}) !important; }`
-      const bp = doc.breakpoints[style.breakpoint]
-      const query = bp ? mediaQuery(bp) : undefined
-      sections.push(
-        `@media (prefers-reduced-motion: no-preference) { ${query ? `${query} { ${rule} }` : rule} }`,
-      )
-    }
-  }
+  if (decls.some((style) => style.property.startsWith('--ff-'))) sections.push(MOTION_CSS)
   return { css: `${sections.join('\n\n')}\n`, classNames: names }
 }

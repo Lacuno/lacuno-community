@@ -1,3 +1,4 @@
+import type { State } from '@freeflow/schema'
 import { useId, useState } from 'react'
 import { message } from './api.js'
 import type { LivePreview } from './Canvas.js'
@@ -11,6 +12,7 @@ import { PublishPanel } from './PublishPanel.js'
 import { Ribbon } from './Ribbon.js'
 import { type Panel, Sidebar } from './Sidebar.js'
 import { useDocumentSession } from './session.js'
+import { applicableStates } from './states.js'
 import { duplicateSelection, subtreeRestriction } from './structure.js'
 import { useComponentEditing } from './useComponentEditing.js'
 import { useImageDrop } from './useImageDrop.js'
@@ -37,6 +39,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [selected, setSelected] = useState('')
   const [revealSelection, setRevealSelection] = useState(0)
   const [width, setWidth] = useState(1100)
+  const [picked, setState] = useState<State>('none')
   const [colorsOpen, setColorsOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
@@ -52,6 +55,10 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   })
   const { doc, error, busy, conflict, unsettled, frozen, save, leave, setError } = session
   const page = doc?.pages[pageId]
+  // A picked state only stays active while the selection can be in it.
+  const node = doc?.nodes[selected]
+  const states = doc && node ? applicableStates(doc, node) : ['none' as const]
+  const state = states.includes(picked) ? picked : 'none'
   const editing = useComponentEditing({
     session,
     pageRoot: page?.root,
@@ -193,6 +200,9 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           preview={preview}
           width={width}
           setWidth={setWidth}
+          state={state}
+          states={states}
+          setState={setState}
           selected={selected}
           setSelected={setSelected}
           reveal={() => setRevealSelection((value) => value + 1)}
@@ -210,6 +220,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           siteId={siteId}
           selected={selected}
           width={width}
+          state={state}
           editingText={!!inlineTarget}
           ribbonHost={ribbonHost}
           ribbonGroup={ribbonGroup}

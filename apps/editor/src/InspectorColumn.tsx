@@ -1,3 +1,4 @@
+import type { State } from '@freeflow/schema'
 import { editingBreakpoint } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { ComponentInstancePanel } from './ComponentsPanel.js'
@@ -12,6 +13,7 @@ export function InspectorColumn({
   siteId,
   selected,
   width,
+  state,
   editingText,
   ribbonHost,
   ribbonGroup,
@@ -23,6 +25,7 @@ export function InspectorColumn({
   siteId: string
   selected: string
   width: number
+  state: State
   editingText: boolean
   ribbonHost: HTMLDivElement | null
   ribbonGroup: string
@@ -60,8 +63,9 @@ export function InspectorColumn({
     return (
       <Inspector
         siteId={siteId}
-        key={`${selected}-${generation}-${editingBreakpoint(doc, width)}`}
+        key={`${selected}-${generation}-${editingBreakpoint(doc, width)}-${state}`}
         breakpoint={editingBreakpoint(doc, width)}
+        state={state}
         ribbonHost={ribbonHost}
         ribbonGroup={ribbonGroup}
         doc={doc}

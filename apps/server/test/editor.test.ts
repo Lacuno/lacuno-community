@@ -562,15 +562,6 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await page.getByRole('button', { name: 'Motion', exact: true }).click()
     await page.getByLabel('Motion duration', { exact: true }).fill('1500')
     await saved()
-    await page.getByLabel('Hover scale (%)', { exact: true }).fill('125')
-    await saved()
-    await page.getByRole('button', { name: 'Preview hover', exact: true }).click()
-    await expect
-      .poll(() => heading.evaluate((element) => getComputedStyle(element).scale), {
-        timeout: 4000,
-        interval: 50,
-      })
-      .toBe('1.25')
     await page.getByLabel('Entrance animation', { exact: true }).selectOption('ff-slide-up')
     await saved()
     await page.getByRole('button', { name: 'Preview entrance', exact: true }).click()
@@ -701,39 +692,35 @@ it('edits a real template in the browser, persists changes, and protects drafts 
       .toBe('60px')
     // Desktop base edits are neutral; purple marks only a device-specific override.
     await page.getByRole('button', { name: 'Motion', exact: true }).click()
-    await page.getByLabel('Hover rotation (°)', { exact: true }).fill('-4')
-    await page
-      .getByLabel('Hover shadow', { exact: true })
-      .selectOption('0px 12px 32px 0px #00000033')
-    await page.getByLabel('Hover scale (%)', { exact: true }).fill('107')
+    await page.getByLabel('Motion delay', { exact: true }).fill('120')
+    await page.getByLabel('Motion easing', { exact: true }).selectOption('linear')
+    await page.getByLabel('Motion duration', { exact: true }).fill('900')
     await page.getByRole('button', { name: 'Mobile', exact: true }).click()
     await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
-    await page.getByLabel('Hover scale (%)', { exact: true }).fill('95')
+    await page.getByLabel('Motion duration', { exact: true }).fill('300')
     await page.getByRole('button', { name: 'Desktop', exact: true }).click()
     await expect
-      .poll(() => page.getByLabel('Hover scale (%)', { exact: true }).inputValue())
-      .toBe('107')
-    expect(await page.getByLabel('Hover rotation (°)', { exact: true }).inputValue()).toBe('-4')
-    expect(await page.getByLabel('Hover shadow', { exact: true }).inputValue()).toBe(
-      '0px 12px 32px 0px #00000033',
-    )
-    for (const label of ['Hover scale (%)', 'Hover rotation (°)', 'Hover shadow'])
+      .poll(() => page.getByLabel('Motion duration', { exact: true }).inputValue())
+      .toBe('900')
+    expect(await page.getByLabel('Motion delay', { exact: true }).inputValue()).toBe('120')
+    expect(await page.getByLabel('Motion easing', { exact: true }).inputValue()).toBe('linear')
+    for (const label of ['Motion duration', 'Motion delay', 'Motion easing'])
       expect(await page.getByLabel(label, { exact: true }).getAttribute('data-overridden')).toBe(
         'false',
       )
     await page.getByRole('button', { name: 'Mobile', exact: true }).click()
     await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
     await expect
-      .poll(() => page.getByLabel('Hover scale (%)', { exact: true }).inputValue())
-      .toBe('95')
+      .poll(() => page.getByLabel('Motion duration', { exact: true }).inputValue())
+      .toBe('300')
     expect(
-      await page.getByLabel('Hover scale (%)', { exact: true }).getAttribute('data-overridden'),
+      await page.getByLabel('Motion duration', { exact: true }).getAttribute('data-overridden'),
     ).toBe('true')
     expect(
-      await page.getByLabel('Hover rotation (°)', { exact: true }).getAttribute('data-overridden'),
+      await page.getByLabel('Motion delay', { exact: true }).getAttribute('data-overridden'),
     ).toBe('false')
     expect(
-      await page.getByLabel('Hover shadow', { exact: true }).getAttribute('data-overridden'),
+      await page.getByLabel('Motion easing', { exact: true }).getAttribute('data-overridden'),
     ).toBe('false')
     // Wrapping preserves content and supports different arrangements at each viewport.
     await page.getByRole('button', { name: 'Desktop', exact: true }).click()

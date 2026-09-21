@@ -1,6 +1,6 @@
 import { classNames, contextFromDocument, selectorFor, serializeValue } from '@freeflow/css'
 import type { Operation } from '@freeflow/document'
-import type { CssValue, Document, Node } from '@freeflow/schema'
+import type { CssValue, Document, Node, State } from '@freeflow/schema'
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { assetUrl } from './AssetsPanel.js'
@@ -14,6 +14,7 @@ import { formattingOperations, localClass, localValue, normalizeFormatting } fro
 import { ImageLibrary } from './ImageLibrary.js'
 import { PresetManager } from './PresetManager.js'
 import { placePopover } from './popover.js'
+import { stateInfo } from './states.js'
 import { isLocked, isShared, nodeLabel } from './structure.js'
 import { TextToolbar } from './TextToolbar.js'
 import { textLink, textProperties, wholeText } from './textFormatting.js'
@@ -52,6 +53,7 @@ function editableText(node: Node): string | undefined {
 export function Inspector({
   siteId,
   breakpoint,
+  state,
   doc,
   node,
   busy,
@@ -67,6 +69,7 @@ export function Inspector({
 }: {
   siteId: string
   breakpoint: string
+  state: State
   ribbonHost: HTMLDivElement | null
   ribbonGroup: string
   previewChanged: (preview: LivePreview) => void
@@ -117,7 +120,7 @@ export function Inspector({
     Object.entries(normalized).filter(
       ([property, value]) =>
         JSON.stringify(value) !==
-          JSON.stringify(localValue(doc, node, property, breakpoint) ?? null) ||
+          JSON.stringify(localValue(doc, node, property, breakpoint, state) ?? null) ||
         hasInlineOverride(property),
     ),
   )
@@ -138,7 +141,7 @@ export function Inspector({
   const settled = !busy && !conflict && !locked && !edits
   const local = localClass(doc, node)
   const overrides = Object.values(doc.styles).filter(
-    (style) => style.class === local && style.breakpoint === breakpoint && style.state === 'none',
+    (style) => style.class === local && style.breakpoint === breakpoint && style.state === state,
   )
   const operations: Operation[] = []
   if (imageDirty)
@@ -166,7 +169,9 @@ export function Inspector({
           : { type: 'static', value: text },
     })
   if (!invalid)
-    operations.push(...formattingOperations(doc, node, pending, () => classId.current, breakpoint))
+    operations.push(
+      ...formattingOperations(doc, node, pending, () => classId.current, breakpoint, state),
+    )
   if (!invalid && !textDirty && node.type === 'text' && node.text.type === 'doc' && styleDirty) {
     const updated = wholeText(node, Object.keys(pending))
     if (JSON.stringify(updated) !== JSON.stringify(node.text))
@@ -181,7 +186,8 @@ export function Inspector({
     node: {
       id: node.id,
       media: breakpointMedia(doc, breakpoint),
-      ...(local ? { selector: selectorFor(doc, classNames(doc), local, 'none') } : {}),
+      state,
+      ...(local ? { selector: selectorFor(doc, classNames(doc), local, state, true) } : {}),
       ...(originalText !== undefined ? { text } : {}),
       ...(isImage
         ? {
@@ -211,14 +217,23 @@ export function Inspector({
       const next = { ...previous }
       if (
         JSON.stringify(value) ===
-          JSON.stringify(localValue(doc, node, property, breakpoint) ?? null) &&
+          JSON.stringify(localValue(doc, node, property, breakpoint, state) ?? null) &&
         !hasInlineOverride(property)
       )
         delete next[property]
       else next[property] = value
       return next
     })
-  const controls = { doc, node, computed, disabled, changes, change: changeFormatting, breakpoint }
+  const controls = {
+    doc,
+    node,
+    computed,
+    disabled,
+    changes,
+    change: changeFormatting,
+    breakpoint,
+    state,
+  }
   const resetFormatting = () =>
     void save(
       formattingOperations(
@@ -227,6 +242,7 @@ export function Inspector({
         Object.fromEntries(overrides.map((style) => [style.property, null])),
         undefined,
         breakpoint,
+        state,
       ),
     )
   return (
@@ -257,7 +273,7 @@ export function Inspector({
                     const value =
                       property in changes
                         ? changes[property]
-                        : localValue(doc, node, property, breakpoint)
+                        : localValue(doc, node, property, breakpoint, state)
                     return [
                       property,
                       value
@@ -311,6 +327,11 @@ export function Inspector({
       <div className="inspector-body">
         <div className="responsive-scope">
           <span>{doc.breakpoints[breakpoint]?.label ?? breakpoint}</span>
+          {state !== 'none' && (
+            <span className="state-badge" title="Every change here applies to this state">
+              {stateInfo(state).label}
+            </span>
+          )}
           <button
             type="button"
             className="scope-info-button"
@@ -321,9 +342,9 @@ export function Inspector({
             <EditorIcon name="info" />
           </button>
           <div ref={scopeInfo} id={scopeInfoId} popover="auto" className="scope-info-popover">
-            {breakpoint === 'base'
+            {breakpoint === 'base' && state === 'none'
               ? `${overrides.length} local base styles. These apply to all sizes unless overridden.`
-              : `${overrides.length} local overrides. Purple fields override this size; reset restores inheritance.`}{' '}
+              : `${overrides.length} local overrides. Purple fields override this size or state; reset restores inheritance.`}{' '}
             Text and preset assignment apply to all sizes.
           </div>
         </div>

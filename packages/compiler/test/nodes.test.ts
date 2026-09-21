@@ -1,5 +1,11 @@
 import { classNames } from '@freeflow/css'
-import { createEmptyDocument, type Document, fixtureDocument, type Node } from '@freeflow/schema'
+import {
+  createEmptyDocument,
+  type Document,
+  fixtureDocument,
+  type Node,
+  styleKey,
+} from '@freeflow/schema'
 import { describe, expect, it } from 'vitest'
 import { publicAssetPath } from '../src/assets.js'
 import { plainImageResolver } from '../src/images.js'
@@ -312,4 +318,28 @@ describe('renderNode: components, slots, lists, embeds', () => {
     ])
     expect(renderNode('e', empty, state(doc))).toBe('<script>1<2</script>')
   })
+})
+
+it('marks elements whose class styles an interactive state, but not a structural one', () => {
+  const doc = withNodes([
+    { id: 'a', type: 'element', tag: 'div', parent: null, children: [], classes: ['hovered'] },
+    { id: 'b', type: 'element', tag: 'div', parent: null, children: [], classes: ['odd'] },
+  ])
+  doc.classes.hovered = { id: 'hovered', kind: 'class', name: 'hovered' }
+  doc.classes.odd = { id: 'odd', kind: 'class', name: 'odd' }
+  for (const [cls, pseudo] of [
+    ['hovered', 'hover'],
+    ['odd', 'first-child'],
+  ] as const) {
+    const style = {
+      class: cls,
+      breakpoint: 'base',
+      state: pseudo,
+      property: 'background-color',
+      value: { type: 'color' as const, value: '#fff' },
+    }
+    doc.styles[styleKey(style)] = style
+  }
+  expect(renderNode('a', empty, state(doc))).toContain('data-freeflow-motion')
+  expect(renderNode('b', empty, state(doc))).not.toContain('data-freeflow-motion')
 })

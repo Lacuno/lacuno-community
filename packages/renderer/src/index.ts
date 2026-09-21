@@ -55,7 +55,8 @@ export function renderCanvas(
       height: asset.height ?? 0,
     }),
   })
-  const { css } = generateStylesheet(doc, { assetUrl })
+  // Only the canvas emits the forced state selectors the editor's state picker switches on.
+  const { css } = generateStylesheet(doc, { assetUrl, previewStates: true })
   // A second barrier in addition to the iframe sandbox: site code cannot execute, submit forms,
   // change the base URL, or load another frame in the editor's authenticated origin.
   const policy =

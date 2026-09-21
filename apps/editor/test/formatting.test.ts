@@ -1,7 +1,14 @@
 import { DocumentStore } from '@freeflow/document'
 import { fixtureDocument, styleKey } from '@freeflow/schema'
 import { expect, it } from 'vitest'
-import { formattingOperations, localClass, normalizeFormatting } from '../src/formatting.js'
+import { editingBreakpoint } from '../src/breakpoints.js'
+import {
+  formattingOperations,
+  localClass,
+  localValue,
+  normalizeFormatting,
+} from '../src/formatting.js'
+import { presetValues } from '../src/presets.js'
 import { commit } from './helpers.js'
 
 it('formats only the selected element and round-trips automatic local style creation', async () => {
@@ -93,4 +100,68 @@ it('accepts pixel sizes without requiring CSS units', () => {
     'font-size': { type: 'unit', value: 24, unit: 'px' },
     'line-height': { type: 'raw', value: '1.5' },
   })
+})
+
+it('writes, reads and clears declarations at a state and falls back in specificity order', async () => {
+  const doc = fixtureDocument()
+  const node = doc.nodes['n-hero-title']!
+  const store = DocumentStore.inMemory(doc)
+  const get = () => store.read().document
+  const apply = async (operations: ReturnType<typeof formattingOperations>) =>
+    store.apply({ expectedRevision: store.revision, operations })
+  await apply(
+    formattingOperations(
+      get(),
+      get().nodes[node.id]!,
+      { 'background-color': { type: 'color', value: '#f00' } },
+      () => 'c-state',
+      'base',
+      'hover',
+    ),
+  )
+  const local = localClass(get(), get().nodes[node.id]!)!
+  expect(
+    get().styles[
+      styleKey({ class: local, breakpoint: 'base', state: 'hover', property: 'background-color' })
+    ]?.value,
+  ).toEqual({ type: 'color', value: '#f00' })
+  expect(localValue(get(), get().nodes[node.id]!, 'background-color', 'base', 'hover')).toEqual({
+    type: 'color',
+    value: '#f00',
+  })
+  expect(localValue(get(), get().nodes[node.id]!, 'background-color')).toBeUndefined()
+  // A base-state value at the edited breakpoint is the last resort; the state rule outranks it.
+  const mobile = editingBreakpoint(get(), 390)
+  await apply(
+    formattingOperations(
+      get(),
+      get().nodes[node.id]!,
+      { 'background-color': { type: 'color', value: '#00f' } },
+      undefined,
+      mobile,
+    ),
+  )
+  expect(presetValues(get(), get().nodes[node.id]!, {}, mobile)['background-color']).toEqual({
+    type: 'color',
+    value: '#00f',
+  })
+  expect(
+    presetValues(get(), get().nodes[node.id]!, {}, mobile, 'hover')['background-color'],
+  ).toEqual({
+    type: 'color',
+    value: '#f00',
+  })
+  await apply(
+    formattingOperations(
+      get(),
+      get().nodes[node.id]!,
+      { 'background-color': null },
+      undefined,
+      'base',
+      'hover',
+    ),
+  )
+  expect(
+    localValue(get(), get().nodes[node.id]!, 'background-color', 'base', 'hover'),
+  ).toBeUndefined()
 })

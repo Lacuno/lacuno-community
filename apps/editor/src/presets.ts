@@ -1,6 +1,6 @@
 import { classNames, compareSelectors } from '@freeflow/css'
 import type { Operation } from '@freeflow/document'
-import { type CssValue, type Document, type Node, styleKey } from '@freeflow/schema'
+import { type CssValue, type Document, type Node, type State, styleKey } from '@freeflow/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
 import { formattingGroups, formattingOperations, localClass } from './formatting.js'
 
@@ -12,12 +12,16 @@ export function activePreset(doc: Document, node: Node) {
   return node.classes.map((id) => doc.classes[id]).find((cls) => cls?.preset)
 }
 
-/** Capture effective formatting at this breakpoint, retaining typed values and color references. */
+/**
+ * Capture effective formatting at this breakpoint and state, retaining typed values and color
+ * references. A state rule outranks every base-state rule, as its extra specificity does in CSS.
+ */
 export function presetValues(
   doc: Document,
   node: Node,
   computed: Record<string, string>,
   breakpoint = 'base',
+  state: State = 'none',
 ) {
   const names = classNames(doc)
   const classes = node.classes
@@ -30,14 +34,17 @@ export function presetValues(
       values[property] = { type: 'raw', value: computed[property]! }
   }
   const scopes = inheritedBreakpoints(doc, breakpoint)
+  const states: State[] = state === 'none' ? ['none'] : ['none', state]
   for (const id of classes) {
     for (const style of Object.values(doc.styles).sort(
-      (a, b) => scopes.indexOf(a.breakpoint) - scopes.indexOf(b.breakpoint),
+      (a, b) =>
+        states.indexOf(a.state) - states.indexOf(b.state) ||
+        scopes.indexOf(a.breakpoint) - scopes.indexOf(b.breakpoint),
     )) {
       if (
         style.class !== id ||
         !scopes.includes(style.breakpoint) ||
-        style.state !== 'none' ||
+        !states.includes(style.state) ||
         !properties.has(style.property)
       )
         continue
