@@ -76,6 +76,11 @@ export function renderHead(input: HeadInput): string {
   if (seo?.noindex) parts.push(meta('robots', 'noindex'))
   const canonical = seo?.canonical ?? (siteUrl ? absolute(path) : undefined)
   if (canonical) parts.push(`<link rel="canonical" href="${escapeAttr(canonical)}">`)
+  const favicon = doc.site.favicon ? doc.assets[doc.site.favicon] : undefined
+  if (favicon)
+    parts.push(
+      `<link rel="icon" type="${escapeAttr(favicon.mime)}" href="${escapeAttr((input.resolveAsset ?? publicAssetPath)(favicon))}">`,
+    )
   parts.push(og('og:type', 'website'))
   parts.push(og('og:title', title))
   parts.push(og('og:site_name', doc.site.name))

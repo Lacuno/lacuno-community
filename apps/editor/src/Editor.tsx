@@ -127,8 +127,9 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const editingRoot = editingComponent?.root ?? page?.root
   const entries = page?.collection ? (doc?.entries[page.collection] ?? []) : []
   const activeEntry = entries.find((entry) => entry.id === entryId)?.id ?? entries[0]?.id ?? ''
+  // Only `load` parses: a committed document is already validated, and parsing it again would
+  // rebuild the whole object graph that applyPatches just shared structurally.
   const acceptSnapshot = useCallback((next: Snapshot, reset = true) => {
-    next.document = parseDocument(next.document)
     setSnapshot(next)
     if (componentRef.current && !next.document.components[componentRef.current]) {
       // The edited definition was deleted: leave the shared editor the same way Done does.
@@ -149,7 +150,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   }, [])
   const load = useCallback(async () => {
     const next = await api<Snapshot>(`/api/sites/${siteId}/document`)
-    acceptSnapshot(next)
+    acceptSnapshot({ ...next, document: parseDocument(next.document) })
     setEditHistory(emptyHistory())
   }, [siteId, acceptSnapshot])
   useEffect(() => {

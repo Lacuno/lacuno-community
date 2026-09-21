@@ -37,6 +37,34 @@ it('undoes one mixed save exactly, including rich text, tokens, important and mi
   expect({ ...store.read().document, revision: edited.revision }).toEqual(edited)
 })
 
+it('restores a deleted combo class, its lock and its styles', async () => {
+  const original = fixtureDocument()
+  const store = DocumentStore.inMemory(original)
+  await store.apply({
+    expectedRevision: store.revision,
+    operations: [
+      { type: 'class.create', id: 'c-combo', name: 'card-wide', combo: ['c-page'], locked: true },
+      {
+        type: 'style.set',
+        class: 'c-combo',
+        breakpoint: 'base',
+        state: 'none',
+        property: 'color',
+        value: { type: 'color', value: '#123456' },
+      },
+    ],
+  })
+  const before = store.read().document
+  const entry = captureEdit(before, [{ type: 'class.delete', id: 'c-combo' }])
+  await store.apply({
+    expectedRevision: store.revision,
+    operations: [{ type: 'class.delete', id: 'c-combo' }],
+  })
+  expect(store.read().document.classes['c-combo']).toBeUndefined()
+  await store.apply({ expectedRevision: store.revision, operations: entry.undo })
+  expect({ ...store.read().document, revision: before.revision }).toEqual(before)
+})
+
 it('keeps rejected undos from overwriting a later revision', async () => {
   const original = fixtureDocument()
   const edits: EditOperation[] = [

@@ -19,8 +19,19 @@ export async function api<T>(path: string, body?: unknown, signal?: AbortSignal)
           body: JSON.stringify(body),
         }),
   })
-  const data = await response.json()
-  if (!response.ok)
-    throw new ApiError(data.error ?? data.message ?? 'Request failed', response.status)
+  const text = await response.text()
+  let data: unknown
+  try {
+    data = JSON.parse(text)
+  } catch {
+    data = undefined
+  }
+  if (!response.ok) {
+    const failure = data as { error?: string; message?: string } | undefined
+    throw new ApiError(
+      failure?.error ?? failure?.message ?? (response.statusText || 'Request failed'),
+      response.status,
+    )
+  }
   return data as T
 }

@@ -60,7 +60,15 @@ export type EditOperation =
     }
   | ({ type: 'asset.create' } & AssetRef)
   | { type: 'asset.delete'; id: string }
-  | { type: 'class.create'; id: string; name?: string; local?: boolean; preset?: boolean }
+  | {
+      type: 'class.create'
+      id: string
+      name?: string
+      local?: boolean
+      preset?: boolean
+      combo?: string[]
+      locked?: boolean
+    }
   | { type: 'class.delete'; id: string }
   | (DefinedFields<DesignToken> & { type: 'designToken.create' })
   | { type: 'designToken.delete'; id: string }
@@ -275,12 +283,14 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
         id: operation.id,
         ...(operation.name !== undefined ? { name: operation.name } : {}),
         kind: operation.local ? 'local' : 'class',
+        ...(operation.combo?.length ? { combo: [...operation.combo] } : {}),
+        ...(operation.locked ? { locked: true } : {}),
         ...(operation.preset ? { preset: true } : {}),
       }
       undo.unshift({ type: 'class.delete', id: operation.id })
     } else if (operation.type === 'class.delete') {
       const cls = draft.classes[operation.id]
-      if (!cls || (cls.kind === 'class' && !cls.name) || cls.combo?.length || cls.locked)
+      if (!cls || (cls.kind === 'class' && !cls.name))
         throw new Error('This class cannot be restored by the editor yet')
       const styles = Object.entries(draft.styles).filter(
         ([, style]) => style.class === operation.id,
@@ -291,6 +301,8 @@ export function captureEdit(document: Document, operations: EditOperation[]): Hi
           id: cls.id,
           ...(cls.name !== undefined ? { name: cls.name } : {}),
           ...(cls.kind === 'local' ? { local: true } : {}),
+          ...(cls.combo?.length ? { combo: [...cls.combo] } : {}),
+          ...(cls.locked ? { locked: true } : {}),
           ...(cls.preset ? { preset: true } : {}),
         },
         ...styles.map(([, style]) => ({ type: 'style.set' as const, ...structuredClone(style) })),

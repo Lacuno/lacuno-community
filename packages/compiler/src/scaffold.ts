@@ -107,7 +107,8 @@ export async function writeScaffold(input: ScaffoldInput): Promise<void> {
     const file = assetFileName(asset)
     const targets: string[] = []
     if (isOptimizedImage(asset)) targets.push(path.join(root, 'src/assets', file))
-    if (!isOptimizedImage(asset) || inCss.has(asset.id))
+    // The favicon is linked by its public URL, so it must exist unoptimized like a css image.
+    if (!isOptimizedImage(asset) || inCss.has(asset.id) || doc.site.favicon === asset.id)
       targets.push(path.join(root, 'public/assets', file))
     for (const target of targets) {
       try {

@@ -113,7 +113,7 @@ function PageSettings({
       aria-label={page ? 'Page settings' : 'New page'}
       onCancel={(event) => {
         event.preventDefault()
-        close()
+        if (!disabled) close()
       }}
       onKeyDown={(event) => event.stopPropagation()}
     >

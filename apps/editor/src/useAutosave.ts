@@ -9,8 +9,8 @@ export function useAutosave(
   save: (operations: EditOperation[]) => Promise<boolean>,
 ) {
   const key = JSON.stringify(operations)
-  const current = useRef({ operations, enabled, save, key })
-  current.current = { operations, enabled, save, key }
+  const current = useRef({ operations, enabled, save, key, busy })
+  current.current = { operations, enabled, save, key, busy }
   const request = useRef<Promise<boolean> | null>(null)
   const saved = useRef('')
   const failed = useRef('')
@@ -20,6 +20,11 @@ export function useAutosave(
       const next = current.current
       if (!next.enabled) return false
       if (!next.operations.length || next.key === saved.current) return true
+      // Another save is in flight; wait for it, because a refused save is not a failed save.
+      if (next.busy) {
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        continue
+      }
       setHasFailed(false)
       const success = await next.save(next.operations)
       if (!success) {

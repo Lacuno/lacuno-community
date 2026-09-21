@@ -1,4 +1,4 @@
-import { OPERATIONS } from '@freeflow/document'
+import { OPERATIONS, type OperationDef } from '@freeflow/document'
 import { z } from 'zod'
 
 export const GUIDE_INTRO = `# Freeflow document guide
@@ -19,15 +19,25 @@ A paragraph with a bold word:
 ## Operations
 `
 
+/** asset.create only records an asset; the bytes come with the asset.import tool. */
+export const WITHHELD_OPERATIONS: Record<string, string> = {
+  'asset.create': 'use the asset.import tool, which stores the bytes',
+}
+
+/** The operations this server accepts and advertises. */
+export const MCP_OPERATIONS: OperationDef[] = OPERATIONS.filter(
+  (o) => !(o.type in WITHHELD_OPERATIONS),
+)
+
 export function operationGroups(): string[] {
-  return [...new Set(OPERATIONS.map((o) => o.type.split('.')[0] as string))]
+  return [...new Set(MCP_OPERATIONS.map((o) => o.type.split('.')[0] as string))]
 }
 
 /** One line per group listing its operation names; schemas are returned per group by `catalog`. */
 export function index(): string {
   const groups = operationGroups()
   const lines = groups.map((group) => {
-    const names = OPERATIONS.filter((o) => o.type.startsWith(`${group}.`)).map((o) => o.type)
+    const names = MCP_OPERATIONS.filter((o) => o.type.startsWith(`${group}.`)).map((o) => o.type)
     return `- ${group}: ${names.join(', ')}`
   })
   return `${lines.join('\n')}\n\nCall guide with a group to get the schemas.`
@@ -37,7 +47,7 @@ export function catalog(group: string): string {
   const groups = operationGroups()
   if (!groups.includes(group))
     throw new RangeError(`unknown group ${group}; groups: ${groups.join(', ')}`)
-  const ops = OPERATIONS.filter((o) => o.type.startsWith(`${group}.`))
+  const ops = MCP_OPERATIONS.filter((o) => o.type.startsWith(`${group}.`))
   return ops
     .map(
       (o) =>

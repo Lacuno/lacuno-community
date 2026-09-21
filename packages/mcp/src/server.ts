@@ -7,7 +7,7 @@ import type { Node } from '@freeflow/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { fail, InputError } from './errors.js'
-import { catalog, GUIDE_INTRO, index, operationGroups } from './guide.js'
+import { catalog, GUIDE_INTRO, index, operationGroups, WITHHELD_OPERATIONS } from './guide.js'
 import { outlineLines } from './outline.js'
 import { ok, text } from './result.js'
 import { documentJsonSchema, operationsJsonSchema } from './schemas.js'
@@ -51,6 +51,11 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
     async ({ expectedRevision, operations, dryRun }) => {
       try {
+        const withheld = operations.find((o) => o.type in WITHHELD_OPERATIONS)
+        if (withheld)
+          throw new InputError(
+            `${withheld.type} is not available here: ${WITHHELD_OPERATIONS[withheld.type]}`,
+          )
         const parsed = z.array(Operation).safeParse(operations)
         if (!parsed.success) {
           const issues = parsed.error.issues.map((issue) => ({

@@ -334,6 +334,13 @@ export function Canvas({
                 historyRef.current(direction)
                 return
               }
+              // A form field on the page owns its own keystrokes, the way the editor chrome does.
+              if (
+                (event.target as Element | null)?.closest?.(
+                  'input, textarea, select, [contenteditable="true"]',
+                )
+              )
+                return
               if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
                 event.preventDefault()
                 nodeActionRef.current('duplicate', selectedRef.current)

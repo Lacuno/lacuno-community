@@ -39,6 +39,17 @@ describe('renderHead', () => {
     )
   })
 
+  it('links the site favicon by its public url and skips a favicon that no longer exists', () => {
+    const input = base()
+    input.doc.site.favicon = 'a-hero'
+    const hero = input.doc.assets['a-hero']!
+    expect(renderHead(input)).toContain(
+      `<link rel="icon" type="image/png" href="/assets/${hero.hash}.png">`,
+    )
+    input.doc.site.favicon = 'a-gone'
+    expect(renderHead(input)).not.toContain('rel="icon"')
+  })
+
   it('emits font-face and preload for asset fonts, nothing for system fonts', () => {
     const input = base()
     input.doc.assets['a-font'] = {

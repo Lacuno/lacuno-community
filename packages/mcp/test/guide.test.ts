@@ -1,7 +1,8 @@
-import { DocumentStore, OPERATIONS } from '@freeflow/document'
+import { DocumentStore } from '@freeflow/document'
 import { fixtureDocument } from '@freeflow/schema'
 import { afterEach, describe, expect, it } from 'vitest'
-import { connect, textOf } from './helpers.js'
+import { MCP_OPERATIONS } from '../src/guide.js'
+import { connect, jsonOf, textOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -25,7 +26,9 @@ describe('guide and resources', () => {
       'styles.get',
     ])
     const guide = textOf(await c.client.callTool({ name: 'guide', arguments: {} }))
-    for (const op of OPERATIONS) expect(guide).toContain(op.type)
+    for (const op of MCP_OPERATIONS) expect(guide).toContain(op.type)
+    // asset.create registers bytes that may not exist; only asset.import is offered.
+    expect(guide).not.toContain('asset.create')
     expect(guide).toContain('expectedRevision')
     expect(guide).toContain('Call guide with a group to get the schemas.')
     expect(guide).toContain('bulletList')
@@ -47,6 +50,33 @@ describe('guide and resources', () => {
     expect(size).toBeLessThan(4000)
   })
 
+  it('refuses asset.create and points at asset.import', async () => {
+    const c = await connect(DocumentStore.inMemory(fixtureDocument()))
+    close = c.close
+    const result = await c.client.callTool({
+      name: 'document.apply',
+      arguments: {
+        expectedRevision: 0,
+        operations: [
+          {
+            type: 'asset.create',
+            id: 'a-x',
+            name: 'x.png',
+            kind: 'image',
+            hash: 'ff',
+            mime: 'image/png',
+            size: 1,
+          },
+        ],
+      },
+    })
+    expect(result.isError).toBe(true)
+    expect(jsonOf<{ kind: string; message: string }>(result)).toMatchObject({
+      kind: 'input',
+      message: expect.stringContaining('asset.import'),
+    })
+  })
+
   it('serves the document and operation schemas as resources', async () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
@@ -57,6 +87,7 @@ describe('guide and resources', () => {
       anyOf?: unknown[]
       oneOf?: unknown[]
     }
-    expect((schema.anyOf ?? schema.oneOf ?? []).length).toBe(OPERATIONS.length)
+    expect((schema.anyOf ?? schema.oneOf ?? []).length).toBe(MCP_OPERATIONS.length)
+    expect(JSON.stringify(schema)).not.toContain('asset.create')
   })
 })

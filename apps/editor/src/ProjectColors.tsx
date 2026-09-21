@@ -67,7 +67,7 @@ export function ProjectColors({
       aria-labelledby="colors-title"
       onCancel={(event) => {
         event.preventDefault()
-        leave(close)
+        if (!busy) leave(close)
       }}
       onKeyDown={(event) => event.stopPropagation()}
     >

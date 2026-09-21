@@ -305,8 +305,38 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await page.getByRole('button', { name: 'Project colors', exact: true }).click()
     await colors.getByRole('button', { name: 'Ocean test / Light', exact: true }).click()
     await colors.getByText('2 linked style declarations', { exact: true }).waitFor()
+    let releaseColorWrite!: () => void
+    let colorWriteSeen!: () => void
+    const colorWriteReceived = new Promise<void>((resolve) => {
+      colorWriteSeen = resolve
+    })
+    const colorWriteReleased = new Promise<void>((resolve) => {
+      releaseColorWrite = resolve
+    })
+    await page.route(
+      '**/document/apply',
+      async (route) => {
+        colorWriteSeen()
+        await colorWriteReleased
+        await route.continue()
+      },
+      { times: 1 },
+    )
     await colors.getByLabel('Color value', { exact: true }).fill('#224466')
+    await colorWriteReceived
+    // Escape while that write is in flight must not offer to discard a change that is saving.
+    let discardPrompt = false
+    const watchDiscard = (dialog: import('playwright').Dialog) => {
+      discardPrompt = true
+      void dialog.dismiss()
+    }
+    page.on('dialog', watchDiscard)
+    await page.keyboard.press('Escape')
+    releaseColorWrite()
     await saved()
+    page.off('dialog', watchDiscard)
+    expect(discardPrompt).toBe(false)
+    expect(await colors.isVisible()).toBe(true)
     await expect.poll(insertedColor).toBe('rgb(34, 68, 102)')
     await expect.poll(paragraphColor).toBe('rgb(34, 68, 102)')
     await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
@@ -875,9 +905,23 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     const copyId = await page.locator('.layer.selected').getAttribute('data-drag-node')
     const copy = canvas.locator(`[data-freeflow-node="${copyId}"]`)
     expect(await copy.textContent()).toBe(await heading.textContent())
+    // Backspace in a form field on the page belongs to the field, not to the selected element.
+    let deleteWrites = 0
+    const watchDeleteWrites = (request: import('playwright').Request) => {
+      if (request.url().endsWith('/document/apply')) deleteWrites++
+    }
+    page.on('request', watchDeleteWrites)
+    await copy.evaluate((element) => {
+      const field = element.ownerDocument.createElement('input')
+      element.append(field)
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true }))
+    })
     await page.locator('.layer.selected').focus()
     await page.keyboard.press('Delete')
     await expect.poll(() => copy.count()).toBe(0)
+    page.off('request', watchDeleteWrites)
+    // Only the Delete on the selected layer wrote: the keystroke in the field was left alone.
+    expect(deleteWrites).toBe(1)
     await page.getByRole('button', { name: 'Undo', exact: true }).click()
     await copy.waitFor()
     await page.getByRole('button', { name: 'Undo', exact: true }).click()
