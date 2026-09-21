@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ApiError, api } from './api.js'
+import { ApiError, api, message } from './api.js'
 import { Editor } from './Editor.js'
 
 type User = { name: string; email: string }
 type Site = { id: string; name: string; revision: number }
-const message = (error: unknown) =>
-  error instanceof Error ? error.message : 'Something went wrong'
 
 export function Brand() {
   return (

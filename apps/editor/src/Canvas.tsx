@@ -2,16 +2,30 @@ import { MOTION_CSS } from '@freeflow/css'
 import { useEffect, useRef, useState } from 'react'
 import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
-import type { LivePreview } from './livePreview.js'
 import { selectionOverlay } from './selectionOverlay.js'
 
-function highlight(frame: HTMLIFrameElement | null, selected: string) {
-  for (const element of frame?.contentDocument?.querySelectorAll('[data-freeflow-node]') ?? []) {
-    element.toggleAttribute(
-      'data-freeflow-selected',
-      element.getAttribute('data-freeflow-node') === selected,
-    )
+/** The unsaved edit a panel paints into the canvas before it is committed. */
+export type LivePreview = {
+  node?: {
+    id: string
+    text?: string
+    attrs?: Record<string, string>
+    selector?: string
+    media?: string
+    styles: Record<string, string | null>
   }
+  colors?: Record<string, string>
+}
+
+function nodeElement(doc: Document | null | undefined, id: string) {
+  return doc?.querySelector<HTMLElement>(`[data-freeflow-node="${CSS.escape(id)}"]`) ?? undefined
+}
+
+function highlight(frame: HTMLIFrameElement | null, selected: string) {
+  const doc = frame?.contentDocument
+  if (!doc) return
+  doc.querySelector('[data-freeflow-selected]')?.removeAttribute('data-freeflow-selected')
+  nodeElement(doc, selected)?.setAttribute('data-freeflow-selected', '')
 }
 
 export function Canvas({
@@ -45,19 +59,11 @@ export function Canvas({
   // A preview request from the preceding save must not replace an active text editor.
   if (!editingText) renderedHtml.current = html
   const selectionCleanup = useRef<(() => void) | undefined>(undefined)
-  const nameRef = useRef(selectedName)
-  nameRef.current = selectedName
   useEffect(() => () => selectionCleanup.current?.(), [])
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
   useEffect(() => () => dragCleanup.current?.(), [])
-  const nodeActionRef = useRef(onNodeAction)
-  const editTextRef = useRef(onEditText)
-  editTextRef.current = onEditText
-  nodeActionRef.current = onNodeAction
   const frame = useRef<HTMLIFrameElement>(null)
   const scrollPosition = useRef({ x: 0, y: 0 })
-  const liveRef = useRef(livePreview)
-  liveRef.current = livePreview
   const motionReplay = useRef<(() => void) | undefined>(undefined)
   const restore = useRef<(() => void) | undefined>(undefined)
   const paint = () => {
@@ -65,11 +71,9 @@ export function Canvas({
     const doc = frame.current?.contentDocument
     if (!doc) return
     const undo: (() => void)[] = []
-    const draft = liveRef.current
+    const draft = latest.current.livePreview
     if (draft.node) {
-      let element = [...doc.querySelectorAll<HTMLElement>('[data-freeflow-node]')].find(
-        (element) => element.dataset.freeflowNode === draft.node!.id,
-      )
+      let element = nodeElement(doc, draft.node.id)
       if (element?.hasAttribute('data-freeflow-image-placeholder') && draft.node.attrs?.src) {
         const placeholder = element
         const image = doc.createElement('img')
@@ -153,32 +157,15 @@ export function Canvas({
       for (const action of undo) action()
     }
   }
-  const paintRef = useRef(paint)
-  paintRef.current = paint
-  // biome-ignore lint/correctness/useExhaustiveDependencies: paint the latest draft into the iframe when the draft changes.
-  useEffect(() => {
-    paintRef.current()
-  }, [livePreview])
-
   const shell = useRef<HTMLDivElement>(null)
   const [available, setAvailable] = useState(width)
   const zoom = Math.min(1, available / width)
-  const selectedRef = useRef(selected)
-  selectedRef.current = selected
-  const selectRef = useRef(select)
-  selectRef.current = select
-  const historyRef = useRef(onHistory)
-  historyRef.current = onHistory
-  const computedRef = useRef(onComputed)
-  computedRef.current = onComputed
   const reportStyles = () => {
     const doc = frame.current?.contentDocument
-    const element = [...(doc?.querySelectorAll('[data-freeflow-node]') ?? [])].find(
-      (element) => element.getAttribute('data-freeflow-node') === selectedRef.current,
-    )
+    const element = nodeElement(doc, latest.current.selected)
     const styles = element && doc?.defaultView?.getComputedStyle(element)
-    computedRef.current({
-      id: selectedRef.current,
+    latest.current.onComputed({
+      id: latest.current.selected,
       values: styles
         ? Object.fromEntries(
             formattingGroups.flatMap((group) =>
@@ -191,12 +178,29 @@ export function Canvas({
         : {},
     })
   }
-  const reportRef = useRef(reportStyles)
-  reportRef.current = reportStyles
+  // Everything the iframe listeners read long after the render that installed them.
+  const current = {
+    selectedName,
+    onNodeAction,
+    onEditText,
+    livePreview,
+    selected,
+    select,
+    onHistory,
+    onComputed,
+    paint,
+    reportStyles,
+  }
+  const latest = useRef(current)
+  latest.current = current
+  // biome-ignore lint/correctness/useExhaustiveDependencies: paint the latest draft into the iframe when the draft changes.
+  useEffect(() => {
+    latest.current.paint()
+  }, [livePreview])
   // biome-ignore lint/correctness/useExhaustiveDependencies: changing the iframe width changes its computed responsive styles.
   useEffect(() => {
     highlight(frame.current, selected)
-    reportRef.current()
+    latest.current.reportStyles()
   }, [selected, width])
   useEffect(() => {
     const workspace = shell.current?.parentElement
@@ -212,14 +216,12 @@ export function Canvas({
     let cleanup: (() => void) | undefined
     const preview = (event: Event) => {
       const { id, kind } = (event as CustomEvent<{ id: string; kind: string }>).detail
-      if (id !== selectedRef.current) return
+      if (id !== latest.current.selected) return
       cleanup?.()
       clearTimeout(timer)
       motionReplay.current = () => preview(event)
       const doc = frame.current?.contentDocument
-      const element = [...(doc?.querySelectorAll<HTMLElement>('[data-freeflow-node]') ?? [])].find(
-        (item) => item.dataset.freeflowNode === id,
-      )
+      const element = nodeElement(doc, id)
       if (!doc || !element || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
       element.setAttribute('data-freeflow-motion', '')
       const before = element.getAttribute('style')
@@ -227,7 +229,7 @@ export function Canvas({
         element.removeAttribute('data-ff-enter')
         if (before === null) element.removeAttribute('style')
         else element.setAttribute('style', before)
-        paintRef.current()
+        latest.current.paint()
       }
       const computed = doc.defaultView!.getComputedStyle(element)
       const duration = Number.parseFloat(computed.getPropertyValue('--ff-duration')) || 400
@@ -289,7 +291,7 @@ export function Canvas({
             image.replaceWith(placeholder)
           }
           selectionCleanup.current?.()
-          selectionCleanup.current = selectionOverlay(doc, () => nameRef.current)
+          selectionCleanup.current = selectionOverlay(doc, () => latest.current.selectedName)
           dragCleanup.current?.()
           for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
             element.draggable = true
@@ -309,7 +311,7 @@ export function Canvas({
             const target = event.target as Element | null
             const element = target?.closest?.('[data-freeflow-node]')
             const id = element?.getAttribute('data-freeflow-node')
-            if (id) selectRef.current(id)
+            if (id) latest.current.select(id)
           }
           doc.addEventListener('click', pick, true)
           doc.addEventListener('auxclick', pick, true)
@@ -320,7 +322,7 @@ export function Canvas({
             const id = element?.dataset.freeflowNode
             if (id && element && !element.hasAttribute('data-freeflow-editing')) {
               event.preventDefault()
-              editTextRef.current(id, element)
+              latest.current.onEditText(id, element)
             }
           })
           doc.addEventListener('submit', (event) => event.preventDefault(), true)
@@ -331,7 +333,7 @@ export function Canvas({
               const direction = historyShortcut(event)
               if (direction) {
                 event.preventDefault()
-                historyRef.current(direction)
+                latest.current.onHistory(direction)
                 return
               }
               // A form field on the page owns its own keystrokes, the way the editor chrome does.
@@ -343,22 +345,22 @@ export function Canvas({
                 return
               if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
                 event.preventDefault()
-                nodeActionRef.current('duplicate', selectedRef.current)
+                latest.current.onNodeAction('duplicate', latest.current.selected)
                 return
               }
               if (event.key === 'Delete' || event.key === 'Backspace') {
                 event.preventDefault()
-                nodeActionRef.current('delete', selectedRef.current)
+                latest.current.onNodeAction('delete', latest.current.selected)
                 return
               }
               if (event.key === 'Enter' || event.key === ' ') pick(event)
             },
             true,
           )
-          highlight(frame.current, selectedRef.current)
+          highlight(frame.current, latest.current.selected)
           restore.current = undefined
-          paintRef.current()
-          reportRef.current()
+          latest.current.paint()
+          latest.current.reportStyles()
           motionReplay.current?.()
           const view = doc.defaultView
           if (view) {

@@ -23,6 +23,8 @@ const paths = {
   info: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 11v5M12 8h.01',
   up: 'm6 11 6-6 6 6M12 5v14',
   down: 'm6 13 6 6 6-6M12 19V5',
+  undo: 'M9 4 4 9l5 5M4 9h10a6 6 0 0 1 0 12h-3',
+  redo: 'm15 4 5 5-5 5M20 9H10a6 6 0 0 0 0 12h3',
 } as const
 
 export function EditorIcon({ name }: { name: keyof typeof paths }) {

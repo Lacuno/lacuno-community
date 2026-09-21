@@ -62,7 +62,7 @@ export function useAutosave(
   const flushRef = useRef(flush)
   flushRef.current = flush
   useEffect(() => {
-    if (!enabled || busy || key === '[]' || key === failed.current) return
+    if (!enabled || busy || key === failed.current) return
     const timer = setTimeout(() => {
       void flushRef.current()
     }, 400)

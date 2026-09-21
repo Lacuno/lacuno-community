@@ -19,8 +19,7 @@ import { commit } from './helpers.js'
 it('round-trips insertion, subtree edits and sibling moves with stable IDs', async () => {
   const original = fixtureDocument()
   const parent = original.nodes['n-hero-title']!.parent!
-  let sequence = 0
-  const node = presetNode('section', '', () => `n-insert-${++sequence}`)
+  const node = presetNode('section', '')
   const operations: Operation[] = [
     { type: 'node.create', parent, node },
     {

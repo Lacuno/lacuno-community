@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api } from './api.js'
+import { api, message } from './api.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import './publishing.css'
 
@@ -54,8 +54,7 @@ export function PublishPanel({
         )
           timer = setTimeout(poll, 1000)
       } catch (error) {
-        if (!controller.signal.aborted)
-          setError(error instanceof Error ? error.message : 'Could not load releases')
+        if (!controller.signal.aborted) setError(message(error, 'Could not load releases'))
       }
     }
     void poll()
@@ -72,7 +71,7 @@ export function PublishPanel({
       setConfirm(undefined)
       await refresh()
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Request failed')
+      setError(message(error, 'Request failed'))
       await refresh().catch(() => {})
     } finally {
       setBusy(false)

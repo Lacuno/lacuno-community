@@ -7,6 +7,10 @@ export class ApiError extends Error {
   }
 }
 
+/** The message a thrown value carries, or `fallback` when it is not an Error. */
+export const message = (error: unknown, fallback = 'Something went wrong') =>
+  error instanceof Error ? error.message : fallback
+
 export async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, {
     credentials: 'same-origin',

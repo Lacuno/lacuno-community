@@ -5,20 +5,30 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { assetUrl } from './AssetsPanel.js'
 import { breakpointMedia } from './breakpoints.js'
+import type { LivePreview } from './Canvas.js'
 import { ClassManager } from './ClassManager.js'
 import { ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { FormattingControls } from './FormattingControls.js'
 import { formattingOperations, localClass, localValue, normalizeFormatting } from './formatting.js'
 import { ImageLibrary } from './ImageLibrary.js'
-import type { LivePreview } from './livePreview.js'
 import { PresetManager } from './PresetManager.js'
 import { placePopover } from './popover.js'
 import { isLocked, isShared, nodeLabel } from './structure.js'
 import { TextToolbar } from './TextToolbar.js'
-import { hasAnchorParent } from './textAncestors.js'
 import { textLink, textProperties, wholeText } from './textFormatting.js'
 import { useAutosave } from './useAutosave.js'
+
+function hasAnchorParent(doc: Document, node: Node): boolean {
+  for (
+    let parent = node.parent ? doc.nodes[node.parent] : undefined;
+    parent;
+    parent = parent.parent ? doc.nodes[parent.parent] : undefined
+  ) {
+    if ('tag' in parent && parent.tag === 'a') return true
+  }
+  return false
+}
 
 function editableText(node: Node): string | undefined {
   if (node.type !== 'text') return undefined

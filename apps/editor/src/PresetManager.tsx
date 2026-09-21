@@ -1,6 +1,7 @@
 import { nodesUsingClass, type Operation } from '@freeflow/document'
 import type { Document, Node } from '@freeflow/schema'
 import { useEffect, useId, useRef, useState } from 'react'
+import { message } from './api.js'
 import { ErrorNote } from './Dialog.js'
 import { formattingOperations } from './formatting.js'
 import { placePopover } from './popover.js'
@@ -54,7 +55,7 @@ export function PresetManager({
     try {
       return await save(operations())
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Could not change preset.')
+      setError(message(error, 'Could not change preset.'))
       return false
     }
   }

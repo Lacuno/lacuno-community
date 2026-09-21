@@ -1,7 +1,7 @@
 import type { Operation } from '@freeflow/document'
 import type { AssetRef, Document } from '@freeflow/schema'
 import { useState } from 'react'
-import { api } from './api.js'
+import { api, message } from './api.js'
 import { ErrorNote } from './Dialog.js'
 
 export const imageAssets = (doc: Document) =>
@@ -62,7 +62,7 @@ export function AssetsPanel({
               if (!doc.assets[asset.id] && !(await save([{ type: 'asset.create', ...asset }])))
                 setError('Could not add the image. Choose the file again to retry.')
             } catch (err) {
-              setError(err instanceof Error ? err.message : 'Could not upload image.')
+              setError(message(err, 'Could not upload image.'))
             } finally {
               setLoading(false)
             }

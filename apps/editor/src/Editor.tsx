@@ -5,9 +5,9 @@ import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useStat
 import { flushSync } from 'react-dom'
 import { Brand } from './App.js'
 import { AssetsPanel, uploadImage } from './AssetsPanel.js'
-import { ApiError, api } from './api.js'
+import { ApiError, api, message } from './api.js'
 import { editingBreakpoint } from './breakpoints.js'
-import { Canvas } from './Canvas.js'
+import { Canvas, type LivePreview } from './Canvas.js'
 import {
   ComponentInstancePanel,
   ComponentSettingsDialog,
@@ -26,7 +26,6 @@ import { EditorIcon } from './EditorIcon.js'
 import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { Inspector } from './Inspector.js'
-import type { LivePreview } from './livePreview.js'
 import { Navigator } from './Navigator.js'
 import { PagesPanel } from './PagesPanel.js'
 import { ProjectColors } from './ProjectColors.js'
@@ -55,6 +54,12 @@ const sidebars = {
   Assets: 'image',
 } as const
 type Sidebar = keyof typeof sidebars
+const ribbonGroups: Record<string, string> = {
+  Layout: 'Spacing & shape',
+  Appearance: 'Colors',
+  Effects: 'Effects',
+  Motion: 'Motion',
+}
 
 export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot>()
@@ -63,16 +68,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [sidebar, setSidebar] = useState<Sidebar>('Layers')
   const [inlineTarget, setInlineTarget] = useState<InlineTarget>()
   const elementActionsId = useId()
-  const ribbonGroup =
-    ribbonTab === 'Layout'
-      ? 'Spacing & shape'
-      : ribbonTab === 'Appearance'
-        ? 'Colors'
-        : ribbonTab === 'Effects'
-          ? 'Effects'
-          : ribbonTab === 'Motion'
-            ? 'Motion'
-            : 'Typography'
+  const ribbonGroup = ribbonGroups[ribbonTab] ?? 'Typography'
   const [pageId, setPageId] = useState('')
   const [entryId, setEntryId] = useState('')
   const [selected, setSelected] = useState('')
@@ -87,6 +83,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [busy, setBusy] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [conflict, setConflict] = useState(false)
+  // 'Saved' until this session lands an edit: the only signal that a save has actually happened.
   const [saved, setSaved] = useState(false)
   const [colorsOpen, setColorsOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
@@ -131,7 +128,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const activeEntry = entries.find((entry) => entry.id === entryId)?.id ?? entries[0]?.id ?? ''
   // Only `load` parses: a committed document is already validated, and parsing it again would
   // rebuild the whole object graph that applyPatches just shared structurally.
-  const acceptSnapshot = useCallback((next: Snapshot, reset = true) => {
+  const acceptSnapshot = useCallback((next: Snapshot, { keepPanels = false } = {}) => {
     setSnapshot(next)
     if (componentRef.current && !next.document.components[componentRef.current]) {
       // The edited definition was deleted: leave the shared editor the same way Done does.
@@ -146,9 +143,12 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           ''),
     )
     setConflict(false)
-    if (reset) setDirty(false)
     setError('')
-    if (reset) setGeneration((value) => value + 1)
+    // An autosave leaves the panel that made it alone: it owns its draft and its dirty flag.
+    if (!keepPanels) {
+      setDirty(false)
+      setGeneration((value) => value + 1)
+    }
   }, [])
   const load = useCallback(async () => {
     const next = await api<Snapshot>(`/api/sites/${siteId}/document`)
@@ -231,7 +231,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       flushSync(() => {
         acceptSnapshot(
           { document: { ...document, revision: result.revision }, revision: result.revision },
-          action !== 'auto',
+          { keepPanels: action === 'auto' },
         )
         // A batch that changed nothing leaves nothing to undo.
         if (step || result.patches.length)
@@ -245,7 +245,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         setError(
           'This site changed in another session. Your draft is still here. Reload the latest version before editing again.',
         )
-      } else setError(e instanceof Error ? e.message : 'Could not save changes')
+      } else setError(message(e, 'Could not save changes'))
       return false
     } finally {
       inFlight.current = false
@@ -256,12 +256,17 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const save = (operations: Operation[], action: 'edit' | 'auto' = 'edit') =>
     commit({ operations }, action)
   async function nodeAction(action: 'duplicate' | 'delete', id: string) {
-    if (!editableDoc || unsettled || subtreeRestriction(editableDoc, id)) return
-    if (action === 'duplicate') {
+    if (!editableDoc || unsettled) return
+    if (action === 'delete') {
+      if (subtreeRestriction(editableDoc, id)) return
+      if (await save([{ type: 'node.delete', id }])) setSelected('')
+      return
+    }
+    try {
       const edit = duplicateSelection(editableDoc, id)
       if (await save(edit.operations)) setSelected(edit.node.id)
-    } else {
-      if (await save([{ type: 'node.delete', id }])) setSelected('')
+    } catch (error) {
+      setError(message(error))
     }
   }
   const editComponent = (id: string) =>
@@ -281,52 +286,46 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         setSidebar('Layers')
       }
     } catch (error) {
-      setError((error as Error).message)
+      setError(message(error))
     }
   }
-  const [imageUpload, setImageUpload] = useState<{
-    id: string
-    asset: Awaited<ReturnType<typeof uploadImage>>
-  }>()
   const [uploadingImage, setUploadingImage] = useState(false)
-  const imageUploadFlight = useRef(false)
+  // The upload outlives the render that started it, so the write reads the document back.
+  const latest = useRef({ doc, save })
+  latest.current = { doc, save }
   async function dropImage(id: string, file: File) {
-    if (imageUploadFlight.current) return
-    imageUploadFlight.current = true
+    if (uploadingImage) return
     setUploadingImage(true)
     setError('')
     try {
-      setImageUpload({ id, asset: await uploadImage(siteId, file) })
+      const asset = await uploadImage(siteId, file)
+      if (!(await flushPending())) return
+      const { doc: current, save: write } = latest.current
+      const node = current?.nodes[id]
+      if (
+        !current ||
+        node?.type !== 'element' ||
+        node.tag !== 'img' ||
+        subtreeRestriction(current, id)
+      ) {
+        setError('This image can no longer be changed.')
+        return
+      }
+      const ok = await write([
+        ...(!current.assets[asset.id] ? [{ type: 'asset.create' as const, ...asset }] : []),
+        {
+          type: 'node.update',
+          id,
+          attrs: { ...node.attrs, src: { type: 'asset', asset: asset.id } },
+        },
+      ])
+      if (ok) setSelected(id)
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Could not upload image.')
-      imageUploadFlight.current = false
+      setError(message(error, 'Could not upload image.'))
+    } finally {
       setUploadingImage(false)
     }
   }
-  useEffect(() => {
-    if (!imageUpload || !doc || unsettled) return
-    const { id, asset } = imageUpload
-    setImageUpload(undefined)
-    const node = doc.nodes[id]
-    if (node?.type !== 'element' || node.tag !== 'img' || subtreeRestriction(doc, id)) {
-      setError('This image can no longer be changed.')
-      imageUploadFlight.current = false
-      setUploadingImage(false)
-      return
-    }
-    void save([
-      ...(!doc.assets[asset.id] ? [{ type: 'asset.create' as const, ...asset }] : []),
-      {
-        type: 'node.update',
-        id,
-        attrs: { ...node.attrs, src: { type: 'asset', asset: asset.id } },
-      },
-    ]).then((ok) => {
-      if (ok) setSelected(id)
-      imageUploadFlight.current = false
-      setUploadingImage(false)
-    })
-  })
   const canUndo = !!snapshot && editHistory.undo.length > 0 && !frozen
   const bindDragSurface = useStructureDrag({
     siteId,
@@ -397,21 +396,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             aria-label="Undo"
             aria-keyshortcuts="Meta+Z Control+Z"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M9 4 4 9l5 5" />
-              <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
-            </svg>
+            <EditorIcon name="undo" />
           </button>
           <button
             type="button"
@@ -421,21 +406,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
             aria-label="Redo"
             aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z Control+Y"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="m15 4 5 5-5 5" />
-              <path d="M20 9H10a6 6 0 0 0 0 12h3" />
-            </svg>
+            <EditorIcon name="redo" />
           </button>
         </div>
         <span
@@ -636,7 +607,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
               if (saved) setSelected(edit.node.id)
               return saved
             } catch (error) {
-              setError((error as Error).message)
+              setError(message(error))
               return false
             }
           }}
@@ -697,15 +668,19 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                   disabled={frozen}
                   save={save}
                   insert={async (assetId) => {
-                    let target: ReturnType<typeof insertionTarget>
-                    try {
-                      target = insertionTarget(editableDoc, editingRoot, selected, 'inside')
-                    } catch {
+                    let target: ReturnType<typeof insertionTarget> | undefined
+                    let refused = ''
+                    for (const placement of ['inside', 'after', 'page'] as const) {
                       try {
-                        target = insertionTarget(editableDoc, editingRoot, selected, 'after')
-                      } catch {
-                        target = insertionTarget(editableDoc, editingRoot, selected, 'page')
+                        target = insertionTarget(editableDoc, editingRoot, selected, placement)
+                        break
+                      } catch (error) {
+                        refused = message(error)
                       }
+                    }
+                    if (!target) {
+                      setError(refused)
+                      return
                     }
                     const edit = structureInsertion('image', target, '', false, assetId)
                     if (await save(edit.operations)) {

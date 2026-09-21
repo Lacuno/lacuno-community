@@ -1,6 +1,7 @@
 import { type Operation, referencesToDesignToken } from '@freeflow/document'
 import { type Document, designTokenCssName } from '@freeflow/schema'
 import { useEffect, useState } from 'react'
+import type { LivePreview } from './Canvas.js'
 import {
   colorLabel,
   colorPreview,
@@ -10,7 +11,6 @@ import {
   projectColors,
 } from './colors.js'
 import { Dialog, ErrorNote } from './Dialog.js'
-import type { LivePreview } from './livePreview.js'
 import { useAutosave } from './useAutosave.js'
 
 export function ProjectColors({

@@ -161,15 +161,14 @@ export function InlineTextEditor({
             Object.keys(blockChanges.current).length > 0 ||
             invalidDraft.current,
         )
-        redraw((value) => value + 1)
       },
       onSelectionUpdate: () => {
         if (!invalidDraft.current)
           setDrafts((previous) =>
             Object.fromEntries(Object.entries(previous).filter(([key]) => key === 'line-height')),
           )
-        redraw((value) => value + 1)
       },
+      // Every update and every selection change arrives here too, so one redraw covers them all.
       onTransaction: () => redraw((value) => value + 1),
     })
     initial.current = JSON.stringify(instance.getJSON())
@@ -213,6 +212,7 @@ export function InlineTextEditor({
   useEffect(() => {
     editor?.setEditable(!disabled)
   }, [editor, disabled])
+  const context = contextFromDocument(doc)
   const hasSelection = !!editor && !editor.state.selection.empty
   const attrs = editor?.getAttributes('textStyle') ?? {}
   const values = {
@@ -229,7 +229,7 @@ export function InlineTextEditor({
     ...Object.fromEntries(
       Object.entries(blockChanges.current).map(([property, value]) => [
         property,
-        value ? serializeValue(value, contextFromDocument(doc)) : '',
+        value ? serializeValue(value, context) : '',
       ]),
     ),
     ...drafts,
@@ -247,27 +247,27 @@ export function InlineTextEditor({
     if (selection.empty) chain = chain.setTextSelection({ from: selection.from, to: selection.to })
     chain.run()
   }
-  const change = (property: string, raw: string) => {
+  /** What one typed draft normalizes to, and whether the browser and the schema both take it. */
+  const draftValue = (property: string, raw: string) => {
     const normalized = normalizeFormatting({
       [property]: raw ? { type: 'raw', value: raw } : null,
     })[property]
-    const value = normalized ? serializeValue(normalized, contextFromDocument(doc)) : ''
-    const nextDrafts = { ...drafts, [property]: raw }
-    setDrafts(nextDrafts)
-    const accepts = (property: string, value: string) =>
+    const value = normalized ? serializeValue(normalized, context) : ''
+    const accepted =
       !value ||
       (CSS.supports(property, value) &&
         (!textStyleAttributes[property] ||
           safeTextStyleValue(textStyleAttributes[property]!, value) !== undefined))
-    invalidDraft.current = Object.entries(nextDrafts).some(([key, entry]) => {
-      const normalizedEntry = normalizeFormatting({
-        [key]: entry ? { type: 'raw', value: entry } : null,
-      })[key]
-      return (
-        normalizedEntry && !accepts(key, serializeValue(normalizedEntry, contextFromDocument(doc)))
-      )
-    })
-    if (!accepts(property, value)) {
+    return { normalized, value, accepted }
+  }
+  const change = (property: string, raw: string) => {
+    const { normalized, value, accepted } = draftValue(property, raw)
+    const nextDrafts = { ...drafts, [property]: raw }
+    setDrafts(nextDrafts)
+    invalidDraft.current = Object.entries(nextDrafts).some(([key, entry]) =>
+      key === property ? !accepted : !draftValue(key, entry).accepted,
+    )
+    if (!accepted) {
       setError(
         property === 'font-size'
           ? 'Use a font size in px, em, rem, or %, such as 24px.'

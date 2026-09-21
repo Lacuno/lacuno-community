@@ -1,4 +1,4 @@
-import { type Operation, subtreeIds } from '@freeflow/document'
+import { isDescendant, type Operation, subtreeIds } from '@freeflow/document'
 import type { Document, Node } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type InsertNode, type PageTree, pageTree } from './history.js'
@@ -101,12 +101,8 @@ export function siblingMove(doc: Document, id: string, direction: -1 | 1): Opera
   return { type: 'node.move', id, parent: parent.id, index }
 }
 
-export function presetNode(
-  preset: Preset,
-  classId: string,
-  makeId = () => `n-${crypto.randomUUID()}`,
-  assetId = '',
-): InsertNode {
+export function presetNode(preset: Preset, classId: string, assetId = ''): InsertNode {
+  const makeId = () => `n-${crypto.randomUUID()}`
   const text = (tag: string, label: string, value: string): InsertNode => ({
     id: makeId(),
     type: 'text',
@@ -172,7 +168,7 @@ export function structureInsertion(
   empty = false,
   assetId = '',
 ): { node: InsertNode; operations: Operation[] } {
-  const node = presetNode(preset, classId, undefined, assetId)
+  const node = presetNode(preset, classId, assetId)
   if (empty) node.children = []
   const operations: Operation[] = []
   if (preset in defaults) {
@@ -217,11 +213,7 @@ export function dropTarget(
   id: string,
   position: DropPosition,
 ) {
-  const belongs = (nodeId: string) => {
-    for (let current: string | null = nodeId; current; current = doc.nodes[current]?.parent ?? null)
-      if (current === root) return true
-    return false
-  }
+  const belongs = (nodeId: string) => nodeId === root || isDescendant(doc, root, nodeId)
   if (!belongs(id) || structureRestriction(doc, id))
     throw new Error('This element cannot receive a drop.')
   const node = doc.nodes[id]!
@@ -241,8 +233,8 @@ export function dropTarget(
       structureRestriction(doc, item.id)
     )
       throw new Error('This element cannot be moved.')
-    for (let current: string | null = parent; current; current = doc.nodes[current]?.parent ?? null)
-      if (current === item.id) throw new Error('An element cannot contain itself.')
+    if (parent === item.id || isDescendant(doc, item.id, parent))
+      throw new Error('An element cannot contain itself.')
     if (source.parent === parent && doc.nodes[parent]!.children.indexOf(item.id) < index) index--
   }
   return { parent, index }
