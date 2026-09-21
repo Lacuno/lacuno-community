@@ -1,5 +1,6 @@
 import { classNames, compareSelectors } from '@freeflow/css'
-import { nodesUsingClass, type Operation } from '@freeflow/document'
+import type { Operation } from '@freeflow/document'
+import { nodesUsingClass } from '@freeflow/document/references'
 import type { CssValue, Document, Node, StyleDecl } from '@freeflow/schema'
 import { styleKey } from '@freeflow/schema'
 

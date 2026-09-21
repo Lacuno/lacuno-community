@@ -1,4 +1,5 @@
-import { isDescendant, type Operation, subtreeIds } from '@freeflow/document'
+import type { Operation } from '@freeflow/document'
+import { isDescendant, subtreeIds } from '@freeflow/document/references'
 import type { Document, Node } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type InsertNode, type PageTree, pageTree } from './history.js'

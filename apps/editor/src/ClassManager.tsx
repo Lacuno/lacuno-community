@@ -1,4 +1,5 @@
-import { nodesUsingClass, type Operation } from '@freeflow/document'
+import type { Operation } from '@freeflow/document'
+import { nodesUsingClass } from '@freeflow/document/references'
 import type { Document, Node } from '@freeflow/schema'
 import { useState } from 'react'
 import { ErrorNote } from './Dialog.js'

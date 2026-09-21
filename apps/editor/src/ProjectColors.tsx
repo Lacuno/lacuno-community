@@ -1,4 +1,5 @@
-import { type Operation, referencesToDesignToken } from '@freeflow/document'
+import type { Operation } from '@freeflow/document'
+import { referencesToDesignToken } from '@freeflow/document/references'
 import { type Document, designTokenCssName } from '@freeflow/schema'
 import { useEffect, useState } from 'react'
 import type { LivePreview } from './Canvas.js'

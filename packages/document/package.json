@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./patch": "./src/patch.ts"
+    "./patch": "./src/patch.ts",
+    "./references": "./src/references.ts"
   },
   "scripts": {
     "test": "vitest run",
