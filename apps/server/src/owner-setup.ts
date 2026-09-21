@@ -21,6 +21,11 @@ export class OwnerSetup {
       .immediate()
   }
 
+  /** Gateway mode replaces local owner setup; the caller must have verified there are no accounts. */
+  static disable(sqlite: Database.Database) {
+    sqlite.exec('DROP INDEX IF EXISTS freeflow_single_owner; DELETE FROM owner_setup;')
+  }
+
   private hasUser() {
     return !!this.sqlite.prepare('SELECT id FROM user LIMIT 1').get()
   }

@@ -1,13 +1,13 @@
 import path from 'node:path'
 import { serve } from '@hono/node-server'
 import Database from 'better-sqlite3'
+import { readPort } from './environment.js'
 import { PublicationReader } from './publication-reader.js'
 import { publishedApp } from './published.js'
 
 const base = process.env.FREEFLOW_PUBLISH_BASE_URL
 if (!base) throw new Error('FREEFLOW_PUBLISH_BASE_URL is required')
-const port = Number(process.env.FREEFLOW_PUBLISH_PORT ?? 3001)
-if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid publishing port')
+const port = readPort(process.env.FREEFLOW_PUBLISH_PORT, 3001)
 const directory = path.resolve(process.env.FREEFLOW_DATA_DIR ?? 'data')
 const sqlite = new Database(path.join(directory, 'freeflow.sqlite'), {
   readonly: true,

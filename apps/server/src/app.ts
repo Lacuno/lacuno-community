@@ -118,14 +118,24 @@ export async function createServer(options: ServerOptions) {
         c.json({ error: 'Authentication is managed by the gateway' }, 403),
       )
     }
+    // Require same-origin JSON writes even for endpoints outside Better Auth's CSRF checks.
+    app.use('/api/*', async (c, next) => {
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) {
+        const requestOrigin = c.req.header('origin')
+        if (
+          (requestOrigin && requestOrigin !== origin) ||
+          c.req.header('sec-fetch-site') === 'cross-site'
+        )
+          return c.json({ error: 'Untrusted origin' }, 403)
+        if (c.req.header('content-type')?.split(';')[0]?.trim() !== 'application/json')
+          return c.json({ error: 'Expected application/json' }, 415)
+      }
+      await next()
+    })
     app.post('/api/setup', async (c) => {
       if (!setup) return c.json({ error: 'Owner setup is unavailable in gateway mode' }, 403)
       if (!setup.required)
         return c.json({ error: 'Owner setup is already complete or unavailable.' }, 409)
-      if (c.req.header('origin') !== origin || c.req.header('sec-fetch-site') === 'cross-site')
-        return c.json({ error: 'Untrusted origin' }, 403)
-      if (c.req.header('content-type')?.split(';')[0]?.trim() !== 'application/json')
-        return c.json({ error: 'Expected application/json' }, 415)
       const input = z
         .strictObject({
           name: z.string().trim().min(1).max(200),
@@ -157,17 +167,6 @@ export async function createServer(options: ServerOptions) {
     })
     app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
     app.use('/api/*', async (c, next) => {
-      // Require same-origin JSON writes even for endpoints outside Better Auth's CSRF checks.
-      if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) {
-        const requestOrigin = c.req.header('origin')
-        if (
-          (requestOrigin && requestOrigin !== origin) ||
-          c.req.header('sec-fetch-site') === 'cross-site'
-        )
-          return c.json({ error: 'Untrusted origin' }, 403)
-        if (c.req.header('content-type')?.split(';')[0]?.trim() !== 'application/json')
-          return c.json({ error: 'Expected application/json' }, 415)
-      }
       const session = gateway
         ? { user: { id: gateway.ownerId } }
         : await auth.api.getSession({ headers: c.req.raw.headers })

@@ -102,10 +102,7 @@ function resolveAttrs(
         if (node?.type !== 'component') break
         root = state.doc.components[node.component]!.root
       }
-      if (root === nodeId) {
-        out['data-freeflow-node'] = frame.instance!
-        out['data-freeflow-component'] = frame.component.id
-      }
+      if (root === nodeId) out['data-freeflow-node'] = frame.instance
     }
   }
   const node = state.doc.nodes[nodeId]

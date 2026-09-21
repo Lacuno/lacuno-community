@@ -1,6 +1,15 @@
 import { createHash } from 'node:crypto'
 import { constants, createReadStream } from 'node:fs'
-import { copyFile, lstat, mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises'
+import {
+  copyFile,
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
 import path from 'node:path'
 import { parseDocument } from '@freeflow/schema'
 import Database from 'better-sqlite3'
@@ -59,14 +68,21 @@ async function outsideDestination(source: string, destination: string) {
   return canonical
 }
 
+/** Copies one file whose name came from `files()`, so it is already known to be a regular file. */
 async function copy(root: string, destination: string, name: string) {
-  const source = path.join(root, name)
-  const actual = await realpath(source)
-  if (actual !== source || !(await lstat(source)).isFile())
-    throw new Error('Unexpected source file or symlink')
   const target = path.join(destination, name)
   await mkdir(path.dirname(target), { recursive: true, mode: 0o700 })
-  await copyFile(source, target, constants.COPYFILE_EXCL)
+  await copyFile(path.join(root, name), target, constants.COPYFILE_EXCL)
+}
+
+/** Runs the copy phase into a verified-empty destination and removes it again if anything fails. */
+async function fill<T>(destination: string, work: () => Promise<T>) {
+  try {
+    return await work()
+  } catch (error) {
+    await rm(destination, { recursive: true, force: true })
+    throw error
+  }
 }
 
 /** SQLite snapshot first; referenced assets and ready releases are immutable and never pruned. */
@@ -75,17 +91,29 @@ export async function backupWorkspace(source: string, destination: string) {
   destination = await outsideDestination(source, destination)
   await emptyDestination(destination)
   destination = await realpath(destination)
-  if (destination === source || destination.startsWith(source + path.sep))
-    throw new Error('Backup destination must be outside the live data directory')
-  const live = new Database(path.join(source, 'freeflow.sqlite'), {
-    readonly: true,
-    fileMustExist: true,
+  return fill(destination, async () => {
+    const live = new Database(path.join(source, 'freeflow.sqlite'), {
+      readonly: true,
+      fileMustExist: true,
+    })
+    try {
+      await live.backup(path.join(destination, 'freeflow.sqlite'))
+    } finally {
+      live.close()
+    }
+    const files = await snapshotFiles(source, destination)
+    const manifest = { version: 1, createdAt: new Date().toISOString(), files }
+    // Completion marker is written last; a failed or interrupted copy is not a backup.
+    await writeFile(path.join(destination, 'backup.json'), JSON.stringify(manifest), {
+      flag: 'wx',
+      mode: 0o600,
+    })
+    return manifest
   })
-  try {
-    await live.backup(path.join(destination, 'freeflow.sqlite'))
-  } finally {
-    live.close()
-  }
+}
+
+/** Marks unfinished builds failed in the snapshot, copies what it references and returns the inventory. */
+async function snapshotFiles(source: string, destination: string) {
   const snapshot = new Database(path.join(destination, 'freeflow.sqlite'))
   const required = new Set<string>()
   try {
@@ -134,13 +162,7 @@ export async function backupWorkspace(source: string, destination: string) {
   const entries = []
   for (const name of await files(destination))
     entries.push({ name, ...(await digest(path.join(destination, name))) })
-  const manifest = { version: 1, createdAt: new Date().toISOString(), files: entries }
-  // Completion marker is written last; a failed or interrupted copy is not a backup.
-  await writeFile(path.join(destination, 'backup.json'), JSON.stringify(manifest), {
-    flag: 'wx',
-    mode: 0o600,
-  })
-  return manifest
+  return entries
 }
 
 export async function verifyBackup(source: string) {
@@ -156,12 +178,8 @@ export async function verifyBackup(source: string) {
     JSON.stringify([...names, 'backup.json'].sort()) !== JSON.stringify(inventory)
   )
     throw new Error('Backup file inventory mismatch')
+  // Every manifest name matched the on-disk inventory above, so no name can escape the backup.
   for (const file of manifest.files) {
-    if (
-      file.name.split(/[\\/]/).some((part) => !part || part === '.' || part === '..') ||
-      path.isAbsolute(file.name)
-    )
-      throw new Error('Invalid backup path')
     const actual = await digest(path.join(source, file.name))
     if (actual.sha256 !== file.sha256 || actual.size !== file.size)
       throw new Error('Backup checksum mismatch')
@@ -186,10 +204,7 @@ export async function restoreWorkspace(source: string, destination: string) {
   const manifest = await verifyBackup(source)
   await emptyDestination(destination)
   destination = await realpath(destination)
-  for (const file of manifest.files) {
-    await copy(source, destination, file.name)
-    const actual = await digest(path.join(destination, file.name))
-    if (actual.sha256 !== file.sha256 || actual.size !== file.size)
-      throw new Error('Restored file checksum mismatch')
-  }
+  await fill(destination, async () => {
+    for (const file of manifest.files) await copy(source, destination, file.name)
+  })
 }

@@ -56,9 +56,18 @@ it('backs up pending releases without mutating live state and rejects incomplete
       ).toBe('failed')
       snapshot.close()
       await restoreWorkspace(backup, path.join(root, 'restored'))
+      await expect(backupWorkspace(dataDir, path.join(dataDir, 'unsafe'))).rejects.toThrow(
+        'outside',
+      )
+      await expect(restoreWorkspace(backup, dataDir)).rejects.toThrow('empty')
       await symlink(path.join(backup, 'freeflow.sqlite'), path.join(backup, 'link'))
       await expect(verifyBackup(backup)).rejects.toThrow('symlinks')
       await rm(path.join(backup, 'link'))
+      const database = await readFile(path.join(backup, 'freeflow.sqlite'))
+      await writeFile(path.join(backup, 'freeflow.sqlite'), 'corrupted')
+      await expect(verifyBackup(backup)).rejects.toThrow('checksum')
+      await writeFile(path.join(backup, 'freeflow.sqlite'), database)
+      await verifyBackup(backup)
       const original = await readFile(path.join(backup, 'backup.json'), 'utf8')
       const manifest = JSON.parse(original)
       manifest.files.push(manifest.files[0])

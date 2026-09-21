@@ -67,7 +67,6 @@ it.each([
         const canvas = renderCanvas(doc, page, entry, 'site-test')
         const normalized = canvas.html
           .replace(/ data-freeflow-node="[^"]*"/g, '')
-          .replace(/ data-freeflow-component="[^"]*"/g, '')
           .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\n/, '')
         expect(normalized).toBe(assembleDocument(compiled))
         expect(canvas.html).toContain('data-freeflow-node=')

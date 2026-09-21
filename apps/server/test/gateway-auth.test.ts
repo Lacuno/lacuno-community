@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SignJWT } from 'jose'
-import { expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createServer } from '../src/app.js'
 
 const root = fileURLToPath(new URL('../../../', import.meta.url))
@@ -43,79 +43,78 @@ async function assertion(
     .sign(new TextEncoder().encode(secret))
 }
 
-it('requires request-bound assertions, rejects replay/forgery, and persists gateway-only mode', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-gateway-'))
-  let server = await createServer(settings(dir))
-  const request = async (target = '/api/sites', method = 'GET', body = '', signed?: string) =>
+describe('gateway mode', () => {
+  let dir = ''
+  let server: Awaited<ReturnType<typeof createServer>>
+  let signed = ''
+  const request = (target = '/api/sites', method = 'GET', body = '', assertion?: string) =>
     server.app.request(origin + target, {
       method,
       headers: {
         origin,
         'content-type': 'application/json',
-        ...(signed ? { 'x-freeflow-assertion': signed } : {}),
+        ...(assertion ? { 'x-freeflow-assertion': assertion } : {}),
       },
       ...(method === 'POST' ? { body } : {}),
     })
-  try {
+  beforeAll(async () => {
+    dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-gateway-'))
+    server = await createServer(settings(dir))
+    signed = await assertion()
+  })
+  afterAll(async () => {
+    server.close()
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('advertises gateway authentication and rejects unsigned requests', async () => {
     expect((await request()).status).toBe(401)
     expect(await (await request('/api/config')).json()).toMatchObject({
       authentication: 'gateway',
       setupRequired: false,
       allowSignup: false,
     })
-    const signed = await assertion()
+  })
+
+  it('accepts a request-bound assertion exactly once', async () => {
     expect((await request('/api/sites', 'GET', '', signed)).status).toBe(200)
     expect((await request('/api/sites', 'GET', '', signed)).status).toBe(401)
+  })
+
+  it('rejects forged, mistargeted, stale or unbound assertions', async () => {
+    const now = Math.floor(Date.now() / 1000)
     for (const changes of [
       { aud: 'http://other.localhost' },
       { iss: 'http://other.localhost' },
       { exp: 1 },
-      { iat: Math.floor(Date.now() / 1000) + 60 },
-      { exp: Math.floor(Date.now() / 1000) + 3600 },
+      { iat: now + 60 },
+      { exp: now + 3600 },
       { sub: '' },
     ]) {
-      expect(
-        (await request('/api/sites', 'GET', '', await assertion('/api/sites', 'GET', '', changes)))
-          .status,
-      ).toBe(401)
+      const forged = await assertion('/api/sites', 'GET', '', changes)
+      expect((await request('/api/sites', 'GET', '', forged)).status).toBe(401)
     }
     expect((await request('/api/workspaces', 'GET', '', await assertion())).status).toBe(401)
-    expect(
-      (
-        await request(
-          '/api/sites',
-          'POST',
-          '{}',
-          await assertion('/api/sites', 'POST', '{"name":"original"}'),
-        )
-      ).status,
-    ).toBe(401)
-    expect((await request('/api/sites', 'GET', '', `${signed.slice(0, -8)}forgery!`)).status).toBe(
-      401,
-    )
-    expect(
-      (await request('/api/setup', 'POST', '{}', await assertion('/api/setup', 'POST', '{}')))
-        .status,
-    ).toBe(403)
-    expect(
-      (
-        await request(
-          '/api/auth/sign-up/email',
-          'POST',
-          '{}',
-          await assertion('/api/auth/sign-up/email', 'POST', '{}'),
-        )
-      ).status,
-    ).toBe(403)
-    const user = await (
-      await request('/api/auth/get-session', 'GET', '', await assertion('/api/auth/get-session'))
-    ).json()
+    const otherBody = await assertion('/api/sites', 'POST', '{"name":"original"}')
+    expect((await request('/api/sites', 'POST', '{}', otherBody)).status).toBe(401)
+    const tampered = `${(await assertion()).slice(0, -8)}forgery!`
+    expect((await request('/api/sites', 'GET', '', tampered)).status).toBe(401)
+  })
+
+  it('keeps local account routes closed and maps the gateway user to the owner', async () => {
+    const setup = await assertion('/api/setup', 'POST', '{}')
+    expect((await request('/api/setup', 'POST', '{}', setup)).status).toBe(403)
+    const signup = await assertion('/api/auth/sign-up/email', 'POST', '{}')
+    expect((await request('/api/auth/sign-up/email', 'POST', '{}', signup)).status).toBe(403)
+    const session = await assertion('/api/auth/get-session')
+    const user = await (await request('/api/auth/get-session', 'GET', '', session)).json()
     expect(user.user.id).toBe('cloud-user-1')
     const body = JSON.stringify({ name: 'Managed site' })
-    expect(
-      (await request('/api/sites', 'POST', body, await assertion('/api/sites', 'POST', body)))
-        .status,
-    ).toBe(201)
+    const create = await assertion('/api/sites', 'POST', body)
+    expect((await request('/api/sites', 'POST', body, create)).status).toBe(201)
+  })
+
+  it('persists gateway identity and consumed nonces across restarts', async () => {
     server.close()
     const { gateway: _, ...local } = settings(dir)
     await expect(createServer(local)).rejects.toThrow('Gateway configuration is required')
@@ -126,10 +125,7 @@ it('requires request-bound assertions, rejects replay/forgery, and persists gate
     expect((await request('/api/sites', 'GET', '', signed)).status).toBe(401)
     const sites = await (await request('/api/sites', 'GET', '', await assertion())).json()
     expect(sites.sites).toHaveLength(1)
-  } finally {
-    server.close()
-    await rm(dir, { recursive: true, force: true })
-  }
+  })
 })
 
 it('will not silently replace existing local accounts with gateway authentication', async () => {

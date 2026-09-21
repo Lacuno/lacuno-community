@@ -17,10 +17,9 @@ if (
     else if (command === 'restore') await restoreWorkspace(source, destination!)
     else await verifyBackup(source)
     console.log(`${command} completed`)
-  } catch {
-    console.error(
-      `${command} failed. Live data was not modified; incomplete output must not be used.`,
-    )
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error)
+    console.error(`${command} failed. Live data was not modified and partial output was removed.`)
     process.exitCode = 1
   }
 }

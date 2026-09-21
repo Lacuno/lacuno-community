@@ -15,8 +15,9 @@ export function renderCanvas(
   if (editingComponent) {
     const component = doc.components[editingComponent]
     if (!component) throw new Error('Component not found')
-    const body = `n-${crypto.randomUUID()}`
-    const instance = `n-${crypto.randomUUID()}`
+    // Synthetic wrapper nodes for the canvas only; fixed ids keep the output deterministic.
+    const body = 'n-editing-body'
+    const instance = 'n-editing-instance'
     doc = {
       ...doc,
       nodes: {

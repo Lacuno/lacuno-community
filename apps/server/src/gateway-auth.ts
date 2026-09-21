@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type Database from 'better-sqlite3'
 import { jwtVerify } from 'jose'
 import { z } from 'zod'
+import { OwnerSetup } from './owner-setup.js'
 
 export type GatewayOptions = { issuer: string; secret: string }
 const Claims = z.object({
@@ -41,7 +42,7 @@ export class GatewayAuth {
           sqlite
             .prepare('INSERT INTO gateway_mode(id,issuer,audience) VALUES(1,?,?)')
             .run(options.issuer, audience)
-          sqlite.exec('DROP INDEX IF EXISTS freeflow_single_owner; DELETE FROM owner_setup;')
+          OwnerSetup.disable(sqlite)
           sqlite
             .prepare(
               'INSERT INTO user(id,name,email,"emailVerified","createdAt","updatedAt") VALUES(?,?,?,0,?,?)',
@@ -65,14 +66,12 @@ export class GatewayAuth {
       algorithms: ['HS256'],
       issuer: this.options.issuer,
       audience: this.audience,
-      requiredClaims: ['sub', 'iat', 'exp', 'jti'],
       maxTokenAge: 30,
     })
     const claims = Claims.parse(payload)
     const now = Math.floor(Date.now() / 1000)
     const url = new URL(request.url)
     if (
-      claims.iat > now ||
       claims.exp > claims.iat + 30 ||
       claims.method !== request.method ||
       claims.target !== url.pathname + url.search ||
@@ -82,12 +81,12 @@ export class GatewayAuth {
           .digest('hex')
     )
       throw new Error('Invalid gateway request binding')
-    sqliteReplay(this.sqlite, claims.jti, claims.exp, now)
+    rememberNonce(this.sqlite, claims.jti, claims.exp, now)
     return { id: claims.sub, name: claims.name, email: claims.email }
   }
 }
 
-function sqliteReplay(sqlite: Database.Database, id: string, expires: number, now: number) {
+function rememberNonce(sqlite: Database.Database, id: string, expires: number, now: number) {
   sqlite
     .transaction(() => {
       sqlite.prepare('DELETE FROM gateway_nonce WHERE expires_at <= ?').run(now)

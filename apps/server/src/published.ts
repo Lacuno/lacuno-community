@@ -5,13 +5,13 @@ import { getMimeType } from 'hono/utils/mime'
 import type { PublicationReader } from './publication-reader.js'
 
 /** This app runs on the publishing listener only: no editor, auth, or draft API routes. */
-export function publishedApp(releases: PublicationReader) {
+export function publishedApp(reader: PublicationReader) {
   const app = new Hono()
   app.on(['GET', 'HEAD'], '*', async (c) => {
     const url = new URL(c.req.url)
-    const site = releases.siteForHost(url.hostname)
+    const site = reader.siteForHost(url.hostname)
     if (!site) return c.notFound()
-    const current = releases.current(site)
+    const current = reader.current(site)
     if (!current) return c.notFound()
     let name: string
     try {
@@ -29,10 +29,10 @@ export function publishedApp(releases: PublicationReader) {
     // Old HTML can finish loading its content-addressed assets after an atomic release switch.
     const candidates = [
       current,
-      ...(immutable ? releases.readyIds(site).filter((id) => id !== current) : []),
+      ...(immutable ? reader.readyIds(site).filter((id) => id !== current) : []),
     ]
     for (const id of candidates) {
-      const root = path.join(releases.directory(site, id), 'dist')
+      const root = path.join(reader.directory(site, id), 'dist')
       let file = path.join(root, name)
       try {
         if ((await stat(file)).isDirectory()) file = path.join(file, 'index.html')

@@ -44,7 +44,9 @@ describe('resolveBinding', () => {
       ],
     }
     const scope: Scope = {
-      frames: [{ component, values: { title: 'T' }, slots: new Map(), outer: empty }],
+      frames: [
+        { instance: 'n-card', component, values: { title: 'T' }, slots: new Map(), outer: empty },
+      ],
     }
     expect(resolveBinding(doc, { type: 'prop', prop: 'title' }, scope, 'n')).toBe('T')
     expect(resolveBinding(doc, { type: 'prop', prop: 'tone' }, scope, 'n')).toBe('calm')
