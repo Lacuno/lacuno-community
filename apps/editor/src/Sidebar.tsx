@@ -2,11 +2,11 @@ import { AssetsPanel } from './AssetsPanel.js'
 import { message } from './api.js'
 import { ComponentsPanel } from './ComponentsPanel.js'
 import { EditorIcon } from './EditorIcon.js'
-import { Navigator } from './Navigator.js'
+import { LayersPanel } from './LayersPanel.js'
 import { PagesPanel } from './PagesPanel.js'
 import { StructurePanel } from './StructurePanel.js'
 import type { DocumentSession } from './session.js'
-import { insertionTarget, nodeLabel, structureInsertion, subtreeRestriction } from './structure.js'
+import { insertionTarget, structureInsertion, subtreeRestriction } from './structure.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 
 export const sidebars = {
@@ -175,71 +175,15 @@ export function Sidebar({
           </>
         )}
         {sidebar === 'Layers' && (
-          <>
-            <div className="panel-title">
-              Layers
-              <button
-                type="button"
-                className="element-actions-button"
-                aria-label="Element actions"
-                title="Element actions"
-                disabled={!selected}
-                popoverTarget={elementActionsId}
-              >
-                •••
-              </button>
-            </div>
-            {editableDoc && editingRoot && (
-              <div
-                id={elementActionsId}
-                popover="auto"
-                className="element-actions-popover"
-                key={selected}
-              >
-                <strong>
-                  {editableDoc.nodes[selected]
-                    ? nodeLabel(editableDoc.nodes[selected]!)
-                    : 'Element actions'}
-                </strong>
-                <StructurePanel
-                  nodeAction={(action) => nodeAction(action, selected)}
-                  mode="actions"
-                  doc={editableDoc}
-                  root={editingRoot}
-                  selected={selected}
-                  disabled={frozen}
-                  save={save}
-                  select={setSelected}
-                />
-              </div>
-            )}
-            <div className="layer-list">
-              {editableDoc && editingRoot && (
-                <Navigator
-                  rootLabel={editingComponent?.name ?? 'Body'}
-                  reveal={revealSelection}
-                  key={editingRoot}
-                  disabled={frozen}
-                  save={save}
-                  nodeAction={nodeAction}
-                  doc={editableDoc}
-                  root={editingRoot}
-                  selected={selected}
-                  actions={(id) =>
-                    leave(() => {
-                      setSelected(id)
-                      requestAnimationFrame(() =>
-                        document.getElementById(elementActionsId)?.showPopover(),
-                      )
-                    })
-                  }
-                  select={(id) => {
-                    if (id !== selected) leave(() => setSelected(id))
-                  }}
-                />
-              )}
-            </div>
-          </>
+          <LayersPanel
+            session={session}
+            editing={editing}
+            selected={selected}
+            setSelected={setSelected}
+            revealSelection={revealSelection}
+            elementActionsId={elementActionsId}
+            nodeAction={nodeAction}
+          />
         )}
       </section>
     </aside>

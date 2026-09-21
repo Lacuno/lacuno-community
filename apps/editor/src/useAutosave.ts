@@ -1,5 +1,6 @@
 import type { Operation } from '@freeflow/document'
 import { useEffect, useRef, useState } from 'react'
+import { createAutosave } from './autosave.js'
 
 const ignore = () => {}
 
@@ -24,61 +25,25 @@ export function useAutosave(
 ) {
   const { dirty = false, dirtyChanged = ignore, registerFlush } = panel ?? {}
   const key = JSON.stringify(operations)
-  const current = useRef({ operations, enabled, save, key, busy, dirty })
-  current.current = { operations, enabled, save, key, busy, dirty }
-  const request = useRef<Promise<boolean> | null>(null)
-  const saved = useRef('')
-  const failed = useRef('')
+  const current = useRef({ operations, key, enabled, busy, save, dirty })
+  current.current = { operations, key, enabled, busy, save, dirty }
   const [hasFailed, setHasFailed] = useState(false)
-  const drain = async (): Promise<boolean> => {
-    for (;;) {
-      const next = current.current
-      if (!next.enabled) return false
-      if (!next.operations.length || next.key === saved.current) return true
-      // Another save is in flight; wait for it, because a refused save is not a failed save.
-      if (next.busy) {
-        await new Promise((resolve) => setTimeout(resolve, 20))
-        continue
-      }
-      setHasFailed(false)
-      const success = await next.save(next.operations)
-      if (!success) {
-        failed.current = next.key
-        setHasFailed(true)
-        return false
-      }
-      saved.current = next.key
-      failed.current = ''
-      await new Promise((resolve) => setTimeout(resolve, 0))
-    }
-  }
-  const flush = (): Promise<boolean> => {
-    if (!request.current)
-      request.current = drain().finally(() => {
-        request.current = null
-      })
-    return request.current
-  }
-  const flushRef = useRef(flush)
-  flushRef.current = flush
+  const autosave = useRef<ReturnType<typeof createAutosave> | null>(null)
+  autosave.current ??= createAutosave(
+    () => current.current,
+    (pending) => current.current.save(pending),
+    setHasFailed,
+  )
+  const { flush, retry, rejected } = autosave.current
   useEffect(() => {
-    if (!enabled || busy || key === failed.current) return
-    const timer = setTimeout(() => {
-      void flushRef.current()
-    }, 400)
+    if (!enabled || busy || rejected(key)) return
+    const timer = setTimeout(() => void flush(), 400)
     return () => clearTimeout(timer)
-  }, [key, enabled, busy])
+  }, [key, enabled, busy, flush, rejected])
   useDirtyChanged(dirty, dirtyChanged)
   useEffect(
-    () => registerFlush?.(async () => !current.current.dirty || flushRef.current()),
-    [registerFlush],
+    () => registerFlush?.(async () => !current.current.dirty || flush()),
+    [registerFlush, flush],
   )
-  return {
-    flush,
-    hasFailed,
-    retry: () => {
-      failed.current = ''
-      void flushRef.current()
-    },
-  }
+  return { flush, hasFailed, retry }
 }
