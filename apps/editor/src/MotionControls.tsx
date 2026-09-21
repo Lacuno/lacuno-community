@@ -1,35 +1,8 @@
-import { contextFromDocument, serializeValue } from '@freeflow/css'
-import type { CssValue, Document, Node } from '@freeflow/schema'
-import { localValue } from './formatting.js'
-import { presetValues } from './presets.js'
+import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 
-export function MotionControls({
-  breakpoint = 'base',
-  doc,
-  node,
-  computed,
-  changes,
-  change,
-  disabled,
-}: {
-  breakpoint?: string
-  doc: Document
-  node: Node
-  computed: Record<string, string>
-  changes: Record<string, CssValue | null>
-  change: (property: string, value: CssValue | null) => void
-  disabled: boolean
-}) {
-  const overridden = (property: string) =>
-    breakpoint !== 'base' &&
-    !!(property in changes ? changes[property] : localValue(doc, node, property, breakpoint))
-  const values = presetValues(doc, node, computed, breakpoint)
-  const read = (property: string, fallback = '') => {
-    const value = property in changes ? changes[property] : values[property]
-    return value ? serializeValue(value, contextFromDocument(doc)) : fallback
-  }
-  const set = (property: string, value: string) =>
-    change(property, value ? { type: 'raw', value } : null)
+export function MotionControls(props: StyleControls) {
+  const { disabled, node } = props
+  const { overridden, value: read, set } = useStyleField(props)
   const preview = (kind: string) =>
     window.dispatchEvent(
       new CustomEvent('freeflow:motion-preview', { detail: { id: node.id, kind } }),
@@ -38,21 +11,19 @@ export function MotionControls({
     <div className="motion-controls">
       <div className="motion-timing">
         {(['duration', 'delay'] as const).map((key) => (
-          <label key={key}>
-            {key === 'duration' ? 'Duration (ms)' : 'Delay (ms)'}
-            <input
-              aria-label={`Motion ${key}`}
-              data-overridden={overridden(`--ff-${key}`)}
-              type="number"
-              min="0"
-              max="10000"
-              disabled={disabled}
-              value={Number.parseFloat(read(`--ff-${key}`, key === 'duration' ? '400ms' : '0ms'))}
-              onChange={(event) =>
-                set(`--ff-${key}`, `${Math.min(10000, Math.max(0, Number(event.target.value)))}ms`)
-              }
-            />
-          </label>
+          <NumberField
+            key={key}
+            label={key === 'duration' ? 'Duration (ms)' : 'Delay (ms)'}
+            name={`Motion ${key}`}
+            value={read(`--ff-${key}`, key === 'duration' ? '400ms' : '0ms')}
+            unit="ms"
+            min={0}
+            max={10000}
+            disabled={disabled}
+            overridden={overridden(`--ff-${key}`)}
+            // An emptied timing field means no time, not an unset property.
+            set={(next) => set(`--ff-${key}`, next || '0ms')}
+          />
         ))}
         <label>
           Easing
@@ -111,33 +82,21 @@ export function MotionControls({
             min: -360,
             max: 360,
           },
-        ].map(({ key, label, factor, unit, min, max }) => {
-          const raw = read(`--ff-hover-${key}`)
-          return (
-            <label key={key}>
-              {label}
-              <input
-                aria-label={label}
-                data-overridden={overridden(`--ff-hover-${key}`)}
-                type="number"
-                min={min}
-                max={max}
-                step="any"
-                placeholder="Unchanged"
-                disabled={disabled}
-                value={raw ? Number.parseFloat(raw) * factor : ''}
-                onChange={(event) =>
-                  set(
-                    `--ff-hover-${key}`,
-                    event.target.value
-                      ? `${Math.min(max, Math.max(min, Number(event.target.value))) / factor}${unit}`
-                      : '',
-                  )
-                }
-              />
-            </label>
-          )
-        })}
+        ].map(({ key, label, factor, unit, min, max }) => (
+          <NumberField
+            key={key}
+            label={label}
+            value={read(`--ff-hover-${key}`)}
+            factor={factor}
+            unit={unit}
+            min={min}
+            max={max}
+            placeholder="Unchanged"
+            disabled={disabled}
+            overridden={overridden(`--ff-hover-${key}`)}
+            set={(next) => set(`--ff-hover-${key}`, next)}
+          />
+        ))}
         <label>
           Hover shadow
           <select

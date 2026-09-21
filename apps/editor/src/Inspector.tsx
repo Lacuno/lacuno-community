@@ -6,18 +6,19 @@ import { createPortal } from 'react-dom'
 import { assetUrl } from './AssetsPanel.js'
 import { breakpointMedia } from './breakpoints.js'
 import { ClassManager } from './ClassManager.js'
+import { ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { FormattingControls } from './FormattingControls.js'
 import { formattingOperations, localClass, localValue, normalizeFormatting } from './formatting.js'
 import { ImageLibrary } from './ImageLibrary.js'
 import type { LivePreview } from './livePreview.js'
 import { PresetManager } from './PresetManager.js'
+import { placePopover } from './popover.js'
+import { isLocked, isShared, nodeLabel } from './structure.js'
 import { TextToolbar } from './TextToolbar.js'
 import { hasAnchorParent } from './textAncestors.js'
 import { textLink, textProperties, wholeText } from './textFormatting.js'
 import { useAutosave } from './useAutosave.js'
-
-const describe = (node: Node) => node.meta?.label ?? ('tag' in node ? node.tag : node.type)
 
 function editableText(node: Node): string | undefined {
   if (node.type !== 'text') return undefined
@@ -59,7 +60,7 @@ export function Inspector({
   ribbonHost: HTMLDivElement | null
   ribbonGroup: string
   previewChanged: (preview: LivePreview) => void
-  registerFlush: (flush: () => Promise<boolean>) => void
+  registerFlush: (flush: () => Promise<boolean>) => () => void
   computed: Record<string, string>
   doc: Document
   node: Node
@@ -85,6 +86,19 @@ export function Inspector({
   const [presetDraft, setPresetDraft] = useState(false)
   const classId = useRef(`c-${crypto.randomUUID()}`)
   const normalized = normalizeFormatting(changes)
+  const context = contextFromDocument(doc)
+  const serialized = Object.fromEntries(
+    Object.entries(normalized).map(([property, value]) => [
+      property,
+      value && serializeValue(value, context),
+    ]),
+  )
+  const supported = Object.fromEntries(
+    Object.entries(serialized).map(([property, text]) => [
+      property,
+      !text || CSS.supports(property, text),
+    ]),
+  )
   const hasInlineOverride = (property: string) =>
     node.type === 'text' &&
     node.text.type === 'doc' &&
@@ -98,31 +112,20 @@ export function Inspector({
     ),
   )
   const invalid = Object.entries(pending).find(
-    ([property, value]) =>
-      value &&
-      value.type !== 'designToken' &&
-      !CSS.supports(property, serializeValue(value, contextFromDocument(doc))),
+    ([property, value]) => value && value.type !== 'designToken' && !supported[property],
   )
   const validation = invalid
     ? `Enter a valid value for ${invalid[0]}, such as 24px or #334155.`
     : ''
   const textDirty = originalText !== undefined && text !== originalText
   const styleDirty = Object.keys(pending).length > 0
-  useEffect(() => {
-    dirtyChanged(textDirty || styleDirty || imageDirty || classDraft || presetDraft)
-  }, [textDirty, styleDirty, imageDirty, classDraft, presetDraft, dirtyChanged])
-  let locked = false
-  let shared = false
-  for (
-    let current: Node | undefined = node;
-    current;
-    current = current.parent ? doc.nodes[current.parent] : undefined
-  ) {
-    if (current.meta?.locked) locked = true
-    if (Object.values(doc.components).some((component) => component.root === current?.id))
-      shared = true
-  }
+  const edits = textDirty || styleDirty || imageDirty
+  const dirty = edits || classDraft || presetDraft
+  const locked = isLocked(doc, node.id)
+  const shared = isShared(doc, node.id)
+  // Fields stay editable while a save runs; panel actions wait for a settled selection.
   const disabled = conflict || locked || classDraft || presetDraft
+  const settled = !busy && !conflict && !locked && !edits
   const local = localClass(doc, node)
   const overrides = Object.values(doc.styles).filter(
     (style) => style.class === local && style.breakpoint === breakpoint && style.state === 'none',
@@ -159,13 +162,11 @@ export function Inspector({
     if (JSON.stringify(updated) !== JSON.stringify(node.text))
       operations.push({ type: 'node.update', id: node.id, text: updated })
   }
-  const autosave = useAutosave(operations, !disabled && !invalid, busy, autoSave)
-  const flushRef = useRef(autosave.flush)
-  flushRef.current = async () => !invalid && !classDraft && !presetDraft && (await autosave.flush())
-  useEffect(() => {
-    registerFlush(() => flushRef.current())
-    return () => registerFlush(async () => true)
-  }, [registerFlush])
+  const autosave = useAutosave(operations, !disabled && !invalid, busy, autoSave, {
+    dirty,
+    dirtyChanged,
+    registerFlush,
+  })
   const previewKey = JSON.stringify({
     node: {
       id: node.id,
@@ -185,16 +186,9 @@ export function Inspector({
           }
         : {}),
       styles: Object.fromEntries(
-        Object.entries(normalized)
-          .filter(
-            ([property, value]) =>
-              value === null ||
-              CSS.supports(property, serializeValue(value, contextFromDocument(doc))),
-          )
-          .map(([property, value]) => [
-            property,
-            value === null ? null : serializeValue(value!, contextFromDocument(doc)),
-          ]),
+        Object.keys(normalized)
+          .filter((property) => supported[property])
+          .map((property) => [property, serialized[property] ?? null]),
       ),
     },
   })
@@ -236,9 +230,7 @@ export function Inspector({
                 doc={doc}
                 node={node}
                 computed={computed}
-                disabled={
-                  busy || conflict || locked || textDirty || styleDirty || imageDirty || classDraft
-                }
+                disabled={!settled || classDraft}
                 save={save}
                 draftChanged={setPresetDraft}
               />
@@ -259,7 +251,7 @@ export function Inspector({
                     return [
                       property,
                       value
-                        ? serializeValue(value, contextFromDocument(doc))
+                        ? serializeValue(value, context)
                         : property in changes ||
                             property === 'font-size' ||
                             property === 'line-height'
@@ -272,9 +264,7 @@ export function Inspector({
                   changeFormatting(property, value ? { type: 'raw', value } : null)
                 }
                 linkDisabled={
-                  busy ||
-                  styleDirty ||
-                  textDirty ||
+                  !settled ||
                   (node.text.type !== 'doc' && node.text.type !== 'static') ||
                   node.tag === 'a' ||
                   hasAnchorParent(doc, node)
@@ -293,9 +283,7 @@ export function Inspector({
                 type="button"
                 aria-label="Reset formatting"
                 title="Reset local formatting"
-                disabled={
-                  disabled || busy || !overrides.length || textDirty || styleDirty || imageDirty
-                }
+                disabled={disabled || !settled || !overrides.length}
                 onClick={resetFormatting}
               >
                 <EditorIcon name="reset" />
@@ -306,11 +294,7 @@ export function Inspector({
           ribbonHost,
         )}
       <div className="selection-heading">
-        <strong>
-          {node.type === 'text' && 'tag' in node && /^h[1-6]$/.test(node.tag)
-            ? 'Heading'
-            : describe(node)}
-        </strong>
+        <strong>{nodeLabel(node)}</strong>
         <span className="element-badge">{'tag' in node ? node.tag.toUpperCase() : node.type}</span>
       </div>
       <div className="inspector-section-name">Design</div>
@@ -322,27 +306,9 @@ export function Inspector({
             className="scope-info-button"
             aria-label="About responsive editing"
             popoverTarget={scopeInfoId}
-            onClick={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect()
-              if (scopeInfo.current) {
-                scopeInfo.current.style.left = `${Math.max(12, Math.min(rect.right - 260, innerWidth - 272))}px`
-                scopeInfo.current.style.top = `${Math.max(12, Math.min(rect.bottom + 8, innerHeight - 150))}px`
-              }
-            }}
+            onClick={(event) => placePopover(event.currentTarget, scopeInfo.current)}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              aria-hidden="true"
-            >
-              <circle cx="10" cy="10" r="7.5" />
-              <path d="M10 9v5" />
-              <circle cx="10" cy="6" r=".8" fill="currentColor" stroke="none" />
-            </svg>
+            <EditorIcon name="info" />
           </button>
           <div ref={scopeInfo} id={scopeInfoId} popover="auto" className="scope-info-popover">
             {breakpoint === 'base'
@@ -470,11 +436,7 @@ export function Inspector({
             </p>
           ) : null}
           <FormattingControls {...controls} groupName={ribbonGroup} />
-          {validation && (
-            <p className="error" role="alert">
-              {validation}
-            </p>
-          )}
+          <ErrorNote message={validation} />
           <p className="hint" role="status">
             {conflict
               ? 'Changes paused. Reload to resolve the conflict.'
@@ -482,7 +444,7 @@ export function Inspector({
                 ? 'Waiting for a valid value.'
                 : busy
                   ? 'Saving…'
-                  : textDirty || styleDirty || imageDirty
+                  : edits
                     ? 'Changes pending…'
                     : 'All changes saved'}
           </p>
@@ -500,9 +462,7 @@ export function Inspector({
           <ClassManager
             doc={doc}
             node={node}
-            disabled={
-              busy || conflict || locked || textDirty || styleDirty || imageDirty || presetDraft
-            }
+            disabled={!settled || presetDraft}
             save={save}
             draftChanged={setClassDraft}
           />

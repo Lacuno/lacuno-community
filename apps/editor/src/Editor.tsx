@@ -1,6 +1,6 @@
 import type { Operation } from '@freeflow/document'
 import { applyPatches, invertPatches, type Patch } from '@freeflow/document/patch'
-import { type Document, type Node, parseDocument } from '@freeflow/schema'
+import { type Document, parseDocument } from '@freeflow/schema'
 import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { Brand } from './App.js'
@@ -36,6 +36,7 @@ import {
   duplicateSelection,
   insertionTarget,
   isLocked,
+  nodeLabel,
   structureInsertion,
   subtreeRestriction,
 } from './structure.js'
@@ -46,7 +47,6 @@ const InlineTextEditor = lazy(() =>
   import('./InlineTextEditor.js').then((module) => ({ default: module.InlineTextEditor })),
 )
 type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
-const describe = (node: Node) => node.meta?.label ?? ('tag' in node ? node.tag : node.type)
 const sidebars = {
   Add: 'plus',
   Layers: 'layers',
@@ -96,10 +96,18 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   })
   const [livePreview, setLivePreview] = useState<LivePreview>({})
   const [colorPreview, setColorPreview] = useState<LivePreview>({})
-  const pendingFlush = useRef<() => Promise<boolean>>(async () => true)
+  // Every open editing surface registers its flush and clears it again when it closes.
+  const flushes = useRef<(() => Promise<boolean>)[]>([])
   const registerFlush = useCallback((flush: () => Promise<boolean>) => {
-    pendingFlush.current = flush
+    flushes.current.push(flush)
+    return () => {
+      flushes.current = flushes.current.filter((item) => item !== flush)
+    }
   }, [])
+  const flushPending = async () => {
+    for (const flush of [...flushes.current]) if (!(await flush())) return false
+    return true
+  }
   const [generation, setGeneration] = useState(0)
   const [editHistory, setEditHistory] = useState(emptyHistory)
   const inFlight = useRef(false)
@@ -186,7 +194,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
     if (inFlight.current && !autoFlight.current) return
     if (
       (dirty || busy) &&
-      !(await pendingFlush.current()) &&
+      !(await flushPending()) &&
       !window.confirm('Discard your unsaved changes?')
     )
       return
@@ -466,7 +474,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           className="publish-trigger publish-action"
           disabled={!snapshot || busy || conflict || uploadingImage}
           onClick={async () => {
-            if (!(await pendingFlush.current())) {
+            if (!(await flushPending())) {
               setError('Finish or correct your pending edits before publishing.')
               return
             }
@@ -591,8 +599,10 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           dirtyChanged={setDirty}
           save={save}
           close={() => setColorsOpen(false)}
+          leave={leave}
           autoSave={(operations) => save(operations, 'auto')}
           previewChanged={setColorPreview}
+          registerFlush={registerFlush}
         />
       )}
       {componentDialog === 'create' && editableDoc && (
@@ -773,7 +783,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                   >
                     <strong>
                       {editableDoc.nodes[selected]
-                        ? describe(editableDoc.nodes[selected]!)
+                        ? nodeLabel(editableDoc.nodes[selected]!)
                         : 'Element actions'}
                     </strong>
                     <StructurePanel
@@ -916,7 +926,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
                 html={preview.html}
                 width={width}
                 selected={selected}
-                selectedName={doc?.nodes[selected] ? describe(doc.nodes[selected]!) : ''}
+                selectedName={doc?.nodes[selected] ? nodeLabel(doc.nodes[selected]!) : ''}
                 select={(id) => {
                   setRevealSelection((value) => value + 1)
                   if (id !== selected) leave(() => setSelected(id))
@@ -933,7 +943,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
               {editingComponent?.name ?? page?.name ?? 'Page'}
               <EditorIcon name="chevron" />
               {selected && doc?.nodes[selected]
-                ? describe(doc.nodes[selected])
+                ? nodeLabel(doc.nodes[selected])
                 : 'Select an element'}
             </span>
             <span>

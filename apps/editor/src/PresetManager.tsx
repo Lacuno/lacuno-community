@@ -1,7 +1,9 @@
-import type { Operation } from '@freeflow/document'
+import { nodesUsingClass, type Operation } from '@freeflow/document'
 import type { Document, Node } from '@freeflow/schema'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { ErrorNote } from './Dialog.js'
 import { formattingOperations } from './formatting.js'
+import { placePopover } from './popover.js'
 import {
   activePreset,
   applyPreset,
@@ -9,6 +11,7 @@ import {
   presetOverrides,
   updatePreset,
 } from './presets.js'
+import { useDirtyChanged } from './useAutosave.js'
 
 export function PresetManager({
   breakpoint = 'base',
@@ -34,30 +37,18 @@ export function PresetManager({
   const trigger = useRef<HTMLButtonElement>(null)
   const popover = useRef<HTMLDivElement>(null)
   const nameInput = useRef<HTMLInputElement>(null)
-  const positionPopover = useCallback(() => {
-    const anchor = trigger.current?.getBoundingClientRect()
-    const panel = popover.current
-    if (!anchor || !panel) return
-    const width = Math.min(290, window.innerWidth - 24)
-    const height = panel.offsetHeight || 200
-    panel.style.left = `${Math.max(12, Math.min(anchor.right - width, window.innerWidth - width - 12))}px`
-    panel.style.top = `${Math.max(12, anchor.bottom + height + 8 <= window.innerHeight - 12 ? anchor.bottom + 8 : anchor.top - height - 8)}px`
-  }, [])
+  const positionPopover = () => placePopover(trigger.current, popover.current)
   useEffect(() => {
     if (!creating) return
     nameInput.current?.focus()
   }, [creating])
-  useEffect(() => {
-    draftChanged(!!name)
-  }, [name, draftChanged])
+  useDirtyChanged(!!name, draftChanged)
   const current = activePreset(doc, node)
   const presets = Object.values(doc.classes)
     .filter((cls) => cls.preset && cls.kind === 'class' && !cls.combo?.length)
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
   const overrides = presetOverrides(doc, node, breakpoint)
-  const uses = current
-    ? Object.values(doc.nodes).filter((item) => item.classes.includes(current.id)).length
-    : 0
+  const uses = current ? nodesUsingClass(doc, current.id).length : 0
   const run = async (operations: () => Operation[]) => {
     setError('')
     try {
@@ -142,11 +133,7 @@ export function PresetManager({
                 placeholder="e.g. Page heading"
               />
             </label>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
+            <ErrorNote message={error} />
             <div className="row">
               <button type="submit" disabled={disabled || !name.trim()}>
                 Create preset

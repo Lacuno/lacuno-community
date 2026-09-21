@@ -1,0 +1,91 @@
+import { contextFromDocument, serializeValue } from '@freeflow/css'
+import type { CssValue, Document, Node } from '@freeflow/schema'
+import { localValue } from './formatting.js'
+import { presetValues } from './presets.js'
+
+export type StyleControls = {
+  breakpoint?: string
+  doc: Document
+  node: Node
+  computed: Record<string, string>
+  changes: Record<string, CssValue | null>
+  change: (property: string, value: CssValue | null) => void
+  disabled: boolean
+}
+
+/** Read and write the effective value of one style property at the edited breakpoint. */
+export function useStyleField({
+  breakpoint = 'base',
+  doc,
+  node,
+  computed,
+  changes,
+  change,
+}: StyleControls) {
+  const inherited = presetValues(doc, node, computed, breakpoint)
+  return {
+    overridden: (property: string) =>
+      breakpoint !== 'base' &&
+      !!(property in changes ? changes[property] : localValue(doc, node, property, breakpoint)),
+    value: (property: string, fallback = '') => {
+      const item = property in changes ? changes[property] : inherited[property]
+      return item ? serializeValue(item, contextFromDocument(doc)) : fallback
+    },
+    set: (property: string, text: string) =>
+      change(property, text ? { type: 'raw', value: text } : null),
+  }
+}
+
+/** A number input that shows a scaled value and writes it back clamped, with its unit. */
+export function NumberField({
+  label,
+  name,
+  id,
+  value,
+  factor = 1,
+  unit = '',
+  min,
+  max,
+  placeholder,
+  disabled,
+  overridden,
+  set,
+}: {
+  label: string
+  name?: string | undefined
+  id?: string | undefined
+  value: string
+  factor?: number
+  unit?: string
+  min?: number | undefined
+  max?: number | undefined
+  placeholder?: string | undefined
+  disabled: boolean
+  overridden: boolean
+  set: (value: string) => void
+}) {
+  return (
+    <label htmlFor={id}>
+      {label}
+      <input
+        id={id}
+        aria-label={name ?? label}
+        data-overridden={overridden}
+        type="number"
+        min={min}
+        max={max}
+        step="any"
+        placeholder={placeholder}
+        disabled={disabled}
+        value={value ? Math.round(Number.parseFloat(value) * factor * 1000) / 1000 : ''}
+        onChange={(event) =>
+          set(
+            event.target.value
+              ? `${Math.min(max ?? Infinity, Math.max(min ?? -Infinity, Number(event.target.value))) / factor}${unit}`
+              : '',
+          )
+        }
+      />
+    </label>
+  )
+}

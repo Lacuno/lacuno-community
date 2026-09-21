@@ -35,7 +35,7 @@ export function InlineTextEditor({
   disabled: boolean
   save: (operations: Operation[]) => Promise<boolean>
   close: () => void
-  registerFlush: (flush: () => Promise<boolean>) => void
+  registerFlush: (flush: () => Promise<boolean>) => () => void
   dirtyChanged: (dirty: boolean) => void
 }) {
   const [editor, setEditor] = useState<Editor>()
@@ -198,7 +198,7 @@ export function InlineTextEditor({
         )
       return ok
     }
-    registerFlush(() => flush.current())
+    const unregister = registerFlush(() => flush.current())
     return () => {
       instance.destroy()
       element.innerHTML = markup
@@ -207,7 +207,7 @@ export function InlineTextEditor({
       element.removeAttribute('data-freeflow-editing')
       view?.scrollTo(scroll)
       for (const parent of draggable) parent.draggable = true
-      registerFlush(async () => true)
+      unregister()
     }
   }, [target, registerFlush])
   useEffect(() => {

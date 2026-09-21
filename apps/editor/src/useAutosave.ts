@@ -1,16 +1,31 @@
 import type { Operation } from '@freeflow/document'
 import { useEffect, useRef, useState } from 'react'
 
+const ignore = () => {}
+
+/** Tell the editor about unsaved edits in this panel. */
+export function useDirtyChanged(dirty: boolean, dirtyChanged: (dirty: boolean) => void) {
+  useEffect(() => {
+    dirtyChanged(dirty)
+  }, [dirty, dirtyChanged])
+}
+
 /** Serialize edits, group typing into one history step, and flush before navigation. */
 export function useAutosave(
   operations: Operation[],
   enabled: boolean,
   busy: boolean,
   save: (operations: Operation[]) => Promise<boolean>,
+  panel?: {
+    dirty: boolean
+    dirtyChanged?: (dirty: boolean) => void
+    registerFlush?: (flush: () => Promise<boolean>) => () => void
+  },
 ) {
+  const { dirty = false, dirtyChanged = ignore, registerFlush } = panel ?? {}
   const key = JSON.stringify(operations)
-  const current = useRef({ operations, enabled, save, key, busy })
-  current.current = { operations, enabled, save, key, busy }
+  const current = useRef({ operations, enabled, save, key, busy, dirty })
+  current.current = { operations, enabled, save, key, busy, dirty }
   const request = useRef<Promise<boolean> | null>(null)
   const saved = useRef('')
   const failed = useRef('')
@@ -53,6 +68,11 @@ export function useAutosave(
     }, 400)
     return () => clearTimeout(timer)
   }, [key, enabled, busy])
+  useDirtyChanged(dirty, dirtyChanged)
+  useEffect(
+    () => registerFlush?.(async () => !current.current.dirty || flushRef.current()),
+    [registerFlush],
+  )
   return {
     flush,
     hasFailed,

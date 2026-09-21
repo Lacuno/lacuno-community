@@ -1,6 +1,9 @@
-import type { Operation } from '@freeflow/document'
+import { nodesUsingClass, type Operation } from '@freeflow/document'
 import type { Document, Node } from '@freeflow/schema'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { ErrorNote } from './Dialog.js'
+import { nodeLabel } from './structure.js'
+import { useDirtyChanged } from './useAutosave.js'
 
 export function ClassManager({
   doc,
@@ -18,9 +21,7 @@ export function ClassManager({
   const [name, setName] = useState('')
   const [existing, setExisting] = useState('')
   const [error, setError] = useState('')
-  useEffect(() => {
-    draftChanged(!!name || !!existing)
-  }, [name, existing, draftChanged])
+  useDirtyChanged(!!name || !!existing, draftChanged)
   const available = Object.values(doc.classes)
     .filter((cls) => cls.kind === 'class' && !cls.preset && !node.classes.includes(cls.id))
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
@@ -45,7 +46,7 @@ export function ClassManager({
           .filter((id) => doc.classes[id]?.kind !== 'local' && !doc.classes[id]?.preset)
           .map((id) => {
             const cls = doc.classes[id]!
-            const uses = Object.values(doc.nodes).filter((item) => item.classes.includes(id))
+            const uses = nodesUsingClass(doc, id).map((nodeId) => doc.nodes[nodeId]!)
             return (
               <li key={id}>
                 <details>
@@ -58,8 +59,7 @@ export function ClassManager({
                   <ul>
                     {uses.map((item) => (
                       <li key={item.id}>
-                        {item.meta?.label ?? ('tag' in item ? item.tag : item.type)}{' '}
-                        <small>{location(item)}</small>
+                        {nodeLabel(item)} <small>{location(item)}</small>
                       </li>
                     ))}
                   </ul>
@@ -146,11 +146,7 @@ export function ClassManager({
             Create and assign
           </button>
         </form>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorNote message={error} />
         <p className="hint">
           Class changes apply immediately. Finish any pending formatting first.
         </p>

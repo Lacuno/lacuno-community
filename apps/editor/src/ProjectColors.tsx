@@ -1,14 +1,15 @@
-import type { Operation } from '@freeflow/document'
+import { type Operation, referencesToDesignToken } from '@freeflow/document'
 import { type Document, designTokenCssName } from '@freeflow/schema'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   colorLabel,
   colorPreview,
   colorTokenName,
   defaultMode,
+  pickerHex,
   projectColors,
-  referencesColor,
 } from './colors.js'
+import { Dialog, ErrorNote } from './Dialog.js'
 import type { LivePreview } from './livePreview.js'
 import { useAutosave } from './useAutosave.js'
 
@@ -20,8 +21,10 @@ export function ProjectColors({
   dirtyChanged,
   save,
   close,
+  leave,
   autoSave,
   previewChanged,
+  registerFlush,
 }: {
   doc: Document
   busy: boolean
@@ -30,56 +33,29 @@ export function ProjectColors({
   dirtyChanged: (value: boolean) => void
   save: (ops: Operation[]) => Promise<boolean>
   close: () => void
+  leave: (action: () => void) => Promise<void>
   autoSave: (ops: Operation[]) => Promise<boolean>
   previewChanged: (preview: LivePreview) => void
+  registerFlush: (flush: () => Promise<boolean>) => () => void
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
   const [selected, setSelected] = useState('')
   const [family, setFamily] = useState('')
-  const [dirty, setDirty] = useState(false)
   const [reset, setReset] = useState(0)
-  const pendingFlush = useRef<() => Promise<boolean>>(async () => true)
-  const registerFlush = useRef((flush: () => Promise<boolean>) => {
-    pendingFlush.current = flush
-  }).current
-  useEffect(() => {
-    dialog.current?.showModal()
-  }, [])
-  useEffect(() => {
-    dirtyChanged(dirty)
-  }, [dirty, dirtyChanged])
-  const leave = async (action: () => void) => {
-    if (
-      (dirty || busy) &&
-      !(await pendingFlush.current()) &&
-      !window.confirm('Discard your unsaved color changes?')
-    )
-      return
-    setDirty(false)
-    dirtyChanged(false)
-    setReset((value) => value + 1)
-    action()
-  }
+  // Leaving saves or discards the draft; the counter starts the next form from the saved color.
+  const switchTo = (action: () => void) =>
+    void leave(() => {
+      setReset((value) => value + 1)
+      action()
+    })
   return (
-    <dialog
-      ref={dialog}
+    <Dialog
+      title="Project colors"
+      description="Reusable colors for your entire site."
       className="colors-dialog"
-      aria-labelledby="colors-title"
-      onCancel={(event) => {
-        event.preventDefault()
-        if (!busy) leave(close)
-      }}
-      onKeyDown={(event) => event.stopPropagation()}
+      closeLabel="Close colors"
+      disabled={busy}
+      close={() => switchTo(close)}
     >
-      <header>
-        <div>
-          <h2 id="colors-title">Project colors</h2>
-          <p>Reusable colors for your entire site.</p>
-        </div>
-        <button type="button" disabled={busy} onClick={() => leave(close)}>
-          Close colors
-        </button>
-      </header>
       <div className="colors-layout">
         <nav aria-label="Project palette">
           <button
@@ -87,7 +63,7 @@ export function ProjectColors({
             className="primary"
             disabled={busy}
             onClick={() =>
-              leave(() => {
+              switchTo(() => {
                 setSelected('')
                 setFamily('')
               })
@@ -102,7 +78,7 @@ export function ProjectColors({
               key={token.id}
               disabled={busy}
               onClick={() =>
-                leave(() => {
+                switchTo(() => {
                   setSelected(token.id)
                   setFamily('')
                 })
@@ -120,34 +96,28 @@ export function ProjectColors({
           family={family}
           busy={busy}
           conflict={conflict}
-          dirtyChanged={setDirty}
+          dirtyChanged={dirtyChanged}
           save={save}
           autoSave={autoSave}
           previewChanged={previewChanged}
           registerFlush={registerFlush}
           created={(id) => {
-            setDirty(false)
-            dirtyChanged(false)
             setSelected(id)
             setFamily('')
           }}
           variant={() =>
-            leave(() => {
+            switchTo(() => {
               setFamily(doc.designTokens[selected]!.name)
               setSelected('')
             })
           }
         />
       </div>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorNote message={error} />
       {conflict && (
         <p className="note">Close colors, then reload the latest site before continuing.</p>
       )}
-    </dialog>
+    </Dialog>
   )
 }
 
@@ -176,7 +146,7 @@ function ColorForm({
   variant: () => void
   autoSave: (ops: Operation[]) => Promise<boolean>
   previewChanged: (preview: LivePreview) => void
-  registerFlush: (flush: () => Promise<boolean>) => void
+  registerFlush: (flush: () => Promise<boolean>) => () => void
 }) {
   const token = doc.designTokens[selected]
   const [name, setName] = useState('')
@@ -185,12 +155,11 @@ function ColorForm({
   const [value, setValue] = useState(original)
   const [validation, setValidation] = useState('')
   const dirty = name !== '' || value !== original
-  useEffect(() => {
-    dirtyChanged(dirty)
-  }, [dirty, dirtyChanged])
   const valid =
     CSS.supports('color', value.trim()) &&
     !/var\(|currentcolor|inherit|initial|unset|revert/i.test(value)
+  // A new color exists only once it is created, so its fields stay editable while a save runs.
+  const disabled = conflict || (busy && !token)
   const operations: Operation[] =
     token && dirty && valid
       ? [
@@ -202,14 +171,11 @@ function ColorForm({
           },
         ]
       : []
-  const autosave = useAutosave(operations, !!token && valid && !conflict, busy, autoSave)
-  const flushRef = useRef<() => Promise<boolean>>(async () => true)
-  flushRef.current = async () =>
-    !dirty || (!!token && valid && !conflict && (await autosave.flush()))
-  useEffect(() => {
-    registerFlush(() => flushRef.current())
-    return () => registerFlush(async () => true)
-  }, [registerFlush])
+  const autosave = useAutosave(operations, !!token && valid && !conflict, busy, autoSave, {
+    dirty,
+    dirtyChanged,
+    registerFlush,
+  })
   const previewKey = JSON.stringify(
     token && valid ? { colors: { [designTokenCssName(token.name)]: value } } : {},
   )
@@ -218,7 +184,9 @@ function ColorForm({
     return () => previewChanged({})
   }, [previewKey, previewChanged])
   const uses = token
-    ? Object.values(doc.styles).filter((style) => referencesColor(style.value, token.id))
+    ? referencesToDesignToken(doc, token.id)
+        .filter((reference) => reference.startsWith('styles.'))
+        .map((reference) => doc.styles[reference.replace('styles.', '')]!)
     : []
   return (
     <form
@@ -227,33 +195,29 @@ function ColorForm({
         event.preventDefault()
         setValidation('')
         if (busy || conflict) return
-        const color = value.trim()
-        if (
-          !CSS.supports('color', color) ||
-          /var\(|currentcolor|inherit|initial|unset|revert/i.test(color)
-        ) {
+        if (!valid) {
           setValidation('Enter a color such as #6952d9, rgb(105 82 217), or rebeccapurple.')
           return
         }
+        if (token) {
+          await autosave.flush()
+          return
+        }
         try {
-          if (token) {
-            await autosave.flush()
-          } else {
-            const id = `dt-${crypto.randomUUID()}`
-            const tokenName = colorTokenName(doc, name, family || undefined)
-            if (
-              await save([
-                {
-                  type: 'designToken.create',
-                  id,
-                  name: tokenName,
-                  group: 'color',
-                  values: { [defaultMode(doc)]: { type: 'color', value: color } },
-                },
-              ])
-            )
-              created(id)
-          }
+          const id = `dt-${crypto.randomUUID()}`
+          const tokenName = colorTokenName(doc, name, family || undefined)
+          if (
+            await save([
+              {
+                type: 'designToken.create',
+                id,
+                name: tokenName,
+                group: 'color',
+                values: { [defaultMode(doc)]: { type: 'color', value: value.trim() } },
+              },
+            ])
+          )
+            created(id)
         } catch (error) {
           setValidation((error as Error).message)
         }
@@ -272,7 +236,7 @@ function ColorForm({
           <input
             autoComplete="off"
             value={name}
-            disabled={conflict || (busy && !token)}
+            disabled={disabled}
             placeholder={family ? 'e.g. Light or Muted' : 'e.g. Brand or Surface'}
             onChange={(event) => setName(event.target.value)}
           />
@@ -303,7 +267,7 @@ function ColorForm({
           Color value
           <input
             value={value}
-            disabled={conflict || (busy && !token)}
+            disabled={disabled}
             onChange={(event) => setValue(event.target.value)}
           />
         </label>
@@ -312,8 +276,8 @@ function ColorForm({
           <input
             type="color"
             aria-label="Color picker"
-            disabled={conflict || (busy && !token)}
-            value={/^#[a-f0-9]{6}$/i.test(value) ? value : '#6952d9'}
+            disabled={disabled}
+            value={pickerHex(value, '#6952d9')}
             onChange={(event) => setValue(event.target.value)}
           />
         </label>
@@ -338,11 +302,7 @@ function ColorForm({
           </details>
         </>
       )}
-      {validation && (
-        <p className="error" role="alert">
-          {validation}
-        </p>
-      )}
+      <ErrorNote message={validation} />
       <div className="row">
         {!token && (
           <button className="primary" type="submit" disabled={busy || conflict || !name.trim()}>
@@ -366,7 +326,7 @@ function ColorForm({
           </button>
         )}
         {token && (
-          <button type="button" disabled={conflict || (busy && !token)} onClick={variant}>
+          <button type="button" disabled={conflict} onClick={variant}>
             Add variant
           </button>
         )}

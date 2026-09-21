@@ -1,6 +1,6 @@
 import type { Document } from '@freeflow/schema'
-import { useEffect, useRef } from 'react'
 import { assetUrl, imageAssets } from './AssetsPanel.js'
+import { Dialog } from './Dialog.js'
 
 export function ImageLibrary({
   siteId,
@@ -15,31 +15,15 @@ export function ImageLibrary({
   choose: (id: string) => void
   close: () => void
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    dialog.current?.showModal()
-  }, [])
   const assets = imageAssets(doc)
   return (
-    <dialog
-      ref={dialog}
+    <Dialog
+      title="Choose an image"
+      label="Image library"
+      description="Your uploaded photos, ready to reuse."
       className="image-library-dialog"
-      aria-label="Image library"
-      onCancel={(event) => {
-        event.preventDefault()
-        close()
-      }}
-      onKeyDown={(event) => event.stopPropagation()}
+      close={close}
     >
-      <header>
-        <div>
-          <h2>Choose an image</h2>
-          <p>Your uploaded photos, ready to reuse.</p>
-        </div>
-        <button type="button" onClick={close}>
-          Close
-        </button>
-      </header>
       {!assets.length && (
         <p className="hint">
           No images yet. Drop a photo onto the placeholder, or upload one in Assets.
@@ -59,6 +43,6 @@ export function ImageLibrary({
           </button>
         ))}
       </div>
-    </dialog>
+    </Dialog>
   )
 }

@@ -1,13 +1,7 @@
 import { DocumentStore, type Operation } from '@freeflow/document'
 import { fixtureDocument, styleKey } from '@freeflow/schema'
 import { expect, it } from 'vitest'
-import {
-  colorLabel,
-  colorPreview,
-  colorTokenName,
-  defaultMode,
-  referencesColor,
-} from '../src/colors.js'
+import { colorLabel, colorPreview, colorTokenName, defaultMode, pickerHex } from '../src/colors.js'
 import { commit } from './helpers.js'
 
 it('round-trips classes, color variants and shared typed references in one saved batch', async () => {
@@ -98,7 +92,7 @@ it('restores missing mode overrides and preserves aliases', async () => {
   expect({ ...store.read().document, revision: doc.revision }).toEqual(doc)
 })
 
-it('normalizes labels, rejects duplicate CSS names, and finds nested color references', () => {
+it('normalizes labels, rejects duplicate CSS names, and coerces picker values', () => {
   const doc = fixtureDocument()
   expect(colorTokenName(doc, 'Ocean Blue')).toBe('color.ocean-blue')
   expect(colorTokenName(doc, 'Muted', 'color.ocean-blue')).toBe('color.ocean-blue.muted')
@@ -111,10 +105,7 @@ it('normalizes labels, rejects duplicate CSS names, and finds nested color refer
     values: {},
   }
   expect(() => colorTokenName(doc, 'Ocean Blue')).toThrow('already exists')
-  expect(
-    referencesColor(
-      { type: 'list', separator: ' ', values: [{ type: 'designToken', ref: 'dt-brand' }] },
-      'dt-brand',
-    ),
-  ).toBe(true)
+  expect(pickerHex('#123456ff', '#6952d9')).toBe('#123456')
+  expect(pickerHex('rgb(105, 82, 217)', '#000000')).toBe('#6952d9')
+  expect(pickerHex('rebeccapurple', '#000000')).toBe('#000000')
 })

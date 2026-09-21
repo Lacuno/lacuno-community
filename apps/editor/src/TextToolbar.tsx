@@ -1,5 +1,8 @@
 import { type Document, safeLinkHref } from '@freeflow/schema'
 import { type ReactNode, useId, useRef, useState } from 'react'
+import { pickerHex } from './colors.js'
+import { ErrorNote } from './Dialog.js'
+import { placePopover } from './popover.js'
 import './text-toolbar.css'
 
 export function TextToolbar({
@@ -91,7 +94,7 @@ export function TextToolbar({
             type="color"
             aria-label="Text color"
             disabled={disabled}
-            value={colorHex(values.color ?? '')}
+            value={pickerHex(values.color ?? '', '#000000')}
             onChange={(event) => change('color', event.target.value)}
           />
         </label>
@@ -103,11 +106,7 @@ export function TextToolbar({
           onClick={(event) => {
             setPageId(typeof currentLink?.pageId === 'string' ? currentLink.pageId : '')
             setUrl(typeof currentLink?.href === 'string' ? currentLink.href : '')
-            const rect = event.currentTarget.getBoundingClientRect()
-            if (popover.current) {
-              popover.current.style.left = `${Math.max(12, Math.min(rect.left, innerWidth - 332))}px`
-              popover.current.style.top = `${rect.bottom + 8}px`
-            }
+            placePopover(event.currentTarget, popover.current)
             setError('')
           }}
         >
@@ -192,11 +191,7 @@ export function TextToolbar({
               />
             </label>
           )}
-          {error && (
-            <p role="alert" className="error">
-              {error}
-            </p>
-          )}
+          <ErrorNote message={error} />
           <div className="row">
             <button type="submit" disabled={disabled}>
               Apply link
@@ -219,15 +214,4 @@ export function TextToolbar({
       </div>
     </section>
   )
-}
-
-function colorHex(value: string) {
-  if (/^#[\da-f]{6}$/i.test(value)) return value
-  const rgb = value.match(/^rgb\(\s*(\d+)[, ]+\s*(\d+)[, ]+\s*(\d+)/)
-  return rgb
-    ? `#${rgb
-        .slice(1, 4)
-        .map((n) => Number(n).toString(16).padStart(2, '0'))
-        .join('')}`
-    : '#000000'
 }

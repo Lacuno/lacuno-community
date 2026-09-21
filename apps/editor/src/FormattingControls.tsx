@@ -50,6 +50,7 @@ export function FormattingControls({
   change: (property: string, value: CssValue | null) => void
   disabled: boolean
 }) {
+  const controls = { breakpoint, doc, node, computed, changes, change, disabled }
   return (
     <div className={`formatting-controls ${ribbon ? 'ribbon-formatting' : 'inspector-formatting'}`}>
       {formattingGroups
@@ -69,25 +70,9 @@ export function FormattingControls({
           >
             <summary>{group.name}</summary>
             {group.name === 'Motion' ? (
-              <MotionControls
-                breakpoint={breakpoint}
-                doc={doc}
-                node={node}
-                computed={computed}
-                changes={changes}
-                change={change}
-                disabled={disabled}
-              />
+              <MotionControls {...controls} />
             ) : group.name === 'Effects' ? (
-              <EffectsControls
-                breakpoint={breakpoint}
-                doc={doc}
-                node={node}
-                computed={computed}
-                changes={changes}
-                change={change}
-                disabled={disabled}
-              />
+              <EffectsControls {...controls} />
             ) : (
               <div className="formatting-grid">
                 {group.fields

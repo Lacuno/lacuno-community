@@ -1,8 +1,8 @@
 import type { Operation } from '@freeflow/document'
 import type { Document, Page } from '@freeflow/schema'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
-import { pageTree } from './history.js'
 import { duplicatePage, pagePathError } from './pages.js'
 
 export function PagesPanel({
@@ -63,7 +63,6 @@ export function PagesPanel({
       </div>
       {editing && (
         <PageSettings
-          key={editing === 'new' ? 'new' : editing.id}
           doc={doc}
           page={editing === 'new' ? undefined : editing}
           disabled={disabled}
@@ -91,16 +90,12 @@ function PageSettings({
   save: (operations: Operation[]) => Promise<boolean>
   choose: (id: string) => void
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
   const [name, setName] = useState(page?.name ?? '')
   const [path, setPath] = useState(page?.path ?? '')
   const [title, setTitle] = useState(page?.seo?.title ?? '')
   const [description, setDescription] = useState(page?.seo?.description ?? '')
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
-  useEffect(() => {
-    dialog.current?.showModal()
-  }, [])
   const run = async (operations: Operation[], id?: string) => {
     if (await save(operations)) {
       close()
@@ -108,22 +103,12 @@ function PageSettings({
     } else setError('Could not save page changes. Check the editor message and try again.')
   }
   return (
-    <dialog
-      ref={dialog}
+    <Dialog
+      title={page ? 'Page settings' : 'New page'}
       className="page-settings-dialog"
-      aria-label={page ? 'Page settings' : 'New page'}
-      onCancel={(event) => {
-        event.preventDefault()
-        if (!disabled) close()
-      }}
-      onKeyDown={(event) => event.stopPropagation()}
+      disabled={disabled}
+      close={close}
     >
-      <header>
-        <h2>{page ? 'Page settings' : 'New page'}</h2>
-        <button type="button" onClick={close} disabled={disabled}>
-          Close
-        </button>
-      </header>
       <form
         onSubmit={(event) => {
           event.preventDefault()
@@ -212,11 +197,7 @@ function PageSettings({
             onChange={(event) => setDescription(event.target.value)}
           />
         </label>
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
+        <ErrorNote message={error} />
         <button type="submit" disabled={disabled}>
           {page ? 'Save page' : 'Create page'}
         </button>
@@ -258,14 +239,7 @@ function PageSettings({
               <button
                 type="button"
                 disabled={disabled}
-                onClick={() => {
-                  try {
-                    pageTree(doc, page.root)
-                    void run([{ type: 'page.delete', id: page.id }])
-                  } catch (err) {
-                    setError((err as Error).message)
-                  }
-                }}
+                onClick={() => void run([{ type: 'page.delete', id: page.id }])}
               >
                 Confirm delete page
               </button>
@@ -276,6 +250,6 @@ function PageSettings({
           )}
         </div>
       )}
-    </dialog>
+    </Dialog>
   )
 }

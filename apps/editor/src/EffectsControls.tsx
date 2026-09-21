@@ -1,37 +1,12 @@
-import { contextFromDocument, serializeValue } from '@freeflow/css'
-import type { CssValue, Document, Node } from '@freeflow/schema'
 import { useId, useRef } from 'react'
+import { pickerHex } from './colors.js'
 import { defaultShadow, readShadow, readTilt, writeShadow, writeTilt } from './effects.js'
-import { localValue } from './formatting.js'
-import { presetValues } from './presets.js'
+import { placePopover } from './popover.js'
+import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 
-export function EffectsControls({
-  breakpoint = 'base',
-  doc,
-  node,
-  computed,
-  changes,
-  change,
-  disabled,
-}: {
-  breakpoint?: string
-  doc: Document
-  node: Node
-  computed: Record<string, string>
-  changes: Record<string, CssValue | null>
-  change: (property: string, value: CssValue | null) => void
-  disabled: boolean
-}) {
-  const overridden = (property: string) =>
-    breakpoint !== 'base' &&
-    !!(property in changes ? changes[property] : localValue(doc, node, property, breakpoint))
-  const inherited = presetValues(doc, node, computed, breakpoint)
-  const value = (property: string, fallback: string) => {
-    const item = property in changes ? changes[property] : inherited[property]
-    return item ? serializeValue(item, contextFromDocument(doc)) : fallback
-  }
-  const set = (property: string, text: string) =>
-    change(property, text ? { type: 'raw', value: text } : null)
+export function EffectsControls(props: StyleControls) {
+  const { disabled } = props
+  const { overridden, value, set } = useStyleField(props)
   const tiltText = value('transform', 'none')
   const tilt = readTilt(tiltText)
   const shadowText = value('box-shadow', 'none')
@@ -50,39 +25,30 @@ export function EffectsControls({
     const text = value(property, fallback)
     const match = text === 'none' ? fallback : text
     const numeric = unit ? /^-?(?:\d*\.)?\d+(?:deg)?$/.test(match) : /^-?(?:\d*\.)?\d+$/.test(match)
-    return (
+    return numeric ? (
+      <NumberField
+        label={label}
+        id={`${shadowId}-${property}`}
+        value={match}
+        factor={factor}
+        unit={unit}
+        min={min}
+        max={max}
+        disabled={disabled}
+        overridden={overridden(property)}
+        set={(next) => set(property, next)}
+      />
+    ) : (
       <label htmlFor={`${shadowId}-${property}`}>
         {label}
-        {numeric ? (
-          <input
-            id={`${shadowId}-${property}`}
-            aria-label={label}
-            data-overridden={overridden(property)}
-            type="number"
-            min={min}
-            max={max}
-            step="any"
-            disabled={disabled}
-            value={Math.round(Number.parseFloat(match) * factor * 1000) / 1000}
-            onChange={(event) =>
-              set(
-                property,
-                event.target.value
-                  ? `${Math.min(max ?? Infinity, Math.max(min ?? -Infinity, Number(event.target.value))) / factor}${unit}`
-                  : '',
-              )
-            }
-          />
-        ) : (
-          <input
-            id={`${shadowId}-${property}`}
-            aria-label={label}
-            data-overridden={overridden(property)}
-            disabled={disabled}
-            value={text}
-            onChange={(event) => set(property, event.target.value)}
-          />
-        )}
+        <input
+          id={`${shadowId}-${property}`}
+          aria-label={label}
+          data-overridden={overridden(property)}
+          disabled={disabled}
+          value={text}
+          onChange={(event) => set(property, event.target.value)}
+        />
       </label>
     )
   }
@@ -136,13 +102,7 @@ export function EffectsControls({
           data-overridden={overridden('box-shadow')}
           popoverTarget={shadowId}
           aria-haspopup="dialog"
-          onClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect()
-            if (shadowPanel.current) {
-              shadowPanel.current.style.left = `${Math.max(12, Math.min(rect.left, innerWidth - 310))}px`
-              shadowPanel.current.style.top = `${Math.max(12, Math.min(rect.bottom + 8, innerHeight - 390))}px`
-            }
-          }}
+          onClick={(event) => placePopover(event.currentTarget, shadowPanel.current)}
         >
           {shadowText === 'none' ? 'Add shadow…' : 'Edit shadow…'}
         </button>
@@ -202,11 +162,7 @@ export function EffectsControls({
                   type="color"
                   aria-label="Shadow color picker"
                   disabled={disabled}
-                  value={
-                    /^#[a-f0-9]{6}(?:[a-f0-9]{2})?$/i.test(shadow.color)
-                      ? shadow.color.slice(0, 7)
-                      : '#000000'
-                  }
+                  value={pickerHex(shadow.color, '#000000')}
                   onChange={(event) => {
                     const alpha = /^#[a-f0-9]{8}$/i.test(shadow.color) ? shadow.color.slice(7) : ''
                     set(

@@ -1,5 +1,5 @@
 import { classNames, selectorFor } from '@freeflow/css'
-import type { Operation } from '@freeflow/document'
+import { nodesUsingClass, type Operation } from '@freeflow/document'
 import type { CssValue, Document, Node, StyleDecl } from '@freeflow/schema'
 import { styleKey } from '@freeflow/schema'
 
@@ -120,9 +120,7 @@ export function localClass(doc: Document, node: Node): string | undefined {
       doc.classes[id]?.kind === 'local' &&
       !doc.classes[id]?.locked &&
       !doc.classes[id]?.combo?.length &&
-      Object.values(doc.nodes).every(
-        (other) => other.id === node.id || !other.classes.includes(id),
-      ),
+      nodesUsingClass(doc, id).every((other) => other === node.id),
   )
 }
 export function localValue(

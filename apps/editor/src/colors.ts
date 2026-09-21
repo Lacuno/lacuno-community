@@ -1,4 +1,4 @@
-import type { CssValue, Document } from '@freeflow/schema'
+import type { Document } from '@freeflow/schema'
 import { designTokenCssName } from '@freeflow/schema'
 
 export const colorProperties = new Set(['color', 'background-color', 'border-color'])
@@ -44,9 +44,14 @@ export function colorPreview(
   return value && 'value' in value && typeof value.value === 'string' ? value.value : ''
 }
 
-export function referencesColor(value: CssValue, id: string): boolean {
-  if (value.type === 'designToken') return value.ref === id
-  if (value.type === 'list') return value.values.some((item) => referencesColor(item, id))
-  if (value.type === 'fn') return value.args.some((item) => referencesColor(item, id))
-  return false
+/** `<input type="color">` only accepts #rrggbb, so coerce what the user typed. */
+export function pickerHex(value: string, fallback: string): string {
+  if (/^#[\da-f]{6}(?:[\da-f]{2})?$/i.test(value)) return value.slice(0, 7)
+  const rgb = value.match(/^rgb\(\s*(\d+)[, ]+\s*(\d+)[, ]+\s*(\d+)/)
+  return rgb
+    ? `#${rgb
+        .slice(1, 4)
+        .map((part) => Number(part).toString(16).padStart(2, '0'))
+        .join('')}`
+    : fallback
 }

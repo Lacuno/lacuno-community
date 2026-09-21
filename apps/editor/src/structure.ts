@@ -1,5 +1,5 @@
 import { type Operation, subtreeIds } from '@freeflow/document'
-import type { Document } from '@freeflow/schema'
+import type { Document, Node } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type InsertNode, type PageTree, pageTree } from './history.js'
 
@@ -41,6 +41,32 @@ export function isLocked(doc: Document, id: string) {
   for (let current: string | null = id; current; current = doc.nodes[current]?.parent ?? null)
     if (doc.nodes[current]?.meta?.locked) return true
   return false
+}
+
+/** True when this node or any ancestor is the shared root of a component definition. */
+export function isShared(doc: Document, id: string) {
+  const roots = new Set(Object.values(doc.components).map((component) => component.root))
+  for (let current: string | null = id; current; current = doc.nodes[current]?.parent ?? null)
+    if (roots.has(current)) return true
+  return false
+}
+
+const tagLabels: Record<string, string> = {
+  div: 'Container',
+  section: 'Section',
+  p: 'Paragraph',
+  h1: 'Heading',
+  h2: 'Heading',
+  h3: 'Heading',
+  h4: 'Heading',
+  h5: 'Heading',
+  h6: 'Heading',
+}
+
+/** The name shown for an element in the layers, breadcrumbs, drag labels and the inspector. */
+export function nodeLabel(node: Node) {
+  if (node.meta?.label) return node.meta.label
+  return 'tag' in node ? (tagLabels[node.tag] ?? node.tag) : node.type
 }
 
 export function insertionTarget(
@@ -304,10 +330,7 @@ export function duplicateSelection(doc: Document, id: string) {
   if (reason) throw new Error(reason)
   const operations: Operation[] = []
   const node = copySubtree(doc, id, operations)
-  node.meta = {
-    ...node.meta,
-    label: `${doc.nodes[id]!.meta?.label ?? ('tag' in doc.nodes[id]! ? doc.nodes[id]!.tag : 'Element')} copy`,
-  }
+  node.meta = { ...node.meta, label: `${nodeLabel(doc.nodes[id]!)} copy` }
   operations.push({ type: 'node.create', ...insertionTarget(doc, '', id, 'after'), node })
   return { node, operations }
 }

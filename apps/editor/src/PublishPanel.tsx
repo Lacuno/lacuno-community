@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from './api.js'
+import { Dialog, ErrorNote } from './Dialog.js'
 import './publishing.css'
 
 type History = {
@@ -26,7 +27,6 @@ export function PublishPanel({
   revision: number
   close: () => void
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
   const [history, setHistory] = useState<History>()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -41,9 +41,6 @@ export function PublishPanel({
   )
   const pending =
     history?.releases.some((row) => row.status === 'queued' || row.status === 'building') ?? false
-  useEffect(() => {
-    dialog.current?.showModal()
-  }, [])
   // biome-ignore lint/correctness/useExhaustiveDependencies: accepting a new publish restarts polling after an idle history view.
   useEffect(() => {
     const controller = new AbortController()
@@ -84,25 +81,14 @@ export function PublishPanel({
   const current = history?.releases.find((row) => row.id === history.publishedId)
   const nextVersion = Math.max(0, ...(history?.releases.map((row) => row.version) ?? [])) + 1
   return (
-    <dialog
-      ref={dialog}
+    <Dialog
+      title="Publish your site"
+      label="Publishing and release history"
+      description="Publish a saved snapshot. Editing afterward will not change the live site."
       className="publish-dialog"
-      aria-label="Publishing and release history"
-      onCancel={(event) => {
-        event.preventDefault()
-        close()
-      }}
-      onKeyDown={(event) => event.stopPropagation()}
+      closeName="Close publishing"
+      close={close}
     >
-      <header>
-        <div>
-          <h2>Publish your site</h2>
-          <p>Publish a saved snapshot. Editing afterward will not change the live site.</p>
-        </div>
-        <button type="button" onClick={close} aria-label="Close publishing">
-          Close
-        </button>
-      </header>
       {!history && <p role="status">Loading releases…</p>}
       {history && (
         <>
@@ -230,11 +216,7 @@ export function PublishPanel({
           </ol>
         </>
       )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-    </dialog>
+      <ErrorNote message={error} />
+    </Dialog>
   )
 }

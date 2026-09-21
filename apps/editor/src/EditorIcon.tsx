@@ -20,6 +20,9 @@ const paths = {
   reset: 'M4 10a8 8 0 1 1 1 7M4 10V4M4 10h6',
   bolt: 'm13 2-8 12h6l-1 8 9-13h-6z',
   chevron: 'm9 6 6 6-6 6',
+  info: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 11v5M12 8h.01',
+  up: 'm6 11 6-6 6 6M12 5v14',
+  down: 'm6 13 6 6 6-6M12 19V5',
 } as const
 
 export function EditorIcon({ name }: { name: keyof typeof paths }) {

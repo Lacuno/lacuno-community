@@ -1,6 +1,6 @@
 import type { Operation } from '@freeflow/document'
 import type { Binding, Component, ComponentInstanceNode, Document } from '@freeflow/schema'
-import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 import {
   componentDeletionReason,
   componentNameError,
@@ -13,12 +13,20 @@ import {
   fieldRemovalReason,
   updateComponentFields,
 } from './components.js'
+import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { isLocked } from './structure.js'
 import { useAutosave } from './useAutosave.js'
 import './components.css'
 
 type Save = (operations: Operation[]) => Promise<boolean>
+
+const componentDialog = {
+  className: 'page-settings-dialog component-dialog',
+  closeLabel: '×',
+  closeName: 'Close',
+  closeClassName: 'component-close',
+}
 
 export function ComponentsPanel({
   doc,
@@ -141,7 +149,12 @@ function ComponentActionsDialog({
     else setError('Could not save component changes. Check the editor message and try again.')
   }
   return (
-    <ComponentDialog title={`Manage ${component.name}`} disabled={disabled} close={close}>
+    <Dialog
+      {...componentDialog}
+      title={`Manage ${component.name}`}
+      disabled={disabled}
+      close={close}
+    >
       <form
         onSubmit={(event) => {
           event.preventDefault()
@@ -200,62 +213,14 @@ function ComponentActionsDialog({
             </>
           )}
         </details>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorNote message={error} />
         <footer className="component-dialog-actions">
           <button type="button" disabled={disabled} onClick={close}>
             Close
           </button>
         </footer>
       </form>
-    </ComponentDialog>
-  )
-}
-
-function ComponentDialog({
-  title,
-  disabled,
-  close,
-  children,
-}: {
-  title: string
-  disabled: boolean
-  close: () => void
-  children: ReactNode
-}) {
-  const dialog = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    dialog.current?.showModal()
-    dialog.current?.querySelector('input')?.focus()
-  }, [])
-  return (
-    <dialog
-      ref={dialog}
-      className="page-settings-dialog component-dialog"
-      aria-label={title}
-      onKeyDown={(event) => event.stopPropagation()}
-      onCancel={(event) => {
-        event.preventDefault()
-        if (!disabled) close()
-      }}
-    >
-      <header>
-        <h2>{title}</h2>
-        <button
-          className="component-close"
-          type="button"
-          aria-label="Close"
-          disabled={disabled}
-          onClick={close}
-        >
-          ×
-        </button>
-      </header>
-      {children}
-    </dialog>
+    </Dialog>
   )
 }
 
@@ -279,7 +244,7 @@ export function CreateComponentDialog({
   const [error, setError] = useState('')
   const fields = componentTextFields(doc, selected)
   return (
-    <ComponentDialog title="Create component" disabled={disabled} close={close}>
+    <Dialog {...componentDialog} title="Create component" disabled={disabled} close={close}>
       <p className="hint">
         Reuse this element on other pages. Shared design changes update every instance.
       </p>
@@ -335,11 +300,7 @@ export function CreateComponentDialog({
             ))}
           </details>
         )}
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
+        <ErrorNote message={error} />
         <footer className="component-dialog-actions">
           <button type="button" disabled={disabled} onClick={close}>
             Cancel
@@ -349,7 +310,7 @@ export function CreateComponentDialog({
           </button>
         </footer>
       </form>
-    </ComponentDialog>
+    </Dialog>
   )
 }
 
@@ -473,7 +434,7 @@ export function ComponentInstancePanel({
   busy: boolean
   conflict: boolean
   save: Save
-  registerFlush: (flush: () => Promise<boolean>) => void
+  registerFlush: (flush: () => Promise<boolean>) => () => void
   dirtyChanged: (dirty: boolean) => void
   edit: () => void
   detach: () => void
@@ -490,16 +451,8 @@ export function ComponentInstancePanel({
     !conflict && !locked,
     busy,
     save,
+    { dirty, dirtyChanged, registerFlush },
   )
-  const flush = useRef(autosave.flush)
-  flush.current = autosave.flush
-  useEffect(() => {
-    registerFlush(() => flush.current())
-    return () => registerFlush(async () => true)
-  }, [registerFlush])
-  useEffect(() => {
-    dirtyChanged(dirty)
-  }, [dirty, dirtyChanged])
   return (
     <aside className="inspector component-inspector">
       <div className="selection-heading">
@@ -582,7 +535,7 @@ export function ComponentSettingsDialog({
     ),
   }
   return (
-    <ComponentDialog title="Component settings" disabled={disabled} close={close}>
+    <Dialog {...componentDialog} title="Component settings" disabled={disabled} close={close}>
       <form
         onSubmit={async (event) => {
           event.preventDefault()
@@ -716,11 +669,7 @@ export function ComponentSettingsDialog({
         {!editable.props.length && (
           <p className="hint">No editable defaults. Edit shared text on the canvas.</p>
         )}
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
+        <ErrorNote message={error} />
         <footer className="component-dialog-actions">
           <button type="button" disabled={disabled} onClick={close}>
             Cancel
@@ -730,7 +679,7 @@ export function ComponentSettingsDialog({
           </button>
         </footer>
       </form>
-    </ComponentDialog>
+    </Dialog>
   )
 }
 
@@ -747,17 +696,13 @@ export function DetachComponentDialog({
 }) {
   const [error, setError] = useState('')
   return (
-    <ComponentDialog title="Detach component" disabled={disabled} close={close}>
+    <Dialog {...componentDialog} title="Detach component" disabled={disabled} close={close}>
       <p>
         Detach “{name}” into independent elements? Its current content and appearance are kept, but
         it will stop receiving shared updates. Nested components remain linked.
       </p>
       <p className="hint">You can undo this change.</p>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
+      <ErrorNote message={error} />
       <footer className="component-dialog-actions">
         <button type="button" disabled={disabled} onClick={close}>
           Cancel
@@ -774,6 +719,6 @@ export function DetachComponentDialog({
           Detach component
         </button>
       </footer>
-    </ComponentDialog>
+    </Dialog>
   )
 }

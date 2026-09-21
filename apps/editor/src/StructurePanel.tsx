@@ -1,8 +1,10 @@
 import type { Operation } from '@freeflow/document'
 import type { Document } from '@freeflow/schema'
 import { useState } from 'react'
+import { EditorIcon } from './EditorIcon.js'
 import {
   insertionTarget,
+  nodeLabel,
   type Placement,
   type Preset,
   type Structure,
@@ -51,6 +53,7 @@ export function StructurePanel({
   }
   const up = siblingMove(doc, selected, -1)
   const down = siblingMove(doc, selected, 1)
+  const restriction = subtreeRestriction(doc, selected)
   const parent = target && doc.nodes[target.parent]
   return (
     <div className="structure-panel">
@@ -125,7 +128,7 @@ export function StructurePanel({
             {disabled
               ? 'Waiting for pending changes or a resolved conflict.'
               : reason ||
-                `Add to ${parent?.meta?.label ?? (parent && 'tag' in parent ? parent.tag : 'page')}, position ${(target?.index ?? 0) + 1}.`}
+                `Add to ${parent ? nodeLabel(parent) : 'page'}, position ${(target?.index ?? 0) + 1}.`}
           </p>
           <button
             type="button"
@@ -146,16 +149,16 @@ export function StructurePanel({
           <div className="element-edit-actions">
             <button
               type="button"
-              disabled={disabled || !!subtreeRestriction(doc, selected)}
-              title={subtreeRestriction(doc, selected)}
+              disabled={disabled || !!restriction}
+              title={restriction}
               onClick={() => nodeAction?.('duplicate')}
             >
               Duplicate element
             </button>
             <button
               type="button"
-              disabled={disabled || !!subtreeRestriction(doc, selected)}
-              title={subtreeRestriction(doc, selected)}
+              disabled={disabled || !!restriction}
+              title={restriction}
               onClick={() => nodeAction?.('delete')}
             >
               Delete element
@@ -194,10 +197,12 @@ export function StructurePanel({
           <div className="structure-order">
             <span>Layer order</span>
             <div className="history-controls">
-              {[
-                { name: 'Move up', operation: up, path: 'm6 11 6-6 6 6M12 5v14' },
-                { name: 'Move down', operation: down, path: 'm6 13 6 6 6-6M12 19V5' },
-              ].map(({ name, operation, path }) => (
+              {(
+                [
+                  { name: 'Move up', icon: 'up', operation: up },
+                  { name: 'Move down', icon: 'down', operation: down },
+                ] as const
+              ).map(({ name, icon, operation }) => (
                 <button
                   key={name}
                   type="button"
@@ -208,17 +213,7 @@ export function StructurePanel({
                     if (operation) void save([operation])
                   }}
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d={path} />
-                  </svg>
+                  <EditorIcon name={icon} />
                 </button>
               ))}
             </div>

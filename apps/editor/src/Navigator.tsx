@@ -3,7 +3,7 @@ import type { Document } from '@freeflow/schema'
 import { useEffect, useRef, useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
 import { presetValues } from './presets.js'
-import { structureRestriction } from './structure.js'
+import { nodeLabel, structureRestriction } from './structure.js'
 
 type Props = {
   doc: Document
@@ -44,10 +44,8 @@ export function Navigator({
   )
   const autoOpened = useRef(new Set<string>())
   const [renaming, setRenaming] = useState('')
-  const [name, setName] = useState('')
   const panel = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
-  const editing = useRef('')
   const childrenOf = (id: string) => {
     const node = doc.nodes[id]
     if (!node) return []
@@ -62,10 +60,7 @@ export function Navigator({
         for (const parent of path) ancestors.add(parent)
         return true
       }
-      const node = doc.nodes[id]
-      return (node?.type === 'component' ? [] : (node?.children ?? [])).some((child) =>
-        visit(child, [...path, id]),
-      )
+      return childrenOf(id).some((child) => visit(child, [...path, id]))
     }
     visit(root, [])
     const previouslyOpened = autoOpened.current
@@ -101,19 +96,14 @@ export function Navigator({
     })
   const rename = (id: string) => {
     if (disabled || structureRestriction(doc, id)) return
-    editing.current = id
     setRenaming(id)
-    setName(
-      doc.nodes[id]?.meta?.label ?? ('tag' in doc.nodes[id]! ? doc.nodes[id]!.tag : 'Element'),
-    )
   }
-  const finish = () => {
-    const id = editing.current
-    editing.current = ''
+  const finish = (id: string, value: string) => {
     setRenaming('')
     const node = doc.nodes[id]
-    if (node && name.trim() && name.trim() !== node.meta?.label)
-      void save([{ type: 'node.update', id, meta: { ...node.meta, label: name.trim() } }])
+    const label = value.trim()
+    if (node && label && label !== node.meta?.label)
+      void save([{ type: 'node.update', id, meta: { ...node.meta, label } }])
   }
   const render = (id: string, depth: number, path: string[]): React.ReactNode => {
     const node = doc.nodes[id]
@@ -122,20 +112,7 @@ export function Navigator({
     const label =
       (node.type === 'component' ? doc.components[node.component]?.name : undefined) ??
       node.meta?.label ??
-      (id === root
-        ? (rootLabel ?? 'Body')
-        : 'tag' in node
-          ? ((
-              {
-                div: 'Container',
-                section: 'Section',
-                p: 'Paragraph',
-                h1: 'Heading',
-                h2: 'Heading',
-                h3: 'Heading',
-              } as Record<string, string>
-            )[node.tag] ?? node.tag)
-          : node.type)
+      (id === root ? (rootLabel ?? 'Body') : nodeLabel(node))
     const values = presetValues(doc, node, {})
     const display = values.display
     const direction = values['flex-direction']
@@ -180,19 +157,15 @@ export function Navigator({
             <input
               ref={input}
               aria-label="Element name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              onBlur={finish}
+              defaultValue={nodeLabel(node)}
+              onBlur={(event) => finish(id, event.target.value)}
               onKeyDown={(event) => {
                 event.stopPropagation()
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  finish()
-                }
-                if (event.key === 'Escape') {
-                  editing.current = ''
-                  setRenaming('')
-                }
+                if (event.key !== 'Enter' && event.key !== 'Escape') return
+                event.preventDefault()
+                // Blur commits; Escape restores the saved name first, so it commits nothing.
+                if (event.key === 'Escape') event.currentTarget.value = node.meta?.label ?? ''
+                event.currentTarget.blur()
               }}
             />
           ) : (
