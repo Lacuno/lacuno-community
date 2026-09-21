@@ -1,59 +1,22 @@
-import type { Operation } from '@freeflow/document'
-import { applyPatches, invertPatches, type Patch } from '@freeflow/document/patch'
-import { type Document, parseDocument } from '@freeflow/schema'
-import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
-import { Brand } from './App.js'
-import { AssetsPanel, uploadImage } from './AssetsPanel.js'
-import { ApiError, api, message } from './api.js'
-import { editingBreakpoint } from './breakpoints.js'
-import { Canvas, type LivePreview } from './Canvas.js'
-import {
-  ComponentInstancePanel,
-  ComponentSettingsDialog,
-  ComponentsPanel,
-  CreateComponentDialog,
-  DetachComponentDialog,
-} from './ComponentsPanel.js'
-import { colorLabel, projectColors, colorPreview as swatchColor } from './colors.js'
-import {
-  componentEditingDocument,
-  componentUsage,
-  detachComponent,
-  insertComponent,
-} from './components.js'
-import { EditorIcon } from './EditorIcon.js'
-import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
+import { useId, useState } from 'react'
+import { message } from './api.js'
+import type { LivePreview } from './Canvas.js'
+import { CanvasPanel } from './CanvasPanel.js'
+import { ComponentDialogs } from './ComponentDialogs.js'
+import { EditorHeader } from './EditorHeader.js'
 import type { InlineTarget } from './InlineTextEditor.js'
-import { Inspector } from './Inspector.js'
-import { Navigator } from './Navigator.js'
-import { PagesPanel } from './PagesPanel.js'
+import { InspectorColumn } from './InspectorColumn.js'
 import { ProjectColors } from './ProjectColors.js'
 import { PublishPanel } from './PublishPanel.js'
-import { StructurePanel } from './StructurePanel.js'
-import {
-  duplicateSelection,
-  insertionTarget,
-  isLocked,
-  nodeLabel,
-  structureInsertion,
-  subtreeRestriction,
-} from './structure.js'
+import { Ribbon } from './Ribbon.js'
+import { type Panel, Sidebar } from './Sidebar.js'
+import { useDocumentSession } from './session.js'
+import { duplicateSelection, subtreeRestriction } from './structure.js'
+import { useComponentEditing } from './useComponentEditing.js'
+import { useImageDrop } from './useImageDrop.js'
+import { usePreview } from './usePreview.js'
 import { useStructureDrag } from './useStructureDrag.js'
 
-type Snapshot = { document: Document; revision: number }
-const InlineTextEditor = lazy(() =>
-  import('./InlineTextEditor.js').then((module) => ({ default: module.InlineTextEditor })),
-)
-type Preview = { html: string; revision: number; warnings: { node: string; message: string }[] }
-const sidebars = {
-  Add: 'plus',
-  Layers: 'layers',
-  Components: 'component',
-  Pages: 'page',
-  Assets: 'image',
-} as const
-type Sidebar = keyof typeof sidebars
 const ribbonGroups: Record<string, string> = {
   Layout: 'Spacing & shape',
   Appearance: 'Colors',
@@ -62,29 +25,18 @@ const ribbonGroups: Record<string, string> = {
 }
 
 export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
-  const [snapshot, setSnapshot] = useState<Snapshot>()
   const [ribbonHost, setRibbonHost] = useState<HTMLDivElement | null>(null)
   const [ribbonTab, setRibbonTab] = useState('Home')
-  const [sidebar, setSidebar] = useState<Sidebar>('Layers')
+  const [sidebar, setSidebar] = useState<Panel>('Layers')
+  const [sidebarExpanded, setSidebarExpanded] = useState(false)
   const [inlineTarget, setInlineTarget] = useState<InlineTarget>()
   const elementActionsId = useId()
   const ribbonGroup = ribbonGroups[ribbonTab] ?? 'Typography'
   const [pageId, setPageId] = useState('')
   const [entryId, setEntryId] = useState('')
   const [selected, setSelected] = useState('')
-  const [componentId, setComponentId] = useState('')
-  const [sidebarExpanded, setSidebarExpanded] = useState(false)
-  const [componentDialog, setComponentDialog] = useState<'create' | 'settings' | 'detach'>()
-  const returnSelection = useRef('')
   const [revealSelection, setRevealSelection] = useState(0)
-  const [preview, setPreview] = useState<Preview>()
   const [width, setWidth] = useState(1100)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [dirty, setDirty] = useState(false)
-  const [conflict, setConflict] = useState(false)
-  // 'Saved' until this session lands an edit: the only signal that a save has actually happened.
-  const [saved, setSaved] = useState(false)
   const [colorsOpen, setColorsOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
@@ -93,168 +45,33 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   })
   const [livePreview, setLivePreview] = useState<LivePreview>({})
   const [colorPreview, setColorPreview] = useState<LivePreview>({})
-  // Every open editing surface registers its flush and clears it again when it closes.
-  const flushes = useRef<(() => Promise<boolean>)[]>([])
-  const registerFlush = useCallback((flush: () => Promise<boolean>) => {
-    flushes.current.push(flush)
-    return () => {
-      flushes.current = flushes.current.filter((item) => item !== flush)
-    }
-  }, [])
-  const flushPending = async () => {
-    for (const flush of [...flushes.current]) if (!(await flush())) return false
-    return true
-  }
-  const [generation, setGeneration] = useState(0)
-  const [editHistory, setEditHistory] = useState(emptyHistory)
-  const inFlight = useRef(false)
-  const autoFlight = useRef(false)
-  const revision = snapshot?.revision
-  const doc = snapshot?.document
+  const session = useDocumentSession(siteId, {
+    blocked: !!inlineTarget,
+    setPageId,
+    onLeave: () => setInlineTarget(undefined),
+  })
+  const { doc, error, busy, conflict, unsettled, frozen, save, leave, setError } = session
   const page = doc?.pages[pageId]
-  const editingComponent = doc?.components[componentId]
-  const editingId = editingComponent?.id ?? ''
-  const componentRef = useRef(componentId)
-  componentRef.current = componentId
-  const editableDoc = useMemo(
-    () => doc && componentEditingDocument(doc, editingId),
-    [doc, editingId],
-  )
-  // Nothing may change the document while a save is in flight, edits are pending or it conflicts.
-  const unsettled = busy || dirty || conflict
-  const frozen = unsettled || !!inlineTarget
-  const editingRoot = editingComponent?.root ?? page?.root
+  const editing = useComponentEditing({
+    session,
+    pageRoot: page?.root,
+    selected,
+    setSelected,
+    setSidebar,
+  })
+  const { editableDoc, editingRoot } = editing
   const entries = page?.collection ? (doc?.entries[page.collection] ?? []) : []
   const activeEntry = entries.find((entry) => entry.id === entryId)?.id ?? entries[0]?.id ?? ''
-  // Only `load` parses: a committed document is already validated, and parsing it again would
-  // rebuild the whole object graph that applyPatches just shared structurally.
-  const acceptSnapshot = useCallback((next: Snapshot, { keepPanels = false } = {}) => {
-    setSnapshot(next)
-    if (componentRef.current && !next.document.components[componentRef.current]) {
-      // The edited definition was deleted: leave the shared editor the same way Done does.
-      setComponentId('')
-      setSelected(next.document.nodes[returnSelection.current] ? returnSelection.current : '')
-    }
-    setPageId((current) =>
-      next.document.pages[current]
-        ? current
-        : (Object.values(next.document.pages).find((item) => item.path === '/')?.id ??
-          Object.keys(next.document.pages)[0] ??
-          ''),
-    )
-    setConflict(false)
-    setError('')
-    // An autosave leaves the panel that made it alone: it owns its draft and its dirty flag.
-    if (!keepPanels) {
-      setDirty(false)
-      setGeneration((value) => value + 1)
-    }
-  }, [])
-  const load = useCallback(async () => {
-    const next = await api<Snapshot>(`/api/sites/${siteId}/document`)
-    acceptSnapshot({ ...next, document: parseDocument(next.document) })
-    setEditHistory(emptyHistory())
-  }, [siteId, acceptSnapshot])
-  useEffect(() => {
-    load().catch((e) => setError(e.message))
-  }, [load])
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a different page or entry must discard the prior canvas.
-  useEffect(() => {
-    setPreview(undefined)
-  }, [pageId, activeEntry, editingId])
-  useEffect(() => {
-    if (!pageId || revision === undefined) return
-    const controller = new AbortController()
-    api<Preview>(
-      `/api/sites/${siteId}/preview?page=${encodeURIComponent(pageId)}&entry=${encodeURIComponent(activeEntry)}${editingId ? `&component=${encodeURIComponent(editingId)}` : ''}`,
-      undefined,
-      controller.signal,
-    )
-      .then((data) => {
-        if (controller.signal.aborted) return
-        if (data.revision !== revision) {
-          if (inFlight.current) return
-          setConflict(true)
-          setError('This site changed in another session. Reload the latest version to continue.')
-        } else setPreview(data)
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message)
-      })
-    return () => controller.abort()
-  }, [siteId, pageId, activeEntry, revision, editingId])
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (dirty || busy) event.preventDefault()
-    }
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty, busy])
-  async function leave(action: () => void) {
-    if (inFlight.current && !autoFlight.current) return
-    if (
-      (dirty || busy) &&
-      !(await flushPending()) &&
-      !window.confirm('Discard your unsaved changes?')
-    )
-      return
-    setDirty(false)
-    setSaved(false)
-    setInlineTarget(undefined)
-    action()
-  }
-  /** Commits one batch and, once it lands, adopts its patches. `step` is the entry undo/redo replays. */
-  async function commit(
-    body: { operations: Operation[] } | { patches: Patch[] },
-    action: 'edit' | 'undo' | 'redo' | 'auto',
-    step?: HistoryEntry,
-  ) {
-    const batch = 'patches' in body ? body.patches : body.operations
-    if (!snapshot || conflict || inFlight.current || batch.length === 0) return false
-    inFlight.current = true
-    autoFlight.current = action === 'auto'
-    setBusy(true)
-    setError('')
-    setSaved(false)
-    try {
-      const result = await api<{ revision: number; patches: Patch[] }>(
-        `/api/sites/${siteId}/document/apply`,
-        { expectedRevision: snapshot.revision, ...body },
-      )
-      // Invert against the document the server planned from, so an undo restores it exactly.
-      const entry = step ?? {
-        undo: invertPatches(snapshot.document, result.patches),
-        redo: result.patches,
-      }
-      // Use this commit's patches, not a follow-up read that could include someone else's edits.
-      const document = applyPatches(snapshot.document, result.patches)
-      flushSync(() => {
-        acceptSnapshot(
-          { document: { ...document, revision: result.revision }, revision: result.revision },
-          { keepPanels: action === 'auto' },
-        )
-        // A batch that changed nothing leaves nothing to undo.
-        if (step || result.patches.length)
-          setEditHistory(committedHistory(editHistory, action === 'auto' ? 'edit' : action, entry))
-        setSaved(true)
-      })
-      return true
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        setConflict(true)
-        setError(
-          'This site changed in another session. Your draft is still here. Reload the latest version before editing again.',
-        )
-      } else setError(message(e, 'Could not save changes'))
-      return false
-    } finally {
-      inFlight.current = false
-      autoFlight.current = false
-      setBusy(false)
-    }
-  }
-  const save = (operations: Operation[], action: 'edit' | 'auto' = 'edit') =>
-    commit({ operations }, action)
+  const preview = usePreview({
+    siteId,
+    pageId,
+    activeEntry,
+    editingId: editing.editingId,
+    revision: session.revision,
+    onStale: session.onStale,
+    setError,
+  })
+  const { uploadingImage, dropImage } = useImageDrop({ siteId, session, setSelected })
   async function nodeAction(action: 'duplicate' | 'delete', id: string) {
     if (!editableDoc || unsettled) return
     if (action === 'delete') {
@@ -269,64 +86,6 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       setError(message(error))
     }
   }
-  const editComponent = (id: string) =>
-    void leave(() => {
-      if (!doc?.components[id]) return
-      if (!editingComponent) returnSelection.current = selected
-      setComponentId(id)
-      setSelected(doc.components[id]!.root)
-      setSidebar('Layers')
-    })
-  const addComponent = async (id: string) => {
-    if (!doc || !editingRoot) return
-    try {
-      const edit = insertComponent(doc, id, editingRoot, selected, editingId)
-      if (await save(edit.operations)) {
-        setSelected(edit.id)
-        setSidebar('Layers')
-      }
-    } catch (error) {
-      setError(message(error))
-    }
-  }
-  const [uploadingImage, setUploadingImage] = useState(false)
-  // The upload outlives the render that started it, so the write reads the document back.
-  const latest = useRef({ doc, save })
-  latest.current = { doc, save }
-  async function dropImage(id: string, file: File) {
-    if (uploadingImage) return
-    setUploadingImage(true)
-    setError('')
-    try {
-      const asset = await uploadImage(siteId, file)
-      if (!(await flushPending())) return
-      const { doc: current, save: write } = latest.current
-      const node = current?.nodes[id]
-      if (
-        !current ||
-        node?.type !== 'element' ||
-        node.tag !== 'img' ||
-        subtreeRestriction(current, id)
-      ) {
-        setError('This image can no longer be changed.')
-        return
-      }
-      const ok = await write([
-        ...(!current.assets[asset.id] ? [{ type: 'asset.create' as const, ...asset }] : []),
-        {
-          type: 'node.update',
-          id,
-          attrs: { ...node.attrs, src: { type: 'asset', asset: asset.id } },
-        },
-      ])
-      if (ok) setSelected(id)
-    } catch (error) {
-      setError(message(error, 'Could not upload image.'))
-    } finally {
-      setUploadingImage(false)
-    }
-  }
-  const canUndo = !!snapshot && editHistory.undo.length > 0 && !frozen
   const bindDragSurface = useStructureDrag({
     siteId,
     doc: editableDoc,
@@ -339,31 +98,6 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       setSidebar('Layers')
     },
   })
-  const canRedo = !!snapshot && editHistory.redo.length > 0 && !frozen
-  function travel(direction: 'undo' | 'redo') {
-    if (!(direction === 'undo' ? canUndo : canRedo)) return
-    const entry = editHistory[direction].at(-1)
-    if (entry) void commit({ patches: entry[direction] }, direction, entry)
-  }
-  const travelRef = useRef(travel)
-  travelRef.current = travel
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (
-        (event.target as Element | null)?.closest?.(
-          'input, textarea, select, [contenteditable="true"]',
-        )
-      )
-        return
-      const direction = historyShortcut(event)
-      if (direction) {
-        event.preventDefault()
-        travelRef.current(direction)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
   return (
     <div className="editor">
       {uploadingImage && (
@@ -371,191 +105,40 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           Uploading image…
         </div>
       )}
-      <header className="editor-header">
-        <button
-          type="button"
-          className="back-button"
-          onClick={() => leave(back)}
-          aria-label="Back to sites"
-        >
-          <EditorIcon name="back" />
-        </button>
-        <Brand />
-        <span className="header-divider" />
-        <span className="site-name">
-          {doc?.site.name ?? 'Opening site…'}
-          <span className="site-page-divider"> / </span>
-          {page?.name}
-        </span>
-        <div className="row history-controls">
-          <button
-            type="button"
-            onClick={() => travel('undo')}
-            disabled={!canUndo}
-            title="Undo saved edit (⌘/Ctrl Z)"
-            aria-label="Undo"
-            aria-keyshortcuts="Meta+Z Control+Z"
-          >
-            <EditorIcon name="undo" />
-          </button>
-          <button
-            type="button"
-            onClick={() => travel('redo')}
-            disabled={!canRedo}
-            title="Redo saved edit (⌘/Ctrl Shift Z)"
-            aria-label="Redo"
-            aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z Control+Y"
-          >
-            <EditorIcon name="redo" />
-          </button>
-        </div>
-        <span
-          className="save-state"
-          role="status"
-          data-state={conflict || error ? 'error' : busy || dirty ? 'pending' : 'saved'}
-        >
-          {conflict
-            ? 'Changes paused'
-            : error
-              ? 'Could not save'
-              : busy
-                ? 'Saving…'
-                : dirty
-                  ? 'Changes pending…'
-                  : saved
-                    ? 'All changes saved'
-                    : 'Saved'}
-        </span>
-        <button
-          type="button"
-          onClick={() =>
-            leave(() => {
-              load().catch((e) => setError(e.message))
-            })
-          }
-          disabled={busy}
-          aria-label="Reload site"
-          title="Reload site"
-          className="reload-button"
-        >
-          <EditorIcon name="reload" />
-        </button>
-        <button
-          type="button"
-          className="publish-trigger publish-action"
-          disabled={!snapshot || busy || conflict || uploadingImage}
-          onClick={async () => {
-            if (!(await flushPending())) {
-              setError('Finish or correct your pending edits before publishing.')
-              return
-            }
-            setDirty(false)
-            setInlineTarget(undefined)
-            setPublishOpen(true)
-          }}
-        >
-          Publish
-        </button>
-      </header>
-      {publishOpen && snapshot && (
+      <EditorHeader
+        session={session}
+        page={page}
+        back={back}
+        uploadingImage={uploadingImage}
+        publish={() => {
+          setInlineTarget(undefined)
+          setPublishOpen(true)
+        }}
+      />
+      {publishOpen && session.snapshot && (
         <PublishPanel
           siteId={siteId}
-          revision={snapshot.revision}
+          revision={session.snapshot.revision}
           close={() => setPublishOpen(false)}
         />
       )}
-      <section className="editor-ribbon" aria-label="Formatting ribbon">
-        <nav className="ribbon-tabs" aria-label="Formatting categories">
-          {['Home', 'Layout', 'Appearance', 'Effects', 'Motion'].map((tab) => (
-            <button
-              type="button"
-              key={tab}
-              aria-pressed={ribbonTab === tab}
-              disabled={!!inlineTarget}
-              className={ribbonTab === tab ? 'active' : ''}
-              onClick={() => setRibbonTab(tab)}
-            >
-              {tab}
-            </button>
-          ))}
-          <button type="button" className="ribbon-insert" onClick={() => setSidebar('Add')}>
-            <EditorIcon name="plus" />
-            Insert
-          </button>
-        </nav>
-        <div className="ribbon-body">
-          <div className="ribbon-controls" ref={setRibbonHost}>
-            {inlineTarget && doc && (
-              <Suspense fallback={<p className="hint">Opening text editor…</p>}>
-                <InlineTextEditor
-                  breakpoint={editingBreakpoint(doc, width)}
-                  target={inlineTarget}
-                  doc={doc}
-                  disabled={busy || conflict}
-                  save={save}
-                  close={() => setInlineTarget(undefined)}
-                  registerFlush={registerFlush}
-                  dirtyChanged={setDirty}
-                />
-              </Suspense>
-            )}
-            {(!doc || !selected || !doc.nodes[selected]) && (
-              <div className="ribbon-empty">
-                <EditorIcon name="text" />
-                <div>
-                  <strong>Select an element to format</strong>
-                  <span>Typography, colors and spacing, all in one place.</span>
-                </div>
-              </div>
-            )}
-            {doc?.nodes[selected]?.type === 'component' && (
-              <div className="ribbon-empty">
-                <EditorIcon name="component" />
-                <div>
-                  <strong>Component instance</strong>
-                  <span>
-                    Change its content in the inspector, or open the shared design to format it.
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="ribbon-project-colors">
-            <button
-              type="button"
-              aria-label="Project colors"
-              disabled={frozen || !doc}
-              onClick={() => setColorsOpen(true)}
-            >
-              <span className="ribbon-swatches">
-                {doc &&
-                  projectColors(doc)
-                    .slice(0, 4)
-                    .map((color) => (
-                      <span
-                        key={color.id}
-                        title={colorLabel(color.name)}
-                        style={{ background: swatchColor(doc, color.id) }}
-                      />
-                    ))}
-              </span>
-              <span>Project colors</span>
-            </button>
-          </div>
-        </div>
-      </section>
+      <Ribbon
+        session={session}
+        tab={ribbonTab}
+        setTab={setRibbonTab}
+        setHost={setRibbonHost}
+        inlineTarget={inlineTarget}
+        setInlineTarget={setInlineTarget}
+        selected={selected}
+        width={width}
+        setSidebar={setSidebar}
+        openColors={() => setColorsOpen(true)}
+      />
       {error && (
         <div className="error-banner" role="alert">
           {error}
           {conflict && (
-            <button
-              type="button"
-              onClick={() =>
-                leave(() => {
-                  load().catch((e) => setError(e.message))
-                })
-              }
-            >
+            <button type="button" onClick={() => session.reload()}>
               Reload latest
             </button>
           )}
@@ -567,429 +150,72 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           busy={busy}
           conflict={conflict}
           error={error}
-          dirtyChanged={setDirty}
+          dirtyChanged={session.setDirty}
           save={save}
           close={() => setColorsOpen(false)}
           leave={leave}
           autoSave={(operations) => save(operations, 'auto')}
           previewChanged={setColorPreview}
-          registerFlush={registerFlush}
+          registerFlush={session.registerFlush}
         />
       )}
-      {componentDialog === 'create' && editableDoc && (
-        <CreateComponentDialog
-          doc={editableDoc}
-          selected={selected}
-          disabled={unsettled}
-          save={save}
-          created={setSelected}
-          close={() => setComponentDialog(undefined)}
-        />
-      )}
-      {componentDialog === 'settings' && doc && editingComponent && (
-        <ComponentSettingsDialog
-          doc={doc}
-          component={editingComponent}
-          disabled={unsettled}
-          save={save}
-          close={() => setComponentDialog(undefined)}
-        />
-      )}
-      {componentDialog === 'detach' && doc && doc.nodes[selected]?.type === 'component' && (
-        <DetachComponentDialog
-          name={doc.components[doc.nodes[selected].component]!.name}
-          disabled={unsettled}
-          close={() => setComponentDialog(undefined)}
-          confirm={async () => {
-            try {
-              const edit = detachComponent(editableDoc ?? doc, selected)
-              const saved = await save(edit.operations)
-              if (saved) setSelected(edit.node.id)
-              return saved
-            } catch (error) {
-              setError(message(error))
-              return false
-            }
-          }}
-        />
-      )}
+      <ComponentDialogs
+        session={session}
+        editing={editing}
+        selected={selected}
+        setSelected={setSelected}
+      />
       <div className="editor-body" data-sidebar-expanded={sidebarExpanded}>
-        <aside className="layers-panel">
-          <nav className="sidebar-rail" aria-label="Editor panels">
-            {(Object.keys(sidebars) as Sidebar[]).map((name) => (
-              <button
-                key={name}
-                type="button"
-                aria-label={name}
-                title={name}
-                aria-pressed={sidebar === name}
-                onClick={() => setSidebar(name)}
-              >
-                <EditorIcon name={sidebars[name]} />
-                {sidebarExpanded && <span>{name}</span>}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="sidebar-expand"
-              aria-label={sidebarExpanded ? 'Collapse sidebar labels' : 'Expand sidebar labels'}
-              title={sidebarExpanded ? 'Hide tab names' : 'Show tab names'}
-              aria-expanded={sidebarExpanded}
-              onClick={() => setSidebarExpanded((expanded) => !expanded)}
-            >
-              <EditorIcon name={sidebarExpanded ? 'collapse' : 'expand'} />
-              {sidebarExpanded && <span>Collapse</span>}
-            </button>
-          </nav>
-          <section className="sidebar-content" aria-label={`${sidebar} panel`}>
-            {sidebar === 'Pages' && doc && (
-              <PagesPanel
-                doc={doc}
-                selected={pageId}
-                disabled={frozen}
-                save={save}
-                choose={(id) =>
-                  void leave(() => {
-                    setPageId(id)
-                    setComponentId('')
-                    setSelected('')
-                    setEntryId('')
-                    setError('')
-                  })
-                }
-              />
-            )}
-            {editableDoc && editingRoot && (
-              <div hidden={sidebar !== 'Assets'}>
-                <div className="panel-title">Assets</div>
-                <AssetsPanel
-                  siteId={siteId}
-                  doc={editableDoc}
-                  disabled={frozen}
-                  save={save}
-                  insert={async (assetId) => {
-                    let target: ReturnType<typeof insertionTarget> | undefined
-                    let refused = ''
-                    for (const placement of ['inside', 'after', 'page'] as const) {
-                      try {
-                        target = insertionTarget(editableDoc, editingRoot, selected, placement)
-                        break
-                      } catch (error) {
-                        refused = message(error)
-                      }
-                    }
-                    if (!target) {
-                      setError(refused)
-                      return
-                    }
-                    const edit = structureInsertion('image', target, '', false, assetId)
-                    if (await save(edit.operations)) {
-                      setSelected(edit.node.id)
-                      setSidebar('Layers')
-                    }
-                  }}
-                />
-              </div>
-            )}
-            {sidebar === 'Add' && (
-              <>
-                <div className="panel-title">Add elements</div>
-                {editableDoc && editingRoot && (
-                  <StructurePanel
-                    doc={editableDoc}
-                    root={editingRoot}
-                    selected={selected}
-                    disabled={frozen}
-                    save={save}
-                    select={(id) => {
-                      setSelected(id)
-                      setSidebar('Layers')
-                    }}
-                  />
-                )}
-              </>
-            )}
-            {sidebar === 'Components' && doc && editableDoc && (
-              <>
-                <div className="panel-title">
-                  Components <span>{Object.keys(doc.components).length}</span>
-                </div>
-                <ComponentsPanel
-                  save={save}
-                  doc={doc}
-                  editing={editingId}
-                  disabled={frozen}
-                  createReason={
-                    !selected
-                      ? 'Select an element or container on the canvas to create a component.'
-                      : editingComponent
-                        ? 'Return to the page to create a component from a selection.'
-                        : doc.nodes[selected]?.type === 'component'
-                          ? 'This selection is already a component.'
-                          : (subtreeRestriction(editableDoc, selected) ?? '')
-                  }
-                  create={() => setComponentDialog('create')}
-                  insert={(id) => void addComponent(id)}
-                  edit={editComponent}
-                />
-              </>
-            )}
-            {sidebar === 'Layers' && (
-              <>
-                <div className="panel-title">
-                  Layers
-                  <button
-                    type="button"
-                    className="element-actions-button"
-                    aria-label="Element actions"
-                    title="Element actions"
-                    disabled={!selected}
-                    popoverTarget={elementActionsId}
-                  >
-                    •••
-                  </button>
-                </div>
-                {editableDoc && editingRoot && (
-                  <div
-                    id={elementActionsId}
-                    popover="auto"
-                    className="element-actions-popover"
-                    key={selected}
-                  >
-                    <strong>
-                      {editableDoc.nodes[selected]
-                        ? nodeLabel(editableDoc.nodes[selected]!)
-                        : 'Element actions'}
-                    </strong>
-                    <StructurePanel
-                      nodeAction={(action) => void nodeAction(action, selected)}
-                      mode="actions"
-                      doc={editableDoc}
-                      root={editingRoot}
-                      selected={selected}
-                      disabled={frozen}
-                      save={save}
-                      select={setSelected}
-                    />
-                  </div>
-                )}
-                <div className="layer-list">
-                  {editableDoc && editingRoot && (
-                    <Navigator
-                      rootLabel={editingComponent?.name ?? 'Body'}
-                      reveal={revealSelection}
-                      key={editingRoot}
-                      disabled={frozen}
-                      save={save}
-                      nodeAction={(action, id) => void nodeAction(action, id)}
-                      doc={editableDoc}
-                      root={editingRoot}
-                      selected={selected}
-                      actions={(id) =>
-                        leave(() => {
-                          setSelected(id)
-                          requestAnimationFrame(() =>
-                            document.getElementById(elementActionsId)?.showPopover(),
-                          )
-                        })
-                      }
-                      select={(id) => {
-                        if (id !== selected) leave(() => setSelected(id))
-                      }}
-                    />
-                  )}
-                </div>
-              </>
-            )}
-          </section>
-        </aside>
-        <main className="canvas-panel">
-          {editingComponent && doc && (
-            <section className="component-editing-bar" aria-label="Shared component editing">
-              <EditorIcon name="component" />
-              <strong>{editingComponent.name}</strong>
-              <span>
-                Shared design · {componentUsage(doc, editingComponent.id)} instances affected
-              </span>
-              <button
-                type="button"
-                disabled={frozen}
-                onClick={() => setComponentDialog('settings')}
-              >
-                Component settings…
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void leave(() => {
-                    setComponentId('')
-                    setSelected(doc.nodes[returnSelection.current] ? returnSelection.current : '')
-                  })
-                }
-              >
-                Done
-              </button>
-            </section>
-          )}
-          <div className="canvas-toolbar">
-            <div className="row">
-              <span className="canvas-page">
-                <EditorIcon name="page" />
-                {page?.name ?? 'Canvas'}
-              </span>
-              {entries.length > 0 && (
-                <select
-                  aria-label="Collection entry"
-                  value={activeEntry}
-                  onChange={(event) => setEntryId(event.target.value)}
-                >
-                  {entries.map((entry, index) => (
-                    <option key={entry.id} value={entry.id}>
-                      {String(
-                        Object.values(entry.fields).find((value) => typeof value === 'string') ??
-                          `Entry ${index + 1}`,
-                      )}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <fieldset className="viewport-switch" aria-label="Canvas width">
-              {[
-                [1100, 'Desktop'],
-                [768, 'Tablet'],
-                [390, 'Mobile'],
-              ].map(([size, label]) => (
-                <button
-                  type="button"
-                  key={size}
-                  aria-label={String(label)}
-                  title={String(label)}
-                  className={width === size ? 'active' : ''}
-                  onClick={() => {
-                    if (width !== Number(size)) void leave(() => setWidth(Number(size)))
-                  }}
-                >
-                  <EditorIcon
-                    name={
-                      label === 'Desktop' ? 'desktop' : label === 'Tablet' ? 'tablet' : 'mobile'
-                    }
-                  />
-                </button>
-              ))}
-            </fieldset>
-            <span className="muted">{width}px</span>
-          </div>
-          <div className="canvas-workspace">
-            {preview ? (
-              <Canvas
-                editingText={!!inlineTarget}
-                onEditText={(id, element) => {
-                  const node = doc?.nodes[id]
-                  if (node?.type !== 'text' || frozen || !doc || isLocked(doc, id)) return
-                  if (node.text.type !== 'doc' && node.text.type !== 'static') return
-                  setSelected(id)
-                  setRibbonTab('Home')
-                  setInlineTarget({ node, element })
-                }}
-                onNodeAction={(action, id) => void nodeAction(action, id)}
-                bindDragSurface={bindDragSurface}
-                onHistory={travel}
-                livePreview={{ ...livePreview, ...colorPreview }}
-                onComputed={setComputed}
-                html={preview.html}
-                width={width}
-                selected={selected}
-                selectedName={doc?.nodes[selected] ? nodeLabel(doc.nodes[selected]!) : ''}
-                select={(id) => {
-                  setRevealSelection((value) => value + 1)
-                  if (id !== selected) leave(() => setSelected(id))
-                }}
-              />
-            ) : (
-              <div className="canvas-empty">
-                {error ? 'Preview unavailable' : 'Rendering your page…'}
-              </div>
-            )}
-          </div>
-          <footer className="canvas-footer">
-            <span className="canvas-breadcrumb">
-              {editingComponent?.name ?? page?.name ?? 'Page'}
-              <EditorIcon name="chevron" />
-              {selected && doc?.nodes[selected]
-                ? nodeLabel(doc.nodes[selected])
-                : 'Select an element'}
-            </span>
-            <span>
-              {preview?.warnings.length
-                ? `${preview.warnings.length} render warning(s)`
-                : 'Changes apply instantly'}
-            </span>
-          </footer>
-          {preview?.warnings.length ? (
-            <details className="warnings">
-              <summary>Render warnings</summary>
-              {preview.warnings.map((warning) => (
-                <p key={`${warning.node}-${warning.message}`}>{warning.message}</p>
-              ))}
-            </details>
-          ) : null}
-        </main>
-        {inlineTarget ? (
-          <aside className="inspector inspector-empty">
-            <h2>Editing text</h2>
-            <p>Select words on the canvas, then use Home to format them or add a link.</p>
-            <p>Done saves your text. Cancel discards this editing session.</p>
-          </aside>
-        ) : doc && doc.nodes[selected]?.type === 'component' ? (
-          <ComponentInstancePanel
-            key={`${selected}-${generation}`}
-            doc={doc}
-            node={doc.nodes[selected]}
-            busy={busy}
-            conflict={conflict}
-            save={(operations) => save(operations, 'auto')}
-            registerFlush={registerFlush}
-            dirtyChanged={setDirty}
-            edit={() => {
-              const node = doc.nodes[selected]
-              if (node?.type === 'component') editComponent(node.component)
-            }}
-            detach={() => setComponentDialog('detach')}
-          />
-        ) : doc && selected && doc.nodes[selected] ? (
-          <Inspector
-            siteId={siteId}
-            key={`${selected}-${generation}-${editingBreakpoint(doc, width)}`}
-            breakpoint={editingBreakpoint(doc, width)}
-            ribbonHost={ribbonHost}
-            ribbonGroup={ribbonGroup}
-            doc={doc}
-            node={doc.nodes[selected]}
-            computed={computed.id === selected ? computed.values : {}}
-            previewChanged={setLivePreview}
-            registerFlush={registerFlush}
-            busy={busy}
-            conflict={conflict}
-            save={save}
-            autoSave={(operations) => save(operations, 'auto')}
-            dirtyChanged={setDirty}
-          />
-        ) : (
-          <aside className="inspector">
-            <div className="selection-heading">
-              <strong>Design</strong>
-            </div>
-            <div className="inspector-empty">
-              <span className="empty-selection-icon">
-                <EditorIcon name="layer" />
-              </span>
-              <h2>Make it yours.</h2>
-              <p>Select an element on the canvas or in the layers to make it yours.</p>
-            </div>
-          </aside>
-        )}
+        <Sidebar
+          session={session}
+          editing={editing}
+          siteId={siteId}
+          sidebar={sidebar}
+          setSidebar={setSidebar}
+          expanded={sidebarExpanded}
+          setExpanded={setSidebarExpanded}
+          pageId={pageId}
+          setPageId={setPageId}
+          setEntryId={setEntryId}
+          selected={selected}
+          setSelected={setSelected}
+          revealSelection={revealSelection}
+          elementActionsId={elementActionsId}
+          nodeAction={(action, id) => void nodeAction(action, id)}
+        />
+        <CanvasPanel
+          session={session}
+          editing={editing}
+          page={page}
+          entries={entries}
+          activeEntry={activeEntry}
+          setEntryId={setEntryId}
+          preview={preview}
+          width={width}
+          setWidth={setWidth}
+          selected={selected}
+          setSelected={setSelected}
+          reveal={() => setRevealSelection((value) => value + 1)}
+          inlineTarget={inlineTarget}
+          setInlineTarget={setInlineTarget}
+          setRibbonTab={setRibbonTab}
+          nodeAction={(action, id) => void nodeAction(action, id)}
+          bindDragSurface={bindDragSurface}
+          livePreview={{ ...livePreview, ...colorPreview }}
+          setComputed={setComputed}
+        />
+        <InspectorColumn
+          session={session}
+          editing={editing}
+          siteId={siteId}
+          selected={selected}
+          width={width}
+          editingText={!!inlineTarget}
+          ribbonHost={ribbonHost}
+          ribbonGroup={ribbonGroup}
+          computed={computed}
+          setLivePreview={setLivePreview}
+        />
       </div>
     </div>
   )
