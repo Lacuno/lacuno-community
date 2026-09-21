@@ -1,5 +1,4 @@
 import type { Class, Document, State } from '@freeflow/schema'
-import { PSEUDO_ELEMENTS } from '@freeflow/schema'
 
 /**
  * Class names as they appear in the output. Named classes keep their user-facing name, made
@@ -67,8 +66,29 @@ const STATE_SELECTOR: Record<State, string> = {
   selection: '::selection',
 }
 
-export function isPseudoElement(state: State): boolean {
-  return PSEUDO_ELEMENTS.has(state)
+/**
+ * How deep a preset or local selector has to repeat itself to outrank the shared classes of a
+ * document. It depends on the whole class table, so it is derived once per name map rather than
+ * once per selector.
+ */
+const padding = new WeakMap<ClassNames, { shared: number; presets: boolean }>()
+
+function paddingFor(doc: Document, names: ClassNames): { shared: number; presets: boolean } {
+  let pad = padding.get(names)
+  if (!pad) {
+    const all = Object.values(doc.classes)
+    pad = {
+      shared: Math.max(
+        1,
+        ...all
+          .filter((item) => item.kind !== 'local' && !item.preset)
+          .map((item) => (item.combo?.length ?? 0) + 2),
+      ),
+      presets: all.some((item) => item.preset),
+    }
+    padding.set(names, pad)
+  }
+  return pad
 }
 
 /** `.button.primary:hover` for a combo class with a state. */
@@ -88,16 +108,25 @@ export function selectorFor(
   // Presets override ordinary shared styles; direct formatting overrides presets.
   // Use the same specificity in the canvas and published output.
   if (cls.preset || cls.kind === 'local') {
-    const specificity =
-      Math.max(
-        1,
-        ...Object.values(doc.classes)
-          .filter((item) => item.kind !== 'local' && !item.preset)
-          .map((item) => (item.combo?.length ?? 0) + 2),
-      ) + (cls.kind === 'local' && Object.values(doc.classes).some((item) => item.preset) ? 3 : 1)
+    const pad = paddingFor(doc, names)
+    const specificity = pad.shared + (cls.kind === 'local' && pad.presets ? 3 : 1)
     while (chain.length < specificity) chain.push(`.${names.get(classId)}`)
   }
   return `${chain.join('')}${STATE_SELECTOR[state]}`
+}
+
+/** Emission order: fewer compound parts first, then alphabetical, so combos follow their parents. */
+export function compareSelectors(
+  doc: Document,
+  names: ClassNames,
+): (a: string, b: string) => number {
+  return (a, b) => {
+    const left = selectorFor(doc, names, a, 'none')
+    const right = selectorFor(doc, names, b, 'none')
+    return (
+      left.split('.').length - right.split('.').length || (left < right ? -1 : left > right ? 1 : 0)
+    )
+  }
 }
 
 /** Class attribute value for a node, in node order. */

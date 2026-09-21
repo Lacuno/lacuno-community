@@ -8,7 +8,7 @@ import type {
   NodeId,
   RichText,
 } from '@freeflow/schema'
-import { isOptimizedImage, publicAssetPath } from './assets.js'
+import { isImage } from './assets.js'
 import { RenderError } from './errors.js'
 import { type AttrMap, escapeHtml, renderAttrs, VOID_TAGS } from './html.js'
 import type { ImageResolver } from './images.js'
@@ -23,11 +23,22 @@ export type RenderState = {
   doc: Document
   names: ClassNames
   resolveImage: ImageResolver
+  resolveAsset: (asset: AssetRef) => string
+  /** Class ids carrying a motion custom property, see `motionClasses`. */
+  motion: ReadonlySet<string>
   page: string
   warnings: Warning[]
   annotateNodes?: boolean
   editingComponent?: string
-  resolveAsset?: (asset: AssetRef) => string
+}
+
+/** The classes a `--ff-` declaration targets, gathered once so marking a node is a set lookup. */
+export function motionClasses(doc: Document): ReadonlySet<string> {
+  return new Set(
+    Object.values(doc.styles)
+      .filter((style) => style.property.startsWith('--ff-'))
+      .map((style) => style.class),
+  )
 }
 
 const DEFAULT_SIZES = '100vw'
@@ -36,12 +47,6 @@ function getNode(state: RenderState, id: NodeId): Node {
   const node = state.doc.nodes[id]
   if (!node) throw new RenderError(`unknown node ${id}`, id, state.page)
   return node
-}
-
-function checkClasses(node: Node, state: RenderState): void {
-  for (const c of node.classes) {
-    if (!state.doc.classes[c]) throw new RenderError(`unknown class ${c}`, node.id, state.page)
-  }
 }
 
 function isAsset(v: Resolved): v is AssetRef {
@@ -78,9 +83,9 @@ function resolveAttrs(
     if (v === true) {
       out[name] = true
     } else if (isAsset(v)) {
-      if (name === 'src' && tag === 'img' && isOptimizedImage(v)) imageAsset = v
-      else if (isOptimizedImage(v)) out[name] = state.resolveImage(v).src
-      else out[name] = (state.resolveAsset ?? publicAssetPath)(v)
+      if (name === 'src' && tag === 'img' && isImage(v)) imageAsset = v
+      else if (isImage(v)) out[name] = state.resolveImage(v).src
+      else out[name] = state.resolveAsset(v)
     } else if (isRichText(v)) {
       throw new RenderError(`attribute ${name} cannot hold rich text`, nodeId, state.page)
     } else {
@@ -106,13 +111,7 @@ function resolveAttrs(
     }
   }
   const node = state.doc.nodes[nodeId]
-  if (
-    node &&
-    Object.values(state.doc.styles).some(
-      (style) => node.classes.includes(style.class) && style.property.startsWith('--ff-'),
-    )
-  )
-    out['data-freeflow-motion'] = ''
+  if (node?.classes.some((c) => state.motion.has(c))) out['data-freeflow-motion'] = ''
   return imageAsset ? { attrs: out, imageAsset } : { attrs: out }
 }
 
@@ -169,11 +168,7 @@ function renderText(
     if (v === undefined || v === null) inner = ''
     else if (isRichText(v)) inner = richTextToHtml(v, warn, state.doc.pages)
     else if (isAsset(v))
-      inner = escapeHtml(
-        isOptimizedImage(v)
-          ? state.resolveImage(v).src
-          : (state.resolveAsset ?? publicAssetPath)(v),
-      )
+      inner = escapeHtml(isImage(v) ? state.resolveImage(v).src : state.resolveAsset(v))
     else inner = escapeHtml(String(v))
   }
   return `<${node.tag}${renderAttrs(attrs)}>${inner}</${node.tag}>`
@@ -198,8 +193,8 @@ function renderInstance(
   scope: Scope,
   state: RenderState,
 ): string {
-  const component = state.doc.components[node.component]
-  if (!component) throw new RenderError(`unknown component ${node.component}`, node.id, state.page)
+  // parseDocument has already checked every component, collection and class reference.
+  const component = state.doc.components[node.component]!
   if (node.overrides?.length)
     state.warnings.push({
       node: node.id,
@@ -237,9 +232,7 @@ function renderList(
   scope: Scope,
   state: RenderState,
 ): string {
-  const collection = state.doc.collections[node.collection]
-  if (!collection)
-    throw new RenderError(`unknown collection ${node.collection}`, node.id, state.page)
+  const collection = state.doc.collections[node.collection]!
   const { attrs } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
   if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
   const entries = applyQuery(state.doc.entries[node.collection] ?? [], node.query)
@@ -255,7 +248,6 @@ export function renderChildren(ids: readonly NodeId[], scope: Scope, state: Rend
 
 export function renderNode(id: NodeId, scope: Scope, state: RenderState): string {
   const node = getNode(state, id)
-  checkClasses(node, state)
   switch (node.type) {
     case 'element':
       return renderElement(node, scope, state)

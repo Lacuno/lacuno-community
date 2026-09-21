@@ -2,21 +2,22 @@ import { readFile, realpath } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { build } from '@freeflow/compiler/build'
 import type { DocumentStore, Operation } from '@freeflow/document'
-import type { Node } from '@freeflow/schema'
+import { Document, type Node } from '@freeflow/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { fail, InputError } from './errors.js'
-import { catalog, GUIDE_INTRO, index, operationGroups, WITHHELD_OPERATIONS } from './guide.js'
+import {
+  catalog,
+  GUIDE_INTRO,
+  index,
+  MCP_OPERATIONS,
+  operationGroups,
+  WITHHELD_OPERATIONS,
+} from './guide.js'
 import { outlineLines } from './outline.js'
 import { ok, text } from './result.js'
-import { documentJsonSchema, operationsJsonSchema } from './schemas.js'
 
 export type ServerOptions = { siteDir?: string }
-
-function ensure<V>(map: Record<string, V>, key: string, make: () => V): V {
-  if (!(key in map)) map[key] = make()
-  return map[key] as V
-}
 
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: 'freeflow', version: '0.0.0' })
@@ -32,7 +33,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       try {
         return text(group === undefined ? `${GUIDE_INTRO}\n${index()}` : catalog(group))
       } catch (e) {
-        return fail(e instanceof RangeError ? new InputError(e.message) : e)
+        return fail(e)
       }
     },
   )
@@ -92,17 +93,18 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         let bytes: Uint8Array
         if (file !== undefined) {
           if (!options.siteDir) throw new InputError('this server has no site folder')
-          const root = resolve(options.siteDir)
-          const resolved = resolve(root, file)
-          if (resolved !== root && !resolved.startsWith(root + sep))
+          // Canonical paths only: this sees through a symlink pointing out of the site folder,
+          // which a lexical comparison of the requested path would not.
+          const root = await realpath(resolve(options.siteDir))
+          let target: string
+          try {
+            target = await realpath(resolve(root, file))
+          } catch {
+            throw new InputError(`no file at ${file}`)
+          }
+          if (target !== root && !target.startsWith(root + sep))
             throw new InputError('path must be inside the site folder')
-          const [canonicalRoot, canonicalFile] = await Promise.all([
-            realpath(root),
-            realpath(resolved),
-          ])
-          if (canonicalFile !== canonicalRoot && !canonicalFile.startsWith(canonicalRoot + sep))
-            throw new InputError('path must be inside the site folder, including symlinks')
-          bytes = new Uint8Array(await readFile(canonicalFile))
+          bytes = new Uint8Array(await readFile(target))
         } else {
           bytes = new Uint8Array(Buffer.from(base64 as string, 'base64'))
         }
@@ -155,20 +157,16 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, components, collections, assets. No nodes, styles or entries.',
     },
     async () => {
-      const { document: d, revision } = store.read()
-      return ok({
-        revision,
-        site: d.site,
-        pages: d.pages,
-        folders: d.folders,
-        classes: d.classes,
-        breakpoints: d.breakpoints,
-        designTokens: d.designTokens,
-        components: d.components,
-        collections: d.collections,
-        assets: d.assets,
-        redirects: d.redirects,
-      })
+      const { document, revision } = store.read()
+      const {
+        version: _v,
+        revision: _r,
+        nodes: _n,
+        styles: _s,
+        entries: _e,
+        ...overview
+      } = document
+      return ok({ revision, ...overview })
     },
   )
 
@@ -231,21 +229,15 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       const out: Record<string, Record<string, Record<string, Record<string, unknown>>>> = {}
       for (const decl of Object.values(d.styles)) {
         if (cls !== undefined && decl.class !== cls) continue
-        const value = decl.important
+        const byClass = out[decl.class] ?? {}
+        const byBreakpoint = byClass[decl.breakpoint] ?? {}
+        const byState = byBreakpoint[decl.state] ?? {}
+        byState[decl.property] = decl.important
           ? { value: decl.value, important: true }
           : { value: decl.value }
-        const byClass = ensure<Record<string, Record<string, Record<string, unknown>>>>(
-          out,
-          decl.class,
-          () => ({}),
-        )
-        const byBreakpoint = ensure<Record<string, Record<string, unknown>>>(
-          byClass,
-          decl.breakpoint,
-          () => ({}),
-        )
-        const byState = ensure<Record<string, unknown>>(byBreakpoint, decl.state, () => ({}))
-        byState[decl.property] = value
+        byBreakpoint[decl.state] = byState
+        byClass[decl.breakpoint] = byBreakpoint
+        out[decl.class] = byClass
       }
       return ok(out)
     },
@@ -275,7 +267,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         {
           uri: uri.href,
           mimeType: 'application/json',
-          text: JSON.stringify(documentJsonSchema(), null, 2),
+          text: JSON.stringify(z.toJSONSchema(Document, { unrepresentable: 'any' }), null, 2),
         },
       ],
     }),
@@ -289,7 +281,17 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         {
           uri: uri.href,
           mimeType: 'application/json',
-          text: JSON.stringify(operationsJsonSchema(), null, 2),
+          text: JSON.stringify(
+            z.toJSONSchema(
+              z.discriminatedUnion(
+                'type',
+                MCP_OPERATIONS.map((o) => o.schema) as unknown as [z.ZodObject, ...z.ZodObject[]],
+              ),
+              { unrepresentable: 'any' },
+            ),
+            null,
+            2,
+          ),
         },
       ],
     }),

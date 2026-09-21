@@ -64,34 +64,27 @@ export type ScalarValue = z.infer<typeof ScalarValue>
  * `grid-area: 1 / 2`. Items may be scalars, nested lists (each shadow in `box-shadow: a, b`)
  * or functions.
  */
-export type ListValue = {
-  type: 'list'
-  separator: ' ' | ', ' | ' / '
-  values: CssValue[]
-}
-
-/** Function call such as clamp(), calc(), minmax(), repeat(). Arguments are values. */
-export type FunctionValue = {
-  type: 'fn'
-  name: string
-  args: CssValue[]
-}
-
-export type CssValue = ScalarValue | ListValue | FunctionValue
-
-export const ListValue: z.ZodType<ListValue> = z.object({
+export const ListValue = z.object({
   type: z.literal('list'),
   separator: z.enum([' ', ', ', ' / ']),
-  values: z.array(z.lazy(() => CssValue)).min(1),
+  get values() {
+    return z.array(CssValue).min(1)
+  },
 })
+export type ListValue = z.infer<typeof ListValue>
 
-export const FunctionValue: z.ZodType<FunctionValue> = z.object({
+/** Function call such as clamp(), calc(), minmax(), repeat(). Arguments are values. */
+export const FunctionValue = z.object({
   type: z.literal('fn'),
   name: z.string().regex(/^[a-z-]+$/),
-  args: z.array(z.lazy(() => CssValue)),
+  get args() {
+    return z.array(CssValue)
+  },
 })
+export type FunctionValue = z.infer<typeof FunctionValue>
 
-export const CssValue: z.ZodType<CssValue> = z.union([ScalarValue, ListValue, FunctionValue])
+export const CssValue = z.union([ScalarValue, ListValue, FunctionValue])
+export type CssValue = z.infer<typeof CssValue>
 
 export const px = (value: number): CssValue => ({ type: 'unit', value, unit: 'px' })
 export const rem = (value: number): CssValue => ({ type: 'unit', value, unit: 'rem' })

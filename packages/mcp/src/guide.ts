@@ -1,5 +1,6 @@
 import { OPERATIONS, type OperationDef } from '@freeflow/document'
 import { z } from 'zod'
+import { InputError } from './errors.js'
 
 export const GUIDE_INTRO = `# Freeflow document guide
 
@@ -46,7 +47,7 @@ export function index(): string {
 export function catalog(group: string): string {
   const groups = operationGroups()
   if (!groups.includes(group))
-    throw new RangeError(`unknown group ${group}; groups: ${groups.join(', ')}`)
+    throw new InputError(`unknown group ${group}; groups: ${groups.join(', ')}`)
   const ops = MCP_OPERATIONS.filter((o) => o.type.startsWith(`${group}.`))
   return ops
     .map(

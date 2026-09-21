@@ -1,5 +1,5 @@
 import type { AssetRef, Document } from '@freeflow/schema'
-import { assetFileName, isOptimizedImage, publicAssetPath } from './assets.js'
+import { assetFileName, isImage, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 
 export type ResolvedImage = {
@@ -50,7 +50,7 @@ export async function resolveAllImages(
   }
   const out = new Map<string, ResolvedImage>()
   for (const asset of Object.values(doc.assets)) {
-    if (!isOptimizedImage(asset)) continue
+    if (!isImage(asset)) continue
     const meta = byName.get(assetFileName(asset))
     if (!meta)
       throw new RenderError(`image ${asset.id} (${asset.name}) was not copied into the scaffold`)

@@ -1,4 +1,4 @@
-import { classNames, selectorFor } from '@freeflow/css'
+import { classNames, compareSelectors } from '@freeflow/css'
 import { nodesUsingClass, type Operation } from '@freeflow/document'
 import type { CssValue, Document, Node, StyleDecl } from '@freeflow/schema'
 import { styleKey } from '@freeflow/schema'
@@ -172,14 +172,7 @@ export function formattingOperations(
         doc.classes[classId]?.kind === 'local' &&
         (doc.classes[classId]?.combo ?? []).every((parent) => node.classes.includes(parent)),
     )
-    locals.sort((a, b) => {
-      const left = selectorFor(doc, names, a, 'none')
-      const right = selectorFor(doc, names, b, 'none')
-      return (
-        left.split('.').length - right.split('.').length ||
-        (left < right ? -1 : left > right ? 1 : 0)
-      )
-    })
+    locals.sort(compareSelectors(doc, names))
     const inherited = new Map<string, StyleDecl>()
     for (const classId of locals) {
       for (const style of Object.values(doc.styles).filter((style) => style.class === classId)) {

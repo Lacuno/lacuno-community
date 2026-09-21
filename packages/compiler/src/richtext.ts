@@ -5,7 +5,7 @@ import {
   safeTextStyleValue,
   textStyleProperties,
 } from '@freeflow/schema'
-import { escapeAttr, escapeHtml, type Warn } from './html.js'
+import { escapeAttr, escapeHtml, type OnWarn } from './html.js'
 
 type PmNode = {
   type?: string
@@ -26,7 +26,7 @@ const BLOCK_TAGS: Record<string, string> = {
 function renderMarks(
   text: string,
   marks: PmNode['marks'],
-  warn: Warn,
+  warn: OnWarn,
   pages?: Document['pages'],
 ): string {
   let out = text
@@ -79,11 +79,11 @@ function renderMarks(
   return out
 }
 
-function renderChildren(node: PmNode, warn: Warn, pages?: Document['pages']): string {
-  return (node.content ?? []).map((c) => renderNode(c, warn, pages)).join('')
+function renderProseChildren(node: PmNode, warn: OnWarn, pages?: Document['pages']): string {
+  return (node.content ?? []).map((c) => renderProseNode(c, warn, pages)).join('')
 }
 
-function renderNode(node: PmNode, warn: Warn, pages?: Document['pages']): string {
+function renderProseNode(node: PmNode, warn: OnWarn, pages?: Document['pages']): string {
   switch (node.type) {
     case 'text':
       return renderMarks(escapeHtml(node.text ?? ''), node.marks, warn, pages)
@@ -94,28 +94,29 @@ function renderNode(node: PmNode, warn: Warn, pages?: Document['pages']): string
     case 'heading': {
       const raw = Number(node.attrs?.level)
       const level = Number.isFinite(raw) ? Math.min(6, Math.max(1, Math.trunc(raw))) : 2
-      return `<h${level}>${renderChildren(node, warn, pages)}</h${level}>`
+      return `<h${level}>${renderProseChildren(node, warn, pages)}</h${level}>`
     }
     case 'codeBlock':
-      return `<pre><code>${renderChildren(node, warn, pages)}</code></pre>`
+      return `<pre><code>${renderProseChildren(node, warn, pages)}</code></pre>`
     default: {
       const tag = node.type ? BLOCK_TAGS[node.type] : undefined
-      if (tag) return `<${tag}>${renderChildren(node, warn, pages)}</${tag}>`
+      if (tag) return `<${tag}>${renderProseChildren(node, warn, pages)}</${tag}>`
       warn(`unknown rich text node ${node.type}`)
-      return renderChildren(node, warn, pages)
+      return renderProseChildren(node, warn, pages)
     }
   }
 }
 
 /** Tiptap JSON to HTML. Unknown nodes render their children and warn. */
-export function richTextToHtml(rt: RichText, warn: Warn, pages?: Document['pages']): string {
-  return (rt.content ?? []).map((c) => renderNode(c as PmNode, warn, pages)).join('')
+export function richTextToHtml(rt: RichText, warn: OnWarn, pages?: Document['pages']): string {
+  return (rt.content ?? []).map((c) => renderProseNode(c as PmNode, warn, pages)).join('')
 }
 
 /** A document that is exactly one paragraph renders without the wrapper, for headings and links. */
-export function richTextInlineHtml(rt: RichText, warn: Warn, pages?: Document['pages']): string {
+export function richTextInlineHtml(rt: RichText, warn: OnWarn, pages?: Document['pages']): string {
   const content = rt.content ?? []
   const only = content[0] as PmNode | undefined
-  if (content.length === 1 && only?.type === 'paragraph') return renderChildren(only, warn, pages)
+  if (content.length === 1 && only?.type === 'paragraph')
+    return renderProseChildren(only, warn, pages)
   return richTextToHtml(rt, warn, pages)
 }

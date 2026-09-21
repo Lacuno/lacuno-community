@@ -31,14 +31,6 @@ export const State = z.enum([
 ])
 export type State = z.infer<typeof State>
 
-export const PSEUDO_ELEMENTS: ReadonlySet<State> = new Set([
-  'placeholder',
-  'before',
-  'after',
-  'marker',
-  'selection',
-])
-
 export const Class = z.object({
   id: ClassId,
   /**
@@ -88,13 +80,4 @@ export function styleKey(
   d: Pick<StyleDecl, 'class' | 'breakpoint' | 'state' | 'property'>,
 ): string {
   return [d.class, d.breakpoint, d.state, d.property].join(STYLE_KEY_SEPARATOR)
-}
-
-export function parseStyleKey(
-  key: string,
-): Pick<StyleDecl, 'class' | 'breakpoint' | 'state' | 'property'> {
-  const parts = key.split(STYLE_KEY_SEPARATOR)
-  if (parts.length !== 4) throw new Error(`invalid style key: ${key}`)
-  const [cls, breakpoint, state, property] = parts as [string, string, string, string]
-  return { class: cls, breakpoint, state: State.parse(state), property }
 }

@@ -38,7 +38,7 @@ export const Font = z.strictObject({
   family: z.string().min(1),
   source: z.enum(['asset', 'system']),
   asset: AssetId.optional(),
-  weights: z.array(z.number().int()).optional(),
+  /** Families to fall back to. Descriptive only: nothing in the compiler reads it yet. */
   fallback: z.string().optional(),
 })
 export type Font = z.infer<typeof Font>

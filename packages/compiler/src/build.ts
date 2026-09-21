@@ -1,7 +1,6 @@
-import { lstat, mkdir, readFile, realpath, rm, stat, symlink } from 'node:fs/promises'
+import { lstat, readFile, realpath, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import sitemap from '@astrojs/sitemap'
 import { generateStylesheet } from '@freeflow/css'
 import { type Document, DocumentError, parseDocument } from '@freeflow/schema'
@@ -12,7 +11,7 @@ import { plainImageResolver } from './images.js'
 import type { Warning } from './nodes.js'
 import { render } from './render.js'
 import { enumerateRoutes } from './routes.js'
-import { writeScaffold } from './scaffold.js'
+import { link, writeScaffold } from './scaffold.js'
 
 export type BuildOptions = {
   /** Defaults to `<siteDir>/dist`. */
@@ -29,17 +28,13 @@ export type BuildResult = {
   durationMs: number
   outDir: string
   /** The scaffold root, kept after the build for inspection. */
-  cacheDir: string
+  scaffoldDir: string
 }
 
 const require = createRequire(import.meta.url)
 
-function packageDir(name: string, fallback: URL): string {
-  try {
-    return path.dirname(require.resolve(`${name}/package.json`))
-  } catch {
-    return fileURLToPath(fallback)
-  }
+function packageDir(name: string): string {
+  return path.dirname(require.resolve(`${name}/package.json`))
 }
 
 async function loadDocument(siteDir: string): Promise<Document> {
@@ -95,11 +90,6 @@ async function sharpDir(): Promise<string> {
     if (parent === dir) throw new BuildError('engine', 'sharp is not installed; run pnpm install')
     dir = parent
   }
-  try {
-    await stat(dir)
-  } catch {
-    throw new BuildError('engine', 'sharp is not installed; run pnpm install')
-  }
   return dir
 }
 
@@ -122,9 +112,8 @@ async function linkSharp(site: string): Promise<void> {
   }
   if (existing && !existing.isSymbolicLink()) return
   const target = await sharpDir()
-  await mkdir(path.dirname(at), { recursive: true })
   if (existing) await rm(at, { force: true })
-  await symlink(target, at, process.platform === 'win32' ? 'junction' : 'dir')
+  await link(target, at)
 }
 
 /**
@@ -175,7 +164,9 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
   }
 
   const doc = await loadDocument(site)
-  if (options.siteUrl) doc.site.url = options.siteUrl.replace(/\/+$/, '')
+  // The one place the site url is normalized, whether it came from the file or the option.
+  const url = options.siteUrl ?? doc.site.url
+  if (url) doc.site.url = url.replace(/\/+$/, '')
 
   // Dry render every route before Astro runs: catches reference errors early and collects
   // warnings, which Astro's build would otherwise swallow.
@@ -196,20 +187,15 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
     throw e
   }
 
-  const { css } = generateStylesheet(doc, {
-    assetUrl: (id) => {
-      const asset = doc.assets[id]
-      return asset ? publicAssetPath(asset) : undefined
-    },
-  })
+  const { css } = generateStylesheet(doc, { assetUrl: publicAssetPath })
 
   await writeScaffold({
     root,
     siteDir: site,
     doc,
     css,
-    astroDir: packageDir('astro', new URL('../node_modules/astro/', import.meta.url)),
-    compilerDir: packageDir('@freeflow/compiler', new URL('..', import.meta.url)),
+    astroDir: packageDir('astro'),
+    compilerDir: packageDir('@freeflow/compiler'),
   })
   await linkSharp(site)
 
@@ -251,6 +237,6 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
     warnings,
     durationMs: Date.now() - started,
     outDir,
-    cacheDir: root,
+    scaffoldDir: root,
   }
 }

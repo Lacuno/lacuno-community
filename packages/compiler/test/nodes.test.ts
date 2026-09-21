@@ -1,13 +1,21 @@
 import { classNames } from '@freeflow/css'
 import { createEmptyDocument, type Document, fixtureDocument, type Node } from '@freeflow/schema'
 import { describe, expect, it } from 'vitest'
-import { RenderError } from '../src/errors.js'
+import { publicAssetPath } from '../src/assets.js'
 import { plainImageResolver } from '../src/images.js'
-import { type RenderState, renderNode } from '../src/nodes.js'
+import { motionClasses, type RenderState, renderNode } from '../src/nodes.js'
 import type { Scope } from '../src/scope.js'
 
 function state(doc: Document): RenderState {
-  return { doc, names: classNames(doc), resolveImage: plainImageResolver, page: 'p', warnings: [] }
+  return {
+    doc,
+    names: classNames(doc),
+    resolveImage: plainImageResolver,
+    resolveAsset: publicAssetPath,
+    motion: motionClasses(doc),
+    page: 'p',
+    warnings: [],
+  }
 }
 const empty: Scope = { frames: [] }
 
@@ -123,7 +131,7 @@ describe('renderNode: elements and text', () => {
     expect(renderNode('source', empty, s)).toBe('<source src="/_astro/h.webp">')
   })
 
-  it('links non-image assets by public path and rejects unknown classes', () => {
+  it('links non-image assets by public path', () => {
     const doc = fixtureDocument()
     doc.assets['a-pdf'] = {
       id: 'a-pdf',
@@ -143,8 +151,6 @@ describe('renderNode: elements and text', () => {
       attrs: { href: { type: 'asset', asset: 'a-pdf' } },
     }
     expect(renderNode('link', empty, state(doc))).toBe('<a href="/assets/abc.pdf"></a>')
-    doc.nodes.link.classes = ['c-nope']
-    expect(() => renderNode('link', empty, state(doc))).toThrow(RenderError)
   })
 
   it('rejects unknown nodes and code components', () => {
@@ -263,7 +269,7 @@ describe('renderNode: components, slots, lists, embeds', () => {
     )
   })
 
-  it('warns on overrides and rejects unknown components', () => {
+  it('warns on instance overrides', () => {
     const doc = fixtureDocument()
     doc.nodes.inst = {
       id: 'inst',
@@ -280,8 +286,6 @@ describe('renderNode: components, slots, lists, embeds', () => {
     expect(s.warnings).toEqual([
       { node: 'inst', message: 'instance overrides are not supported yet and were ignored' },
     ])
-    doc.nodes.inst.component = 'cmp-nope'
-    expect(() => renderNode('inst', empty, state(doc))).toThrow('unknown component cmp-nope')
   })
 
   it('renders a collection list once per queried entry', () => {
@@ -293,9 +297,6 @@ describe('renderNode: components, slots, lists, embeds', () => {
         '<article class="card"><h3>Hello world</h3></article>' +
         '</div>',
     )
-    const posts = doc.nodes['n-posts'] as Extract<Node, { type: 'collection-list' }>
-    posts.collection = 'col-nope'
-    expect(() => renderNode('n-posts', empty, state(doc))).toThrow('unknown collection col-nope')
   })
 
   it('emits embeds verbatim', () => {

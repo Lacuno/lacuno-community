@@ -33,9 +33,8 @@ export function enumerateRoutes(doc: Document): Route[] {
       add({ path: page.path, page: page.id })
       continue
     }
-    const collection = doc.collections[page.collection]
-    if (!collection)
-      throw new RenderError(`unknown collection ${page.collection}`, undefined, page.id)
+    // parseDocument has already checked that the page's collection exists.
+    const collection = doc.collections[page.collection]!
     for (const entry of doc.entries[page.collection] ?? []) {
       add({
         path: routePath(page.path, entrySlug(entry, collection)),

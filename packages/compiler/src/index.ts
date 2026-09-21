@@ -1,7 +1,14 @@
-export { assetFileName, extensionForMime, isOptimizedImage, publicAssetPath } from './assets.js'
+export { assetFileName, extensionForMime, isImage, publicAssetPath } from './assets.js'
 export { BuildError, RenderError } from './errors.js'
 export { type HeadInput, renderHead } from './head.js'
-export { type AttrMap, escapeAttr, escapeHtml, renderAttrs, VOID_TAGS, type Warn } from './html.js'
+export {
+  type AttrMap,
+  escapeAttr,
+  escapeHtml,
+  type OnWarn,
+  renderAttrs,
+  VOID_TAGS,
+} from './html.js'
 export {
   type GetImage,
   IMAGE_WIDTHS,

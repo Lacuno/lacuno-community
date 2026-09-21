@@ -1,4 +1,4 @@
-import { classNames, selectorFor } from '@freeflow/css'
+import { classNames, compareSelectors } from '@freeflow/css'
 import type { Operation } from '@freeflow/document'
 import { type CssValue, type Document, type Node, styleKey } from '@freeflow/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
@@ -22,14 +22,7 @@ export function presetValues(
   const names = classNames(doc)
   const classes = node.classes
     .filter((id) => (doc.classes[id]?.combo ?? []).every((parent) => node.classes.includes(parent)))
-    .sort((a, b) => {
-      const left = selectorFor(doc, names, a, 'none')
-      const right = selectorFor(doc, names, b, 'none')
-      return (
-        left.split('.').length - right.split('.').length ||
-        (left < right ? -1 : left > right ? 1 : 0)
-      )
-    })
+    .sort(compareSelectors(doc, names))
   const values: Record<string, CssValue> = {}
   const important = new Set<string>()
   for (const property of properties) {

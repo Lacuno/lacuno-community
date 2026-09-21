@@ -1,6 +1,6 @@
 import { assembleDocument, render } from '@freeflow/compiler/render'
 import { generateStylesheet } from '@freeflow/css'
-import type { Document, Entry, Page } from '@freeflow/schema'
+import type { AssetRef, Document, Entry, Page } from '@freeflow/schema'
 
 export type CanvasResult = { html: string; warnings: { node: string; message: string }[] }
 
@@ -43,20 +43,19 @@ export function renderCanvas(
     }
     page = { ...page, root: body }
   }
-  const assetUrl = (hash: string) => `/api/sites/${encodeURIComponent(siteId)}/assets/${hash}`
+  const assetUrl = (asset: AssetRef) =>
+    `/api/sites/${encodeURIComponent(siteId)}/assets/${asset.hash}`
   const result = render(doc, page, entry, {
     annotateNodes: true,
     ...(editingComponent ? { editingComponent } : {}),
-    resolveAsset: (asset) => assetUrl(asset.hash),
+    resolveAsset: assetUrl,
     resolveImage: (asset) => ({
-      src: assetUrl(asset.hash),
+      src: assetUrl(asset),
       width: asset.width ?? 0,
       height: asset.height ?? 0,
     }),
   })
-  const { css } = generateStylesheet(doc, {
-    assetUrl: (id) => (doc.assets[id] ? assetUrl(doc.assets[id].hash) : undefined),
-  })
+  const { css } = generateStylesheet(doc, { assetUrl })
   // A second barrier in addition to the iframe sandbox: site code cannot execute, submit forms,
   // change the base URL, or load another frame in the editor's authenticated origin.
   const policy =

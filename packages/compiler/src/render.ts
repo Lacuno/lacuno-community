@@ -1,10 +1,11 @@
 import { classNames, MOTION_SCRIPT } from '@freeflow/css'
 import type { AssetRef, Document, Entry, Page } from '@freeflow/schema'
+import { publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { renderHead } from './head.js'
 import { renderAttrs } from './html.js'
 import type { ImageResolver } from './images.js'
-import { type RenderState, renderNode, type Warning } from './nodes.js'
+import { motionClasses, type RenderState, renderNode, type Warning } from './nodes.js'
 import { entrySlug, routePath } from './routes.js'
 import type { Scope } from './scope.js'
 
@@ -14,8 +15,6 @@ export type RenderContext = {
   annotateNodes?: boolean
   editingComponent?: string
   resolveAsset?: (asset: AssetRef) => string
-  /** Overrides `doc.site.url`. */
-  siteUrl?: string
 }
 
 export type RenderResult = {
@@ -23,10 +22,6 @@ export type RenderResult = {
   head: string
   body: string
   warnings: Warning[]
-}
-
-function normalizeSiteUrl(url: string | undefined): string | undefined {
-  return url ? url.replace(/\/+$/, '') : undefined
 }
 
 /** Pure: document and page in, head and body HTML out. Never touches the filesystem. */
@@ -39,9 +34,8 @@ export function render(
   const scope: Scope = { frames: [] }
   let slug: string | undefined
   if (page.collection) {
-    const collection = doc.collections[page.collection]
-    if (!collection)
-      throw new RenderError(`unknown collection ${page.collection}`, undefined, page.id)
+    // parseDocument has already checked that the page's collection exists.
+    const collection = doc.collections[page.collection]!
     if (!entry)
       throw new RenderError(
         `collection page ${page.id} rendered without an entry`,
@@ -56,21 +50,21 @@ export function render(
     doc,
     names: classNames(doc),
     resolveImage: ctx.resolveImage,
+    resolveAsset: ctx.resolveAsset ?? publicAssetPath,
+    motion: motionClasses(doc),
     page: page.id,
     warnings: [],
     ...(ctx.annotateNodes ? { annotateNodes: true } : {}),
     ...(ctx.editingComponent ? { editingComponent: ctx.editingComponent } : {}),
-    ...(ctx.resolveAsset ? { resolveAsset: ctx.resolveAsset } : {}),
   }
-  const siteUrl = normalizeSiteUrl(ctx.siteUrl ?? doc.site.url)
   const headInput = {
     doc,
     page,
     path: routePath(page.path, slug),
     resolveImage: ctx.resolveImage,
-    ...(ctx.resolveAsset ? { resolveAsset: ctx.resolveAsset } : {}),
+    resolveAsset: state.resolveAsset,
   }
-  const head = renderHead(siteUrl ? { ...headInput, siteUrl } : headInput)
+  const head = renderHead(doc.site.url ? { ...headInput, siteUrl: doc.site.url } : headInput)
   const body =
     renderNode(page.root, scope, state) +
     (doc.site.bodyCode ?? '') +

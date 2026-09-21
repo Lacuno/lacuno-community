@@ -47,18 +47,7 @@ export const FieldDef = z.discriminatedUnion('type', [
   z.strictObject({ ...FieldBase, type: z.literal('multi-reference'), reference: CollectionId }),
   z.strictObject({
     ...FieldBase,
-    type: z.enum([
-      'text',
-      'richtext',
-      'number',
-      'boolean',
-      'date',
-      'image',
-      'file',
-      'color',
-      'slug',
-      'link',
-    ]),
+    type: FieldType.exclude(['option', 'reference', 'multi-reference']),
   }),
 ])
 export type FieldDef = z.infer<typeof FieldDef>

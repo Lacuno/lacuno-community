@@ -1,13 +1,13 @@
-import type { Breakpoint, Document, State, StyleDecl } from '@freeflow/schema'
+import type { AssetRef, Breakpoint, Document, State, StyleDecl } from '@freeflow/schema'
 import { BASE_BREAKPOINT_ID, designTokenCssName, State as StateSchema } from '@freeflow/schema'
 import { MOTION_CSS } from './motion.js'
 import { compareProperties } from './order.js'
-import { type ClassNames, classNames, selectorFor } from './selector.js'
+import { type ClassNames, classNames, compareSelectors, selectorFor } from './selector.js'
 import { contextFromDocument, serializeValue, type ValueContext } from './value.js'
 
 export type GenerateOptions = {
-  /** Resolve an asset id to a URL for `url()` values. */
-  assetUrl?: (id: string) => string | undefined
+  /** Resolve an asset to a URL for `url()` values. */
+  assetUrl?: (asset: AssetRef) => string
   /** Emit a small reset before site rules. On by default. */
   reset?: boolean
 }
@@ -23,7 +23,7 @@ const STATE_ORDER: readonly State[] = StateSchema.options
  * A minimal, opinionated reset. Enough that the box model behaves and no more, so the site's
  * own classes stay in charge.
  */
-export const RESET = `*, *::before, *::after { box-sizing: border-box; }
+const RESET = `*, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; min-height: 100dvh; }
 img, video, svg { display: block; max-width: 100%; height: auto; }
@@ -31,31 +31,28 @@ button, input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; }`
 
 /** Emit `:root` design tokens for the default mode and overrides per extra mode. */
-export function generateDesignTokens(doc: Document, ctx: ValueContext): string {
+function generateDesignTokens(doc: Document, ctx: ValueContext): string {
   const modes = doc.site.modes
   const def = modes.find((m) => m.default) ?? modes[0]
   if (!def) return ''
   const designTokens = Object.values(doc.designTokens).sort((a, b) => (a.name < b.name ? -1 : 1))
+  const lines = (mode: string): string[] =>
+    designTokens
+      .map((t) => {
+        const v = t.values[mode]
+        return v ? `  ${designTokenCssName(t.name)}: ${serializeValue(v, ctx)};` : undefined
+      })
+      .filter((l): l is string => !!l)
   const blocks: string[] = []
 
-  const rootLines = designTokens
-    .map((t) => {
-      const v = t.values[def.id]
-      return v ? `  ${designTokenCssName(t.name)}: ${serializeValue(v, ctx)};` : undefined
-    })
-    .filter((l): l is string => !!l)
+  const rootLines = lines(def.id)
   if (rootLines.length) blocks.push(`:root {\n${rootLines.join('\n')}\n}`)
 
   for (const mode of modes) {
     if (mode === def) continue
-    const lines = designTokens
-      .map((t) => {
-        const v = t.values[mode.id]
-        return v ? `  ${designTokenCssName(t.name)}: ${serializeValue(v, ctx)};` : undefined
-      })
-      .filter((l): l is string => !!l)
-    if (!lines.length) continue
-    const body = lines.join('\n')
+    const own = lines(mode.id)
+    if (!own.length) continue
+    const body = own.join('\n')
     if (mode.media) {
       // Media applies only when no explicit theme is forced on the root.
       blocks.push(
@@ -113,15 +110,7 @@ function generateRules(
     }
     list.push(d)
   }
-  const classIds = [...byClass.keys()].sort((a, b) => {
-    const sa = selectorFor(doc, names, a, 'none')
-    const sb = selectorFor(doc, names, b, 'none')
-    // Fewer compound parts first, then alphabetical.
-    const da = sa.split('.').length
-    const db = sb.split('.').length
-    if (da !== db) return da - db
-    return sa < sb ? -1 : sa > sb ? 1 : 0
-  })
+  const classIds = [...byClass.keys()].sort(compareSelectors(doc, names))
 
   const rules: string[] = []
   for (const classId of classIds) {

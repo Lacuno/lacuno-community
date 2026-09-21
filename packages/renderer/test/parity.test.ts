@@ -63,7 +63,7 @@ it.each([
           }),
           resolveAsset: (asset) => `/api/sites/site-test/assets/${asset.hash}`,
         })
-        compiled.head += `\n<style>${generateStylesheet(doc, { assetUrl: (id) => `/api/sites/site-test/assets/${doc.assets[id]!.hash}` }).css}</style>`
+        compiled.head += `\n<style>${generateStylesheet(doc, { assetUrl: (asset) => `/api/sites/site-test/assets/${asset.hash}` }).css}</style>`
         const canvas = renderCanvas(doc, page, entry, 'site-test')
         const normalized = canvas.html
           .replace(/ data-freeflow-node="[^"]*"/g, '')

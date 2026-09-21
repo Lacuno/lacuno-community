@@ -34,17 +34,6 @@ describe('render', () => {
     expect(assembleDocument(result)).toMatchSnapshot()
   })
 
-  it('lets the context site url override the document and trims a trailing slash', () => {
-    const doc = fixtureDocument()
-    doc.site.url = 'https://doc.example'
-    const result = render(doc, doc.pages['p-home']!, undefined, {
-      ...ctx,
-      siteUrl: 'https://ctx.example/',
-    })
-    expect(result.head).toContain('href="https://ctx.example/"')
-    expect(result.head).not.toContain('doc.example')
-  })
-
   it('appends site and page body code at the end of the body', () => {
     const doc = fixtureDocument()
     doc.site.bodyCode = '<script>a()</script>'

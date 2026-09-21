@@ -1,5 +1,5 @@
 import type { AssetRef, Document, Page } from '@freeflow/schema'
-import { extensionForMime, publicAssetPath } from './assets.js'
+import { extensionForMime, isImage, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { escapeAttr, escapeHtml } from './html.js'
 import type { ImageResolver } from './images.js'
@@ -40,7 +40,11 @@ function cssString(s: string): string {
 }
 
 /** Asset fonts get a preload and a font-face rule. System fonts need nothing. No third parties. */
-function renderFonts(doc: Document, page: Page, resolveAsset = publicAssetPath): string[] {
+function renderFonts(
+  doc: Document,
+  page: Page,
+  resolveAsset: (asset: AssetRef) => string,
+): string[] {
   const out: string[] = []
   const faces: string[] = []
   for (const f of doc.site.fonts) {
@@ -63,6 +67,7 @@ function renderFonts(doc: Document, page: Page, resolveAsset = publicAssetPath):
 
 export function renderHead(input: HeadInput): string {
   const { doc, page, path } = input
+  const resolveAsset = input.resolveAsset ?? publicAssetPath
   const siteUrl = input.siteUrl ? input.siteUrl.replace(/\/+$/, '') : undefined
   const seo = page.seo
   const title = seo?.title ?? page.name
@@ -79,7 +84,7 @@ export function renderHead(input: HeadInput): string {
   const favicon = doc.site.favicon ? doc.assets[doc.site.favicon] : undefined
   if (favicon)
     parts.push(
-      `<link rel="icon" type="${escapeAttr(favicon.mime)}" href="${escapeAttr((input.resolveAsset ?? publicAssetPath)(favicon))}">`,
+      `<link rel="icon" type="${escapeAttr(favicon.mime)}" href="${escapeAttr(resolveAsset(favicon))}">`,
     )
   parts.push(og('og:type', 'website'))
   parts.push(og('og:title', title))
@@ -89,13 +94,10 @@ export function renderHead(input: HeadInput): string {
   if (seo?.ogImage) {
     const asset = doc.assets[seo.ogImage]
     if (!asset) throw new RenderError(`unknown og image ${seo.ogImage}`, undefined, page.id)
-    const src =
-      asset.kind === 'image'
-        ? input.resolveImage(asset).src
-        : (input.resolveAsset ?? publicAssetPath)(asset)
+    const src = isImage(asset) ? input.resolveImage(asset).src : resolveAsset(asset)
     parts.push(og('og:image', absolute(src)))
   }
-  parts.push(...renderFonts(doc, page, input.resolveAsset))
+  parts.push(...renderFonts(doc, page, resolveAsset))
   if (doc.site.headCode) parts.push(doc.site.headCode)
   if (page.headCode) parts.push(page.headCode)
   return parts.join('\n')

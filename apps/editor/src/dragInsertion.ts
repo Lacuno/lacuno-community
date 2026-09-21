@@ -1,5 +1,5 @@
 import { classNames, generateStylesheet } from '@freeflow/css'
-import { type Document as SiteDocument, styleKey } from '@freeflow/schema'
+import { type AssetRef, type Document as SiteDocument, styleKey } from '@freeflow/schema'
 import type { InsertNode } from './history.js'
 import { type DragItem, structureInsertion } from './structure.js'
 
@@ -27,8 +27,8 @@ export function dragInsertion(
     }
   }
   const names = classNames(draft)
-  const assetUrl = (id: string) =>
-    doc.assets[id] && `/api/sites/${encodeURIComponent(siteId)}/assets/${doc.assets[id]!.hash}`
+  const assetUrl = (asset: AssetRef) =>
+    `/api/sites/${encodeURIComponent(siteId)}/assets/${asset.hash}`
   const render = (node: InsertNode): HTMLElement => {
     const placeholder = node.tag === 'img' && !node.attrs?.src
     const element = surface.createElement(placeholder ? 'div' : node.tag)
@@ -42,8 +42,8 @@ export function dragInsertion(
       element.textContent = String(node.text.value)
     for (const [name, value] of Object.entries(node.attrs ?? {})) {
       if (value.type === 'static') element.setAttribute(name, String(value.value))
-      if (value.type === 'asset' && assetUrl(value.asset))
-        element.setAttribute(name, assetUrl(value.asset)!)
+      const asset = value.type === 'asset' ? doc.assets[value.asset] : undefined
+      if (asset) element.setAttribute(name, assetUrl(asset))
     }
     for (const child of node.children ?? []) element.append(render(child))
     return element

@@ -15,6 +15,9 @@ import {
  * CRDT-friendly moves.
  */
 
+/** Every element-bearing node carries a tag, and they all accept the same names. */
+const Tag = z.string().regex(/^[a-z][a-z0-9-]*$/)
+
 /** A value that can be static or bound to content. */
 export const Binding = z.discriminatedUnion('type', [
   z.object({ type: z.literal('static'), value: z.union([z.string(), z.number(), z.boolean()]) }),
@@ -61,13 +64,13 @@ export const ElementNode = z.object({
   ...Base,
   type: z.literal('element'),
   /** Always explicit. Freeflow never infers a tag from a component name. */
-  tag: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  tag: Tag,
 })
 
 export const TextNode = z.object({
   ...Base,
   type: z.literal('text'),
-  tag: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  tag: Tag,
   text: z.union([RichText, Binding]),
 })
 
@@ -89,7 +92,7 @@ export const SlotNode = z.object({
 export const CollectionListNode = z.object({
   ...Base,
   type: z.literal('collection-list'),
-  tag: z.string().regex(/^[a-z][a-z0-9-]*$/),
+  tag: Tag,
   collection: CollectionId,
   query: z
     .strictObject({

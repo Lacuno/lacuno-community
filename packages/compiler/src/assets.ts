@@ -30,7 +30,7 @@ export function publicAssetPath(asset: AssetRef): string {
   return `/assets/${assetFileName(asset)}`
 }
 
-/** Assets Astro optimizes. Everything else is copied to public/. */
-export function isOptimizedImage(asset: AssetRef): boolean {
+/** Images, the assets Astro optimizes. Everything else is copied to public/ as it is. */
+export function isImage(asset: AssetRef): boolean {
   return asset.kind === 'image'
 }

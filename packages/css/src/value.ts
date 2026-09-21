@@ -1,4 +1,4 @@
-import type { CssValue, Document } from '@freeflow/schema'
+import type { AssetRef, CssValue, Document } from '@freeflow/schema'
 import { designTokenCssName } from '@freeflow/schema'
 
 export type ValueContext = {
@@ -8,11 +8,14 @@ export type ValueContext = {
 
 export function contextFromDocument(
   doc: Document,
-  assetUrl: (id: string) => string | undefined = () => undefined,
+  assetUrl?: (asset: AssetRef) => string,
 ): ValueContext {
   return {
     designTokenName: (id) => doc.designTokens[id]?.name,
-    assetUrl,
+    assetUrl: (id) => {
+      const asset = doc.assets[id]
+      return asset && assetUrl ? assetUrl(asset) : undefined
+    },
   }
 }
 

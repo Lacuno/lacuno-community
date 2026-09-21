@@ -2,7 +2,7 @@ import type { Document, Node, NodeId } from '@freeflow/schema'
 
 function snippet(node: Node): string {
   if (node.type !== 'text') return ''
-  if ('type' in node.text && node.text.type === 'doc') {
+  if (node.text.type === 'doc') {
     const words: string[] = []
     const walk = (n: unknown) => {
       if (!n || typeof n !== 'object') return
@@ -14,8 +14,9 @@ function snippet(node: Node): string {
     const s = words.join('')
     return s.length > 40 ? `${s.slice(0, 40)}…` : s
   }
+  // Every binding but `static` names its target under a key equal to its own type.
   const b = node.text as { type: string } & Record<string, unknown>
-  return `{${b.type}:${String(b[b.type === 'static' ? 'value' : b.type === 'field' ? 'field' : b.type === 'prop' ? 'prop' : b.type])}}`
+  return `{${b.type}:${String(b.type === 'static' ? b.value : b[b.type])}}`
 }
 
 function label(node: Node): string {

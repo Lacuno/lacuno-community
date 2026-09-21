@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   AssetHash,
+  type CollectionListNode,
+  type ComponentInstanceNode,
   checkReferences,
   createEmptyDocument,
   DocumentError,
@@ -9,7 +11,6 @@ import {
   hashAsset,
   newId,
   parseDocument,
-  parseStyleKey,
   styleKey,
 } from '../src/index.js'
 
@@ -57,6 +58,15 @@ describe('document schema', () => {
     expect(msgs).toContain('unknown class c-missing')
     expect(msgs).toContain('unknown mode sepia')
     expect(msgs).toContain('unknown combo parent c-gone')
+  })
+
+  it('rejects nodes pointing at an unknown component or collection', () => {
+    const doc = fixtureDocument()
+    ;(doc.nodes['n-post-card'] as ComponentInstanceNode).component = 'cmp-nope'
+    ;(doc.nodes['n-posts'] as CollectionListNode).collection = 'col-nope'
+    const msgs = checkReferences(doc).map((i) => i.message)
+    expect(msgs).toContain('unknown component cmp-nope')
+    expect(msgs).toContain('unknown collection col-nope')
   })
 
   it('rejects a style whose key does not match its coordinates', () => {
@@ -195,16 +205,9 @@ describe('document schema', () => {
 })
 
 describe('helpers', () => {
-  it('style keys round-trip', () => {
+  it('style keys join the four coordinates', () => {
     const k = styleKey({ class: 'a', breakpoint: 'base', state: 'hover', property: 'color' })
     expect(k).toBe('a|base|hover|color')
-    expect(parseStyleKey(k)).toEqual({
-      class: 'a',
-      breakpoint: 'base',
-      state: 'hover',
-      property: 'color',
-    })
-    expect(() => parseStyleKey('a|b')).toThrow()
   })
 
   it('design token css names are custom properties', () => {

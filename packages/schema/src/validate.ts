@@ -1,5 +1,5 @@
 import { Document } from './document.js'
-import { BASE_BREAKPOINT_ID, parseStyleKey, styleKey } from './styles.js'
+import { BASE_BREAKPOINT_ID, styleKey } from './styles.js'
 
 export type Issue = { path: string; message: string }
 
@@ -26,11 +26,6 @@ export function checkReferences(doc: Document): Issue[] {
     if (!doc.classes[decl.class]) add(`styles.${key}`, `unknown class ${decl.class}`)
     if (!doc.breakpoints[decl.breakpoint])
       add(`styles.${key}`, `unknown breakpoint ${decl.breakpoint}`)
-    try {
-      parseStyleKey(key)
-    } catch (e) {
-      add(`styles.${key}`, (e as Error).message)
-    }
   }
 
   for (const [id, cls] of Object.entries(doc.classes)) {

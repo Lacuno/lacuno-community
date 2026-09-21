@@ -1,11 +1,6 @@
 import type { AssetRef } from '@freeflow/schema'
 import { describe, expect, it } from 'vitest'
-import {
-  assetFileName,
-  extensionForMime,
-  isOptimizedImage,
-  publicAssetPath,
-} from '../src/assets.js'
+import { assetFileName, extensionForMime, isImage, publicAssetPath } from '../src/assets.js'
 
 describe('extensionForMime', () => {
   it('maps known MIME types to extensions', () => {
@@ -73,7 +68,7 @@ describe('publicAssetPath', () => {
   })
 })
 
-describe('isOptimizedImage', () => {
+describe('isImage', () => {
   it('returns true for image assets', () => {
     const asset: AssetRef = {
       id: 'a-5',
@@ -83,7 +78,7 @@ describe('isOptimizedImage', () => {
       kind: 'image',
       size: 1024,
     }
-    expect(isOptimizedImage(asset)).toBe(true)
+    expect(isImage(asset)).toBe(true)
   })
 
   it('returns false for non-image assets', () => {
@@ -95,7 +90,7 @@ describe('isOptimizedImage', () => {
       kind: 'file',
       size: 512,
     }
-    expect(isOptimizedImage(svg)).toBe(false)
+    expect(isImage(svg)).toBe(false)
 
     const file: AssetRef = {
       id: 'a-7',
@@ -105,6 +100,6 @@ describe('isOptimizedImage', () => {
       kind: 'file',
       size: 2048,
     }
-    expect(isOptimizedImage(file)).toBe(false)
+    expect(isImage(file)).toBe(false)
   })
 })

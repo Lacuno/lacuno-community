@@ -1,7 +1,7 @@
 import { copyFile, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { CssValue, Document } from '@freeflow/schema'
-import { assetFileName, isOptimizedImage } from './assets.js'
+import { assetFileName, isImage } from './assets.js'
 import { BuildError } from './errors.js'
 
 export type ScaffoldInput = {
@@ -80,10 +80,11 @@ export function cssImageAssets(doc: Document): Set<string> {
 
 function robots(siteUrl: string | undefined): string {
   const base = 'User-agent: *\nAllow: /\n'
-  return siteUrl ? `${base}Sitemap: ${siteUrl.replace(/\/+$/, '')}/sitemap-index.xml\n` : base
+  return siteUrl ? `${base}Sitemap: ${siteUrl}/sitemap-index.xml\n` : base
 }
 
-async function link(target: string, at: string): Promise<void> {
+/** A directory symlink, the way each platform wants one, with its parent directory made first. */
+export async function link(target: string, at: string): Promise<void> {
   await mkdir(path.dirname(at), { recursive: true })
   await symlink(target, at, process.platform === 'win32' ? 'junction' : 'dir')
 }
@@ -106,9 +107,9 @@ export async function writeScaffold(input: ScaffoldInput): Promise<void> {
     const source = path.join(siteDir, 'assets', asset.hash)
     const file = assetFileName(asset)
     const targets: string[] = []
-    if (isOptimizedImage(asset)) targets.push(path.join(root, 'src/assets', file))
+    if (isImage(asset)) targets.push(path.join(root, 'src/assets', file))
     // The favicon is linked by its public URL, so it must exist unoptimized like a css image.
-    if (!isOptimizedImage(asset) || inCss.has(asset.id) || doc.site.favicon === asset.id)
+    if (!isImage(asset) || inCss.has(asset.id) || doc.site.favicon === asset.id)
       targets.push(path.join(root, 'public/assets', file))
     for (const target of targets) {
       try {

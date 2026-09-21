@@ -35,4 +35,4 @@ export const VOID_TAGS: ReadonlySet<string> = new Set([
   'wbr',
 ])
 
-export type Warn = (message: string) => void
+export type OnWarn = (message: string) => void
