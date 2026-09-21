@@ -1,3 +1,4 @@
+import type { Mode } from '@freeflow/schema'
 import { AssetId, Font, ModeId, Redirect } from '@freeflow/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
@@ -6,16 +7,13 @@ import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
 import { designTokensUsingMode } from '../references.js'
 
-// Strict so a typo (e.g. `wieght`) is rejected instead of silently dropped.
-const StrictFont = Font.strict()
-
 const siteUpdate = defineOperation(
   z.strictObject({
     type: z.literal('site.update'),
     name: z.string().min(1).optional(),
     locale: z.string().min(1).optional(),
     url: z.url().nullable().optional(),
-    fonts: z.array(StrictFont).optional(),
+    fonts: z.array(Font).optional(),
     favicon: AssetId.nullable().optional(),
     headCode: z.string().nullable().optional(),
     bodyCode: z.string().nullable().optional(),
@@ -31,7 +29,7 @@ const siteUpdate = defineOperation(
           f.asset,
         )
     const { type: _type, ...values } = op
-    return partialPatches(['site'], values, ctx.doc.site as Record<string, unknown>)
+    return partialPatches(['site'], values, ctx.doc.site)
   },
 )
 
@@ -41,11 +39,8 @@ const modeFields = {
   media: z.string().min(1),
 }
 
-function modeIndex(ctx: PlanContext, id: string): number {
-  const index = ctx.doc.site.modes.findIndex((m) => m.id === id)
-  if (index < 0) ctx.fail(`unknown mode ${id}`, { id })
-  return index
-}
+const modeIndex = (ctx: PlanContext, id: string): number =>
+  ctx.indexOf(ctx.doc.site.modes, (m) => m.id === id, `unknown mode ${id}`, id)
 
 function clearDefaultPatches(ctx: PlanContext, except: string): Patch[] {
   return ctx.doc.site.modes.flatMap((m, i) =>
@@ -88,7 +83,7 @@ const modeUpdate = defineOperation(
   }),
   (op, ctx) => {
     const index = modeIndex(ctx, op.id)
-    const mode = ctx.doc.site.modes[index] as Record<string, unknown>
+    const mode = ctx.doc.site.modes[index] as Mode
     const patches: Patch[] = []
     if (op.default === true) {
       patches.push(...clearDefaultPatches(ctx, op.id))
@@ -142,8 +137,11 @@ const redirectAdd = defineOperation(
 const redirectRemove = defineOperation(
   z.strictObject({ type: z.literal('redirect.remove'), from: z.string().min(1) }),
   (op, ctx) => {
-    const index = ctx.doc.redirects.findIndex((r) => r.from === op.from)
-    if (index < 0) ctx.fail(`no redirect from ${op.from}`)
+    const index = ctx.indexOf(
+      ctx.doc.redirects,
+      (r) => r.from === op.from,
+      `no redirect from ${op.from}`,
+    )
     return [{ op: 'remove', path: ['redirects'], index }]
   },
 )

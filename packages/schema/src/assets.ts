@@ -34,7 +34,7 @@ export type AssetRef = z.infer<typeof AssetRef>
  * provider option: a font loaded from a third party sends every visitor's IP address to that
  * party, which the Munich Regional Court ruled a GDPR violation for Google Fonts in 2022. See D013.
  */
-export const Font = z.object({
+export const Font = z.strictObject({
   family: z.string().min(1),
   source: z.enum(['asset', 'system']),
   asset: AssetId.optional(),

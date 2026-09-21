@@ -2,18 +2,21 @@ import { ComponentId, NodeId, PropDef } from '@freeflow/schema'
 import { z } from 'zod'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'
-import { instancesOfComponent, isRootNode, parentIndex, subtreeIds } from '../references.js'
+import {
+  instancesOfComponent,
+  isRootNode,
+  nodeBindings,
+  parentIndex,
+  subtreeIds,
+} from '../references.js'
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
-
-// Strict so a typo on a prop definition is rejected instead of silently dropped.
-const StrictPropDef = PropDef.strict()
 
 const componentCreate = defineOperation(
   z.strictObject({
     type: z.literal('component.create'),
     id: ComponentId.optional(),
     name: z.string().min(1),
-    props: z.array(StrictPropDef).optional(),
+    props: z.array(PropDef).optional(),
     description: z.string().optional(),
     root: NodeLiteral,
   }),
@@ -36,7 +39,7 @@ const componentUpdate = defineOperation(
     type: z.literal('component.update'),
     id: ComponentId,
     name: z.string().min(1).optional(),
-    props: z.array(StrictPropDef).optional(),
+    props: z.array(PropDef).optional(),
     description: z.string().nullable().optional(),
   }),
   (op, ctx) => {
@@ -44,7 +47,7 @@ const componentUpdate = defineOperation(
     return partialPatches(
       ['components', op.id],
       { name: op.name, props: op.props, description: op.description },
-      cmp as unknown as Record<string, unknown>,
+      cmp,
     )
   },
 )
@@ -70,7 +73,7 @@ const componentExtract = defineOperation(
     id: ComponentId.optional(),
     instance: NodeId.optional(),
     name: z.string().min(1),
-    props: z.array(StrictPropDef).optional(),
+    props: z.array(PropDef).optional(),
     description: z.string().optional(),
   }),
   (op, ctx) => {
@@ -133,12 +136,7 @@ const componentUnextract = defineOperation(
       ctx.fail('Component has other instances', { id: op.id })
     for (const id of subtreeIds(ctx.doc, component.root)) {
       const node = ctx.doc.nodes[id]!
-      const bindings = [
-        ...Object.values(node.attrs ?? {}),
-        ...(node.type === 'text' ? [node.text] : []),
-        ...(node.type === 'component' ? Object.values(node.props ?? {}) : []),
-      ]
-      if (node.type === 'slot' || bindings.some((binding) => binding.type === 'prop'))
+      if (node.type === 'slot' || nodeBindings(node).some((b) => b.type === 'prop'))
         ctx.fail('Restore component-scoped content before unextracting', { id })
     }
     const current = ctx.require(

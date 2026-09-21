@@ -15,11 +15,6 @@ function checkMode(ctx: PlanContext, mode: string): void {
   if (!ctx.doc.site.modes.some((m) => m.id === mode)) ctx.fail(`unknown mode ${mode}`, { id: mode })
 }
 
-function checkName(ctx: PlanContext, name: string, except?: string): void {
-  const clash = Object.values(ctx.doc.designTokens).find((t) => t.name === name && t.id !== except)
-  if (clash) ctx.fail(`design token name ${name} is already used by ${clash.id}`, { id: clash.id })
-}
-
 const tokenCreate = defineOperation(
   z.strictObject({
     type: z.literal('designToken.create'),
@@ -30,7 +25,7 @@ const tokenCreate = defineOperation(
     description: z.string().optional(),
   }),
   (op, ctx) => {
-    checkName(ctx, op.name)
+    ctx.unique(Object.values(ctx.doc.designTokens), 'design token name', op.name, (t) => t.name)
     // The value check runs before the id is minted, so a value referencing the id being created
     // reads as an unknown token rather than a self-reference.
     for (const [mode, value] of Object.entries(op.values)) {
@@ -61,11 +56,18 @@ const tokenUpdate = defineOperation(
   }),
   (op, ctx) => {
     const token = ctx.require(ctx.doc.designTokens[op.id], `unknown design token ${op.id}`, op.id)
-    if (op.name !== undefined) checkName(ctx, op.name, op.id)
+    if (op.name !== undefined)
+      ctx.unique(
+        Object.values(ctx.doc.designTokens),
+        'design token name',
+        op.name,
+        (t) => t.name,
+        op.id,
+      )
     return partialPatches(
       ['designTokens', op.id],
       { name: op.name, group: op.group, description: op.description },
-      token as unknown as Record<string, unknown>,
+      token,
     )
   },
 )

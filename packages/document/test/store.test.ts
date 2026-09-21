@@ -4,10 +4,10 @@ import os from 'node:os'
 import path from 'node:path'
 import { type Document, DocumentError, fixtureDocument } from '@freeflow/schema'
 import { afterEach, describe, expect, it } from 'vitest'
-import { OperationError, RevisionRewoundError, StaleRevisionError } from '../src/errors.js'
+import { OperationError, StaleRevisionError } from '../src/errors.js'
 import type { Patch } from '../src/patch.js'
 import { MemoryPersistence } from '../src/persistence.js'
-import { type Batch, DocumentStore, kindForMime } from '../src/store.js'
+import { type Batch, DocumentStore } from '../src/store.js'
 
 const dirs: string[] = []
 async function tmp(): Promise<string> {
@@ -216,20 +216,11 @@ describe('DocumentStore on a folder', () => {
     expect(again.read().document.assets[asset.id]).toEqual(asset)
   })
 
-  it('refuses a missing or invalid document and a rewound revision', async () => {
+  it('refuses a missing or invalid document', async () => {
     const dir = await tmp()
     await expect(DocumentStore.open(dir)).rejects.toBeInstanceOf(DocumentError)
     await writeFile(path.join(dir, 'freeflow.json'), '{')
     await expect(DocumentStore.open(dir)).rejects.toBeInstanceOf(DocumentError)
-    const freshDir = await tmp()
-    const store = await DocumentStore.create(freshDir, 'Site')
-    await store.apply({ expectedRevision: 0, operations: [] })
-    const text = await readFile(path.join(freshDir, 'freeflow.json'), 'utf8')
-    await writeFile(
-      path.join(freshDir, 'freeflow.json'),
-      text.replace('"revision": 1', '"revision": 0'),
-    )
-    await expect(DocumentStore.open(freshDir)).rejects.toBeInstanceOf(RevisionRewoundError)
   })
 
   it('refuses a site directory that does not exist with a DocumentError, not a raw ENOENT', async () => {
@@ -246,15 +237,5 @@ describe('DocumentStore on a folder', () => {
     await expect(DocumentStore.create(dir, 'Other')).rejects.toBeInstanceOf(DocumentError)
     const after = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
     expect(after).toBe(before)
-  })
-})
-
-describe('kindForMime', () => {
-  it('maps mime types to asset kinds', () => {
-    expect(kindForMime('image/png')).toBe('image')
-    expect(kindForMime('image/svg+xml')).toBe('svg')
-    expect(kindForMime('video/mp4')).toBe('video')
-    expect(kindForMime('font/woff2')).toBe('font')
-    expect(kindForMime('application/pdf')).toBe('file')
   })
 })

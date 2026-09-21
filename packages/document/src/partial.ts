@@ -7,7 +7,7 @@ import type { Patch, Path } from './patch.js'
 export function partialPatches(
   path: Path,
   values: Record<string, unknown>,
-  existing?: Record<string, unknown>,
+  existing?: object,
 ): Patch[] {
   const out: Patch[] = []
   for (const [key, value] of Object.entries(values)) {

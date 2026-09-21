@@ -74,18 +74,6 @@ describe('pages', () => {
     failing([{ type: 'page.update', id: 'nope', name: 'x' }], /unknown page nope/)
     failing([{ type: 'page.delete', id: 'nope' }], /unknown page nope/)
   })
-  it('rejects an unknown key on seo instead of silently dropping it', () => {
-    failing(
-      [
-        {
-          type: 'page.update',
-          id: 'p-home',
-          seo: { title: 'T', descripton: 'oops' } as unknown as { title: string },
-        },
-      ],
-      /invalid input: seo/,
-    )
-  })
 })
 
 describe('folders', () => {

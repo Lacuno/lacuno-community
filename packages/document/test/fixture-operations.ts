@@ -1,5 +1,5 @@
 import { color, designToken, fn, kw, list, px, rem } from '@freeflow/schema'
-import type { Operation } from './operations/index.js'
+import type { Operation } from '../src/operations/index.js'
 
 const text = (s: string) => ({
   type: 'doc' as const,

@@ -1,10 +1,10 @@
-import { mkdir, realpath } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import type { AssetRef, Document } from '@freeflow/schema'
 import { createEmptyDocument, DocumentError, hashAsset, parseDocument } from '@freeflow/schema'
 import type { Warning } from './context.js'
 import { planBatch } from './engine.js'
-import { RevisionRewoundError, StaleRevisionError } from './errors.js'
+import { StaleRevisionError } from './errors.js'
 import { deepFreeze } from './freeze.js'
 import { OPERATIONS_BY_TYPE, type Operation } from './operations/index.js'
 import { applyPatches, type Patch } from './patch.js'
@@ -27,9 +27,6 @@ export type ApplyResult = {
   warnings: Warning[]
 }
 
-/** Highest revision seen per site folder in this process, to refuse a file that went backwards. */
-const seenRevisions = new Map<string, number>()
-
 export function kindForMime(mime: string): AssetRef['kind'] {
   if (mime === 'image/svg+xml') return 'svg'
   if (mime.startsWith('image/')) return 'image'
@@ -49,42 +46,25 @@ export class DocumentStore {
   private constructor(
     private readonly persistence: Persistence,
     document: Document,
-    private readonly key?: string,
   ) {
     this.document = deepFreeze(document)
   }
 
-  static async withPersistence(persistence: Persistence, key?: string): Promise<DocumentStore> {
+  static async withPersistence(persistence: Persistence): Promise<DocumentStore> {
     const raw = await persistence.load()
     if (raw === undefined)
       throw new DocumentError([{ path: 'freeflow.json', message: 'no document found' }])
-    const document = parseDocument(raw)
-    if (key !== undefined) {
-      const seen = seenRevisions.get(key)
-      if (seen !== undefined && document.revision < seen)
-        throw new RevisionRewoundError(seen, document.revision)
-      seenRevisions.set(key, document.revision)
-    }
-    return new DocumentStore(persistence, document, key)
+    return new DocumentStore(persistence, parseDocument(raw))
   }
 
+  /** A missing folder holds no freeflow.json, so load() reports it as no document found. */
   static async open(siteDir: string): Promise<DocumentStore> {
-    const dir = path.resolve(siteDir)
-    let key: string
-    try {
-      key = await realpath(dir)
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === 'ENOENT')
-        throw new DocumentError([{ path: 'freeflow.json', message: 'no document found' }])
-      throw e
-    }
-    return DocumentStore.withPersistence(new FolderPersistence(dir), key)
+    return DocumentStore.withPersistence(new FolderPersistence(path.resolve(siteDir)))
   }
 
   static async create(siteDir: string, name: string): Promise<DocumentStore> {
     const dir = path.resolve(siteDir)
     await mkdir(dir, { recursive: true })
-    const key = await realpath(dir)
     const persistence = new FolderPersistence(dir)
     // A file that fails to parse is still a file the user may want to recover by hand; let
     // load()'s DocumentError propagate rather than silently overwriting it.
@@ -94,7 +74,7 @@ export class DocumentStore {
         { path: 'freeflow.json', message: 'a document already exists in this folder' },
       ])
     await persistence.save(createEmptyDocument(name))
-    return DocumentStore.withPersistence(persistence, key)
+    return DocumentStore.withPersistence(persistence)
   }
 
   static inMemory(document: Document): DocumentStore {
@@ -139,7 +119,6 @@ export class DocumentStore {
     ])
     await this.persistence.save(next)
     this.document = deepFreeze(next)
-    if (this.key !== undefined) seenRevisions.set(this.key, next.revision)
     return { revision: next.revision, ...base }
   }
 

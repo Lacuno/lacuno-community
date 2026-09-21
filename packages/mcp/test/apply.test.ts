@@ -73,7 +73,7 @@ describe('document.apply', () => {
     expect(store.read().document.nodes['n-hero']).toBeDefined()
   })
 
-  it('rejects an operation that fails schema validation with structured issues', async () => {
+  it('rejects an operation that fails schema validation, naming its index and field', async () => {
     const store = DocumentStore.inMemory(fixtureDocument())
     const c = await connect(store)
     close = c.close
@@ -82,8 +82,11 @@ describe('document.apply', () => {
       arguments: { expectedRevision: 0, operations: [{ type: 'node.create' }] },
     })
     expect(bad.isError).toBe(true)
-    const described = jsonOf<{ kind: string; issues: { path: string; message: string }[] }>(bad)
-    expect(described.kind).toBe('input')
-    expect(described.issues.length).toBeGreaterThan(0)
+    expect(jsonOf(bad)).toMatchObject({
+      kind: 'operation',
+      index: 0,
+      type: 'node.create',
+      message: expect.stringContaining('invalid input: parent'),
+    })
   })
 })

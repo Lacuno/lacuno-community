@@ -3,7 +3,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
   DocumentStore,
-  Operation,
+  type Operation,
   OperationError,
   Patch,
   PatchError,
@@ -40,7 +40,12 @@ export type ServerOptions = {
 const SiteInput = z.strictObject({ name: z.string().trim().min(1).max(200) })
 const BatchInput = z.strictObject({
   expectedRevision: z.number().int().nonnegative(),
-  operations: z.array(Operation).min(1).max(1000).optional(),
+  /** Shape only; the store's engine validates each operation and names the one that failed. */
+  operations: z
+    .array(z.looseObject({ type: z.string() }))
+    .min(1)
+    .max(1000)
+    .optional(),
   /** The patches of an earlier commit, replayed to undo or redo it. */
   patches: z.array(Patch).min(1).max(5000).optional(),
   dryRun: z.boolean().optional(),

@@ -19,7 +19,3 @@ export function defineOperation<S extends WithType>(
   const type = literal.value
   return { type, schema, plan }
 }
-
-export function operationMap(defs: readonly OperationDef[]): ReadonlyMap<string, OperationDef> {
-  return new Map(defs.map((d) => [d.type, d]))
-}

@@ -1,8 +1,7 @@
 import { readFile, realpath } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { build } from '@freeflow/compiler/build'
-import type { DocumentStore } from '@freeflow/document'
-import { Operation } from '@freeflow/document'
+import type { DocumentStore, Operation } from '@freeflow/document'
 import type { Node } from '@freeflow/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
@@ -56,18 +55,12 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           throw new InputError(
             `${withheld.type} is not available here: ${WITHHELD_OPERATIONS[withheld.type]}`,
           )
-        const parsed = z.array(Operation).safeParse(operations)
-        if (!parsed.success) {
-          const issues = parsed.error.issues.map((issue) => ({
-            path: issue.path.join('.'),
-            message: issue.message,
-          }))
-          return fail(new InputError('invalid operations', issues))
-        }
+        // The engine parses each operation with its own schema and reports the failing index
+        // and path, so there is nothing to gain from parsing the batch again here.
         return ok(
           await store.apply({
             expectedRevision,
-            operations: parsed.data as Operation[],
+            operations: operations as Operation[],
             ...(dryRun ? { dryRun } : {}),
           }),
         )

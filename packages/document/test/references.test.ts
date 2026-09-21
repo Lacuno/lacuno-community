@@ -3,17 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { allIds } from '../src/ids.js'
 import { partialPatches } from '../src/partial.js'
 import {
-  designTokensUsingMode,
-  instancesOfComponent,
   isDescendant,
   isRootNode,
-  nodesUsingClass,
   parentIndex,
   referencesToAsset,
-  referencesToCollection,
   referencesToDesignToken,
   referencesToField,
-  stylesUsingBreakpoint,
   subtreeIds,
 } from '../src/references.js'
 
@@ -58,13 +53,6 @@ describe('ids and tree helpers', () => {
 })
 
 describe('reference scanners', () => {
-  it('finds class, breakpoint and component users', () => {
-    expect(nodesUsingClass(doc, 'c-container')).toEqual(['n-hero', 'n-post', 'n-posts'])
-    expect(stylesUsingBreakpoint(doc, 'tablet')).toEqual([
-      'c-hero|tablet|none|grid-template-columns',
-    ])
-    expect(instancesOfComponent(doc, 'cmp-card')).toEqual(['n-post-card'])
-  })
   it('finds design token references in styles, other tokens and bindings', () => {
     expect(referencesToDesignToken(doc, 't-brand')).toEqual([
       'styles.c-button-primary|base|none|background-color',
@@ -86,16 +74,6 @@ describe('reference scanners', () => {
       'pages.p-home.seo.ogImage',
       'site.favicon',
       'site.fonts.0',
-    ])
-  })
-  it('finds collection references in pages, lists and fields', () => {
-    expect(referencesToCollection(doc, 'col-posts')).toEqual(['nodes.n-posts', 'pages.p-post'])
-    expect(designTokensUsingMode(doc, 'dark')).toEqual([
-      't-bg',
-      't-border',
-      't-brand-hover',
-      't-fg',
-      't-surface-muted',
     ])
   })
   it('finds field bindings and query uses', () => {

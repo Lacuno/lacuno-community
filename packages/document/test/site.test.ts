@@ -44,22 +44,6 @@ describe('site.update', () => {
     )
     expect(run([{ type: 'site.update', favicon: 'a-hero' }]).document.site.favicon).toBe('a-hero')
   })
-  it('rejects an unknown key on a font instead of silently dropping it', () => {
-    failing(
-      [
-        {
-          type: 'site.update',
-          fonts: [
-            { family: 'F', source: 'system', weight: 400 } as unknown as {
-              family: string
-              source: 'system'
-            },
-          ],
-        },
-      ],
-      /invalid input: fonts/,
-    )
-  })
 })
 
 describe('modes', () => {

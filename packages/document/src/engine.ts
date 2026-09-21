@@ -2,7 +2,7 @@ import type { Document } from '@freeflow/schema'
 import { createContext, type Warning } from './context.js'
 import type { OperationDef } from './define.js'
 import { OperationError } from './errors.js'
-import { deepFreeze } from './freeze.js'
+import { deepFreeze, frozenCopy } from './freeze.js'
 import { allIds } from './ids.js'
 import { applyPatches, type Patch } from './patch.js'
 
@@ -14,27 +14,20 @@ export type PlanResult = {
 }
 
 /**
- * The shape of a raw, not-yet-validated operation: at least a `type`, plus whatever payload the
- * matching schema expects. The intersection with an index signature keeps object literals with
- * extra fields (every real operation) from tripping TypeScript's excess-property check.
- */
-export type RawOperation = { type: string } & Record<string, unknown>
-
-/**
  * Plans and applies a batch against a draft, one operation at a time, so every operation sees
  * the effect of the ones before it. Throws OperationError on the first failure; nothing is
  * returned in that case, so callers keep their previous document.
  */
 export function planBatch(
   doc: Document,
-  operations: readonly RawOperation[],
+  operations: readonly ({ type: string } & Record<string, unknown>)[],
   defs: ReadonlyMap<string, OperationDef>,
 ): PlanResult {
   const ids = allIds(doc)
   const patches: Patch[] = []
   const created: Record<number, string[]> = {}
   const warnings: Warning[] = []
-  let draft = deepFreeze(doc)
+  let draft = frozenCopy(doc)
   operations.forEach((raw, index) => {
     const def = defs.get(raw.type)
     if (!def)

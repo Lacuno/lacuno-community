@@ -37,11 +37,7 @@ const assetUpdate = defineOperation(
   }),
   (op, ctx) => {
     const asset = ctx.require(ctx.doc.assets[op.id], `unknown asset ${op.id}`, op.id)
-    return partialPatches(
-      ['assets', op.id],
-      { name: op.name, alt: op.alt },
-      asset as unknown as Record<string, unknown>,
-    )
+    return partialPatches(['assets', op.id], { name: op.name, alt: op.alt }, asset)
   },
 )
 

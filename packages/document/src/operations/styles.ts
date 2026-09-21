@@ -33,11 +33,6 @@ function checkCombo(ctx: PlanContext, combo: readonly string[], self?: string): 
   }
 }
 
-function checkClassName(ctx: PlanContext, name: string, except?: string): void {
-  const clash = Object.values(ctx.doc.classes).find((c) => c.name === name && c.id !== except)
-  if (clash) ctx.fail(`class name ${name} is already used by ${clash.id}`, { id: clash.id })
-}
-
 const classCreate = defineOperation(
   z.strictObject({
     type: z.literal('class.create'),
@@ -53,7 +48,8 @@ const classCreate = defineOperation(
     if (op.preset && (op.local || op.combo?.length))
       ctx.fail('presets must be standalone named classes')
     if (!op.local && op.name === undefined) ctx.fail('a named class needs a name')
-    if (op.name !== undefined) checkClassName(ctx, op.name)
+    if (op.name !== undefined)
+      ctx.unique(Object.values(ctx.doc.classes), 'class name', op.name, (c) => c.name)
     checkCombo(ctx, op.combo ?? [])
     const id = ctx.id('class', op.id)
     const cls = {
@@ -78,12 +74,13 @@ const classUpdate = defineOperation(
   }),
   (op, ctx) => {
     const cls = ctx.require(ctx.doc.classes[op.id], `unknown class ${op.id}`, op.id)
-    if (op.name !== undefined) checkClassName(ctx, op.name, op.id)
+    if (op.name !== undefined)
+      ctx.unique(Object.values(ctx.doc.classes), 'class name', op.name, (c) => c.name, op.id)
     if (op.combo) checkCombo(ctx, op.combo, op.id)
     return partialPatches(
       ['classes', op.id],
       { name: op.name, combo: op.combo, locked: op.locked },
-      cls as unknown as Record<string, unknown>,
+      cls,
     )
   },
 )
@@ -184,7 +181,7 @@ const breakpointUpdate = defineOperation(
     return partialPatches(
       ['breakpoints', op.id],
       { label: op.label, maxWidth: op.maxWidth, minWidth: op.minWidth },
-      bp as unknown as Record<string, unknown>,
+      bp,
     )
   },
 )

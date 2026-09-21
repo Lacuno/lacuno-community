@@ -12,9 +12,24 @@ export type PlanContext = {
   /** Returns a validated, unused id. A supplied id must match the id pattern and be free. */
   id(kind: string, supplied?: string): string
   warn(message: string): void
-  fail(message: string, extra?: { id?: string; referencedBy?: string[] }): never
+  fail(message: string, extra?: { id?: string | undefined; referencedBy?: string[] }): never
   /** Returns `value` or fails with `message`. */
   require<T>(value: T | undefined, message: string, id?: string): T
+  /**
+   * Fails when another record already carries `value`, e.g. a page path or a class name.
+   * `except` is the id of the record being changed, which may keep its own value.
+   */
+  unique<T extends { id: string }>(
+    records: Iterable<T>,
+    label: string,
+    value: unknown,
+    of: (record: T) => unknown,
+    except?: string,
+  ): void
+  /** The index of the first match, or fails with `message`. */
+  indexOf<T>(items: readonly T[], match: (item: T) => boolean, message: string, id?: string): number
+  /** Fails unless `index` is within 0..max. `where` names the container in the message. */
+  inRange(index: number, max: number, where?: string): void
 }
 
 export function createContext(input: {
@@ -26,7 +41,10 @@ export function createContext(input: {
   warnings: Warning[]
 }): PlanContext {
   const { doc, index, type, ids, created, warnings } = input
-  const fail = (message: string, extra?: { id?: string; referencedBy?: string[] }): never => {
+  const fail = (
+    message: string,
+    extra?: { id?: string | undefined; referencedBy?: string[] },
+  ): never => {
     throw new OperationError(index, type, message, extra)
   }
   return {
@@ -53,8 +71,22 @@ export function createContext(input: {
     },
     fail,
     require(value, message, id) {
-      if (value === undefined) fail(message, id !== undefined ? { id } : undefined)
+      if (value === undefined) fail(message, { id })
       return value as NonNullable<typeof value>
+    },
+    unique(records, label, value, of, except) {
+      for (const record of records)
+        if (record.id !== except && of(record) === value)
+          fail(`${label} ${value} is already used by ${record.id}`, { id: record.id })
+    },
+    indexOf(items, match, message, id) {
+      const at = items.findIndex(match)
+      if (at < 0) fail(message, { id })
+      return at
+    },
+    inRange(at, max, where) {
+      if (at < 0 || at > max)
+        fail(`index ${at} out of range${where === undefined ? '' : ` for ${where}`} (0..${max})`)
     },
   }
 }

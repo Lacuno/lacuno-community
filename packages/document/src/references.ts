@@ -1,4 +1,4 @@
-import type { Binding, CssValue, Document, NodeId } from '@freeflow/schema'
+import type { Binding, CssValue, Document, Node, NodeId } from '@freeflow/schema'
 
 export function subtreeIds(doc: Document, rootId: NodeId): NodeId[] {
   const out: NodeId[] = []
@@ -80,56 +80,50 @@ export function cssValueReferences(value: CssValue, into: Refs): void {
   }
 }
 
-function bindingRefs(binding: Binding, into: Refs): void {
-  if (binding.type === 'designToken') into.designTokens.add(binding.designToken)
-  if (binding.type === 'asset') into.assets.add(binding.asset)
+/** Every binding a node carries: its attrs, a bound text value, and a component's props. */
+export function nodeBindings(node: Node): Binding[] {
+  return [
+    ...Object.values(node.attrs ?? {}),
+    ...(node.type === 'text' && node.text.type !== 'doc' ? [node.text] : []),
+    ...(node.type === 'component' || node.type === 'code-component'
+      ? Object.values(node.props ?? {})
+      : []),
+  ]
 }
 
-function nodeRefs(doc: Document): Map<NodeId, Refs> {
-  const out = new Map<NodeId, Refs>()
-  for (const node of Object.values(doc.nodes)) {
-    const refs: Refs = { designTokens: new Set(), assets: new Set() }
-    for (const b of Object.values(node.attrs ?? {})) bindingRefs(b, refs)
-    if (node.type === 'text' && !('type' in node.text && node.text.type === 'doc'))
-      bindingRefs(node.text as Binding, refs)
-    if (node.type === 'component' || node.type === 'code-component')
-      for (const b of Object.values(node.props ?? {})) bindingRefs(b, refs)
-    out.set(node.id, refs)
-  }
-  return out
+function valueRefs(values: readonly CssValue[]): Refs {
+  const refs: Refs = { designTokens: new Set(), assets: new Set() }
+  for (const v of values) cssValueReferences(v, refs)
+  return refs
 }
 
-export function referencesToDesignToken(doc: Document, id: string): string[] {
+function nodeRefs(node: Node): Refs {
+  const refs: Refs = { designTokens: new Set(), assets: new Set() }
+  for (const b of nodeBindings(node))
+    if (b.type === 'designToken') refs.designTokens.add(b.designToken)
+    else if (b.type === 'asset') refs.assets.add(b.asset)
+  return refs
+}
+
+/** Where a design token or an asset is used: style values, other design tokens, node bindings. */
+export function referencesTo(doc: Document, kind: keyof Refs, id: string): string[] {
   const out: string[] = []
-  for (const [key, decl] of Object.entries(doc.styles)) {
-    const refs: Refs = { designTokens: new Set(), assets: new Set() }
-    cssValueReferences(decl.value, refs)
-    if (refs.designTokens.has(id)) out.push(`styles.${key}`)
-  }
-  for (const token of Object.values(doc.designTokens)) {
-    if (token.id === id) continue
-    const refs: Refs = { designTokens: new Set(), assets: new Set() }
-    for (const v of Object.values(token.values)) cssValueReferences(v, refs)
-    if (refs.designTokens.has(id)) out.push(`designTokens.${token.id}`)
-  }
-  for (const [nodeId, refs] of nodeRefs(doc))
-    if (refs.designTokens.has(id)) out.push(`nodes.${nodeId}`)
+  for (const [key, decl] of Object.entries(doc.styles))
+    if (valueRefs([decl.value])[kind].has(id)) out.push(`styles.${key}`)
+  for (const token of Object.values(doc.designTokens))
+    if (token.id !== id && valueRefs(Object.values(token.values))[kind].has(id))
+      out.push(`designTokens.${token.id}`)
+  for (const node of Object.values(doc.nodes))
+    if (nodeRefs(node)[kind].has(id)) out.push(`nodes.${node.id}`)
   return out.sort()
 }
 
+export function referencesToDesignToken(doc: Document, id: string): string[] {
+  return referencesTo(doc, 'designTokens', id)
+}
+
 export function referencesToAsset(doc: Document, id: string): string[] {
-  const out: string[] = []
-  for (const [nodeId, refs] of nodeRefs(doc)) if (refs.assets.has(id)) out.push(`nodes.${nodeId}`)
-  for (const [key, decl] of Object.entries(doc.styles)) {
-    const refs: Refs = { designTokens: new Set(), assets: new Set() }
-    cssValueReferences(decl.value, refs)
-    if (refs.assets.has(id)) out.push(`styles.${key}`)
-  }
-  for (const token of Object.values(doc.designTokens)) {
-    const refs: Refs = { designTokens: new Set(), assets: new Set() }
-    for (const v of Object.values(token.values)) cssValueReferences(v, refs)
-    if (refs.assets.has(id)) out.push(`designTokens.${token.id}`)
-  }
+  const out = referencesTo(doc, 'assets', id)
   doc.site.fonts.forEach((f, i) => {
     if (f.asset === id) out.push(`site.fonts.${i}`)
   })
@@ -157,25 +151,17 @@ export function referencesToCollection(doc: Document, id: string): string[] {
 }
 
 export function referencesToField(doc: Document, fieldId: string): string[] {
-  const out = new Set<string>()
-  const usesField = (b: Binding | undefined) => b?.type === 'field' && b.field === fieldId
+  const out: string[] = []
   for (const node of Object.values(doc.nodes)) {
-    for (const b of Object.values(node.attrs ?? {})) if (usesField(b)) out.add(`nodes.${node.id}`)
+    const query = node.type === 'collection-list' ? node.query : undefined
     if (
-      node.type === 'text' &&
-      !('type' in node.text && node.text.type === 'doc') &&
-      usesField(node.text as Binding)
+      nodeBindings(node).some((b) => b.type === 'field' && b.field === fieldId) ||
+      query?.filter?.some((f) => f.field === fieldId) ||
+      query?.sort?.some((s) => s.field === fieldId)
     )
-      out.add(`nodes.${node.id}`)
-    if (node.type === 'component' || node.type === 'code-component')
-      for (const b of Object.values(node.props ?? {})) if (usesField(b)) out.add(`nodes.${node.id}`)
-    if (node.type === 'collection-list') {
-      const q = node.query
-      if (q?.filter?.some((f) => f.field === fieldId) || q?.sort?.some((s) => s.field === fieldId))
-        out.add(`nodes.${node.id}`)
-    }
+      out.push(`nodes.${node.id}`)
   }
-  return [...out].sort()
+  return out.sort()
 }
 
 export function designTokensUsingMode(doc: Document, modeId: string): string[] {

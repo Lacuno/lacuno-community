@@ -5,8 +5,8 @@ import {
   CollectionId,
   CollectionListNode,
   ComponentId,
-  FieldId,
   NodeId as NodeIdSchema,
+  NodeMeta,
   RichText,
   Semantic,
 } from '@freeflow/schema'
@@ -18,38 +18,13 @@ import type { Patch } from '../patch.js'
 import { isDescendant, isRootNode, parentIndex, subtreeIds } from '../references.js'
 
 const Tag = z.string().regex(/^[a-z][a-z0-9-]*$/, 'tag must be a lower-case html tag')
-const NodeMeta = z.strictObject({
-  label: z.string().optional(),
-  locked: z.boolean().optional(),
-  hidden: z.boolean().optional(),
-})
-// Strict so a typo is rejected instead of silently dropped; also strictens the nested filter
-// and sort element objects, which the document schema leaves as plain objects.
-const Query = CollectionListNode.shape.query
-  .unwrap()
-  .extend({
-    filter: z
-      .array(
-        z.strictObject({
-          field: FieldId,
-          op: z.enum(['eq', 'ne', 'in', 'contains']),
-          value: z.unknown(),
-        }),
-      )
-      .optional(),
-    sort: z
-      .array(z.strictObject({ field: FieldId, direction: z.enum(['asc', 'desc']) }))
-      .optional(),
-  })
-  .strict()
-// Strict so an unknown key on a node literal's semantic/meta block is rejected, not dropped.
-const StrictSemantic = Semantic.strict()
+const Query = CollectionListNode.shape.query.unwrap()
 
 const literalBase = {
   id: NodeIdSchema.optional(),
   classes: z.array(ClassId).optional(),
   attrs: z.record(z.string(), Binding).optional(),
-  semantic: StrictSemantic.optional(),
+  semantic: Semantic.optional(),
   meta: NodeMeta.optional(),
 }
 
@@ -62,7 +37,11 @@ type LiteralBase = {
   children?: NodeLiteral[]
 }
 
-/** A node to create. Nested `children` literals create a whole subtree in one operation. */
+/**
+ * A node to create. Nested `children` literals create a whole subtree in one operation. The type
+ * is written out because the schema is recursive: inferring it makes the declaration TypeScript
+ * has to emit for every operation that embeds a literal too long to serialize (TS7056).
+ */
 export type NodeLiteral = LiteralBase &
   (
     | { type: 'element'; tag: string }
@@ -215,8 +194,7 @@ function requireParent(
   if (!canHaveChildren(parent))
     ctx.fail(`${parent.type} node ${parentId} cannot have children`, { id: parentId })
   const at = index ?? parent.children.length
-  if (at < 0 || at > parent.children.length)
-    ctx.fail(`index ${at} out of range for ${parentId} (0..${parent.children.length})`)
+  ctx.inRange(at, parent.children.length, parentId)
   return { parent, index: at }
 }
 
@@ -246,7 +224,7 @@ const nodeUpdate = defineOperation(
     text: z.union([RichText, Binding]).optional(),
     props: z.record(z.string(), Binding).nullable().optional(),
     query: Query.nullable().optional(),
-    semantic: StrictSemantic.nullable().optional(),
+    semantic: Semantic.nullable().optional(),
     meta: NodeMeta.nullable().optional(),
   }),
   (op, ctx) => {
@@ -259,7 +237,7 @@ const nodeUpdate = defineOperation(
       ctx.fail('query applies to collection lists only', { id: op.id })
     if (op.classes) requireClasses(ctx, op.classes)
     const { type: _type, id: _id, ...values } = op
-    return partialPatches(['nodes', op.id], values, node as unknown as Record<string, unknown>)
+    return partialPatches(['nodes', op.id], values, node)
   },
 )
 
@@ -281,10 +259,7 @@ const nodeMove = defineOperation(
       ctx.fail(`cannot move ${op.id} inside its own subtree`, { id: op.id })
     const current = ctx.require(parentIndex(ctx.doc, op.id), `${op.id} has no parent`, op.id)
     if (current.parent === op.parent) {
-      if (op.index < 0 || op.index >= target.children.length)
-        ctx.fail(
-          `index ${op.index} out of range for ${op.parent} (0..${target.children.length - 1})`,
-        )
+      ctx.inRange(op.index, target.children.length - 1, op.parent)
       return current.index === op.index
         ? []
         : [
@@ -296,8 +271,7 @@ const nodeMove = defineOperation(
             },
           ]
     }
-    if (op.index < 0 || op.index > target.children.length)
-      ctx.fail(`index ${op.index} out of range for ${op.parent} (0..${target.children.length})`)
+    ctx.inRange(op.index, target.children.length, op.parent)
     return [
       { op: 'remove', path: ['nodes', current.parent, 'children'], index: current.index },
       { op: 'insert', path: ['nodes', op.parent, 'children'], index: op.index, value: op.id },

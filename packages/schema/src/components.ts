@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { ComponentId, NodeId } from './ids.js'
 
-export const PropDef = z.object({
+/** Strict: a typo on a prop definition must be an error, not silent data loss. */
+export const PropDef = z.strictObject({
   name: z.string().regex(/^[a-z][a-zA-Z0-9]*$/),
   type: z.enum(['string', 'richtext', 'number', 'boolean', 'image', 'link', 'option']),
   label: z.string().optional(),

@@ -7,13 +7,6 @@ import type { Patch } from '../patch.js'
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 
 const PagePath = Page.shape.path
-// Strict so a typo (e.g. `descripton`) is rejected instead of silently dropped.
-const StrictSeo = Seo.strict()
-
-function checkPath(ctx: PlanContext, path: string, except?: string): void {
-  const clash = Object.values(ctx.doc.pages).find((p) => p.path === path && p.id !== except)
-  if (clash) ctx.fail(`path ${path} is already used by ${clash.id}`, { id: clash.id })
-}
 
 function checkPageRefs(
   ctx: PlanContext,
@@ -37,13 +30,13 @@ const pageCreate = defineOperation(
     path: PagePath,
     folder: FolderId.optional(),
     collection: CollectionId.optional(),
-    seo: StrictSeo.optional(),
+    seo: Seo.optional(),
     headCode: z.string().optional(),
     bodyCode: z.string().optional(),
     root: NodeLiteral.optional(),
   }),
   (op, ctx) => {
-    checkPath(ctx, op.path)
+    ctx.unique(Object.values(ctx.doc.pages), 'path', op.path, (p) => p.path)
     checkPageRefs(ctx, op.folder, op.collection, op.path)
     const id = ctx.id('page', op.id)
     const { rootId, patches } = materialize(op.root ?? { type: 'element', tag: 'main' }, null, ctx)
@@ -62,17 +55,18 @@ const pageUpdate = defineOperation(
     path: PagePath.optional(),
     folder: FolderId.nullable().optional(),
     collection: CollectionId.nullable().optional(),
-    seo: StrictSeo.nullable().optional(),
+    seo: Seo.nullable().optional(),
     headCode: z.string().nullable().optional(),
     bodyCode: z.string().nullable().optional(),
   }),
   (op, ctx) => {
     const page = ctx.require(ctx.doc.pages[op.id], `unknown page ${op.id}`, op.id)
-    if (op.path !== undefined) checkPath(ctx, op.path, op.id)
+    if (op.path !== undefined)
+      ctx.unique(Object.values(ctx.doc.pages), 'path', op.path, (p) => p.path, op.id)
     const collection = op.collection === undefined ? page.collection : op.collection
     checkPageRefs(ctx, op.folder, collection, op.path ?? page.path)
     const { type: _type, id: _id, ...values } = op
-    return partialPatches(['pages', op.id], values, page as unknown as Record<string, unknown>)
+    return partialPatches(['pages', op.id], values, page)
   },
 )
 
@@ -122,11 +116,7 @@ const folderUpdate = defineOperation(
       if (folderIsInside(ctx, op.parent, op.id))
         ctx.fail(`cannot move folder ${op.id} inside itself`, { id: op.id })
     }
-    return partialPatches(
-      ['folders', op.id],
-      { name: op.name, parent: op.parent },
-      folder as unknown as Record<string, unknown>,
-    )
+    return partialPatches(['folders', op.id], { name: op.name, parent: op.parent }, folder)
   },
 )
 

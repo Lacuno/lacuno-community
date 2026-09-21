@@ -2,8 +2,8 @@ import { assembleDocument, plainImageResolver, render } from '@freeflow/compiler
 import { generateStylesheet } from '@freeflow/css'
 import { createEmptyDocument, fixtureDocument } from '@freeflow/schema'
 import { describe, expect, it } from 'vitest'
-import { fixtureOperations } from '../src/fixture-operations.js'
 import { DocumentStore } from '../src/store.js'
+import { fixtureOperations } from './fixture-operations.js'
 
 describe('building the fixture from an empty document', () => {
   it('reproduces the fixture exactly and renders identically', async () => {

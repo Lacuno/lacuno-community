@@ -33,12 +33,18 @@ export const RichText = z.object({
 export type RichText = z.infer<typeof RichText>
 
 /** Optional annotations that give agents and the linter a vocabulary above CSS. */
-export const Semantic = z.object({
+export const Semantic = z.strictObject({
   role: z.string().optional(),
   archetype: z.string().optional(),
   constraints: z
     .array(z.enum(['above-fold', 'keep-order', 'no-restyle', 'content-only']))
     .optional(),
+})
+
+export const NodeMeta = z.strictObject({
+  label: z.string().optional(),
+  locked: z.boolean().optional(),
+  hidden: z.boolean().optional(),
 })
 
 const Base = {
@@ -48,13 +54,7 @@ const Base = {
   classes: z.array(ClassId),
   attrs: z.record(z.string(), Binding).optional(),
   semantic: Semantic.optional(),
-  meta: z
-    .object({
-      label: z.string().optional(),
-      locked: z.boolean().optional(),
-      hidden: z.boolean().optional(),
-    })
-    .optional(),
+  meta: NodeMeta.optional(),
 }
 
 export const ElementNode = z.object({
@@ -92,17 +92,19 @@ export const CollectionListNode = z.object({
   tag: z.string().regex(/^[a-z][a-z0-9-]*$/),
   collection: CollectionId,
   query: z
-    .object({
+    .strictObject({
       filter: z
         .array(
-          z.object({
+          z.strictObject({
             field: FieldId,
             op: z.enum(['eq', 'ne', 'in', 'contains']),
             value: z.unknown(),
           }),
         )
         .optional(),
-      sort: z.array(z.object({ field: FieldId, direction: z.enum(['asc', 'desc']) })).optional(),
+      sort: z
+        .array(z.strictObject({ field: FieldId, direction: z.enum(['asc', 'desc']) }))
+        .optional(),
       limit: z.number().int().positive().optional(),
       offset: z.number().int().nonnegative().optional(),
     })

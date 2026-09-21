@@ -1,5 +1,6 @@
-import { type Document, Document as DocumentSchema } from '@freeflow/schema'
+import type { Document } from '@freeflow/schema'
 
+/** The id-keyed maps, sorted so insertion order never shows up in a diff. */
 const SORTED_MAPS = [
   'pages',
   'folders',
@@ -14,20 +15,25 @@ const SORTED_MAPS = [
   'assets',
 ] as const
 
-function sortKeys<T>(map: Record<string, T>): Record<string, T> {
+/** Every top-level key in schema order, so serializing needs no reparse. */
+const KEYS = ['version', 'revision', 'site', ...SORTED_MAPS, 'redirects'] as const
+const sorted = new Set<string>(SORTED_MAPS)
+
+function sortKeys(map: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     Object.keys(map)
       .sort()
-      .map((k) => [k, map[k] as T]),
+      .map((k) => [k, map[k]]),
   )
 }
 
 /**
- * Deterministic JSON: top-level keys in schema order (Zod emits them that way), id-keyed maps
- * sorted, two-space indent, trailing newline. A git diff after a batch shows only the change.
+ * Deterministic JSON: top-level keys in schema order, id-keyed maps sorted, two-space indent,
+ * trailing newline. A git diff after a batch shows only the change.
  */
 export function serializeDocument(doc: Document): string {
-  const parsed = DocumentSchema.parse(doc) as unknown as Record<string, unknown>
-  for (const key of SORTED_MAPS) parsed[key] = sortKeys(parsed[key] as Record<string, unknown>)
-  return `${JSON.stringify(parsed, null, 2)}\n`
+  const out: Record<string, unknown> = {}
+  for (const key of KEYS)
+    out[key] = sorted.has(key) ? sortKeys(doc[key] as Record<string, unknown>) : doc[key]
+  return `${JSON.stringify(out, null, 2)}\n`
 }

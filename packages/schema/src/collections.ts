@@ -26,7 +26,7 @@ const FieldBase = {
 }
 
 /** One choice of an option field. The value is stored on entries; the label is what people see. */
-export const OptionChoice = z.object({
+export const OptionChoice = z.strictObject({
   value: z.string().min(1),
   label: z.string().min(1).optional(),
 })

@@ -168,24 +168,6 @@ describe('node.update', () => {
     failing([{ type: 'node.update', id: 'n-hero', classes: ['c-nope'] }], /unknown class c-nope/)
     failing([{ type: 'node.update', id: 'nope' }], /unknown node nope/)
   })
-  it('rejects an unknown key on semantic instead of silently dropping it', () => {
-    failing(
-      [
-        {
-          type: 'node.update',
-          id: 'n-hero',
-          semantic: { rol: 'x' } as unknown as { role: string },
-        },
-      ],
-      /invalid input: semantic/,
-    )
-  })
-  it('rejects an unknown key on meta instead of silently dropping it', () => {
-    failing(
-      [{ type: 'node.update', id: 'n-hero', meta: { labl: 'x' } as unknown as { label: string } }],
-      /invalid input: meta/,
-    )
-  })
   it('rejects an unknown key on query and on its nested filter and sort items', () => {
     failing(
       [

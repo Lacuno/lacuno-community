@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { AssetId, CollectionId, FolderId, NodeId, PageId } from './ids.js'
 
-export const Seo = z.object({
+/** Strict: a typo such as `descripton` must be an error, not silent data loss. */
+export const Seo = z.strictObject({
   title: z.string().optional(),
   description: z.string().optional(),
   canonical: z.string().optional(),

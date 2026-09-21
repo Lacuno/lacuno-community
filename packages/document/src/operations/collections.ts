@@ -7,9 +7,6 @@ import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
 import { referencesToCollection, referencesToField } from '../references.js'
 
-// Strict so a typo on an option choice (e.g. `lable`) is rejected instead of silently dropped.
-const StrictOptionChoice = OptionChoice.strict()
-
 // Mirrors packages/schema/src/collections.ts's FieldDef, with `id` optional: the discriminated
 // union built from FieldDef.options.map((o) => o.extend({ id: FieldId.optional() })) loses its
 // per-branch literal types under Zod 4 (z.infer collapses to `unknown` on type-specific
@@ -28,7 +25,7 @@ export const FieldLiteral = z.discriminatedUnion('type', [
   z.strictObject({
     ...FieldLiteralBase,
     type: z.literal('option'),
-    options: z.array(StrictOptionChoice).min(1),
+    options: z.array(OptionChoice).min(1),
   }),
   z.strictObject({ ...FieldLiteralBase, type: z.literal('reference'), reference: CollectionId }),
   z.strictObject({
@@ -60,11 +57,6 @@ function requireCollection(ctx: PlanContext, id: string): CollectionSchema {
   return ctx.require(ctx.doc.collections[id], `unknown collection ${id}`, id)
 }
 
-function checkCollectionSlug(ctx: PlanContext, slug: string, except?: string): void {
-  const clash = Object.values(ctx.doc.collections).find((c) => c.slug === slug && c.id !== except)
-  if (clash) ctx.fail(`slug ${slug} is already used by ${clash.id}`, { id: clash.id })
-}
-
 function checkFieldTarget(ctx: PlanContext, field: FieldLiteral | FieldDef): void {
   if (
     (field.type === 'reference' || field.type === 'multi-reference') &&
@@ -90,7 +82,7 @@ const collectionCreate = defineOperation(
     slugField: z.string().min(1),
   }),
   (op, ctx) => {
-    checkCollectionSlug(ctx, op.slug)
+    ctx.unique(Object.values(ctx.doc.collections), 'slug', op.slug, (c) => c.slug)
     const names = new Set<string>()
     for (const f of op.fields) {
       if (names.has(f.name)) ctx.fail(`field name ${f.name} is used twice`)
@@ -122,7 +114,8 @@ const collectionUpdate = defineOperation(
   }),
   (op, ctx) => {
     requireCollection(ctx, op.id)
-    if (op.slug !== undefined) checkCollectionSlug(ctx, op.slug, op.id)
+    if (op.slug !== undefined)
+      ctx.unique(Object.values(ctx.doc.collections), 'slug', op.slug, (c) => c.slug, op.id)
     return partialPatches(['collections', op.id], { name: op.name, slug: op.slug })
   },
 )
@@ -153,7 +146,7 @@ const fieldAdd = defineOperation(
       ctx.fail(`field name ${op.field.name} is already used`)
     checkFieldTarget(ctx, op.field)
     const index = op.index ?? col.fields.length
-    if (index > col.fields.length) ctx.fail(`index ${index} out of range (0..${col.fields.length})`)
+    ctx.inRange(index, col.fields.length)
     return [
       {
         op: 'insert',
@@ -173,13 +166,12 @@ const fieldUpdate = defineOperation(
     label: z.string().min(1).optional(),
     required: z.boolean().nullable().optional(),
     help: z.string().nullable().optional(),
-    options: z.array(StrictOptionChoice).min(1).optional(),
+    options: z.array(OptionChoice).min(1).optional(),
     reference: CollectionId.optional(),
   }),
   (op, ctx) => {
     const col = requireCollection(ctx, op.collection)
-    const index = col.fields.findIndex((f) => f.id === op.id)
-    if (index < 0) ctx.fail(`unknown field ${op.id}`, { id: op.id })
+    const index = ctx.indexOf(col.fields, (f) => f.id === op.id, `unknown field ${op.id}`, op.id)
     const field = col.fields[index] as FieldDef
     if (op.options !== undefined && field.type !== 'option')
       ctx.fail('options applies to option fields only', { id: op.id })
@@ -201,7 +193,7 @@ const fieldUpdate = defineOperation(
         options: op.options,
         reference: op.reference,
       },
-      field as unknown as Record<string, unknown>,
+      field,
     )
   },
 )
@@ -210,8 +202,7 @@ const fieldRemove = defineOperation(
   z.strictObject({ type: z.literal('field.remove'), collection: CollectionId, id: FieldId }),
   (op, ctx) => {
     const col = requireCollection(ctx, op.collection)
-    const index = col.fields.findIndex((f) => f.id === op.id)
-    if (index < 0) ctx.fail(`unknown field ${op.id}`, { id: op.id })
+    const index = ctx.indexOf(col.fields, (f) => f.id === op.id, `unknown field ${op.id}`, op.id)
     if (col.slugField === op.id)
       ctx.fail(`${op.id} is the slug field and cannot be removed`, { id: op.id })
     const referencedBy = referencesToField(ctx.doc, op.id)
@@ -234,7 +225,10 @@ function checkEntryFieldKeys(
     if (!col.fields.some((f) => f.id === key)) ctx.fail(`unknown field ${key}`, { id: key })
 }
 
-/** Checks one entry's field values against the collection: required, known, slug, options. */
+/**
+ * Checks one entry's field values against the collection: required, slug, options. The caller
+ * checks the keys, because only it knows whether a null value still counts as one.
+ */
 function checkEntryFields(
   ctx: PlanContext,
   col: CollectionSchema,
@@ -247,14 +241,10 @@ function checkEntryFields(
     if (f.type === 'option' && value !== undefined && !f.options.some((o) => o.value === value))
       ctx.fail(`${JSON.stringify(value)} is not an option of field ${f.name}`)
   }
-  checkEntryFieldKeys(ctx, col, fields)
   const slug = fields[col.slugField]
   if (typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug))
     ctx.fail(`slug must be lower-case letters, digits and dashes, got ${JSON.stringify(slug)}`)
-  const clash = (ctx.doc.entries[col.id] ?? []).find(
-    (e) => e.id !== except && e.fields[col.slugField] === slug,
-  )
-  if (clash) ctx.fail(`slug ${slug} is already used by ${clash.id}`, { id: clash.id })
+  ctx.unique(ctx.doc.entries[col.id] ?? [], 'slug', slug, (e) => e.fields[col.slugField], except)
 }
 
 function entryIndex(
@@ -263,8 +253,7 @@ function entryIndex(
   id: string,
 ): { entry: Entry; index: number } {
   const entries = ctx.doc.entries[collection] ?? []
-  const index = entries.findIndex((e) => e.id === id)
-  if (index < 0) ctx.fail(`unknown entry ${id}`, { id })
+  const index = ctx.indexOf(entries, (e) => e.id === id, `unknown entry ${id}`, id)
   return { entry: entries[index] as Entry, index }
 }
 
@@ -287,7 +276,7 @@ const entryCreate = defineOperation(
     checkEntryFields(ctx, col, fields)
     const entries = ctx.doc.entries[op.collection] ?? []
     const index = op.index ?? entries.length
-    if (index > entries.length) ctx.fail(`index ${index} out of range (0..${entries.length})`)
+    ctx.inRange(index, entries.length)
     const id = ctx.id('entry', op.id)
     const patches: Patch[] = []
     if (!ctx.doc.entries[op.collection])
@@ -317,6 +306,7 @@ const entryUpdate = defineOperation(
       if (value === null) delete merged[key]
       else merged[key] = value
     }
+    checkEntryFieldKeys(ctx, col, merged)
     checkEntryFields(ctx, col, merged, op.id)
     return partialPatches(['entries', op.collection, index, 'fields'], op.fields, entry.fields)
   },
@@ -341,8 +331,7 @@ const entryMove = defineOperation(
   (op, ctx) => {
     requireCollection(ctx, op.collection)
     const { index } = entryIndex(ctx, op.collection, op.id)
-    const length = ctx.doc.entries[op.collection]?.length ?? 0
-    if (op.index >= length) ctx.fail(`index ${op.index} out of range (0..${length - 1})`)
+    ctx.inRange(op.index, (ctx.doc.entries[op.collection]?.length ?? 0) - 1)
     return index === op.index
       ? []
       : [{ op: 'move', path: ['entries', op.collection], from: index, to: op.index }]

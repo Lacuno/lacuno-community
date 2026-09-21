@@ -2,9 +2,10 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { build, writeFixtureSite } from '@freeflow/compiler/build'
-import { DocumentStore, fixtureOperations } from '@freeflow/document'
+import { DocumentStore } from '@freeflow/document'
 import sharp from 'sharp'
 import { afterEach, describe, expect, it } from 'vitest'
+import { fixtureOperations } from '../../document/test/fixture-operations.js'
 import { connect, jsonOf } from './helpers.js'
 
 const dirs: string[] = []

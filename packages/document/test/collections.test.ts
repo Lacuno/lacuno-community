@@ -93,28 +93,6 @@ describe('collections', () => {
       /unknown collection col-nope/,
     )
   })
-  it('rejects an unknown key on an option choice instead of silently dropping it', () => {
-    failing(
-      [
-        {
-          type: 'collection.create',
-          name: 'X',
-          slug: 'x',
-          fields: [
-            { name: 'slug', label: 'Slug', type: 'slug' },
-            {
-              name: 'kind',
-              label: 'Kind',
-              type: 'option',
-              options: [{ value: 'a', lable: 'A' } as unknown as { value: string }],
-            },
-          ],
-          slugField: 'slug',
-        },
-      ],
-      /invalid input: fields/,
-    )
-  })
   it('updates and refuses to delete a referenced collection, then deletes an unreferenced one with entries', () => {
     const e = failing([{ type: 'collection.delete', id: 'col-posts' }], /referenced/)
     expect(e.referencedBy).toEqual(['nodes.n-posts', 'pages.p-post'])

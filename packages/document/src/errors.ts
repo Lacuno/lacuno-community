@@ -19,7 +19,7 @@ export class OperationError extends Error {
     public index: number,
     public type: string,
     message: string,
-    extra: { id?: string; referencedBy?: string[] } = {},
+    extra: { id?: string | undefined; referencedBy?: string[] } = {},
   ) {
     super(`operation ${index} (${type}): ${message}`)
     this.name = 'OperationError'
@@ -36,16 +36,5 @@ export class PatchError extends Error {
   ) {
     super(`invalid patch (planner bug): ${message}`)
     this.name = 'PatchError'
-  }
-}
-
-/** The file on disk has a lower revision than this process has already seen for that site. */
-export class RevisionRewoundError extends Error {
-  constructor(
-    public seen: number,
-    public found: number,
-  ) {
-    super(`revision went backwards: this process saw ${seen}, the file says ${found}`)
-    this.name = 'RevisionRewoundError'
   }
 }

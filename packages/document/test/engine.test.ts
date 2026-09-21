@@ -2,7 +2,7 @@ import { fixtureDocument } from '@freeflow/schema'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineOperation, type OperationDef } from '../src/define.js'
-import { planBatch, type RawOperation } from '../src/engine.js'
+import { planBatch } from '../src/engine.js'
 import { OperationError } from '../src/errors.js'
 
 // A tiny operation used only to exercise the engine: renames a class and reports a warning.
@@ -62,6 +62,7 @@ describe('planBatch', () => {
 
   it('rejects unknown operations, invalid inputs, duplicate and malformed ids, with the index', () => {
     const doc = fixtureDocument()
+    type RawOperation = { type: string } & Record<string, unknown>
     const expectError = (ops: RawOperation[], index: number, pattern: RegExp) => {
       try {
         planBatch(doc, ops, defs)

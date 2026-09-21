@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { type OperationDef, operationMap } from '../define.js'
+import type { OperationDef } from '../define.js'
 import { assetOperations } from './assets.js'
 import { collectionOperations } from './collections.js'
 import { componentOperations } from './components.js'
@@ -21,7 +21,9 @@ export const OPERATIONS = [
   ...assetOperations,
 ]
 
-export const OPERATIONS_BY_TYPE = operationMap(OPERATIONS as readonly OperationDef[])
+export const OPERATIONS_BY_TYPE: ReadonlyMap<string, OperationDef> = new Map(
+  OPERATIONS.map((o) => [o.type, o as OperationDef]),
+)
 
 /** The union of every operation schema. Doubles as the MCP tool input. */
 export const Operation = z.discriminatedUnion(
