@@ -135,10 +135,14 @@ describe('generateStylesheet', () => {
     expect(css.indexOf('.button:hover {')).toBeLessThan(css.indexOf('.button.primary {'))
   })
 
-  it('adds a forced form for every state only when previewing states', () => {
+  it('drives states through the forced attribute when previewing states', () => {
     const doc = fixtureDocument()
     const forced = generateStylesheet(doc, { reset: false, previewStates: true }).css
-    expect(forced).toContain('.button:hover, .button[data-ff-state~="hover"] {')
+    // Interaction states emit only the attribute form, so the live pointer cannot trigger them.
+    expect(forced).toContain('.button[data-ff-state~="hover"] {')
+    expect(forced).not.toContain('.button:hover')
+    // Non-interaction states keep their real pseudo form as well, matching the published site.
+    expect(forced).toContain('.card::before, .card[data-ff-state~="before"] {')
     expect(forced).toContain('.button {\n')
     expect(generateStylesheet(doc, { reset: false }).css).toContain('.button:hover {')
     expect(generateStylesheet(doc, { reset: false }).css).not.toContain('data-ff-state')

@@ -44,6 +44,13 @@ export function classNames(doc: Document): ClassNames {
   return out
 }
 
+/**
+ * States the live pointer or keyboard focus can trigger. In the canvas their real pseudo-class is
+ * dropped so only the state picker turns them on; structural states (`:first-child`, `:empty`, …)
+ * keep it, so the base view still matches the published site.
+ */
+const LIVE_STATES = new Set<State>(['hover', 'focus', 'focus-visible', 'focus-within', 'active'])
+
 const STATE_SELECTOR: Record<State, string> = {
   none: '',
   hover: ':hover',
@@ -92,9 +99,9 @@ function paddingFor(doc: Document, names: ClassNames): { shared: number; presets
 }
 
 /**
- * `.button.primary:hover` for a combo class with a state. `forced` adds the canvas's second
- * form, `.button.primary[data-ff-state~="hover"]`, so the editor can show a state that is not
- * really on.
+ * `.button.primary:hover` for a combo class with a state. In the canvas (`forced`) the state
+ * picker drives styles through `.button.primary[data-ff-state~="hover"]`: interaction states
+ * emit only that form so the live pointer can't trigger them, structural states emit both.
  */
 export function selectorFor(
   doc: Document,
@@ -118,9 +125,12 @@ export function selectorFor(
     while (chain.length < specificity) chain.push(`.${names.get(classId)}`)
   }
   const base = chain.join('')
-  return forced && state !== 'none'
-    ? `${base}${STATE_SELECTOR[state]}, ${base}[data-ff-state~="${state}"]`
-    : `${base}${STATE_SELECTOR[state]}`
+  if (!forced || state === 'none') return `${base}${STATE_SELECTOR[state]}`
+  // The picker drives interaction states through the forced attribute alone, so the live pointer
+  // never changes them; structural states keep their real pseudo-class as well.
+  return LIVE_STATES.has(state)
+    ? `${base}[data-ff-state~="${state}"]`
+    : `${base}${STATE_SELECTOR[state]}, ${base}[data-ff-state~="${state}"]`
 }
 
 /** Emission order: fewer compound parts first, then alphabetical, so combos follow their parents. */
