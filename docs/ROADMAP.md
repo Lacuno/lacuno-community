@@ -70,6 +70,9 @@ same page-or-URL popover the text toolbar uses. A destination can be a page refe
 compiler resolves to the page's path, so a link follows a page through a path change.
 Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
+The planned direction for editing on the canvas itself, an action bar under the selection with
+direct-manipulation controls, is written up in
+[the canvas action bar direction](superpowers/specs/2026-09-21-canvas-action-bar-direction.md).
 
 - Server with auth, workspaces, sites, SQLite, git commits. Yjs sync deferred; undo ships as
   inverse patches.

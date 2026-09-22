@@ -7,6 +7,8 @@ import { assetUrl } from './AssetsPanel.js'
 import { breakpointMedia } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { ClassManager } from './ClassManager.js'
+import { colorTokenName, defaultMode } from './colors.js'
+import type { ColorEdit } from './colorWheel.js'
 import { ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { FormattingControls } from './FormattingControls.js'
@@ -169,11 +171,68 @@ export function Inspector({
     if (JSON.stringify(updated) !== JSON.stringify(node.text))
       operations.push({ type: 'node.update', id: node.id, text: updated })
   }
-  const autosave = useAutosave(operations, !disabled && !invalid, busy, autoSave, {
+  const [dragging, setDragging] = useState(false)
+  const [tokenError, setTokenError] = useState('')
+  const autosave = useAutosave(operations, !disabled && !invalid && !dragging, busy, autoSave, {
     dirty,
     dirtyChanged,
     registerFlush,
   })
+  // The canvas bar edits through the same draft as the panel: preview while dragging, one commit.
+  const canvasStyle = useRef((_: ColorEdit & { id: string }) => {})
+  canvasStyle.current = (edit) => {
+    if (edit.id !== node.id || disabled) return
+    if ('token' in edit) {
+      try {
+        const id = `dt-${crypto.randomUUID()}`
+        void save([
+          {
+            type: 'designToken.create',
+            id,
+            name: colorTokenName(doc, edit.token.name),
+            group: 'color',
+            values: { [defaultMode(doc)]: { type: 'color', value: edit.token.value } },
+          },
+          ...formattingOperations(
+            doc,
+            node,
+            { [edit.property]: { type: 'designToken', ref: id } },
+            () => classId.current,
+            breakpoint,
+            state,
+          ),
+        ])
+      } catch (error) {
+        setTokenError((error as Error).message)
+      }
+      return
+    }
+    setTokenError('')
+    if (edit.phase === 'drag') {
+      // Preview through the panel's draft; the panel's autosave stays disabled while dragging.
+      setDragging(true)
+      changeFormatting(edit.property, edit.value)
+      return
+    }
+    // Commit once when the wheel closes as a single undoable edit, then drop the transient preview.
+    setDragging(false)
+    setChanges({})
+    void save(
+      formattingOperations(
+        doc,
+        node,
+        { [edit.property]: edit.value },
+        () => classId.current,
+        breakpoint,
+        state,
+      ),
+    )
+  }
+  useEffect(() => {
+    const listen = (event: Event) => canvasStyle.current((event as CustomEvent).detail)
+    window.addEventListener('freeflow:canvas-style', listen)
+    return () => window.removeEventListener('freeflow:canvas-style', listen)
+  }, [])
   const previewKey = JSON.stringify({
     node: {
       id: node.id,
@@ -497,7 +556,7 @@ export function Inspector({
             </p>
           ) : null}
           <FormattingControls {...controls} groupName={ribbonGroup} />
-          <ErrorNote message={validation} />
+          <ErrorNote message={validation || tokenError} />
           <p className="hint" role="status">
             {conflict
               ? 'Changes paused. Reload to resolve the conflict.'

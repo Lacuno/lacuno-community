@@ -1,5 +1,7 @@
 import type { Entry, Page, State } from '@freeflow/schema'
+import { editingBreakpoint } from './breakpoints.js'
 import { Canvas, type LivePreview } from './Canvas.js'
+import { colorLabel, colorPreview, projectColors } from './colors.js'
 import { componentUsage } from './components.js'
 import { EditorIcon } from './EditorIcon.js'
 import type { InlineTarget } from './InlineTextEditor.js'
@@ -145,6 +147,17 @@ export function CanvasPanel({
             state={state}
             states={states}
             onState={(next) => void leave(() => setState(next))}
+            scope={doc ? (doc.breakpoints[editingBreakpoint(doc, width)]?.label ?? '') : ''}
+            colorProperty={doc?.nodes[selected]?.type === 'text' ? 'color' : 'background-color'}
+            swatches={
+              doc
+                ? projectColors(doc).map((token) => ({
+                    id: token.id,
+                    name: colorLabel(token.name),
+                    value: colorPreview(doc, token.id),
+                  }))
+                : []
+            }
             selected={selected}
             selectedName={doc?.nodes[selected] ? nodeLabel(doc.nodes[selected]!) : ''}
             select={(id) => {

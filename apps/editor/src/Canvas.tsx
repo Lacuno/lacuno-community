@@ -1,6 +1,7 @@
 import { MOTION_CSS } from '@freeflow/css'
 import type { State } from '@freeflow/schema'
 import { useEffect, useRef, useState } from 'react'
+import type { ColorEdit, Hsl, Swatch } from './colorWheel.js'
 import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
 import { selectionOverlay } from './selectionOverlay.js'
@@ -44,6 +45,9 @@ export function Canvas({
   state,
   states,
   onState,
+  scope,
+  colorProperty,
+  swatches,
   selected,
   selectedName,
   select,
@@ -61,6 +65,9 @@ export function Canvas({
   state: State
   states: State[]
   onState: (state: State) => void
+  scope: string
+  colorProperty: string
+  swatches: Swatch[]
   selected: string
   selectedName: string
   select: (id: string) => void
@@ -75,6 +82,8 @@ export function Canvas({
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
   useEffect(() => () => dragCleanup.current?.(), [])
   const frame = useRef<HTMLIFrameElement>(null)
+  // The colour menu's open state survives the iframe re-render a commit triggers.
+  const colorMenu = useRef<{ open: boolean; hsl?: Hsl }>({ open: false })
   const scrollPosition = useRef({ x: 0, y: 0 })
   const motionReplay = useRef<(() => void) | undefined>(undefined)
   const restore = useRef<(() => void) | undefined>(undefined)
@@ -211,6 +220,9 @@ export function Canvas({
     state,
     states,
     onState,
+    scope,
+    colorProperty,
+    swatches,
     select,
     onHistory,
     onComputed,
@@ -314,10 +326,25 @@ export function Canvas({
             doc,
             () => ({
               name: latest.current.selectedName,
+              scope: latest.current.scope,
               state: latest.current.state,
               states: latest.current.states,
+              colorProperty: latest.current.colorProperty,
+              swatches: latest.current.swatches,
             }),
             (next) => latest.current.onState(next),
+            (edit: ColorEdit) =>
+              window.dispatchEvent(
+                new CustomEvent('freeflow:canvas-style', {
+                  detail: { id: latest.current.selected, ...edit },
+                }),
+              ),
+            {
+              get: () => colorMenu.current,
+              set: (state) => {
+                colorMenu.current = state
+              },
+            },
           )
           dragCleanup.current?.()
           for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
