@@ -72,7 +72,7 @@ describe('building the fixture site through MCP', () => {
         arguments: { siteUrl: 'https://example.com' },
       }),
     )
-    expect(built.pages).toBe(4)
+    expect(built.pages).toBe(5)
 
     await writeFixtureSite(b)
     const direct = await build(b, { quiet: true, siteUrl: 'https://example.com' })

@@ -81,6 +81,12 @@ style field has a token button that binds it to a token, shows the bound token's
 detach it to a plain value. The canvas spacing and size handles snap to a token within 4px and
 commit the reference; Ctrl or Cmd turns snapping off
 ([spec](superpowers/specs/2026-09-22-design-tokens-design.md)).
+**Pages and SEO implemented:** **Site settings** in the Pages panel set the site name, public URL,
+language, favicon, site-wide head and body code, and redirects. Page settings add a canonical URL,
+hide from search engines, a social image and page code. A page at `/404` is the not-found page,
+built to `404.html` and left out of the sitemap with hidden pages; the head gains `og:locale` and
+`twitter:card` ([spec](superpowers/specs/2026-09-22-pages-and-seo-design.md)). Folders, page
+templates, generated social images and a 500 page remain.
 Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 The planned direction for editing on the canvas itself, an action bar under the selection with

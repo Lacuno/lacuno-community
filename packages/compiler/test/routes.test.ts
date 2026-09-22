@@ -13,6 +13,7 @@ describe('routes', () => {
   it('enumerates static pages and one route per entry', () => {
     expect(enumerateRoutes(fixtureDocument())).toEqual([
       { path: '/', page: 'p-home' },
+      { path: '/404', page: 'p-not-found' },
       { path: '/blog/hello-world', page: 'p-post', entry: 'e-1' },
       { path: '/blog/second-post', page: 'p-post', entry: 'e-2' },
       { path: '/blog/third-post', page: 'p-post', entry: 'e-3' },
@@ -29,6 +30,9 @@ describe('routes', () => {
   it('yields no routes for a collection page without entries', () => {
     const doc = fixtureDocument()
     doc.entries = {}
-    expect(enumerateRoutes(doc)).toEqual([{ path: '/', page: 'p-home' }])
+    expect(enumerateRoutes(doc)).toEqual([
+      { path: '/', page: 'p-home' },
+      { path: '/404', page: 'p-not-found' },
+    ])
   })
 })

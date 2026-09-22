@@ -28,11 +28,11 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 
 | Feature | When | Notes |
 | --- | --- | --- |
-| Pages, folders, nested routes, page settings | MVP | |
+| Pages, folders, nested routes, page settings | MVP | In: pages, page settings and site settings. Folders and nested routes in the Pages panel wait |
 | Page templates and reusable layouts | MVP | A layout is a component with a page slot |
-| Per-page SEO: title, description, canonical, robots, OG and Twitter meta | MVP | |
+| Per-page SEO: title, description, canonical, robots, OG and Twitter meta | MVP | In: title, description, canonical, hide from search engines, social image and page code in page settings; Open Graph, `og:locale` and `twitter:card` in the head. Twitter title, description and image fall back to Open Graph |
 | Generated OG images from a template | Next | Rendered at build time |
-| Sitemap, robots.txt, redirects, 404 and 500 pages | MVP | Redirects emitted for Caddy, Netlify and Cloudflare formats |
+| Sitemap, robots.txt, redirects, 404 and 500 pages | MVP | In: sitemap without hidden and not-found pages, robots.txt, redirects edited in Site settings (published as Astro's meta-refresh pages), and a not-found page at `/404` built to `404.html`. Still to come: redirects emitted for Caddy, Netlify and Cloudflare formats, and a 500 page |
 | Structured data presets: Article, Organization, Product, FAQ | Next | |
 | Localization: locale-aware routes, translated fields, hreflang | Later | Data model reserves it from day one |
 

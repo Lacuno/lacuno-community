@@ -16,7 +16,7 @@ import { link, writeScaffold } from './scaffold.js'
 export type BuildOptions = {
   /** Defaults to `<siteDir>/dist`. */
   outDir?: string
-  /** Overrides the document's site url. */
+  /** The site url when the document sets none. */
   siteUrl?: string
   /** Silence Astro's logger. */
   quiet?: boolean
@@ -165,7 +165,7 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
 
   const doc = await loadDocument(site)
   // The one place the site url is normalized, whether it came from the file or the option.
-  const url = options.siteUrl ?? doc.site.url
+  const url = doc.site.url ?? options.siteUrl
   if (url) doc.site.url = url.replace(/\/+$/, '')
 
   // Dry render every route before Astro runs: catches reference errors early and collects
@@ -186,6 +186,10 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
     if (e instanceof RenderError) throw new BuildError('render', renderMessage(e))
     throw e
   }
+
+  // Astro's sitemap already leaves out the not-found page; noindex pages go too.
+  const hidden = new Set(routes.filter((r) => doc.pages[r.page]?.seo?.noindex).map((r) => r.path))
+  const indexed = (url: string) => !hidden.has(new URL(url).pathname.replace(/(.)\/$/, '$1'))
 
   const { css } = generateStylesheet(doc, { assetUrl: publicAssetPath })
 
@@ -221,7 +225,7 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
       output: 'static',
       compressHTML: true,
       build: { inlineStylesheets: 'auto' },
-      ...(doc.site.url ? { site: doc.site.url, integrations: [sitemap()] } : {}),
+      ...(doc.site.url ? { site: doc.site.url, integrations: [sitemap({ filter: indexed })] } : {}),
       redirects: Object.fromEntries(
         doc.redirects.map((r) => [r.from, { status: r.status, destination: r.to }]),
       ),

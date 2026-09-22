@@ -29,6 +29,7 @@ const paths = {
   undo: 'M9 4 4 9l5 5M4 9h10a6 6 0 0 1 0 12h-3',
   redo: 'm15 4 5 5-5 5M20 9H10a6 6 0 0 0 0 12h3',
   token: 'm12 3 8 4.5v9L12 21l-8-4.5v-9z',
+  settings: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4',
 } as const
 
 export function EditorIcon({ name }: { name: keyof typeof paths }) {

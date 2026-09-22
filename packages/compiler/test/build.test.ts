@@ -23,7 +23,7 @@ describe.skipIf(process.env.FREEFLOW_FAST_TESTS)('build (runs Astro, slow)', () 
     const cwdBefore = process.cwd()
     const result = await build(dir, { siteUrl: 'https://example.com', quiet: true })
     expect(process.cwd()).toBe(cwdBefore)
-    expect(result.pages).toBe(4)
+    expect(result.pages).toBe(5)
     expect(result.warnings).toEqual([])
     expect(result.outDir).toBe(path.join(dir, 'dist'))
 
@@ -40,13 +40,32 @@ describe.skipIf(process.env.FREEFLOW_FAST_TESTS)('build (runs Astro, slow)', () 
     expect(existsSync(path.join(dir, 'dist/blog/third-post/index.html'))).toBe(true)
     expect(existsSync(path.join(dir, 'dist/old-blog/index.html'))).toBe(true)
     expect(existsSync(path.join(dir, 'dist/sitemap-index.xml'))).toBe(true)
+    expect(await readFile(path.join(dir, 'dist/404.html'), 'utf8')).toContain('Page not found')
+    expect(existsSync(path.join(dir, 'dist/404/index.html'))).toBe(false)
+    // The noindex post page and the not-found page stay out of the sitemap.
+    const sitemap = await readFile(path.join(dir, 'dist/sitemap-0.xml'), 'utf8')
+    expect(sitemap).toContain('<loc>https://example.com/</loc>')
+    expect(sitemap).not.toContain('/blog/')
+    expect(sitemap).not.toContain('/404')
     expect(await readFile(path.join(dir, 'dist/robots.txt'), 'utf8')).toContain(
       'Sitemap: https://example.com/sitemap-index.xml',
     )
 
     const again = await build(dir, { siteUrl: 'https://example.com', quiet: true })
-    expect(again.pages).toBe(4)
+    expect(again.pages).toBe(5)
     expect(await readFile(path.join(dir, 'dist/index.html'), 'utf8')).toBe(home)
+
+    // The document's own public URL wins over the option, which is only a fallback.
+    const doc = JSON.parse(await readFile(path.join(dir, 'freeflow.json'), 'utf8'))
+    doc.site.url = 'https://own.example'
+    await writeFile(path.join(dir, 'freeflow.json'), JSON.stringify(doc))
+    await build(dir, { siteUrl: 'https://example.com', quiet: true })
+    expect(await readFile(path.join(dir, 'dist/index.html'), 'utf8')).toContain(
+      '<link rel="canonical" href="https://own.example/">',
+    )
+    expect(await readFile(path.join(dir, 'dist/robots.txt'), 'utf8')).toContain(
+      'Sitemap: https://own.example/sitemap-index.xml',
+    )
   })
 
   it('classifies document and render errors before running Astro', async () => {

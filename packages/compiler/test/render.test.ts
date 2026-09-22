@@ -37,6 +37,13 @@ describe('render', () => {
     expect(assembleDocument(result)).toMatchSnapshot()
   })
 
+  it('renders the not-found page like any page', () => {
+    const doc = fixtureDocument()
+    const result = render(doc, doc.pages['p-not-found']!, undefined, ctx)
+    expect(result.body).toContain('<h1 class="heading">Page not found</h1>')
+    expect(result.head).toContain('<title>Not found</title>')
+  })
+
   it('appends site and page body code at the end of the body', () => {
     const doc = fixtureDocument()
     doc.site.bodyCode = '<script>a()</script>'

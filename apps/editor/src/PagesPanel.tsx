@@ -3,22 +3,27 @@ import type { Document, Page } from '@freeflow/schema'
 import { useState } from 'react'
 import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
-import { duplicatePage, pagePathError } from './pages.js'
+import { canonicalError, duplicatePage, pagePathError, pageSeo } from './pages.js'
+import { CodeField, codeInfo, ImageChoice, SiteSettings } from './SiteSettings.js'
 
 export function PagesPanel({
   doc,
+  siteId,
   selected,
   disabled,
   choose,
   save,
+  autoSave,
 }: {
   doc: Document
+  siteId: string
   selected: string
   disabled: boolean
   choose: (id: string) => void
   save: (operations: Operation[]) => Promise<boolean>
+  autoSave: (operations: Operation[]) => Promise<boolean>
 }) {
-  const [editing, setEditing] = useState<Page | 'new'>()
+  const [editing, setEditing] = useState<Page | 'new' | 'site'>()
   return (
     <>
       <div className="panel-title">
@@ -27,6 +32,10 @@ export function PagesPanel({
       <div className="pages-toolbar">
         <button type="button" disabled={disabled} onClick={() => setEditing('new')}>
           New page
+        </button>
+        <button type="button" disabled={disabled} onClick={() => setEditing('site')}>
+          <EditorIcon name="settings" />
+          Site settings
         </button>
       </div>
       <div className="page-list">
@@ -44,7 +53,11 @@ export function PagesPanel({
               >
                 <EditorIcon name="page" />
                 {page.name}
-                <span className="page-path">{page.collection ? 'CMS' : page.path}</span>
+                {page.path === '/404' ? (
+                  <span className="badge">Not found</span>
+                ) : (
+                  <span className="page-path">{page.collection ? 'CMS' : page.path}</span>
+                )}
               </button>
               <button
                 type="button"
@@ -61,9 +74,18 @@ export function PagesPanel({
             </div>
           ))}
       </div>
-      {editing && (
+      {editing === 'site' && (
+        <SiteSettings
+          doc={doc}
+          siteId={siteId}
+          close={() => setEditing(undefined)}
+          autoSave={autoSave}
+        />
+      )}
+      {editing && editing !== 'site' && (
         <PageSettings
           doc={doc}
+          siteId={siteId}
           page={editing === 'new' ? undefined : editing}
           disabled={disabled}
           close={() => setEditing(undefined)}
@@ -77,6 +99,7 @@ export function PagesPanel({
 
 function PageSettings({
   doc,
+  siteId,
   page,
   disabled,
   close,
@@ -84,6 +107,7 @@ function PageSettings({
   choose,
 }: {
   doc: Document
+  siteId: string
   page?: Page | undefined
   disabled: boolean
   close: () => void
@@ -94,6 +118,13 @@ function PageSettings({
   const [path, setPath] = useState(page?.path ?? '')
   const [title, setTitle] = useState(page?.seo?.title ?? '')
   const [description, setDescription] = useState(page?.seo?.description ?? '')
+  const [canonical, setCanonical] = useState(page?.seo?.canonical ?? '')
+  const [noindex, setNoindex] = useState(page?.seo?.noindex ?? false)
+  const [ogImage, setOgImage] = useState(page?.seo?.ogImage ?? '')
+  const [headCode, setHeadCode] = useState(page?.headCode ?? '')
+  const [bodyCode, setBodyCode] = useState(page?.bodyCode ?? '')
+  const [notFound, setNotFound] = useState(false)
+  const hasNotFound = Object.values(doc.pages).some((other) => other.path === '/404')
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const run = async (operations: Operation[], id?: string) => {
@@ -114,21 +145,29 @@ function PageSettings({
           event.preventDefault()
           const issue = !name.trim()
             ? 'Enter a page name.'
-            : pagePathError(doc, path.trim(), page?.id)
+            : pagePathError(doc, path.trim(), page?.id) || canonicalError(canonical.trim())
           if (issue) {
             setError(issue)
             return
           }
-          const seo: NonNullable<Page['seo']> = {
-            ...page?.seo,
+          const seo = pageSeo(page, {
             title: title.trim(),
             description: description.trim(),
-          }
-          if (!seo.title) delete seo.title
-          if (!seo.description) delete seo.description
+            canonical: canonical.trim(),
+            noindex,
+            ogImage,
+          })
           if (page)
             void run([
-              { type: 'page.update', id: page.id, name: name.trim(), path: path.trim(), seo },
+              {
+                type: 'page.update',
+                id: page.id,
+                name: name.trim(),
+                path: path.trim(),
+                seo,
+                headCode: headCode || null,
+                bodyCode: bodyCode || null,
+              },
             ])
           else {
             const id = `p-${crypto.randomUUID()}`
@@ -140,6 +179,8 @@ function PageSettings({
                   name: name.trim(),
                   path: path.trim(),
                   seo,
+                  headCode: headCode || undefined,
+                  bodyCode: bodyCode || undefined,
                   root: {
                     id: `n-${crypto.randomUUID()}`,
                     type: 'element',
@@ -154,12 +195,30 @@ function PageSettings({
           }
         }}
       >
+        {!page && (
+          <label
+            className="check-label"
+            title={hasNotFound ? 'This site already has a not-found page.' : undefined}
+          >
+            <input
+              type="checkbox"
+              checked={notFound}
+              disabled={disabled || hasNotFound}
+              onChange={(event) => {
+                setNotFound(event.target.checked)
+                setName(event.target.checked ? 'Not found' : '')
+                setPath(event.target.checked ? '/404' : '')
+              }}
+            />
+            Not found page
+          </label>
+        )}
         <label>
           Page name
           <input
             required
             value={name}
-            disabled={disabled}
+            disabled={disabled || notFound}
             onChange={(event) => setName(event.target.value)}
           />
         </label>
@@ -168,7 +227,7 @@ function PageSettings({
           <input
             required
             value={path}
-            disabled={disabled}
+            disabled={disabled || notFound}
             placeholder="/about"
             onChange={(event) => setPath(event.target.value)}
           />
@@ -179,6 +238,9 @@ function PageSettings({
           updates links that point at this page automatically; manually entered URL links keep their
           original path.
         </p>
+        {path.trim() === '/404' && (
+          <p className="note">Served for unknown addresses. Not listed in the sitemap.</p>
+        )}
         <label>
           SEO title
           <input
@@ -197,6 +259,46 @@ function PageSettings({
             onChange={(event) => setDescription(event.target.value)}
           />
         </label>
+        <label>
+          Canonical URL
+          <input
+            value={canonical}
+            disabled={disabled}
+            placeholder={doc.site.url ? doc.site.url + path.trim() : 'https://example.com/about'}
+            onChange={(event) => setCanonical(event.target.value)}
+          />
+        </label>
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={noindex}
+            disabled={disabled}
+            onChange={(event) => setNoindex(event.target.checked)}
+          />
+          Hide from search engines
+        </label>
+        <ImageChoice
+          label="Social image"
+          siteId={siteId}
+          doc={doc}
+          value={ogImage}
+          disabled={disabled}
+          choose={setOgImage}
+        />
+        <CodeField
+          label="Head code"
+          info={codeInfo('head')}
+          value={headCode}
+          disabled={disabled}
+          change={setHeadCode}
+        />
+        <CodeField
+          label="Body code"
+          info={codeInfo('body')}
+          value={bodyCode}
+          disabled={disabled}
+          change={setBodyCode}
+        />
         <ErrorNote message={error} />
         <button type="submit" disabled={disabled}>
           {page ? 'Save page' : 'Create page'}

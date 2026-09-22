@@ -489,7 +489,21 @@
 }
 
 .pages-toolbar {
-  padding: 12px 16px;
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.pages-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.page-link .badge {
+  margin-left: auto;
+  white-space: nowrap;
 }
 .page-row {
   display: flex;
@@ -504,7 +518,7 @@
   padding: 4px 6px;
   border: 0;
 }
-.page-settings-dialog {
+:is(.page-settings-dialog, .site-settings-dialog) {
   width: 480px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 48px);
@@ -513,17 +527,69 @@
   border-radius: 12px;
   padding: 24px;
 }
-.page-settings-dialog::backdrop {
+:is(.page-settings-dialog, .site-settings-dialog)::backdrop {
   background: #25263355;
 }
-.page-settings-dialog header {
+:is(.page-settings-dialog, .site-settings-dialog) header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.page-settings-dialog h2 {
+:is(.page-settings-dialog, .site-settings-dialog) h2 {
   margin: 0;
   font-size: 18px;
+}
+:is(.page-settings-dialog, .site-settings-dialog) .embed-section {
+  margin: 20px 0;
+}
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.check-label input {
+  width: auto;
+}
+.image-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 8px;
+  font-size: 12px;
+  font-weight: 550;
+}
+.image-choice strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+}
+.site-settings-dialog h3 {
+  margin: 24px 0 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+.redirect-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.redirect-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+.redirect-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 8px;
+  margin-top: 8px;
 }
 .page-management-actions {
   margin-top: 24px;

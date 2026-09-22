@@ -85,9 +85,11 @@ export function Sidebar({
         {sidebar === 'Pages' && doc && (
           <PagesPanel
             doc={doc}
+            siteId={siteId}
             selected={pageId}
             disabled={frozen}
             save={save}
+            autoSave={(operations) => save(operations, 'auto')}
             choose={(id) =>
               void leave(() => {
                 setPageId(id)

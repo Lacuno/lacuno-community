@@ -146,7 +146,7 @@ An optional **Release name** (at most 80 characters) is shown after the version,
 launch`, and can be changed later with **Rename v7**. The dialog lists the live and newest release;
 older ones sit in a closed **Earlier releases** section with their restore buttons.
 
-Locally, the default published URL is `http://<site-id>.localhost:3001`. Modern browsers resolve
+Locally, the default published URL is `http://<site-id>.localhost:3001`. A **Public URL** set in Site settings replaces it in canonical links, social URLs, the sitemap and robots.txt. Modern browsers resolve
 `.localhost` to loopback. The static listener has no editor, authentication or draft API routes.
 Production requires an explicit publishing base URL, wildcard DNS and a TLS reverse proxy that
 preserves the Host header and routes published hosts to the publishing port. Use a dedicated

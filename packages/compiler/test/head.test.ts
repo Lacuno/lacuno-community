@@ -20,6 +20,8 @@ describe('renderHead', () => {
     expect(head).not.toMatch(/https?:\/\//)
     expect(head).not.toContain('canonical')
     expect(head).not.toContain('og:url')
+    expect(head).toContain('<meta property="og:locale" content="en">')
+    expect(head).toContain('<meta name="twitter:card" content="summary">')
   })
 
   it('adds canonical, open graph url and image, and robots when configured', () => {
@@ -33,6 +35,7 @@ describe('renderHead', () => {
       `<meta property="og:image" content="https://example.com/assets/${input.doc.assets['a-hero']!.hash}.png">`,
     )
     expect(head).toContain('<meta name="robots" content="noindex">')
+    expect(head).toContain('<meta name="twitter:card" content="summary_large_image">')
     input.page.seo.canonical = 'https://other.example/x'
     expect(renderHead({ ...input, siteUrl: 'https://example.com' })).toContain(
       '<link rel="canonical" href="https://other.example/x">',

@@ -24,6 +24,13 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
 ## Editing
 
 - Choose a page in the left panel. Collection pages also offer an entry selector.
+- **Site settings** in the Pages panel set the site name, the public URL (which enables canonical
+  links, social URLs and the sitemap), the language, the favicon, head and body code published on
+  every page, and redirects (from a path to a path or URL, with status 301, 302, 307 or 308). Each
+  field saves when you leave it. A page's **•••** opens its settings: name, path, SEO title and
+  description, canonical URL, **Hide from search engines**, social image, and head and body code for
+  that page. A page at `/404` is the not-found page, marked **Not found** in the list and served for
+  unknown addresses; **New page** offers it as a checkbox.
 - Click the canvas or a layer to select an element. Desktop, tablet and mobile buttons change the
   iframe viewport; the canvas scales to fit available space without changing its media-query width.
 - Use Add element to insert a heading, paragraph, span, image, video, embed, list, section with
@@ -188,7 +195,7 @@ Renderer tests compare all fixture and default-template pages and entries with c
 CSS. Server tests cover preview/asset access control. A Playwright test covers account creation,
 canvas selection, direct formatting without classes, reset formatting, text/style edits, reload persistence, stale-write protection, mobile viewport,
 collection previews, sandbox isolation, insertion, button insertion with a page destination that
-survives publishing and a page path change, sibling moves, class assignment, shared colors and variants, color conflicts, slow and failed autosaves, navigation flushes, undo/redo, sign-out and sign-in. Unit tests exercise undo
+survives publishing and a page path change, site and page SEO settings through to the published head, sitemap, not-found page and redirects, sibling moves, class assignment, shared colors and variants, color conflicts, slow and failed autosaves, navigation flushes, undo/redo, sign-out and sign-in. Unit tests exercise undo
 patches, restoration of rich text and typed CSS, history bounds and branching, and shortcuts.
 The browser test saves a desktop screenshot under
 `.freeflow/editor-preview/` for visual inspection.

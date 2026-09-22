@@ -89,6 +89,7 @@ export function renderHead(input: HeadInput): string {
   parts.push(og('og:type', 'website'))
   parts.push(og('og:title', title))
   parts.push(og('og:site_name', doc.site.name))
+  parts.push(og('og:locale', doc.site.locale))
   if (seo?.description) parts.push(og('og:description', seo.description))
   if (siteUrl) parts.push(og('og:url', absolute(path)))
   if (seo?.ogImage) {
@@ -97,6 +98,7 @@ export function renderHead(input: HeadInput): string {
     const src = isImage(asset) ? input.resolveImage(asset).src : resolveAsset(asset)
     parts.push(og('og:image', absolute(src)))
   }
+  parts.push(meta('twitter:card', seo?.ogImage ? 'summary_large_image' : 'summary'))
   parts.push(...renderFonts(doc, page, resolveAsset))
   if (doc.site.headCode) parts.push(doc.site.headCode)
   if (page.headCode) parts.push(page.headCode)

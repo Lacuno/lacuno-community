@@ -286,7 +286,9 @@ export function fixtureDocument(): Document {
         path: '/blog/[slug]',
         root: 'n-post',
         collection: 'col-posts',
+        seo: { noindex: true },
       },
+      'p-not-found': { id: 'p-not-found', name: 'Not found', path: '/404', root: 'n-not-found' },
     },
     folders: {},
     nodes: {
@@ -451,6 +453,27 @@ export function fixtureDocument(): Document {
         children: [],
         classes: [],
         html: '<blockquote>Embedded quote</blockquote>',
+      },
+      // not-found page
+      'n-not-found': {
+        id: 'n-not-found',
+        type: 'element',
+        tag: 'main',
+        parent: null,
+        children: ['n-not-found-title'],
+        classes: ['c-page', 'c-container'],
+      },
+      'n-not-found-title': {
+        id: 'n-not-found-title',
+        type: 'text',
+        tag: 'h1',
+        parent: 'n-not-found',
+        children: [],
+        classes: ['c-heading'],
+        text: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Page not found' }] }],
+        },
       },
     },
     classes: {

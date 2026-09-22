@@ -1,5 +1,5 @@
 import type { Operation } from '@freeflow/document'
-import { type Document, Page } from '@freeflow/schema'
+import { type Document, Page, type Seo } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type PageTree, pageTree } from './history.js'
 
@@ -14,6 +14,43 @@ export function pagePathError(doc: Document, path: string, except?: string) {
   if (Object.values(doc.pages).some((other) => other.id !== except && other.path === path))
     return 'Another page already uses this path.'
   return ''
+}
+
+function isHttpUrl(value: string) {
+  try {
+    return ['http:', 'https:'].includes(new URL(value).protocol)
+  } catch {
+    return false
+  }
+}
+
+/** The public URL is an origin: a path, query or trailing slash would break derived URLs. */
+export function siteUrlError(value: string) {
+  return !value || (isHttpUrl(value) && new URL(value).origin === value)
+    ? ''
+    : 'Enter the address the site is published at, such as https://example.com, without a trailing slash.'
+}
+
+export function canonicalError(value: string) {
+  return !value || isHttpUrl(value)
+    ? ''
+    : 'Enter a full address, such as https://example.com/about.'
+}
+
+export function redirectError(doc: Document, from: string, to: string) {
+  if (!/^\/[^\s?#]*$/.test(from)) return 'Redirect from a path on this site, such as /old-page.'
+  if (!/^\/\S*$/.test(to) && !isHttpUrl(to))
+    return 'Redirect to a path such as /new-page or a full address.'
+  if (from === to) return 'A page cannot redirect to itself.'
+  if (doc.redirects.some((r) => r.from === from)) return 'This path already redirects.'
+  return ''
+}
+
+/** The page's SEO with the form's values over it and every cleared field removed. */
+export function pageSeo(page: Page | undefined, form: Required<Seo>): Seo {
+  const seo: Record<string, unknown> = { ...page?.seo, ...form }
+  for (const key in seo) if (!seo[key]) delete seo[key]
+  return seo
 }
 
 export function duplicatePage(doc: Document, id: string) {

@@ -314,6 +314,7 @@ export function fixtureOperations(initialPageId: string): Operation[] {
       name: 'Post',
       path: '/blog/[slug]',
       collection: 'col-posts',
+      seo: { noindex: true },
       root: {
         type: 'element',
         id: 'n-post',
@@ -344,6 +345,27 @@ export function fixtureOperations(initialPageId: string): Operation[] {
             },
           },
           { type: 'embed', id: 'n-embed', html: '<blockquote>Embedded quote</blockquote>' },
+        ],
+      },
+    },
+    {
+      type: 'page.create',
+      id: 'p-not-found',
+      name: 'Not found',
+      path: '/404',
+      root: {
+        type: 'element',
+        id: 'n-not-found',
+        tag: 'main',
+        classes: ['c-page', 'c-container'],
+        children: [
+          {
+            type: 'text',
+            id: 'n-not-found-title',
+            tag: 'h1',
+            classes: ['c-heading'],
+            text: text('Page not found'),
+          },
         ],
       },
     },
