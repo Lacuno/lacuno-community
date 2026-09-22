@@ -1,4 +1,4 @@
-import { type CssValue, px, type State } from '@freeflow/schema'
+import { type CssValue, kw, num, px, type State } from '@freeflow/schema'
 import {
   type Hsl,
   nearestSwatch,
@@ -101,6 +101,8 @@ export function selectionOverlay(
     .handle.margin { background:#e8873b; }
     .handle.top, .handle.bottom { width:24px;height:6px;margin:-3px 0 0 -12px;cursor:ns-resize; }
     .handle.left, .handle.right { width:6px;height:24px;margin:-12px 0 0 -3px;cursor:ew-resize; }
+    .handle.size { width:7px;height:7px;margin:-5px 0 0 -5px;border:1.5px solid #6434d9;border-radius:1px;background:white; }
+    .handle.corner { cursor:nwse-resize; }
     .handles[hidden] { display:none; }
     .tag { position:absolute;padding:2px 6px;border-radius:4px;background:#1f1533;color:white;box-shadow:0 2px 8px #0004;pointer-events:none;white-space:nowrap; }
     .tag[hidden] { display:none; }
@@ -127,6 +129,7 @@ export function selectionOverlay(
   </div>
   <div class="handles" hidden>${['top', 'right', 'bottom', 'left']
     .flatMap((side) => ['padding', 'margin'].map((kind) => ({ side, kind })))
+    .concat(['right', 'bottom', 'corner'].map((side) => ({ side, kind: 'size' })))
     .map(
       ({ side, kind }) =>
         `<div class="handle ${kind} ${side}" data-side="${side}" data-kind="${kind}" aria-label="Drag ${kind} ${side}"></div>`,
@@ -327,38 +330,53 @@ export function selectionOverlay(
     closeMenus()
   })
 
-  // Spacing handles: drag an edge to set padding (inside) or margin (outside). Symmetric by
-  // default (the opposite side moves by the same delta); Alt moves only the dragged side.
+  // Handles: drag an edge to set padding (inside) or margin (outside), or the border box's right,
+  // bottom or corner to set width and height. Spacing is symmetric by default (the opposite side
+  // moves by the same delta) and Alt moves only the dragged side; Shift keeps the corner's ratio.
   const OPPOSITE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' } as const
   type Side = keyof typeof OPPOSITE
-  const sideValue = (kind: string, side: Side) =>
-    element
-      ? Number.parseFloat(view.getComputedStyle(element).getPropertyValue(`${kind}-${side}`)) || 0
-      : 0
+  type Axis = 'x' | 'y'
+  // Each target writes max(min, from + sign × the pointer delta on its axis), plus `also`: what
+  // would hold a size back. `max` is its computed max cap in px (NaN when there is none).
+  type Target = {
+    property: string
+    axis: Axis
+    sign: number
+    from: number
+    min: number
+    max: number
+    also: Record<string, CssValue>
+  }
+  const cssPx = (el: Element, property: string) =>
+    Number.parseFloat(view.getComputedStyle(el).getPropertyValue(property)) || 0
   let handleDrag:
     | {
         kind: string
-        axis: 'x' | 'y'
-        inward: boolean
-        start: number
-        sides: { side: Side; from: number }[]
-        delta: number
+        start: { x: number; y: number }
+        delta: { x: number; y: number }
+        targets: Target[]
+        /** The corner's height/width, kept while Shift is held; 0 on an edge. */
+        ratio: number
       }
     | undefined
+  const targetValue = (target: Target) =>
+    Math.max(target.min, Math.round(target.from + target.sign * handleDrag!.delta[target.axis]))
   const emitHandle = (phase: 'drag' | 'commit') => {
     if (!handleDrag) return
     const changes: Record<string, CssValue> = {}
-    for (const { side, from } of handleDrag.sides) {
-      const value = Math.round(from + handleDrag.delta)
-      changes[`${handleDrag.kind}-${side}`] = px(
-        handleDrag.kind === 'padding' ? Math.max(0, value) : value,
-      )
+    for (const target of handleDrag.targets) {
+      const value = targetValue(target)
+      changes[target.property] = px(value)
+      // Past its max cap the drag clears the cap, and keeps it cleared for the rest of the drag so
+      // the preview's draft and the commit agree.
+      if (value > target.max) target.also[`max-${target.property}`] = kw('none')
+      Object.assign(changes, target.also)
     }
     onStyle({ changes, phase })
   }
   const releaseHandle = () => {
     if (!handleDrag) return
-    if (handleDrag.delta) emitHandle('commit')
+    if (handleDrag.targets.some((target) => handleDrag!.delta[target.axis])) emitHandle('commit')
     handleDrag = undefined
     tag.hidden = true
     doc.removeEventListener('pointerup', releaseHandle)
@@ -369,17 +387,58 @@ export function selectionOverlay(
     if (!handle || !element) return
     event.stopPropagation()
     event.preventDefault()
-    const side = handle.dataset.side as Side
+    const el = element
+    const side = handle.dataset.side!
     const kind = handle.dataset.kind!
-    const axis = side === 'left' || side === 'right' ? 'x' : 'y'
-    const sides = event.altKey ? [side] : [side, OPPOSITE[side]]
+    const box = el.getBoundingClientRect()
+    // A size starts from the rendered border box, less padding and border under content-box, so
+    // the rendered box follows the pointer 1:1 under either box model (and when width is auto).
+    const style = view.getComputedStyle(el)
+    const contentBox = style.boxSizing !== 'border-box'
+    // A flex parent shrinks the element along its main axis, so a drag on that axis stops it.
+    const parent = el.parentElement && view.getComputedStyle(el.parentElement)
+    const mainAxis =
+      parent && /^(inline-)?flex$/.test(parent.display)
+        ? parent.flexDirection.startsWith('row')
+          ? 'x'
+          : 'y'
+        : undefined
+    const size = (property: string, axis: Axis, total: number, a: string, b: string): Target => ({
+      property,
+      axis,
+      sign: 1,
+      min: 1,
+      max: Number.parseFloat(style.getPropertyValue(`max-${property}`)),
+      also: axis === mainAxis && style.flexShrink !== '0' ? { 'flex-shrink': num(0) } : {},
+      from: contentBox
+        ? total -
+          [`padding-${a}`, `padding-${b}`, `border-${a}-width`, `border-${b}-width`]
+            .map((p) => cssPx(el, p))
+            .reduce((sum, n) => sum + n)
+        : total,
+    })
+    const axis: Axis = side === 'left' || side === 'right' ? 'x' : 'y'
+    const targets =
+      kind === 'size'
+        ? [
+            ...(side === 'bottom' ? [] : [size('width', 'x', box.width, 'left', 'right')]),
+            ...(side === 'right' ? [] : [size('height', 'y', box.height, 'top', 'bottom')]),
+          ]
+        : (event.altKey ? [side] : [side, OPPOSITE[side as Side]]).map((s) => ({
+            property: `${kind}-${s}`,
+            axis,
+            sign: side === 'top' || side === 'left' ? -1 : 1,
+            from: cssPx(el, `${kind}-${s}`),
+            min: kind === 'padding' ? 0 : -Infinity,
+            max: Number.NaN,
+            also: {},
+          }))
     handleDrag = {
       kind,
-      axis,
-      inward: side === 'top' || side === 'left',
-      start: axis === 'x' ? event.clientX : event.clientY,
-      sides: sides.map((s) => ({ side: s, from: sideValue(kind, s) })),
-      delta: 0,
+      start: { x: event.clientX, y: event.clientY },
+      delta: { x: 0, y: 0 },
+      targets,
+      ratio: side === 'corner' ? box.height / box.width : 0,
     }
     handlesLayer.setPointerCapture(event.pointerId)
     doc.addEventListener('pointerup', releaseHandle)
@@ -388,11 +447,19 @@ export function selectionOverlay(
   handlesLayer.addEventListener('pointermove', (event) => {
     if (!handleDrag) return
     // Iframe pointer coordinates are already in CSS px, so the drag tracks the pointer at any zoom.
-    const pos = handleDrag.axis === 'x' ? event.clientX : event.clientY
-    handleDrag.delta = handleDrag.inward ? handleDrag.start - pos : pos - handleDrag.start
+    let x = event.clientX - handleDrag.start.x
+    let y = event.clientY - handleDrag.start.y
+    // With Shift the axis with the larger relative change leads and the other follows the ratio.
+    const ratio = handleDrag.ratio
+    if (ratio && event.shiftKey) {
+      if (Math.abs(x) * ratio > Math.abs(y)) y = x * ratio
+      else x = y / ratio
+    }
+    handleDrag.delta = { x, y }
     emitHandle('drag')
-    const value = Math.round(handleDrag.sides[0]!.from + handleDrag.delta)
-    tag.textContent = `${handleDrag.kind === 'padding' ? Math.max(0, value) : value}px`
+    // Spacing shows the dragged side; size shows width, height, or both for the corner.
+    const shown = handleDrag.kind === 'size' ? handleDrag.targets : handleDrag.targets.slice(0, 1)
+    tag.textContent = shown.map((target) => `${targetValue(target)}px`).join(' × ')
     tag.hidden = false
     tag.style.left = `${Math.min(event.clientX + 12, view.innerWidth - tag.offsetWidth - 2)}px`
     tag.style.top = `${Math.max(2, event.clientY - 24)}px`
@@ -419,21 +486,21 @@ export function selectionOverlay(
     bar.style.left = `${Math.max(2, Math.min(left, view.innerWidth - bar.offsetWidth - 2))}px`
     bar.style.top = `${top}px`
   }
-  // A padding handle sits just inside its edge, a margin handle just outside; the drawn point is
-  // clamped into view (the drag math uses the real pointer delta, not this position).
+  // A padding handle sits just inside its edge, a margin handle just outside, a size handle on it;
+  // the drawn point is clamped into view (the drag math uses the real pointer delta, not this).
   const placeHandle = (handle: HTMLElement, bounds: DOMRect) => {
-    const side = handle.dataset.side as Side
-    const off = handle.dataset.kind === 'padding' ? 7 : -11
+    const { side, kind } = handle.dataset
+    const off = kind === 'padding' ? 7 : kind === 'margin' ? -11 : 0
     const x =
       side === 'left'
         ? bounds.left + off
-        : side === 'right'
+        : side === 'right' || side === 'corner'
           ? bounds.right - off
           : bounds.left + bounds.width / 2
     const y =
       side === 'top'
         ? bounds.top + off
-        : side === 'bottom'
+        : side === 'bottom' || side === 'corner'
           ? bounds.bottom - off
           : bounds.top + bounds.height / 2
     handle.style.left = `${Math.max(2, Math.min(x, view.innerWidth - 2))}px`

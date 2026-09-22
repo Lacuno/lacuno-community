@@ -72,7 +72,10 @@ Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realt
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 The planned direction for editing on the canvas itself, an action bar under the selection with
 direct-manipulation controls, is written up in
-[the canvas action bar direction](superpowers/specs/2026-09-21-canvas-action-bar-direction.md).
+[the canvas action bar direction](superpowers/specs/2026-09-21-canvas-action-bar-direction.md). Size handles on the
+selection's right edge, bottom edge and corner set width and height in px by drag, previewing live
+and committing once as one undo step; Shift on the corner keeps the aspect ratio
+([spec](superpowers/specs/2026-09-22-size-handles-design.md)).
 
 - Server with auth, workspaces, sites, SQLite, git commits. Yjs sync deferred; undo ships as
   inverse patches.
