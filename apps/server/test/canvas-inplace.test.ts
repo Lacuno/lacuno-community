@@ -121,6 +121,49 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
         .getAttribute('aria-expanded'),
     ).toBe('true')
     expect(await sentinel()).toBe('kept')
+
+    // The reported flicker: with the background wheel open, pick a colour and reach for the text
+    // swatch. Its commit must not drop the preview before the new render lands, so every frame
+    // until the morph shows the picked background, never the one it replaces. Transitions are off
+    // so a frame shows exactly the value applied, not a blend.
+    await canvas.locator('head').evaluate((head) => {
+      head.append(
+        Object.assign(document.createElement('style'), {
+          textContent: '* { transition: none !important }',
+        }),
+      )
+    })
+    const committed = await cta.evaluate((element) => getComputedStyle(element).backgroundColor)
+    await canvas.locator('.swatches button').nth(1).click()
+    await expect
+      .poll(() => cta.evaluate((element) => getComputedStyle(element).backgroundColor))
+      .not.toBe(committed)
+    const picked = await cta.evaluate((element) => getComputedStyle(element).backgroundColor)
+    // The canvas iframe runs no scripts of its own, so the editor page samples it every frame.
+    await page.evaluate(() => {
+      const doc = document.querySelector<HTMLIFrameElement>('iframe[title="Site canvas"]')!
+        .contentDocument!
+      const element = doc.querySelector('[data-freeflow-node="n-home-cta"]')!
+      const styles = () =>
+        Array.from(doc.head.querySelectorAll('style'), (s) => s.textContent).join()
+      const before = styles()
+      const record = { frames: [] as string[], morphed: false }
+      ;(window as unknown as { __frames?: typeof record }).__frames = record
+      const sample = () => {
+        record.frames.push(getComputedStyle(element).backgroundColor)
+        record.morphed ||= styles() !== before
+        if (record.frames.length < 600) requestAnimationFrame(sample)
+      }
+      sample()
+    })
+    await canvas.getByRole('button', { name: /^Text color: / }).click()
+    await saved()
+    const frames = () =>
+      page.evaluate(
+        () => (window as unknown as { __frames: { frames: string[]; morphed: boolean } }).__frames,
+      )
+    await expect.poll(async () => (await frames()).morphed).toBe(true)
+    expect(new Set((await frames()).frames)).toEqual(new Set([picked]))
   } finally {
     await browser.close()
     await new Promise<void>((resolve) => listener.close(() => resolve()))

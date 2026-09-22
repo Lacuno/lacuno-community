@@ -185,7 +185,7 @@ export function Inspector({
     if ('token' in edit) {
       try {
         const id = `dt-${crypto.randomUUID()}`
-        void save([
+        void autoSave([
           {
             type: 'designToken.create',
             id,
@@ -216,10 +216,12 @@ export function Inspector({
       for (const [property, value] of Object.entries(changed)) changeFormatting(property, value)
       return
     }
-    // Commit once when the drag ends as a single undoable edit, then drop the transient preview.
+    // Commit once when the drag ends as a single undoable edit. Like the panel's autosave, it keeps
+    // the panel and its draft, so the canvas shows the new value until the new render lands.
     setDragging(false)
-    setChanges({})
-    void save(formattingOperations(doc, node, changed, () => classId.current, breakpoint, state))
+    void autoSave(
+      formattingOperations(doc, node, changed, () => classId.current, breakpoint, state),
+    )
   }
   useEffect(() => {
     const listen = (event: Event) => canvasStyle.current((event as CustomEvent).detail)
