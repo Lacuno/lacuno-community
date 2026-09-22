@@ -21,6 +21,7 @@
 }
 /* Direct children only: the shared link popover sits in this row but keeps its own sizing. */
 .text-toolbar-fields > label :where(input, select),
+.text-toolbar-fields > .token-field > label :where(input, select),
 .text-toolbar-fields > button {
   padding: 4px 8px;
   line-height: normal;

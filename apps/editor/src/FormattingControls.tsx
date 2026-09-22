@@ -5,6 +5,7 @@ import { EffectsControls } from './EffectsControls.js'
 import { formattingGroups, localValue } from './formatting.js'
 import { MotionControls } from './MotionControls.js'
 import { SpacingControls } from './SpacingControls.js'
+import { TokenField } from './TokenField.js'
 
 const choiceLabel = (value: string) =>
   (
@@ -138,58 +139,70 @@ export function FormattingControls({
                           </label>
                         )}
                         {(!color || !ref) && (
-                          <label htmlFor={`format-${property}`}>
-                            {color ? 'Custom color' : label}
-                            {'choices' in field ? (
-                              <select
-                                id={`format-${property}`}
-                                aria-label={label}
-                                disabled={disabled}
-                                value={text}
-                                onChange={(event) =>
-                                  change(
-                                    property,
-                                    event.target.value
-                                      ? { type: 'raw', value: event.target.value }
-                                      : null,
-                                  )
-                                }
-                              >
-                                <option value="">
-                                  {computed[property]
-                                    ? `From style · ${choiceLabel(computed[property]!)}`
-                                    : 'From style'}
-                                </option>
-                                {text && !(field.choices as readonly string[]).includes(text) && (
-                                  <option value={text}>{text}</option>
-                                )}
-                                {field.choices.map((choice) => (
-                                  <option key={choice} value={choice}>
-                                    {choiceLabel(choice)}
+                          <TokenField
+                            doc={doc}
+                            property={property}
+                            label={label}
+                            value={value}
+                            disabled={disabled}
+                            set={(next) => change(property, next)}
+                          >
+                            <label htmlFor={`format-${property}`}>
+                              {color ? 'Custom color' : label}
+                              {'choices' in field ? (
+                                <select
+                                  id={`format-${property}`}
+                                  aria-label={label}
+                                  disabled={disabled}
+                                  value={text}
+                                  onChange={(event) =>
+                                    change(
+                                      property,
+                                      event.target.value
+                                        ? { type: 'raw', value: event.target.value }
+                                        : null,
+                                    )
+                                  }
+                                >
+                                  <option value="">
+                                    {computed[property]
+                                      ? `From style · ${choiceLabel(computed[property]!)}`
+                                      : 'From style'}
                                   </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                id={`format-${property}`}
-                                aria-label={label}
-                                disabled={disabled}
-                                placeholder={
-                                  computed[property] ||
-                                  ('hint' in field ? field.hint : 'e.g. #6952d9')
-                                }
-                                value={text}
-                                onChange={(event) =>
-                                  change(
-                                    property,
-                                    event.target.value
-                                      ? { type: color ? 'color' : 'raw', value: event.target.value }
-                                      : null,
-                                  )
-                                }
-                              />
-                            )}
-                          </label>
+                                  {text && !(field.choices as readonly string[]).includes(text) && (
+                                    <option value={text}>{text}</option>
+                                  )}
+                                  {field.choices.map((choice) => (
+                                    <option key={choice} value={choice}>
+                                      {choiceLabel(choice)}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  id={`format-${property}`}
+                                  aria-label={label}
+                                  disabled={disabled}
+                                  placeholder={
+                                    computed[property] ||
+                                    ('hint' in field ? field.hint : 'e.g. #6952d9')
+                                  }
+                                  value={text}
+                                  onChange={(event) =>
+                                    change(
+                                      property,
+                                      event.target.value
+                                        ? {
+                                            type: color ? 'color' : 'raw',
+                                            value: event.target.value,
+                                          }
+                                        : null,
+                                    )
+                                  }
+                                />
+                              )}
+                            </label>
+                          </TokenField>
                         )}
                       </div>
                     )

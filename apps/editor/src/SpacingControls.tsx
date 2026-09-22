@@ -2,6 +2,7 @@ import { contextFromDocument, serializeValue } from '@freeflow/css'
 import { useState } from 'react'
 import { localValue } from './formatting.js'
 import { NumberField, type StyleControls, useStyleField } from './styleField.js'
+import { TokenField } from './TokenField.js'
 
 const sides = ['top', 'right', 'bottom', 'left'] as const
 const sideLabel = { top: 'Top', right: 'Right', bottom: 'Bottom', left: 'Left' }
@@ -13,13 +14,26 @@ function SpacingCluster({
   min,
   ...props
 }: StyleControls & { kind: 'padding' | 'margin'; label: string; min?: number }) {
-  const { doc, node, computed, changes, breakpoint = 'base', state = 'none', disabled } = props
+  const {
+    doc,
+    node,
+    computed,
+    changes,
+    change,
+    breakpoint = 'base',
+    state = 'none',
+    disabled,
+  } = props
   const { overridden, set } = useStyleField(props)
   // The explicit local value only, so an inherited side stays empty and shows its computed placeholder.
-  const local = (side: string) => {
+  const localCss = (side: string) => {
     const property = `${kind}-${side}`
-    const value =
-      property in changes ? changes[property] : localValue(doc, node, property, breakpoint, state)
+    return property in changes
+      ? changes[property]
+      : localValue(doc, node, property, breakpoint, state)
+  }
+  const local = (side: string) => {
+    const value = localCss(side)
     return value ? serializeValue(value, contextFromDocument(doc)) : ''
   }
   const effective = (side: string) => local(side) || (computed[`${kind}-${side}`] ?? '')
@@ -41,19 +55,31 @@ function SpacingCluster({
       </div>
       <div className="spacing-sides">
         {sides.map((side) => (
-          <NumberField
+          <TokenField
             key={side}
+            doc={doc}
+            property={`${kind}-${side}`}
             label={sideLabel[side]}
             name={`${label} ${side}`}
-            value={local(side)}
-            min={min}
-            placeholder={computed[`${kind}-${side}`]}
+            value={localCss(side)}
             disabled={disabled}
-            overridden={overridden(`${kind}-${side}`)}
             set={(next) => {
-              for (const target of linked ? sides : [side]) set(`${kind}-${target}`, next)
+              for (const target of linked ? sides : [side]) change(`${kind}-${target}`, next)
             }}
-          />
+          >
+            <NumberField
+              label={sideLabel[side]}
+              name={`${label} ${side}`}
+              value={local(side)}
+              min={min}
+              placeholder={computed[`${kind}-${side}`]}
+              disabled={disabled}
+              overridden={overridden(`${kind}-${side}`)}
+              set={(next) => {
+                for (const target of linked ? sides : [side]) set(`${kind}-${target}`, next)
+              }}
+            />
+          </TokenField>
         ))}
       </div>
     </div>

@@ -12,6 +12,7 @@ import {
   wheelColor,
 } from './colorWheel.js'
 import { STATES, stateInfo } from './states.js'
+import { type Snap, snapTo, tokenPx } from './tokens.js'
 
 export type Selection = {
   name: string
@@ -22,6 +23,8 @@ export type Selection = {
   /** Whether this element takes a text colour, so the text swatch is offered. */
   textColor: boolean
   swatches: Swatch[]
+  /** The spacing and size tokens the handles snap to. */
+  tokens: Record<'spacing' | 'size', { ref: string; name: string; value: CssValue }[]>
 }
 
 const svg = (icon: string) =>
@@ -333,11 +336,13 @@ export function selectionOverlay(
   // Handles: drag an edge to set padding (inside) or margin (outside), or the border box's right,
   // bottom or corner to set width and height. Spacing is symmetric by default (the opposite side
   // moves by the same delta) and Alt moves only the dragged side; Shift keeps the corner's ratio.
+  // A value within 4px of a spacing or size token snaps to it; Ctrl or Cmd turns snapping off.
   const OPPOSITE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' } as const
   type Side = keyof typeof OPPOSITE
   type Axis = 'x' | 'y'
   // Each target writes max(min, from + sign × the pointer delta on its axis), plus `also`: what
-  // would hold a size back. `max` is its computed max cap in px (NaN when there is none).
+  // would hold a size back. `max` is its computed max cap in px (NaN when there is none), and
+  // `snap` the tokens it may snap to.
   type Target = {
     property: string
     axis: Axis
@@ -346,6 +351,7 @@ export function selectionOverlay(
     min: number
     max: number
     also: Record<string, CssValue>
+    snap: Snap[]
   }
   const cssPx = (el: Element, property: string) =>
     Number.parseFloat(view.getComputedStyle(el).getPropertyValue(property)) || 0
@@ -357,16 +363,24 @@ export function selectionOverlay(
         targets: Target[]
         /** The corner's height/width, kept while Shift is held; 0 on an edge. */
         ratio: number
+        /** Ctrl or Cmd is held, so nothing snaps. */
+        free: boolean
       }
     | undefined
-  const targetValue = (target: Target) =>
-    Math.max(target.min, Math.round(target.from + target.sign * handleDrag!.delta[target.axis]))
+  const targetValue = (target: Target) => {
+    const value = Math.max(
+      target.min,
+      Math.round(target.from + target.sign * handleDrag!.delta[target.axis]),
+    )
+    const snap = handleDrag!.free ? undefined : snapTo(value, target.snap)
+    return { value: snap?.px ?? value, snap }
+  }
   const emitHandle = (phase: 'drag' | 'commit') => {
     if (!handleDrag) return
     const changes: Record<string, CssValue> = {}
     for (const target of handleDrag.targets) {
-      const value = targetValue(target)
-      changes[target.property] = px(value)
+      const { value, snap } = targetValue(target)
+      changes[target.property] = snap ? { type: 'designToken', ref: snap.ref } : px(value)
       // Past its max cap the drag clears the cap, and keeps it cleared for the rest of the drag so
       // the preview's draft and the commit agree.
       if (value > target.max) target.also[`max-${target.property}`] = kw('none')
@@ -395,6 +409,13 @@ export function selectionOverlay(
     // the rendered box follows the pointer 1:1 under either box model (and when width is auto).
     const style = view.getComputedStyle(el)
     const contentBox = style.boxSizing !== 'border-box'
+    // Token values in px, with rem and em resolved against the root and this element.
+    const rootSize = Number.parseFloat(view.getComputedStyle(doc.documentElement).fontSize)
+    const snaps = (group: 'spacing' | 'size') =>
+      latest().tokens[group].flatMap(({ ref, name, value }) => {
+        const pixels = tokenPx(value, Number.parseFloat(style.fontSize), rootSize)
+        return pixels === undefined ? [] : [{ ref, name, px: pixels }]
+      })
     // A flex parent shrinks the element along its main axis, so a drag on that axis stops it.
     const parent = el.parentElement && view.getComputedStyle(el.parentElement)
     const mainAxis =
@@ -410,6 +431,7 @@ export function selectionOverlay(
       min: 1,
       max: Number.parseFloat(style.getPropertyValue(`max-${property}`)),
       also: axis === mainAxis && style.flexShrink !== '0' ? { 'flex-shrink': num(0) } : {},
+      snap: snaps('size'),
       from: contentBox
         ? total -
           [`padding-${a}`, `padding-${b}`, `border-${a}-width`, `border-${b}-width`]
@@ -432,6 +454,7 @@ export function selectionOverlay(
             min: kind === 'padding' ? 0 : -Infinity,
             max: Number.NaN,
             also: {},
+            snap: snaps('spacing'),
           }))
     handleDrag = {
       kind,
@@ -439,6 +462,7 @@ export function selectionOverlay(
       delta: { x: 0, y: 0 },
       targets,
       ratio: side === 'corner' ? box.height / box.width : 0,
+      free: event.ctrlKey || event.metaKey,
     }
     handlesLayer.setPointerCapture(event.pointerId)
     doc.addEventListener('pointerup', releaseHandle)
@@ -456,10 +480,17 @@ export function selectionOverlay(
       else x = y / ratio
     }
     handleDrag.delta = { x, y }
+    handleDrag.free = event.ctrlKey || event.metaKey
     emitHandle('drag')
-    // Spacing shows the dragged side; size shows width, height, or both for the corner.
+    // Spacing shows the dragged side; size shows width, height, or both for the corner. A snapped
+    // value shows its token's name.
     const shown = handleDrag.kind === 'size' ? handleDrag.targets : handleDrag.targets.slice(0, 1)
-    tag.textContent = shown.map((target) => `${targetValue(target)}px`).join(' × ')
+    tag.textContent = shown
+      .map((target) => {
+        const { value, snap } = targetValue(target)
+        return snap ? snap.name : `${value}px`
+      })
+      .join(' × ')
     tag.hidden = false
     tag.style.left = `${Math.min(event.clientX + 12, view.innerWidth - tag.offsetWidth - 2)}px`
     tag.style.top = `${Math.max(2, event.clientY - 24)}px`

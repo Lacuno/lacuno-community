@@ -340,6 +340,13 @@ export function Inspector({
                 change={(property, value) =>
                   changeFormatting(property, value ? { type: 'raw', value } : null)
                 }
+                tokens={{
+                  value: (property) =>
+                    property in changes
+                      ? changes[property]
+                      : localValue(doc, node, property, breakpoint, state),
+                  set: changeFormatting,
+                }}
                 linkDisabled={
                   !settled ||
                   (node.text.type !== 'doc' && node.text.type !== 'static') ||

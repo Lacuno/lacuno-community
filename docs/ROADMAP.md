@@ -75,6 +75,12 @@ inspector switches to numbered), a self-hosted video and an HTML embed. Uploads 
 next to images; the video inspector chooses a clip from the library and toggles controls, autoplay,
 loop and muted. Embeds publish verbatim; the canvas shows a labelled placeholder where their
 scripts and iframes would run. Form controls follow with Phase 2 forms.
+**Design tokens implemented:** the ribbon's Design tokens dialog manages colour, spacing, size,
+typography, radius and shadow tokens, named by group (`space.card`, `font.body`). Every matching
+style field has a token button that binds it to a token, shows the bound token's name and can
+detach it to a plain value. The canvas spacing and size handles snap to a token within 4px and
+commit the reference; Ctrl or Cmd turns snapping off
+([spec](superpowers/specs/2026-09-22-design-tokens-design.md)).
 Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 The planned direction for editing on the canvas itself, an action bar under the selection with

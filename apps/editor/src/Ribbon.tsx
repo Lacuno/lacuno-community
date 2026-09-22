@@ -94,7 +94,7 @@ export function Ribbon({
         <div className="ribbon-project-colors">
           <button
             type="button"
-            aria-label="Project colors"
+            aria-label="Design tokens"
             disabled={frozen || !doc}
             onClick={openColors}
           >
@@ -110,7 +110,7 @@ export function Ribbon({
                     />
                   ))}
             </span>
-            <span>Project colors</span>
+            <span>Design tokens</span>
           </button>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { EditorIcon } from './EditorIcon.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import type { DocumentSession } from './session.js'
 import { isLocked, nodeLabel } from './structure.js'
+import { tokensOfGroup, tokenValue } from './tokens.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 import type { Preview } from './usePreview.js'
 
@@ -59,6 +60,14 @@ export function CanvasPanel({
 }) {
   const { doc, error, busy, frozen, leave } = session
   const { editingComponent } = editing
+  const snapTokens = (group: 'spacing' | 'size') =>
+    doc
+      ? tokensOfGroup(doc, group).map((token) => ({
+          ref: token.id,
+          name: token.name,
+          value: tokenValue(doc, token),
+        }))
+      : []
   return (
     <main className="canvas-panel">
       {editingComponent && doc && (
@@ -164,6 +173,10 @@ export function CanvasPanel({
                   }))
                 : []
             }
+            tokens={{
+              spacing: snapTokens('spacing'),
+              size: snapTokens('size'),
+            }}
             selected={selected}
             selectedName={doc?.nodes[selected] ? nodeLabel(doc.nodes[selected]!) : ''}
             select={(id) => {

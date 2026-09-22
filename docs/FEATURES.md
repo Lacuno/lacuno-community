@@ -14,7 +14,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Classes and combo classes | MVP | Webflow model. Styles attach to classes, elements reference classes |
 | Breakpoint cascade | MVP | Desktop-first base with tablet, mobile landscape, mobile portrait. Custom breakpoints. Container queries as a per-element option |
 | States: hover, focus, focus-visible, active, visited, disabled, checked, first, last, nth, placeholder, before, after | MVP | The picker offers hover, focus, focus-visible, active, visited, first, last, odd and even; the rest wait for form controls in the palette and a content field |
-| Design tokens: color, spacing, typography, radius, shadow, with modes such as light and dark | MVP | Compiled to CSS custom properties |
+| Design tokens: color, spacing, typography, radius, shadow, with modes such as light and dark | MVP | Compiled to CSS custom properties. In: color, spacing, size, typography, radius and shadow in the Design tokens dialog, a token button on every matching style field, and canvas spacing and size handles that snap to tokens. Border and motion groups, and per-mode values for non-colour tokens in the dialog, wait |
 | Fluid typography and spacing with clamp | MVP | A design token can be a scale, not just a value |
 | Components with props, slots and variants | MVP | Instance overrides are explicit and visible in the tree |
 | Rich text editing on canvas | MVP | Tiptap. Same editor used in CMS rich fields |

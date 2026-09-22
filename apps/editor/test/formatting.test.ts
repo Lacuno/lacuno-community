@@ -1,5 +1,5 @@
 import { DocumentStore } from '@freeflow/document'
-import { fixtureDocument, styleKey } from '@freeflow/schema'
+import { type CssValue, fixtureDocument, rem, styleKey } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import { editingBreakpoint } from '../src/breakpoints.js'
 import {
@@ -9,6 +9,7 @@ import {
   normalizeFormatting,
 } from '../src/formatting.js'
 import { presetValues } from '../src/presets.js'
+import { tokenValue } from '../src/tokens.js'
 import { commit } from './helpers.js'
 
 it('formats only the selected element and round-trips automatic local style creation', async () => {
@@ -100,6 +101,19 @@ it('accepts pixel sizes without requiring CSS units', () => {
     'font-size': { type: 'unit', value: 24, unit: 'px' },
     'line-height': { type: 'raw', value: '1.5' },
   })
+})
+
+it('writes a picked token as a reference and a detached one as its default-mode value', () => {
+  const doc = fixtureDocument()
+  const node = doc.nodes['n-hero-title']!
+  const reference = { type: 'designToken' as const, ref: 't-space-md' }
+  expect(normalizeFormatting({ 'padding-top': reference })).toEqual({ 'padding-top': reference })
+  const write = (value: CssValue) =>
+    formattingOperations(doc, node, { 'padding-top': value }, () => 'c-token').find(
+      (operation) => operation.type === 'style.set' && operation.property === 'padding-top',
+    )
+  expect(write(reference)).toMatchObject({ value: reference })
+  expect(write(tokenValue(doc, doc.designTokens['t-space-md']!))).toMatchObject({ value: rem(1) })
 })
 
 it('writes, reads and clears declarations at a state and falls back in specificity order', async () => {

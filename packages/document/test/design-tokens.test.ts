@@ -93,5 +93,6 @@ describe('design tokens', () => {
       'styles.c-button-primary|base|none|background-color',
       'styles.c-button|base|focus-visible|outline',
     ])
+    failing([{ type: 'designToken.delete', id: 't-space-lg' }], /referenced/)
   })
 })

@@ -49,7 +49,18 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
 - Open **Advanced: shared classes** to create, assign or remove reusable classes. Expand a
   class to see the elements and pages/components using it. These changes save immediately and support
   undo/redo; pending formatting must finish first.
-- Open **Project colors** to create named colors and explicit variants (for example Brand / Light).
+- Open **Design tokens** from the ribbon to manage the site's tokens. **Colors** works as described
+  below. **Spacing**, **Size**, **Typography**, **Radius** and **Shadow** list their tokens with
+  value, description and how many styles use them; a token's name is prefixed by its group
+  (`space.`, `size.`, `font.`, `radius.`, `shadow.`), its value is a length (a font stack for
+  typography, any shadow for shadow), and edits save as you type. A token in use cannot be deleted.
+- Every style field those groups apply to (inside and outside spacing, item spacing, width, height,
+  their limits, font, size, line height, corner radius and box shadow) has a token button. Picking a
+  token binds the field, which then shows the token's name with its value as the tooltip; **Detach**
+  in the same menu writes the token's current value instead. The canvas spacing and size handles
+  snap to a spacing or size token within 4px, name it in the readout and save the reference; hold
+  Ctrl or Cmd to drag freely.
+- Colors: create named colors and explicit variants (for example Brand / Light).
   Existing template colors are available immediately. Pick a project color for `color`,
   `background-color`, or `border-color`, or enter a custom CSS color. Linked styles store token
   references, so editing one color updates every use. Variants are independent, editable values;

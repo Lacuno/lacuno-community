@@ -102,6 +102,7 @@ it('binds per-side spacing inputs to the longhands and the handles, with a link 
       buttons: 1,
       clickCount: 1,
     })
+    // Ctrl keeps the drag off the template's spacing tokens, so the input shows a number.
     for (let step = 1; step <= 15; step++)
       await cdp.send('Input.dispatchMouseEvent', {
         type: 'mouseMoved',
@@ -109,6 +110,7 @@ it('binds per-side spacing inputs to the longhands and the handles, with a link 
         y: from.y - (50 * step) / 15,
         button: 'left',
         buttons: 1,
+        modifiers: 2,
       })
     // The input tracks the draft while the pointer is still down (autosave paused).
     await expect.poll(() => topInput.inputValue().then(Number)).toBeGreaterThan((50 / zoom) * 0.6)

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { StyleEdit, Swatch } from './colorWheel.js'
 import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
-import { selectionOverlay } from './selectionOverlay.js'
+import { type Selection, selectionOverlay } from './selectionOverlay.js'
 
 /** The unsaved edit a panel paints into the canvas before it is committed. */
 export type LivePreview = {
@@ -76,6 +76,7 @@ export function Canvas({
   scope,
   textColor,
   swatches,
+  tokens,
   selected,
   selectedName,
   select,
@@ -96,6 +97,7 @@ export function Canvas({
   scope: string
   textColor: boolean
   swatches: Swatch[]
+  tokens: Selection['tokens']
   selected: string
   selectedName: string
   select: (id: string) => void
@@ -249,6 +251,7 @@ export function Canvas({
     scope,
     textColor,
     swatches,
+    tokens,
     select,
     onHistory,
     onComputed,
@@ -378,6 +381,7 @@ export function Canvas({
               states: latest.current.states,
               textColor: latest.current.textColor,
               swatches: latest.current.swatches,
+              tokens: latest.current.tokens,
             }),
             (next) => latest.current.onState(next),
             (edit: StyleEdit) =>

@@ -1,11 +1,13 @@
 import { useId, useRef } from 'react'
 import { pickerHex } from './colors.js'
 import { defaultShadow, readShadow, readTilt, writeShadow, writeTilt } from './effects.js'
+import { localValue } from './formatting.js'
 import { placePopover } from './popover.js'
 import { NumberField, type StyleControls, useStyleField } from './styleField.js'
+import { TokenField } from './TokenField.js'
 
 export function EffectsControls(props: StyleControls) {
-  const { disabled } = props
+  const { doc, node, changes, change, breakpoint = 'base', state = 'none', disabled } = props
   const { overridden, value, set } = useStyleField(props)
   const tiltText = value('transform', 'none')
   const tilt = readTilt(tiltText)
@@ -94,19 +96,32 @@ export function EffectsControls(props: StyleControls) {
           />
         </label>
       )}
-      <div className="effect-shadow-trigger">
-        <span>Box shadow</span>
-        <button
-          type="button"
-          disabled={disabled}
-          data-overridden={overridden('box-shadow')}
-          popoverTarget={shadowId}
-          aria-haspopup="dialog"
-          onClick={(event) => placePopover(event.currentTarget, shadowPanel.current)}
-        >
-          {shadowText === 'none' ? 'Add shadow…' : 'Edit shadow…'}
-        </button>
-      </div>
+      <TokenField
+        doc={doc}
+        property="box-shadow"
+        label="Box shadow"
+        value={
+          'box-shadow' in changes
+            ? changes['box-shadow']
+            : localValue(doc, node, 'box-shadow', breakpoint, state)
+        }
+        disabled={disabled}
+        set={(next) => change('box-shadow', next)}
+      >
+        <div className="effect-shadow-trigger">
+          <span>Box shadow</span>
+          <button
+            type="button"
+            disabled={disabled}
+            data-overridden={overridden('box-shadow')}
+            popoverTarget={shadowId}
+            aria-haspopup="dialog"
+            onClick={(event) => placePopover(event.currentTarget, shadowPanel.current)}
+          >
+            {shadowText === 'none' ? 'Add shadow…' : 'Edit shadow…'}
+          </button>
+        </div>
+      </TokenField>
       <div
         ref={shadowPanel}
         id={shadowId}

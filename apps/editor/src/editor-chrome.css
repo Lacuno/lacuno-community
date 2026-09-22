@@ -240,6 +240,36 @@
   background: #f0edf9;
   border-color: #c2b5ee;
 }
+.token-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.token-groups [aria-pressed="true"] {
+  background: #f0edf9;
+  border-color: #c2b5ee;
+}
+.token-row {
+  display: grid;
+  gap: 2px;
+}
+.token-row small {
+  color: var(--muted);
+}
+.token-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.token-shadow-preview {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: #fff;
+}
 .color-swatch {
   display: inline-block;
   flex-shrink: 0;
@@ -794,7 +824,7 @@
   :where(details[data-group="Layout"], details[data-group="Spacing & shape"])
   .formatting-grid {
   display: grid;
-  grid-template-columns: repeat(3, 106px);
+  grid-template-columns: repeat(4, 106px);
 }
 .ribbon-formatting :where(details[data-group="Layout"]) .formatting-grid {
   grid-template-columns: repeat(5, 106px);
@@ -802,6 +832,10 @@
 .ribbon-formatting .formatting-grid > div {
   width: 106px;
   flex-shrink: 0;
+}
+/* The per-side spacing spans the group's four columns rather than one field's width. */
+.ribbon-formatting .formatting-grid > .spacing-controls {
+  width: auto;
 }
 .ribbon-formatting .formatting-grid [data-property="font-family"] {
   width: 175px;
@@ -1638,4 +1672,61 @@
 .assigned-classes summary span {
   color: var(--muted);
   white-space: nowrap;
+}
+
+.token-field {
+  position: relative;
+  min-width: 0;
+}
+.token-field input[data-token] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.token-button {
+  /* Beside the field's label, clear of number spinners and select arrows. */
+  position: absolute;
+  top: -3px;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.token-button svg {
+  width: 13px;
+  height: 13px;
+}
+.token-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 220px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 28px #25263324;
+}
+.token-popover [role^="menuitem"] {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+}
+.token-popover [aria-checked="true"] {
+  background: #f0edf9;
+}
+.token-popover small {
+  color: var(--muted);
 }

@@ -1,7 +1,8 @@
-import type { Document } from '@freeflow/schema'
+import type { CssValue, Document } from '@freeflow/schema'
 import type { ReactNode } from 'react'
 import { pickerHex } from './colors.js'
 import { LinkTarget, type LinkValue } from './LinkTarget.js'
+import { TokenField } from './TokenField.js'
 import './text-toolbar.css'
 
 export function TextToolbar({
@@ -14,6 +15,7 @@ export function TextToolbar({
   currentLink,
   change,
   link,
+  tokens,
   children,
 }: {
   doc: Document
@@ -25,43 +27,74 @@ export function TextToolbar({
   currentLink?: Record<string, unknown> | undefined
   change: (property: string, value: string) => void
   link: (attrs: LinkValue | null) => void
+  /** The whole-text style values as typed values, so typography fields can bind to tokens. */
+  tokens?: {
+    value: (property: string) => CssValue | null | undefined
+    set: (property: string, value: CssValue) => void
+  }
   children?: ReactNode
 }) {
   const bold = Number(values['font-weight']) >= 600
   const italic = values['font-style'] === 'italic'
+  const tokenField = (property: string, label: string, className: string, field: ReactNode) =>
+    tokens ? (
+      <TokenField
+        doc={doc}
+        property={property}
+        label={label}
+        className={className}
+        value={tokens.value(property)}
+        disabled={disabled}
+        set={(value) => tokens.set(property, value)}
+      >
+        {field}
+      </TokenField>
+    ) : (
+      field
+    )
   return (
     <section className="text-toolbar" aria-label="Text formatting">
       <div className="text-toolbar-fields">
-        <label className="text-font">
-          Font
-          <select
-            aria-label="Font"
-            disabled={disabled}
-            value={values['font-family'] ?? ''}
-            onChange={(event) => change('font-family', event.target.value)}
-          >
-            <option value="">Inherited</option>
-            {values['font-family'] &&
-              !['Inter, sans-serif', 'Arial, sans-serif', 'Georgia, serif', 'monospace'].includes(
-                values['font-family'],
-              ) && <option>{values['font-family']}</option>}
-            {['Inter, sans-serif', 'Arial, sans-serif', 'Georgia, serif', 'monospace'].map(
-              (font) => (
-                <option key={font}>{font}</option>
-              ),
-            )}
-          </select>
-        </label>
-        <label className="text-size">
-          Size
-          <input
-            aria-label="Size"
-            disabled={disabled}
-            value={values['font-size'] ?? ''}
-            placeholder={placeholders['font-size'] || 'Inherited'}
-            onChange={(event) => change('font-size', event.target.value)}
-          />
-        </label>
+        {tokenField(
+          'font-family',
+          'Font',
+          'text-font',
+          <label className="text-font">
+            Font
+            <select
+              aria-label="Font"
+              disabled={disabled}
+              value={values['font-family'] ?? ''}
+              onChange={(event) => change('font-family', event.target.value)}
+            >
+              <option value="">Inherited</option>
+              {values['font-family'] &&
+                !['Inter, sans-serif', 'Arial, sans-serif', 'Georgia, serif', 'monospace'].includes(
+                  values['font-family'],
+                ) && <option>{values['font-family']}</option>}
+              {['Inter, sans-serif', 'Arial, sans-serif', 'Georgia, serif', 'monospace'].map(
+                (font) => (
+                  <option key={font}>{font}</option>
+                ),
+              )}
+            </select>
+          </label>,
+        )}
+        {tokenField(
+          'font-size',
+          'Size',
+          'text-size',
+          <label className="text-size">
+            Size
+            <input
+              aria-label="Size"
+              disabled={disabled}
+              value={values['font-size'] ?? ''}
+              placeholder={placeholders['font-size'] || 'Inherited'}
+              onChange={(event) => change('font-size', event.target.value)}
+            />
+          </label>,
+        )}
         <button
           type="button"
           aria-label="Bold"
@@ -117,16 +150,21 @@ export function TextToolbar({
             ))}
           </select>
         </label>
-        <label className="text-line-height" title="Applies to the whole text block">
-          Line height
-          <input
-            aria-label="Line height"
-            disabled={disabled}
-            value={values['line-height'] ?? ''}
-            placeholder={placeholders['line-height'] || 'Inherited'}
-            onChange={(event) => change('line-height', event.target.value)}
-          />
-        </label>
+        {tokenField(
+          'line-height',
+          'Line height',
+          'text-line-height',
+          <label className="text-line-height" title="Applies to the whole text block">
+            Line height
+            <input
+              aria-label="Line height"
+              disabled={disabled}
+              value={values['line-height'] ?? ''}
+              placeholder={placeholders['line-height'] || 'Inherited'}
+              onChange={(event) => change('line-height', event.target.value)}
+            />
+          </label>,
+        )}
       </div>
       <div className="text-toolbar-footer">
         <span className="text-scope">{scope}</span>
