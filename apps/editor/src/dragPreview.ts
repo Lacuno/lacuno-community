@@ -10,6 +10,7 @@ export function createDragPreview(
   doc: SiteDocument,
   item: DragItem,
   siteId: string,
+  grab: { x: number; y: number },
 ) {
   const view = surface.defaultView
   const canvas = view?.frameElement as HTMLIFrameElement | null
@@ -30,7 +31,6 @@ export function createDragPreview(
       pointerEvents: 'none',
       zIndex: '1',
       border: '0',
-      display: active ? 'block' : 'none',
     })
   }
   let active = false
@@ -54,6 +54,19 @@ export function createDragPreview(
   if (!source) {
     frame.remove()
     return
+  }
+  // Chrome paints the native drag image at the element's unscaled size, ignoring the canvas zoom,
+  // so the canvas hides it and the dragged element is drawn here at its size on the canvas instead.
+  const ghost = 'id' in item ? (source.cloneNode(true) as HTMLElement) : undefined
+  if (ghost) {
+    for (const element of [ghost, ...ghost.querySelectorAll('[data-freeflow-node]')])
+      element.removeAttribute('data-freeflow-node')
+    ghost.setAttribute('data-freeflow-drag-ghost', '')
+    const { width, height } = surface
+      .querySelector(`[data-freeflow-node="${CSS.escape(source.dataset.freeflowNode!)}"]`)!
+      .getBoundingClientRect()
+    ghost.style.cssText += `;position:fixed!important;width:${width}px!important;height:${height}px!important;margin:0!important;box-sizing:border-box!important;translate:none!important;opacity:.75!important;pointer-events:none;z-index:2147483647`
+    source.before(ghost)
   }
   const originalParent = source.parentElement
   const originalNext = source.nextSibling
@@ -98,7 +111,6 @@ export function createDragPreview(
     if (originalStyle === null) surface.documentElement.removeAttribute('style')
     else surface.documentElement.setAttribute('style', originalStyle)
     marker.remove()
-    frame.style.display = 'none'
     active = false
     destination = ''
   }
@@ -113,13 +125,18 @@ export function createDragPreview(
   const zoom = new MutationObserver(size)
   zoom.observe(canvas, { attributes: true, attributeFilter: ['style'] })
   surface.addEventListener('scroll', syncScroll, true)
+  syncScroll()
   return {
+    follow(x: number, y: number) {
+      ghost?.style.setProperty('left', `${x - grab.x}px`, 'important')
+      ghost?.style.setProperty('top', `${y - grab.y}px`, 'important')
+    },
+    drop: () => ghost?.remove(),
     show(target: DragDestination) {
       const key = `${target.parent}:${target.index}`
       if (destination === key) return
       const parent = find(target.parent)
       if (!parent || source.contains(parent)) return
-      frame.style.display = 'block'
       syncScroll()
       const before = new Map(elements.map((element) => [element, element.getBoundingClientRect()]))
       stopAnimations()

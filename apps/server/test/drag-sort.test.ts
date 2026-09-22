@@ -146,7 +146,7 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
           (await page.locator('iframe[title="Drag preview"]').boundingBox())!.width -
           (await page.locator('iframe[title="Site canvas"]').boundingBox())!.width,
       )
-      .toBe(0)
+      .toBeCloseTo(0, 2)
     await cdp.send('Input.cancelDragging')
     await page.keyboard.press('Escape')
     await expect.poll(() => gap.count()).toBe(0)

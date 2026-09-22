@@ -54,6 +54,10 @@ function createController(getOptions: () => Options) {
       'position:absolute;left:0;top:0;transform:translateY(-100%);padding:3px 6px;background:#7952ed;color:white;font:12px sans-serif;white-space:nowrap;border-radius:3px;'
     indicator.append(label)
     surface.body.append(indicator)
+    // A transparent image hides the native drag image; the projection draws the element instead.
+    const blank = surface.createElement('img')
+    blank.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='
+    let grab = { x: 0, y: 0 }
     let preview: ReturnType<typeof createDragPreview>
     let previewItem: DragItem | undefined
     const reset = () => {
@@ -95,7 +99,7 @@ function createController(getOptions: () => Options) {
       const { doc, siteId } = getOptions()
       if (previewItem !== item && doc) {
         preview?.dispose()
-        preview = createDragPreview(surface, doc, item!, siteId)
+        preview = createDragPreview(surface, doc, item!, siteId, grab)
         previewItem = item
       }
       return preview
@@ -122,6 +126,11 @@ function createController(getOptions: () => Options) {
       if (!item) {
         event.preventDefault()
         return
+      }
+      if (onCanvas) {
+        const rect = element.getBoundingClientRect()
+        grab = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+        event.dataTransfer.setDragImage(blank, 0, 0)
       }
       event.dataTransfer.effectAllowed = 'preset' in item ? 'copy' : 'move'
       event.dataTransfer.setData('application/x-freeflow-element', 'internal')
@@ -165,6 +174,8 @@ function createController(getOptions: () => Options) {
       }
       if (!item) return
       event.preventDefault()
+      const projection = onCanvas ? ensurePreview() : undefined
+      projection?.follow(event.clientX, event.clientY)
       const target = locate(event)
       if (event.dataTransfer)
         event.dataTransfer.dropEffect = target ? ('preset' in item ? 'copy' : 'move') : 'none'
@@ -172,7 +183,6 @@ function createController(getOptions: () => Options) {
         clear()
         return
       }
-      const projection = onCanvas && ensurePreview()
       if (projection) {
         clear(reset)
         indicator.style.display = 'none'
@@ -216,6 +226,7 @@ function createController(getOptions: () => Options) {
       const edit = dropEdit(doc, root, source, target.id, target.position)
       // Keep the last projection while the save is in flight instead of snapping back on drop.
       const pending = edit.operations.length ? preview : undefined
+      pending?.drop()
       if (pending) preview = undefined
       end()
       if (edit.operations.length)
