@@ -125,7 +125,13 @@ export function CanvasPanel({
         </fieldset>
         <span className="muted">{width}px</span>
       </div>
-      <div className="canvas-workspace">
+      {/* biome-ignore lint/a11y: a mouse-only convenience; the empty space is not a control. */}
+      <div
+        className="canvas-workspace"
+        onClick={(event) => {
+          if (event.target === event.currentTarget && selected) void leave(() => setSelected(''))
+        }}
+      >
         {preview ? (
           <Canvas
             editingText={!!inlineTarget}
