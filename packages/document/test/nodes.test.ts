@@ -155,6 +155,26 @@ describe('node.update', () => {
     expect(title.type === 'text' && title.text).toEqual({ type: 'field', field: 'f-title' })
     expect(title.semantic).toBeUndefined()
   })
+  it("changes a tag and an embed's html", () => {
+    const { document } = run([
+      { type: 'node.update', id: 'n-hero', tag: 'article' },
+      {
+        type: 'node.create',
+        parent: 'n-home',
+        node: { type: 'embed', id: 'n-embed-new', html: '' },
+      },
+      { type: 'node.update', id: 'n-embed-new', html: '<b>Hi</b>' },
+    ])
+    expect(document.nodes['n-hero']).toMatchObject({ tag: 'article' })
+    expect(document.nodes['n-embed-new']).toMatchObject({ html: '<b>Hi</b>' })
+    failing(
+      [
+        { type: 'node.create', parent: 'n-home', node: { type: 'embed', id: 'n-e', html: '' } },
+        { type: 'node.update', id: 'n-e', tag: 'div' },
+      ],
+      /tag applies to tagged nodes/,
+    )
+  })
   it('rejects fields that do not belong to the node type and unknown classes', () => {
     failing(
       [{ type: 'node.update', id: 'n-hero', text: { type: 'static', value: 'x' } }],
@@ -165,6 +185,7 @@ describe('node.update', () => {
       /props applies to component instances/,
     )
     failing([{ type: 'node.update', id: 'n-hero', query: {} }], /query applies to collection lists/)
+    failing([{ type: 'node.update', id: 'n-hero', html: '<b>x</b>' }], /html applies to embed/)
     failing([{ type: 'node.update', id: 'n-hero', classes: ['c-nope'] }], /unknown class c-nope/)
     failing([{ type: 'node.update', id: 'nope' }], /unknown node nope/)
   })

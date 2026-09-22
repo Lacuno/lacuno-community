@@ -940,7 +940,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
       context.fillRect(0, 0, 40, 30)
       return image.toDataURL('image/png').split(',')[1]!
     })
-    await page.getByLabel('Upload image', { exact: true }).setInputFiles({
+    await page.getByLabel('Upload image or video', { exact: true }).setInputFiles({
       name: 'blue-card.png',
       mimeType: 'image/png',
       buffer: Buffer.from(imageData, 'base64'),

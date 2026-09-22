@@ -18,7 +18,7 @@ import { LinkTarget } from './LinkTarget.js'
 import { PresetManager } from './PresetManager.js'
 import { placePopover } from './popover.js'
 import { stateInfo } from './states.js'
-import { hasAnchorParent, isLocked, isShared, nodeLabel } from './structure.js'
+import { hasAnchorParent, isLocked, isShared, nodeLabel, toggleAttr } from './structure.js'
 import { TextToolbar } from './TextToolbar.js'
 import { textLink, textProperties, wholeText } from './textFormatting.js'
 import { useAutosave } from './useAutosave.js'
@@ -78,6 +78,7 @@ export function Inspector({
   const scopeInfoId = useId()
   const scopeInfo = useRef<HTMLDivElement>(null)
   const isImage = node.type === 'element' && node.tag === 'img'
+  const isVideo = node.type === 'element' && node.tag === 'video'
   const isLink = 'tag' in node && node.tag === 'a'
   const linkHref = isLink ? node.attrs?.href : undefined
   const originalAlt = node.attrs?.alt?.type === 'static' ? String(node.attrs.alt.value) : ''
@@ -85,7 +86,9 @@ export function Inspector({
   const [imageAlt, setImageAlt] = useState(originalAlt)
   const [imageAsset, setImageAsset] = useState(originalAsset)
   const [imageLibraryOpen, setImageLibraryOpen] = useState(false)
-  const imageDirty = isImage && (imageAlt !== originalAlt || imageAsset !== originalAsset)
+  const imageDirty =
+    (isImage || isVideo) && (imageAlt !== originalAlt || imageAsset !== originalAsset)
+  const [embedHtml, setEmbedHtml] = useState(node.type === 'embed' ? node.html : '')
   const originalText = editableText(node)
   const [text, setText] = useState(originalText ?? '')
   const [changes, setChanges] = useState<Record<string, CssValue | null>>({})
@@ -235,7 +238,7 @@ export function Inspector({
       state,
       ...(local ? { selector: selectorFor(doc, classNames(doc), local, state, true) } : {}),
       ...(originalText !== undefined ? { text } : {}),
-      ...(isImage
+      ...(isImage || isVideo
         ? {
             attrs: {
               ...(node.attrs?.alt?.type === 'static' || imageAlt !== originalAlt
@@ -440,7 +443,40 @@ export function Inspector({
             void autosave.flush()
           }}
         >
-          {isImage && (
+          {'tag' in node && (node.tag === 'ul' || node.tag === 'ol') && (
+            <label>
+              List type
+              <select
+                aria-label="List type"
+                value={node.tag}
+                disabled={disabled}
+                onChange={(event) =>
+                  void autoSave([{ type: 'node.update', id: node.id, tag: event.target.value }])
+                }
+              >
+                <option value="ul">Bulleted</option>
+                <option value="ol">Numbered</option>
+              </select>
+            </label>
+          )}
+          {node.type === 'embed' && (
+            <label>
+              Embed code
+              <textarea
+                aria-label="Embed code"
+                className="embed-code"
+                rows={8}
+                value={embedHtml}
+                disabled={disabled}
+                onChange={(event) => setEmbedHtml(event.target.value)}
+                onBlur={() => {
+                  if (embedHtml !== node.html)
+                    void autoSave([{ type: 'node.update', id: node.id, html: embedHtml }])
+                }}
+              />
+            </label>
+          )}
+          {(isImage || isVideo) && (
             <div className="image-controls">
               <button
                 type="button"
@@ -448,12 +484,13 @@ export function Inspector({
                 aria-haspopup="dialog"
                 onClick={() => setImageLibraryOpen(true)}
               >
-                {imageAsset ? 'Change image' : 'Choose image'}
+                {`${imageAsset ? 'Change' : 'Choose'} ${isVideo ? 'video' : 'image'}`}
               </button>
               {imageLibraryOpen && (
                 <ImageLibrary
                   siteId={siteId}
                   doc={doc}
+                  kind={isVideo ? 'video' : 'image'}
                   selected={imageAsset}
                   close={() => setImageLibraryOpen(false)}
                   choose={(id) => {
@@ -462,74 +499,99 @@ export function Inspector({
                   }}
                 />
               )}
-              <label>
-                Alt text
-                <input
-                  aria-label="Image alt text"
-                  value={imageAlt}
-                  disabled={disabled}
-                  onChange={(event) => setImageAlt(event.target.value)}
-                />
-              </label>
-              <p className="hint">Describe the image, or leave empty if it is decorative.</p>
-              <label>
-                Fit
-                <select
-                  aria-label="Image fit"
-                  disabled={disabled}
-                  value={
-                    changes['object-fit']?.type === 'raw'
-                      ? changes['object-fit'].value
-                      : computed['object-fit'] || 'fill'
-                  }
-                  onChange={(event) =>
-                    changeFormatting('object-fit', { type: 'raw', value: event.target.value })
-                  }
-                >
-                  {Object.entries({
-                    cover: 'Fill frame',
-                    contain: 'Fit inside',
-                    fill: 'Stretch',
-                    none: 'Original size',
-                    'scale-down': 'Shrink to fit',
-                  }).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
+              {isVideo ? (
+                <div className="video-flags">
+                  {['controls', 'autoplay', 'loop', 'muted'].map((name) => (
+                    <label key={name}>
+                      <input
+                        type="checkbox"
+                        disabled={disabled}
+                        checked={
+                          node.attrs?.[name]?.type === 'static' && node.attrs[name].value === true
+                        }
+                        onChange={(event) =>
+                          void autoSave([toggleAttr(node, name, event.target.checked)])
+                        }
+                      />
+                      {name[0]!.toUpperCase() + name.slice(1)}
+                    </label>
                   ))}
-                </select>
-              </label>
-              <label>
-                Focal point
-                <select
-                  aria-label="Image focal point"
-                  disabled={disabled}
-                  value={
-                    changes['object-position']?.type === 'raw'
-                      ? changes['object-position'].value
-                      : computed['object-position'] || '50% 50%'
-                  }
-                  onChange={(event) =>
-                    changeFormatting('object-position', { type: 'raw', value: event.target.value })
-                  }
-                >
-                  {[
-                    ['0% 0%', 'Top left'],
-                    ['50% 0%', 'Top'],
-                    ['100% 0%', 'Top right'],
-                    ['0% 50%', 'Left'],
-                    ['50% 50%', 'Center'],
-                    ['100% 50%', 'Right'],
-                    ['0% 100%', 'Bottom left'],
-                    ['50% 100%', 'Bottom'],
-                    ['100% 100%', 'Bottom right'],
-                  ].map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                </div>
+              ) : (
+                <>
+                  <label>
+                    Alt text
+                    <input
+                      aria-label="Image alt text"
+                      value={imageAlt}
+                      disabled={disabled}
+                      onChange={(event) => setImageAlt(event.target.value)}
+                    />
+                  </label>
+                  <p className="hint">Describe the image, or leave empty if it is decorative.</p>
+                  <label>
+                    Fit
+                    <select
+                      aria-label="Image fit"
+                      disabled={disabled}
+                      value={
+                        changes['object-fit']?.type === 'raw'
+                          ? changes['object-fit'].value
+                          : computed['object-fit'] || 'fill'
+                      }
+                      onChange={(event) =>
+                        changeFormatting('object-fit', { type: 'raw', value: event.target.value })
+                      }
+                    >
+                      {Object.entries({
+                        cover: 'Fill frame',
+                        contain: 'Fit inside',
+                        fill: 'Stretch',
+                        none: 'Original size',
+                        'scale-down': 'Shrink to fit',
+                      }).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Focal point
+                    <select
+                      aria-label="Image focal point"
+                      disabled={disabled}
+                      value={
+                        changes['object-position']?.type === 'raw'
+                          ? changes['object-position'].value
+                          : computed['object-position'] || '50% 50%'
+                      }
+                      onChange={(event) =>
+                        changeFormatting('object-position', {
+                          type: 'raw',
+                          value: event.target.value,
+                        })
+                      }
+                    >
+                      {[
+                        ['0% 0%', 'Top left'],
+                        ['50% 0%', 'Top'],
+                        ['100% 0%', 'Top right'],
+                        ['0% 50%', 'Left'],
+                        ['50% 50%', 'Center'],
+                        ['100% 50%', 'Right'],
+                        ['0% 100%', 'Bottom left'],
+                        ['50% 100%', 'Bottom'],
+                        ['100% 100%', 'Bottom right'],
+                      ].map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
             </div>
           )}
           {originalText !== undefined ? (

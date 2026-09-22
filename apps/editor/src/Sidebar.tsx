@@ -107,7 +107,7 @@ export function Sidebar({
               doc={editableDoc}
               disabled={frozen}
               save={save}
-              insert={async (assetId) => {
+              insert={async (preset, assetId) => {
                 let target: ReturnType<typeof insertionTarget> | undefined
                 let refused = ''
                 for (const placement of ['inside', 'after', 'page'] as const) {
@@ -122,7 +122,7 @@ export function Sidebar({
                   setError(refused)
                   return
                 }
-                const edit = structureInsertion('image', target, '', false, assetId)
+                const edit = structureInsertion(preset, target, '', false, assetId)
                 if (await save(edit.operations)) {
                   setSelected(edit.node.id)
                   setSidebar('Layers')

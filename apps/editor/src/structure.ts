@@ -8,7 +8,16 @@ export const structures = ['section', 'container', 'stack', 'row', 'grid'] as co
 export type Structure = (typeof structures)[number]
 export const actions = ['link', 'button'] as const
 export type Action = (typeof actions)[number]
-export type Preset = 'heading' | 'paragraph' | 'image' | Structure | Action
+export type Preset =
+  | 'heading'
+  | 'paragraph'
+  | 'span'
+  | 'list'
+  | 'image'
+  | 'video'
+  | 'embed'
+  | Structure
+  | Action
 /** Wrap in link builds an `a` around the selection; the palette's Link is a text node. */
 type Buildable = Preset | 'link-wrapper'
 export const wrappers = [...structures, 'link'] as const
@@ -23,6 +32,8 @@ const containers = new Set([
   'header',
   'footer',
   'nav',
+  'ul',
+  'ol',
   'li',
   'figure',
   'figcaption',
@@ -87,12 +98,25 @@ const tagLabels: Record<string, string> = {
   h4: 'Heading',
   h5: 'Heading',
   h6: 'Heading',
+  ul: 'List',
+  ol: 'List',
+  li: 'Item',
 }
 
 /** The name shown for an element in the layers, breadcrumbs, drag labels and the inspector. */
 export function nodeLabel(node: Node) {
   if (node.meta?.label) return node.meta.label
   return 'tag' in node ? (tagLabels[node.tag] ?? node.tag) : node.type
+}
+
+/** Turns a boolean attribute on or off; autoplay also mutes, since browsers refuse it unmuted. */
+export function toggleAttr(node: Node, name: string, on: boolean): Operation {
+  const attrs = { ...node.attrs }
+  for (const key of name === 'autoplay' && on ? [name, 'muted'] : [name]) {
+    if (on) attrs[key] = { type: 'static', value: true }
+    else delete attrs[key]
+  }
+  return { type: 'node.update', id: node.id, attrs }
 }
 
 export function insertionTarget(
@@ -157,11 +181,39 @@ export function presetNode(
     }
   }
   const classes = classId ? [classId] : []
+  if (preset === 'video')
+    return {
+      id: makeId(),
+      type: 'element',
+      tag: 'video',
+      classes,
+      attrs: {
+        ...(assetId ? { src: { type: 'asset' as const, asset: assetId } } : {}),
+        controls: { type: 'static', value: true },
+        playsinline: { type: 'static', value: true },
+      },
+      meta: { label: 'Video' },
+      children: [],
+    }
+  if (preset === 'embed')
+    return { id: makeId(), type: 'embed', html: '', classes, meta: { label: 'Embed' } }
+  if (preset === 'list')
+    return {
+      id: makeId(),
+      type: 'element',
+      tag: 'ul',
+      classes,
+      meta: { label: 'List' },
+      children: ['First item', 'Second item', 'Third item'].map((value) =>
+        text('li', 'Item', value),
+      ),
+    }
   // A page binding keeps the link pointing at the page after a path change.
   const href = pageId ? { attrs: { href: { type: 'page' as const, page: pageId } } } : {}
   if (preset === 'heading') return { ...text('h2', 'Heading', 'Your new heading'), classes }
   if (preset === 'paragraph')
     return { ...text('p', 'Paragraph', 'Write something worth sharing.'), classes }
+  if (preset === 'span') return { ...text('span', 'Span', 'Span'), classes }
   if (preset === 'link' || preset === 'button') {
     const label = preset === 'link' ? 'Link' : 'Button'
     return { ...text('a', label, label), classes, ...href }
@@ -192,7 +244,10 @@ export function presetNode(
   }
 }
 
-const defaults: Record<Structure | 'image' | 'button' | 'link-wrapper', Record<string, string>> = {
+const defaults: Record<
+  Structure | 'image' | 'video' | 'list' | 'button' | 'link-wrapper',
+  Record<string, string>
+> = {
   image: {
     display: 'block',
     'max-width': '100%',
@@ -201,6 +256,8 @@ const defaults: Record<Structure | 'image' | 'button' | 'link-wrapper', Record<s
     'object-fit': 'cover',
     'object-position': '50% 50%',
   },
+  video: { display: 'block', width: '100%', 'max-width': '100%', height: 'auto' },
+  list: { 'padding-left': '24px', margin: '0' },
   section: { padding: '48px 24px', 'box-sizing': 'border-box' },
   container: { width: '100%', 'max-width': '1100px', margin: '0 auto', 'box-sizing': 'border-box' },
   stack: { display: 'flex', 'flex-direction': 'column', gap: '16px' },
@@ -351,7 +408,7 @@ export function subtreeRestriction(doc: Document, id: string): string | undefine
   if (reason) return reason
   const node = doc.nodes[id]!
   if (!node.parent) return 'The page root cannot be duplicated or deleted.'
-  if (node.type !== 'element' && node.type !== 'text' && node.type !== 'component')
+  if (!['element', 'text', 'component', 'embed'].includes(node.type))
     return 'This element is not supported yet.'
   if (node.type === 'component' && node.overrides?.length)
     return 'Subtree overrides cannot be edited here yet.'

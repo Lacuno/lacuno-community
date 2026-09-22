@@ -267,8 +267,15 @@ export function renderNode(id: NodeId, scope: Scope, state: RenderState): string
       return renderSlot(node, scope, state)
     case 'collection-list':
       return renderList(node, scope, state)
-    case 'embed':
-      return node.html
+    case 'embed': {
+      // A styled embed publishes in a wrapper that carries its classes; the canvas always wraps
+      // it so it can be selected and sized. Otherwise the owner's markup goes out as it is.
+      if (!node.classes.length && !state.annotateNodes) return node.html
+      const { attrs } = resolveAttrs(undefined, scope, state, node.id)
+      if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
+      if (state.annotateNodes) attrs['data-freeflow-embed'] = true
+      return `<div${renderAttrs(attrs)}>${node.html}</div>`
+    }
     case 'code-component':
       throw new RenderError('code components are not supported yet', node.id, state.page)
   }

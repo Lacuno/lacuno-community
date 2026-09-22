@@ -30,8 +30,9 @@ export function dragInsertion(
   const assetUrl = (asset: AssetRef) =>
     `/api/sites/${encodeURIComponent(siteId)}/assets/${asset.hash}`
   const render = (node: InsertNode): HTMLElement => {
-    const placeholder = node.tag === 'img' && !node.attrs?.src
-    const element = surface.createElement(placeholder ? 'div' : node.tag)
+    const tag = 'tag' in node ? node.tag : 'div'
+    const placeholder = tag === 'img' && !node.attrs?.src
+    const element = surface.createElement(placeholder ? 'div' : tag)
     element.dataset.freeflowNode = node.id
     element.className = node.classes
       .map((id) => names.get(id))

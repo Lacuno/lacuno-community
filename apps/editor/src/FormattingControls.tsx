@@ -58,6 +58,7 @@ export function FormattingControls({
     <div className={`formatting-controls ${ribbon ? 'ribbon-formatting' : 'inspector-formatting'}`}>
       {formattingGroups
         .filter((group) => {
+          if (node.type === 'embed' && group.name === 'Typography') return false
           const active =
             group.name === groupName || (groupName === 'Spacing & shape' && group.name === 'Layout')
           return !groupName || (ribbon ? active : !active)

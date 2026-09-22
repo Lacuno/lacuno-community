@@ -59,9 +59,9 @@ export function StructurePanel({
       {mode === 'add' && (
         <div className="insert-fields">
           {[
-            { label: 'Structure', items: structures },
-            { label: 'Text', items: ['heading', 'paragraph'] as const },
-            { label: 'Media', items: ['image'] as const },
+            { label: 'Structure', items: [...structures, 'list'] as const },
+            { label: 'Text', items: ['heading', 'paragraph', 'span'] as const },
+            { label: 'Media', items: ['image', 'video', 'embed'] as const },
             { label: 'Actions', items: actions },
           ].map((group) => (
             <section className="insert-category" key={group.label}>
@@ -233,13 +233,17 @@ export function StructurePanel({
 
 const tilePaths: Record<Preset, string> = {
   image: 'M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8M22 9h1',
+  video: 'M3 5h26v22H3zM13 11v10l8-5z',
+  embed: 'M11 9l-7 7 7 7M21 9l7 7-7 7',
   section: 'M3 4h26v24H3zM3 10h26M3 23h26',
   container: 'M3 4h26v24H3zM9 9h14v14H9z',
   stack: 'M5 3h22v26H5zM10 9h12M10 16h12M10 23h12',
   row: 'M3 5h26v22H3zM9 10v12M16 10v12M23 10v12',
   grid: 'M4 4h24v24H4zM16 4v24M4 16h24',
+  list: 'M5 8h2M5 16h2M5 24h2M11 8h16M11 16h16M11 24h16',
   heading: 'M7 5v22M25 5v22M7 16h18',
   paragraph: 'M6 7h20M6 13h20M6 19h20M6 25h12',
+  span: 'M9 20V10h6a3 3 0 010 6H9M6 25h20',
   link: 'M13 19l6-6M11 15l-3 3a5 5 0 007 7l3-3M21 17l3-3a5 5 0 00-7-7l-3 3',
   button: 'M4 8h24v12H4zM17 18l9 4-4 1.5-1.5 4z',
 }

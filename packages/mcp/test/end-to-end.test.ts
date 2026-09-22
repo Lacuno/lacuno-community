@@ -43,17 +43,29 @@ describe('building the fixture site through MCP', () => {
         },
       }),
     )
-    // The fixture registers a-hero itself; replace that operation with an update that points at the imported asset id.
+    const clip = jsonOf<{ id: string }>(
+      await c.client.callTool({
+        name: 'asset.import',
+        arguments: { name: 'clip.mp4', mime: 'video/mp4', base64: 'AAAAGGZ0eXBpc29t' },
+      }),
+    )
+    // The fixture registers its assets itself; replace those operations with the imported asset ids.
     const ops = fixtureOperations(initialPage)
       .filter((o) => o.type !== 'asset.create')
-      .map((o) => JSON.parse(JSON.stringify(o).replaceAll('"a-hero"', `"${asset.id}"`)))
+      .map((o) =>
+        JSON.parse(
+          JSON.stringify(o)
+            .replaceAll('"a-hero"', `"${asset.id}"`)
+            .replaceAll('"a-clip"', `"${clip.id}"`),
+        ),
+      )
     const applied = jsonOf<{ revision: number }>(
       await c.client.callTool({
         name: 'document.apply',
         arguments: { expectedRevision: store.revision, operations: ops },
       }),
     )
-    expect(applied.revision).toBe(2)
+    expect(applied.revision).toBe(3)
     const built = jsonOf<{ pages: number; outDir: string }>(
       await c.client.callTool({
         name: 'site.build',

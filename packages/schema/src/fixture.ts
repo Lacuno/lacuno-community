@@ -410,7 +410,7 @@ export function fixtureDocument(): Document {
         type: 'element',
         tag: 'main',
         parent: null,
-        children: ['n-post-title', 'n-post-body'],
+        children: ['n-post-title', 'n-post-body', 'n-video', 'n-embed'],
         classes: ['c-page', 'c-container'],
       },
       'n-post-title': {
@@ -430,6 +430,27 @@ export function fixtureDocument(): Document {
         children: [],
         classes: [],
         text: { type: 'field', field: 'f-body' },
+      },
+      'n-video': {
+        id: 'n-video',
+        type: 'element',
+        tag: 'video',
+        parent: 'n-post',
+        children: [],
+        classes: [],
+        attrs: {
+          src: { type: 'asset', asset: 'a-clip' },
+          controls: { type: 'static', value: true },
+          playsinline: { type: 'static', value: true },
+        },
+      },
+      'n-embed': {
+        id: 'n-embed',
+        type: 'embed',
+        parent: 'n-post',
+        children: [],
+        classes: [],
+        html: '<blockquote>Embedded quote</blockquote>',
       },
     },
     classes: {
@@ -558,6 +579,14 @@ export function fixtureDocument(): Document {
         width: 1200,
         height: 800,
         alt: 'Hero image',
+      },
+      'a-clip': {
+        id: 'a-clip',
+        name: 'clip.mp4',
+        kind: 'video',
+        hash: 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210',
+        mime: 'video/mp4',
+        size: 0,
       },
     },
     entries: {

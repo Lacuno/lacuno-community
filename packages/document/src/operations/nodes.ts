@@ -220,8 +220,10 @@ const nodeUpdate = defineOperation(
     type: z.literal('node.update'),
     id: NodeIdSchema,
     classes: z.array(ClassId).optional(),
+    tag: Tag.optional(),
     attrs: z.record(z.string(), Binding).nullable().optional(),
     text: z.union([RichText, Binding]).optional(),
+    html: z.string().optional(),
     props: z.record(z.string(), Binding).nullable().optional(),
     query: Query.nullable().optional(),
     semantic: Semantic.nullable().optional(),
@@ -229,8 +231,12 @@ const nodeUpdate = defineOperation(
   }),
   (op, ctx) => {
     const node = ctx.require(ctx.doc.nodes[op.id], `unknown node ${op.id}`, op.id)
+    if (op.tag !== undefined && !('tag' in node))
+      ctx.fail('tag applies to tagged nodes only', { id: op.id })
     if (op.text !== undefined && node.type !== 'text')
       ctx.fail('text applies to text nodes only', { id: op.id })
+    if (op.html !== undefined && node.type !== 'embed')
+      ctx.fail('html applies to embed nodes only', { id: op.id })
     if (op.props !== undefined && node.type !== 'component')
       ctx.fail('props applies to component instances only', { id: op.id })
     if (op.query !== undefined && node.type !== 'collection-list')

@@ -26,8 +26,8 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
 - Choose a page in the left panel. Collection pages also offer an entry selector.
 - Click the canvas or a layer to select an element. Desktop, tablet and mobile buttons change the
   iframe viewport; the canvas scales to fit available space without changing its media-query width.
-- Use Add element to insert a heading, paragraph, image, section with starter content, or empty
-  container, and from the **Actions** group a **Link** or a **Button**. Both are `a` elements whose
+- Use Add element to insert a heading, paragraph, span, image, video, embed, list, section with
+  starter content, or empty container, and from the **Actions** group a **Link** or a **Button**. Both are `a` elements whose
   destination starts on the current page, so they are focusable and styleable straight away; a
   button also gets local padding, radius, colour and weight. Choose an explicit destination and
   optionally reuse a style class. Empty containers can be selected
@@ -37,6 +37,11 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   These actions save immediately and support undo/redo with stable element IDs. Locked elements,
   component interiors and collection structure stay protected.
 - Edit plain text in the inspector or rich text directly on the canvas. Content bindings remain read-only.
+- **Assets** uploads PNG, JPEG, WebP and GIF images and MP4 and WebM videos up to 10 MB. A List
+  starts as three bulleted items; **List type** switches it to numbered. A Video's inspector
+  chooses an uploaded clip and toggles Controls, Autoplay, Loop and Muted; turning Autoplay on also
+  mutes it, since browsers refuse unmuted autoplay. An Embed's **Embed code** is published verbatim;
+  the canvas shows a placeholder when the markup shows nothing there, such as scripts or iframes.
 - **Link target** appears in the Design inspector for any `a` element. It names the current
   destination and opens the same page-or-URL popover the text toolbar uses. Choosing a page stores a
   reference to it, so the link follows the page through a path change; a URL is stored as typed.

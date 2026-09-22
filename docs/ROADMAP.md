@@ -68,6 +68,11 @@ hover shortcut is gone, and documents that used it are rewritten when they are r
 selection offers Link, and an `a` element's destination is editable in the inspector through the
 same page-or-URL popover the text toolbar uses. A destination can be a page reference, which the
 compiler resolves to the page's path, so a link follows a page through a path change.
+**Palette completed:** the palette also inserts a span, a list (a `ul` of three items that the
+inspector switches to numbered), a self-hosted video and an HTML embed. Uploads accept MP4 and WebM
+next to images; the video inspector chooses a clip from the library and toggles controls, autoplay,
+loop and muted. Embeds publish verbatim; the canvas shows a labelled placeholder where their
+scripts and iframes would run. Form controls follow with Phase 2 forms.
 Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 The planned direction for editing on the canvas itself, an action bar under the selection with

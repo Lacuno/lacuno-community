@@ -340,10 +340,10 @@ export async function createServer(options: ServerOptions) {
             .regex(/^[A-Za-z0-9+/]+={0,2}$/),
         })
         .safeParse(await c.req.json().catch(() => null))
-      if (!input.success) return c.json({ error: 'Invalid image upload' }, 400)
+      if (!input.success) return c.json({ error: 'Invalid upload' }, 400)
       const bytes = Buffer.from(input.data.data, 'base64')
       if (!bytes.length || bytes.length > 10 * 1024 * 1024)
-        return c.json({ error: 'Images must be 10 MB or smaller.' }, 413)
+        return c.json({ error: 'Files must be 10 MB or smaller.' }, 413)
       const mime = bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
         ? 'image/png'
         : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
@@ -352,8 +352,16 @@ export async function createServer(options: ServerOptions) {
             ? 'image/gif'
             : bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP'
               ? 'image/webp'
-              : ''
-      if (!mime) return c.json({ error: 'Choose a PNG, JPEG, WebP, or GIF image.' }, 415)
+              : bytes.toString('ascii', 4, 8) === 'ftyp'
+                ? 'video/mp4'
+                : bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+                  ? 'video/webm'
+                  : ''
+      if (!mime)
+        return c.json(
+          { error: 'Choose a PNG, JPEG, WebP or GIF image, or an MP4 or WebM video.' },
+          415,
+        )
       const hash = await hashAsset(bytes)
       const { document } = (await store(c.req.param('id'))).read()
       const existing = Object.values(document.assets).find((asset) => asset.hash === hash)
@@ -363,7 +371,7 @@ export async function createServer(options: ServerOptions) {
       return c.json({
         id: `a-${randomUUID()}`,
         name: input.data.name,
-        kind: 'image',
+        kind: mime.startsWith('video/') ? 'video' : 'image',
         hash,
         mime,
         size: bytes.length,

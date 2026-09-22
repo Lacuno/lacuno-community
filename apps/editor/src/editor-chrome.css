@@ -66,6 +66,22 @@
 .inspector-body textarea {
   font-size: 12px;
 }
+.video-flags {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.video-flags label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+.video-flags input {
+  width: auto;
+}
+.embed-code {
+  font-family: ui-monospace, monospace;
+}
 .inspector-empty > span {
   display: block;
   font-size: 32px;
@@ -1513,13 +1529,20 @@
   text-align: left;
   cursor: grab;
 }
-.asset-grid img {
+.asset-grid :is(img, .asset-video) {
   display: block;
   width: 100%;
   height: 76px;
   object-fit: contain;
   background: #f3f1f7;
   border-radius: 4px;
+}
+.asset-grid .asset-video {
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 24px;
+  color: #777386;
 }
 .asset-grid span {
   display: block;
@@ -1581,7 +1604,7 @@
 .image-library-dialog .asset-grid {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
-.image-library-dialog .asset-grid img {
+.image-library-dialog .asset-grid :is(img, .asset-video) {
   height: 130px;
 }
 .image-library-dialog .asset-grid button[aria-pressed="true"] {

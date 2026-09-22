@@ -5,6 +5,7 @@ type DefinedFields<T> = { [K in keyof T]: Exclude<T[K], undefined> }
 export type InsertNode = (
   | DefinedFields<Omit<ElementNode, 'parent' | 'children'>>
   | DefinedFields<Omit<TextNode, 'parent' | 'children'>>
+  | DefinedFields<Omit<Extract<Node, { type: 'embed' }>, 'parent' | 'children'>>
 ) & { children?: InsertNode[] }
 
 type TreeFields<T> = T extends Node

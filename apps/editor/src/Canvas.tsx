@@ -36,18 +36,31 @@ function highlight(frame: HTMLIFrameElement | null, selected: string, state: Sta
   if (state !== 'none') element?.setAttribute('data-ff-state', state)
 }
 
-/** A server `<img>` with no source is an empty slot, shown as a drop target instead. */
-function swapImagePlaceholders(doc: Document) {
-  for (const image of doc.querySelectorAll(
-    'img[data-freeflow-node]:not([src]), img[data-freeflow-node][src=""]',
+/**
+ * A server `<img>` or `<video>` with no source is an empty slot, shown as a placeholder instead.
+ * An embed whose markup shows nothing here (scripts and frames never run on the canvas) gets a
+ * labelled placeholder so it can still be selected and sized.
+ */
+function swapPlaceholders(doc: Document) {
+  for (const media of doc.querySelectorAll(
+    ':is(img, video)[data-freeflow-node]:not([src]), :is(img, video)[data-freeflow-node][src=""]',
   )) {
     const placeholder = doc.createElement('div')
-    for (const attribute of image.attributes)
+    for (const attribute of media.attributes)
       placeholder.setAttribute(attribute.name, attribute.value)
-    placeholder.setAttribute('data-freeflow-image-placeholder', '')
-    placeholder.setAttribute('aria-label', 'Image placeholder. Drop a photo here.')
-    image.replaceWith(placeholder)
+    if (media.tagName === 'VIDEO') placeholder.setAttribute('data-freeflow-placeholder', 'Video')
+    else {
+      placeholder.setAttribute('data-freeflow-image-placeholder', '')
+      placeholder.setAttribute('aria-label', 'Image placeholder. Drop a photo here.')
+    }
+    media.replaceWith(placeholder)
   }
+  for (const embed of doc.querySelectorAll<HTMLElement>('[data-freeflow-embed]'))
+    if (
+      !embed.innerText.trim() &&
+      !embed.querySelector(':not(script, style, iframe, noscript, template)')
+    )
+      embed.setAttribute('data-freeflow-placeholder', 'Embed')
 }
 
 export function Canvas({
@@ -263,7 +276,7 @@ export function Canvas({
           !(node as Element).hasAttribute?.('data-freeflow-selection-overlay'),
       },
     })
-    swapImagePlaceholders(doc)
+    swapPlaceholders(doc)
     for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
       element.draggable = true
     highlight(frame.current, latest.current.selected, latest.current.state)
@@ -354,7 +367,7 @@ export function Canvas({
           if (!doc) return
           // The last head stylesheet is the generated CSS; every morph swaps its text in place.
           generatedStyle.current = doc.head.querySelector('style:last-of-type')
-          swapImagePlaceholders(doc)
+          swapPlaceholders(doc)
           selectionCleanup.current?.()
           selectionCleanup.current = selectionOverlay(
             doc,
@@ -382,6 +395,8 @@ export function Canvas({
           style.textContent =
             'div[data-freeflow-node]:empty, section[data-freeflow-node]:empty { min-height: 48px; min-width: 48px; } [data-freeflow-node]:not([data-freeflow-selected]):hover:not(:has([data-freeflow-node]:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }'
           style.textContent += `[data-freeflow-image-placeholder] { min-height:160px !important; min-width:80px; background: #f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; position:relative; } [data-freeflow-image-placeholder]::after { content:""; display:block; width:40px; height:40px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%239187aa' stroke-width='1.5'%3E%3Cpath d='M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8'/%3E%3Ccircle cx='22' cy='10' r='2'/%3E%3C/svg%3E"); }`
+          style.textContent +=
+            '[data-freeflow-placeholder] { display:grid; place-items:center; min-height:120px !important; padding:12px; background:#f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; font:12px/1.4 system-ui, sans-serif; color:#6f6787; text-align:center; } [data-freeflow-placeholder]::before { content:attr(data-freeflow-placeholder); } [data-freeflow-placeholder="Embed"]::before { content:"Embed. Scripts and iframes run on the published site."; } [data-freeflow-placeholder] iframe { display:none; }'
           style.textContent += MOTION_CSS
           style.textContent +=
             '[data-freeflow-editing] .tiptap {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;cursor:text;user-select:text;} [data-freeflow-editing] .tiptap p {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;margin:0;} [data-freeflow-editing] .tiptap strong {font-weight:bold;} [data-freeflow-editing] .tiptap em {font-style:italic;}'

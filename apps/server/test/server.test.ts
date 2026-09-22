@@ -313,3 +313,16 @@ it('stages authenticated image uploads and serves only registered workspace asse
     asset.id,
   )
 })
+
+it('stages MP4 and WebM uploads as videos', async () => {
+  const cookie = await register()
+  const site = await createSite(cookie)
+  const route = `/api/sites/${site.id}/assets/upload`
+  const upload = async (name: string, bytes: number[]) =>
+    request(route, cookie, { name, data: Buffer.from(bytes).toString('base64') })
+  const mp4 = await upload('clip.mp4', [0, 0, 0, 24, ...Buffer.from('ftypisom'), 0, 0, 2, 0])
+  expect(await mp4.json()).toMatchObject({ kind: 'video', mime: 'video/mp4' })
+  const webm = await upload('clip.webm', [0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86, 0x81])
+  expect(await webm.json()).toMatchObject({ kind: 'video', mime: 'video/webm' })
+  expect((await upload('fake.mp4', [...Buffer.from('<video>clip</video>')])).status).toBe(415)
+})

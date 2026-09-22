@@ -1,5 +1,5 @@
 import { DocumentStore, type Operation } from '@freeflow/document'
-import { fixtureDocument } from '@freeflow/schema'
+import { fixtureDocument, type Node } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import {
   dropEdit,
@@ -11,6 +11,7 @@ import {
   structureInsertion,
   structureRestriction,
   subtreeRestriction,
+  toggleAttr,
   wrappers,
   wrapSelection,
 } from '../src/structure.js'
@@ -131,6 +132,65 @@ it('builds link and button presets bound to the current page', () => {
     color: 'white',
     'text-decoration': 'none',
     'font-weight': '600',
+  })
+})
+
+it('builds span, list, video and embed presets with their default styles', async () => {
+  const target = { parent: 'n-hero-inner', index: 0 }
+  const span = structureInsertion('span', target)
+  expect(span.node).toMatchObject({ type: 'text', tag: 'span', text: { value: 'Span' } })
+  expect(span.operations.map((operation) => operation.type)).toEqual(['node.create'])
+  const list = structureInsertion('list', target)
+  expect(list.node).toMatchObject({ type: 'element', tag: 'ul', meta: { label: 'List' } })
+  expect(list.node.children?.map((item) => item.type === 'text' && [item.tag, item.text])).toEqual(
+    ['First item', 'Second item', 'Third item'].map((value) => ['li', { type: 'static', value }]),
+  )
+  expect(list.operations.filter((operation) => operation.type === 'class.create')).toHaveLength(1)
+  expect(styleValues(list.operations)).toEqual({ 'padding-left': '24px', margin: '0' })
+  const video = structureInsertion('video', target, '', false, 'a-hero')
+  expect(video.node).toMatchObject({
+    tag: 'video',
+    attrs: {
+      src: { type: 'asset', asset: 'a-hero' },
+      controls: { type: 'static', value: true },
+      playsinline: { type: 'static', value: true },
+    },
+  })
+  expect(styleValues(video.operations)).toEqual({
+    display: 'block',
+    width: '100%',
+    'max-width': '100%',
+    height: 'auto',
+  })
+  expect(presetNode('video', '').attrs).not.toHaveProperty('src')
+  const embed = structureInsertion('embed', target)
+  expect(embed.node).toMatchObject({ type: 'embed', html: '', meta: { label: 'Embed' } })
+  expect(structureInsertion('embed', target, 'c-button').node.classes).toEqual(['c-button'])
+  expect(embed.operations.map((operation) => operation.type)).toEqual(['node.create'])
+  const store = DocumentStore.inMemory(fixtureDocument())
+  await commit(store, [
+    ...span.operations,
+    ...list.operations,
+    ...video.operations,
+    ...embed.operations,
+  ])
+  const doc = store.read().document
+  expect(doc.nodes[list.node.children![1]!.id]!.parent).toBe(list.node.id)
+  expect(subtreeRestriction(doc, embed.node.id)).toBeUndefined()
+})
+
+it('toggles boolean video attributes and mutes when autoplay turns on', () => {
+  const video = { ...presetNode('video', ''), parent: null, children: [] } as Node
+  const on = { type: 'static', value: true }
+  expect(toggleAttr(video, 'autoplay', true)).toEqual({
+    type: 'node.update',
+    id: video.id,
+    attrs: { controls: on, playsinline: on, autoplay: on, muted: on },
+  })
+  expect(toggleAttr(video, 'controls', false)).toEqual({
+    type: 'node.update',
+    id: video.id,
+    attrs: { playsinline: on },
   })
 })
 

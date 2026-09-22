@@ -75,6 +75,10 @@ it.each([
         compiled.head += `\n<style>${generateStylesheet(doc, { assetUrl: (asset) => `/api/sites/site-test/assets/${asset.hash}` }).css}</style>`
         const canvas = renderCanvas(doc, page, entry, 'site-test')
         const normalized = canvas.html
+          // Neither fixture embed nests a div.
+          // An unstyled embed's wrapper is canvas-only; a styled one publishes without the marker.
+          .replace(/<div data-freeflow-embed[^>]*>([\s\S]*?)<\/div>/g, '$1')
+          .replace(/ data-freeflow-embed/g, '')
           .replace(/ data-freeflow-node="[^"]*"/g, '')
           // Structural states emit both forms in the canvas: drop the forced sibling.
           .replace(/, \S+\[data-ff-state~="[^"]*"\]/g, '')

@@ -154,6 +154,15 @@ export function fixtureOperations(initialPageId: string): Operation[] {
       alt: 'Hero image',
     },
     {
+      type: 'asset.create',
+      id: 'a-clip',
+      name: 'clip.mp4',
+      kind: 'video',
+      hash: 'fedcba9876543210'.repeat(4),
+      mime: 'video/mp4',
+      size: 0,
+    },
+    {
       type: 'collection.create',
       id: 'col-posts',
       name: 'Posts',
@@ -324,6 +333,17 @@ export function fixtureOperations(initialPageId: string): Operation[] {
             tag: 'div',
             text: { type: 'field', field: 'f-body' },
           },
+          {
+            type: 'element',
+            id: 'n-video',
+            tag: 'video',
+            attrs: {
+              src: { type: 'asset', asset: 'a-clip' },
+              controls: { type: 'static', value: true },
+              playsinline: { type: 'static', value: true },
+            },
+          },
+          { type: 'embed', id: 'n-embed', html: '<blockquote>Embedded quote</blockquote>' },
         ],
       },
     },

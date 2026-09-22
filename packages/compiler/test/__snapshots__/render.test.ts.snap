@@ -13,7 +13,7 @@ exports[`render > renders a collection page for an entry with the entry path in 
 <meta property="og:site_name" content="Fixture Co">
 <meta property="og:url" content="https://example.com/blog/hello-world">
 </head>
-<body><main class="page container"><h1 class="heading">Hello world</h1><div><p>The first post.</p></div></main></body>
+<body><main class="page container"><h1 class="heading">Hello world</h1><div><p>The first post.</p></div><video controls playsinline src="/assets/fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210.mp4"></video><blockquote>Embedded quote</blockquote></main></body>
 </html>
 "
 `;

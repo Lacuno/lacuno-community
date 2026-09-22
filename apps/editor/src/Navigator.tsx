@@ -120,19 +120,25 @@ export function Navigator({
     const kind =
       node.type === 'element' && node.tag === 'img'
         ? 'image'
-        : node.type === 'component'
-          ? 'component'
-          : node.type === 'text'
-            ? 'text'
-            : node.type === 'element' && node.tag === 'section'
-              ? 'section'
-              : layout === 'grid'
-                ? 'grid'
-                : layout === 'flex'
-                  ? direction?.type === 'raw' && direction.value.startsWith('column')
-                    ? 'stack'
-                    : 'row'
-                  : 'layer'
+        : node.type === 'element' && node.tag === 'video'
+          ? 'video'
+          : node.type === 'element' && (node.tag === 'ul' || node.tag === 'ol')
+            ? 'list'
+            : node.type === 'embed'
+              ? 'embed'
+              : node.type === 'component'
+                ? 'component'
+                : node.type === 'text'
+                  ? 'text'
+                  : node.type === 'element' && node.tag === 'section'
+                    ? 'section'
+                    : layout === 'grid'
+                      ? 'grid'
+                      : layout === 'flex'
+                        ? direction?.type === 'raw' && direction.value.startsWith('column')
+                          ? 'stack'
+                          : 'row'
+                        : 'layer'
     return (
       <div key={id}>
         <div

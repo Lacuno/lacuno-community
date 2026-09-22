@@ -347,6 +347,31 @@ describe('renderNode: components, slots, lists, embeds', () => {
     ])
     expect(renderNode('e', empty, state(doc))).toBe('<script>1<2</script>')
   })
+
+  it('wraps an embed in an annotated div for the canvas only', () => {
+    const doc = fixtureDocument()
+    const html = '<blockquote>Embedded quote</blockquote>'
+    expect(renderNode('n-embed', empty, state(doc))).toBe(html)
+    expect(renderNode('n-embed', empty, { ...state(doc), annotateNodes: true })).toBe(
+      `<div data-freeflow-embed data-freeflow-node="n-embed">${html}</div>`,
+    )
+  })
+
+  it('publishes a styled embed in a wrapper that carries its classes', () => {
+    const doc = fixtureDocument()
+    doc.classes['l-embed'] = { id: 'l-embed', kind: 'local' }
+    doc.nodes['n-embed']!.classes = ['l-embed']
+    const html = '<blockquote>Embedded quote</blockquote>'
+    const published = renderNode('n-embed', empty, state(doc))
+    expect(published).toBe(`<div class="${state(doc).names.get('l-embed')}">${html}</div>`)
+  })
+
+  it('renders a video asset source with bare boolean attributes', () => {
+    const doc = fixtureDocument()
+    expect(renderNode('n-video', empty, state(doc))).toBe(
+      `<video controls playsinline src="${publicAssetPath(doc.assets['a-clip']!)}"></video>`,
+    )
+  })
 })
 
 it('marks elements whose class styles an interactive state, but not a structural one', () => {

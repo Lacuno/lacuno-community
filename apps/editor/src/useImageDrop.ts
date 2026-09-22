@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { uploadImage } from './AssetsPanel.js'
+import { uploadAsset } from './AssetsPanel.js'
 import { message } from './api.js'
 import type { DocumentSession } from './session.js'
 import { subtreeRestriction } from './structure.js'
@@ -18,7 +18,8 @@ export function useImageDrop({ siteId, session, setSelected }: Options) {
     setUploadingImage(true)
     setError('')
     try {
-      const asset = await uploadImage(siteId, file)
+      if (file.type.startsWith('video/')) throw new Error('Drop an image file here.')
+      const asset = await uploadAsset(siteId, file)
       if (!(await flushPending())) return
       const { doc: current, save: write } = latest.current
       const node = current?.nodes[id]
