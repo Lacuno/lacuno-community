@@ -3,20 +3,24 @@ import { api, message } from './api.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import './publishing.css'
 
+type Release = {
+  id: string
+  version: number
+  name: string | null
+  status: 'queued' | 'building' | 'ready' | 'failed'
+  createdAt: number
+  finishedAt: number | null
+  error: string | null
+  warnings: { message: string }[]
+}
 type History = {
   enabled: boolean
   publishedId: string | null
   url: string | null
-  releases: {
-    id: string
-    version: number
-    status: 'queued' | 'building' | 'ready' | 'failed'
-    createdAt: number
-    finishedAt: number | null
-    error: string | null
-    warnings: { message: string }[]
-  }[]
+  releases: Release[]
 }
+
+const title = (row: Release) => (row.name ? `v${row.version} · ${row.name}` : `v${row.version}`)
 
 export function PublishPanel({
   siteId,
@@ -31,6 +35,8 @@ export function PublishPanel({
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<string>()
+  const [name, setName] = useState('')
+  const [renaming, setRenaming] = useState<{ id: string; name: string }>()
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       const result = await api<History>(`/api/sites/${siteId}/releases`, undefined, signal)
@@ -70,14 +76,105 @@ export function PublishPanel({
       await api(url, body)
       setConfirm(undefined)
       await refresh()
+      return true
     } catch (error) {
       setError(message(error, 'Request failed'))
       await refresh().catch(() => {})
+      return false
     } finally {
       setBusy(false)
     }
   }
   const current = history?.releases.find((row) => row.id === history.publishedId)
+  // The newest release and the live one stay in view; older ones fold away.
+  const latest = history?.releases.filter((row, index) => index === 0 || row === current) ?? []
+  const earlier = history?.releases.filter((row) => !latest.includes(row)) ?? []
+  const release = (row: Release) => (
+    <li key={row.id}>
+      <div className="release-title">
+        {renaming?.id === row.id ? (
+          <form
+            className="release-rename"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void run(`/api/sites/${siteId}/releases/${row.id}/name`, {
+                name: renaming.name,
+              }).then((ok) => ok && setRenaming(undefined))
+            }}
+          >
+            <input
+              aria-label={`Name for v${row.version}`}
+              value={renaming.name}
+              maxLength={80}
+              onChange={(event) => setRenaming({ id: row.id, name: event.target.value })}
+            />
+            <button type="submit" disabled={busy}>
+              Save name
+            </button>
+            <button type="button" onClick={() => setRenaming(undefined)}>
+              Cancel rename
+            </button>
+          </form>
+        ) : (
+          <strong>{title(row)}</strong>
+        )}
+        <span className="release-status" data-status={row.status}>
+          {row === current
+            ? 'Live'
+            : row.status === 'ready'
+              ? 'Ready'
+              : row.status === 'failed'
+                ? 'Failed'
+                : row.status === 'building'
+                  ? 'Building'
+                  : 'Queued'}
+        </span>
+      </div>
+      <time dateTime={new Date(row.createdAt).toISOString()}>
+        {new Date(row.createdAt).toLocaleString()}
+      </time>
+      {row.error && <p className="error">{row.error}</p>}
+      {!!row.warnings.length && (
+        <details>
+          <summary>{row.warnings.length} build warnings</summary>
+          <ul>
+            {[...new Set(row.warnings.map((warning) => warning.message))].map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {renaming?.id !== row.id && (
+        <button type="button" onClick={() => setRenaming({ id: row.id, name: row.name ?? '' })}>
+          Rename v{row.version}
+        </button>
+      )}
+      {row.status === 'ready' && row !== current && (
+        <button type="button" disabled={busy || pending} onClick={() => setConfirm(row.id)}>
+          Restore v{row.version}
+        </button>
+      )}
+      {confirm === row.id && (
+        <div className="rollback-confirm">
+          <p>Make {title(row)} live again? Your editing draft will stay unchanged.</p>
+          <button
+            type="button"
+            disabled={busy || pending}
+            onClick={() =>
+              void run(`/api/sites/${siteId}/releases/${row.id}/activate`, {
+                publishedId: current?.id ?? null,
+              })
+            }
+          >
+            Confirm rollback
+          </button>
+          <button type="button" onClick={() => setConfirm(undefined)}>
+            Cancel rollback
+          </button>
+        </div>
+      )}
+    </li>
+  )
   const nextVersion = Math.max(0, ...(history?.releases.map((row) => row.version) ?? [])) + 1
   return (
     <Dialog
@@ -101,11 +198,18 @@ export function PublishPanel({
                 <div>
                   <strong>Saved draft</strong>
                   <p>
-                    {current
-                      ? `Live: v${current.version}`
-                      : 'This site has not been published yet.'}
+                    {current ? `Live: ${title(current)}` : 'This site has not been published yet.'}
                   </p>
                 </div>
+                <label className="release-name">
+                  Release name
+                  <input
+                    value={name}
+                    placeholder="Spring launch"
+                    maxLength={80}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </label>
                 <button
                   type="button"
                   className="publish-action"
@@ -114,7 +218,8 @@ export function PublishPanel({
                     void run(`/api/sites/${siteId}/releases`, {
                       expectedRevision: revision,
                       publishedId: history.publishedId,
-                    })
+                      name,
+                    }).then((ok) => ok && setName(''))
                   }
                 >
                   Publish v{nextVersion}
@@ -149,70 +254,13 @@ export function PublishPanel({
           {!history.releases.length && (
             <p className="hint">Your published snapshots and build results will appear here.</p>
           )}
-          <ol className="release-list">
-            {history.releases.map((row) => (
-              <li key={row.id}>
-                <div className="release-title">
-                  <strong>v{row.version}</strong>
-                  <span className="release-status" data-status={row.status}>
-                    {row.id === history.publishedId
-                      ? 'Live'
-                      : row.status === 'ready'
-                        ? 'Ready'
-                        : row.status === 'failed'
-                          ? 'Failed'
-                          : row.status === 'building'
-                            ? 'Building'
-                            : 'Queued'}
-                  </span>
-                </div>
-                <time dateTime={new Date(row.createdAt).toISOString()}>
-                  {new Date(row.createdAt).toLocaleString()}
-                </time>
-                {row.error && <p className="error">{row.error}</p>}
-                {!!row.warnings.length && (
-                  <details>
-                    <summary>{row.warnings.length} build warnings</summary>
-                    <ul>
-                      {[...new Set(row.warnings.map((warning) => warning.message))].map(
-                        (message) => (
-                          <li key={message}>{message}</li>
-                        ),
-                      )}
-                    </ul>
-                  </details>
-                )}
-                {row.status === 'ready' && row.id !== history.publishedId && (
-                  <button
-                    type="button"
-                    disabled={busy || pending}
-                    onClick={() => setConfirm(row.id)}
-                  >
-                    Restore v{row.version}
-                  </button>
-                )}
-                {confirm === row.id && (
-                  <div className="rollback-confirm">
-                    <p>Make v{row.version} live again? Your editing draft will stay unchanged.</p>
-                    <button
-                      type="button"
-                      disabled={busy || pending}
-                      onClick={() =>
-                        void run(`/api/sites/${siteId}/releases/${row.id}/activate`, {
-                          publishedId: history.publishedId,
-                        })
-                      }
-                    >
-                      Confirm rollback
-                    </button>
-                    <button type="button" onClick={() => setConfirm(undefined)}>
-                      Cancel rollback
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ol>
+          <ol className="release-list">{latest.map(release)}</ol>
+          {!!earlier.length && (
+            <details className="earlier-releases">
+              <summary>Earlier releases ({earlier.length})</summary>
+              <ol className="release-list">{earlier.map(release)}</ol>
+            </details>
+          )}
         </>
       )}
       <ErrorNote message={error} />

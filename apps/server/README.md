@@ -115,8 +115,9 @@ and checks the persisted result.
 | `GET /api/sites/:id/assets/:hash` | Authenticated asset bytes belonging to the site |
 | `POST /api/sites/:id/document/apply` | `{expectedRevision,operations,dryRun?}`, or `{expectedRevision,patches}` to replay an earlier commit → operation result |
 | `GET /api/sites/:id/releases` | Publishing configuration, current release, URL and release history |
-| `POST /api/sites/:id/releases` | `{expectedRevision,publishedId}` → `202 {id}`; enqueue an immutable snapshot |
+| `POST /api/sites/:id/releases` | `{expectedRevision,publishedId,name?}` → `202 {id}`; enqueue an immutable snapshot |
 | `POST /api/sites/:id/releases/:releaseId/activate` | `{publishedId}` → switch live output to a successful release; draft unchanged |
+| `POST /api/sites/:id/releases/:releaseId/name` | `{name}` → rename a release; an empty name clears it |
 
 Application routes require a session cookie. JSON writes reject cross-origin requests; API responses
 disable caching. Unknown or inaccessible sites return `404`, missing sessions `401`, invalid input
@@ -141,6 +142,9 @@ Publishing has its own per-site counter: the first release is v1 regardless of t
 Each accepted publish attempt reserves the next version, including failed builds; rollback retains
 the original version. Existing release history is numbered chronologically on upgrade. Document
 revisions remain internal snapshot/concurrency metadata and are not shown in the publishing dialog.
+An optional **Release name** (at most 80 characters) is shown after the version, as in `v7 · Spring
+launch`, and can be changed later with **Rename v7**. The dialog lists the live and newest release;
+older ones sit in a closed **Earlier releases** section with their restore buttons.
 
 Locally, the default published URL is `http://<site-id>.localhost:3001`. Modern browsers resolve
 `.localhost` to loopback. The static listener has no editor, authentication or draft API routes.

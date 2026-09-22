@@ -38,6 +38,12 @@ export type ServerOptions = {
 }
 
 const SiteInput = z.strictObject({ name: z.string().trim().min(1).max(200) })
+/** An empty release name clears it. */
+const ReleaseName = z
+  .string()
+  .trim()
+  .max(80)
+  .transform((name) => name || null)
 const BatchInput = z.strictObject({
   expectedRevision: z.number().int().nonnegative(),
   /** Shape only; the store's engine validates each operation and names the one that failed. */
@@ -295,13 +301,28 @@ export async function createServer(options: ServerOptions) {
         .strictObject({
           expectedRevision: z.number().int().nonnegative(),
           publishedId: z.string().uuid().nullable(),
+          name: ReleaseName.optional(),
         })
         .safeParse(await c.req.json().catch(() => null))
       if (!input.success) return c.json({ error: 'Invalid publish request' }, 400)
       return c.json(
-        releases.publish(c.req.param('id'), input.data.expectedRevision, input.data.publishedId),
+        releases.publish(
+          c.req.param('id'),
+          input.data.expectedRevision,
+          input.data.publishedId,
+          input.data.name ?? null,
+        ),
         202,
       )
+    })
+    app.post('/api/sites/:id/releases/:releaseId/name', async (c) => {
+      if (!releases) return c.json({ error: 'Publishing is not configured on this server.' }, 503)
+      const input = z
+        .strictObject({ name: ReleaseName })
+        .safeParse(await c.req.json().catch(() => null))
+      if (!input.success) return c.json({ error: 'Invalid release name' }, 400)
+      releases.rename(c.req.param('id'), c.req.param('releaseId'), input.data.name)
+      return c.json({ name: input.data.name })
     })
     app.post('/api/sites/:id/releases/:releaseId/activate', async (c) => {
       if (!releases) return c.json({ error: 'Publishing is not configured on this server.' }, 503)

@@ -31,3 +31,22 @@ it('numbers existing releases per site chronologically without changing revision
     sqlite.close()
   }
 })
+
+it('adds an empty release name to databases from before names', () => {
+  const sqlite = new Database(':memory:')
+  try {
+    sqlite.exec(`
+      CREATE TABLE freeflow_migrations(version INTEGER PRIMARY KEY);
+      INSERT INTO freeflow_migrations VALUES(1),(2),(3),(4),(5);
+      CREATE TABLE releases(id TEXT PRIMARY KEY, site_id TEXT, version INTEGER);
+      INSERT INTO releases VALUES('a-first','a',1);
+    `)
+    migrateApplication(sqlite)
+    migrateApplication(sqlite)
+    expect(sqlite.prepare('SELECT id,version,name FROM releases').all()).toEqual([
+      { id: 'a-first', version: 1, name: null },
+    ])
+  } finally {
+    sqlite.close()
+  }
+})

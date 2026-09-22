@@ -12,7 +12,7 @@ const origin = 'http://localhost:3000'
 type History = {
   publishedId: string | null
   url: string
-  releases: { id: string; revision: number; version: number; status: string }[]
+  releases: { id: string; revision: number; version: number; name: string | null; status: string }[]
 }
 const build = 30000
 
@@ -47,8 +47,12 @@ describe('publishing', () => {
       .join('; ')
   }
   const history = async () => (await (await request(`${route}/releases`, cookie)).json()) as History
-  const publish = async (expectedRevision: number, publishedId: string | null) => {
-    const response = await request(`${route}/releases`, cookie, { expectedRevision, publishedId })
+  const publish = async (expectedRevision: number, publishedId: string | null, name?: string) => {
+    const response = await request(`${route}/releases`, cookie, {
+      expectedRevision,
+      publishedId,
+      name,
+    })
     expect(response.status).toBe(202)
     return ((await response.json()) as { id: string }).id
   }
@@ -271,6 +275,29 @@ describe('publishing', () => {
       } finally {
         peer.close()
       }
+    },
+    build,
+  )
+
+  it(
+    'names a release when publishing and renames it later',
+    async () => {
+      // The draft still references the missing asset; a failed release carries its name too.
+      const namedId = await publish(162, (await history()).publishedId, '  Spring launch  ')
+      await waitFor(namedId, 'failed')
+      const release = (id: string) => history().then((h) => h.releases.find((row) => row.id === id))
+      expect(await release(namedId)).toMatchObject({ version: 6, name: 'Spring launch' })
+      expect(await release(firstId)).toMatchObject({ name: null })
+      const rename = (releaseId: string, name: unknown, as = cookie) =>
+        request(`${route}/releases/${releaseId}/name`, as, { name })
+      expect((await rename(firstId, 'Launch day')).status).toBe(200)
+      expect(await release(firstId)).toMatchObject({ name: 'Launch day' })
+      expect((await rename(namedId, ' ')).status).toBe(200)
+      expect(await release(namedId)).toMatchObject({ name: null })
+      expect((await rename(firstId, 'x'.repeat(81))).status).toBe(400)
+      expect((await rename(firstId, 'Taken', other)).status).toBe(404)
+      expect((await rename(randomUUID(), 'Missing')).status).toBe(404)
+      expect(await release(firstId)).toMatchObject({ name: 'Launch day' })
     },
     build,
   )

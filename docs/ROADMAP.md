@@ -60,6 +60,8 @@ structure remains protected.
 a separate static serving origin, a published URL, persistent release history, and confirmed rollback
 without changing the editing draft. Failed builds preserve the live site. Source and bundled server
 tests cover publishing and restarts; browser tests cover publishing, republishing and rollback.
+Releases can be named when publishing and renamed later; the panel shows the live and newest
+release and folds older ones into a closed "Earlier releases" section.
 **Element states implemented:** a picker beside the breakpoint label edits hover, focus,
 focus-visible, active, visited, first-child, last-child, odd and even; the canvas forces the picked
 state on the selected element; published CSS carries the real pseudo-class rules. The Motion tab's

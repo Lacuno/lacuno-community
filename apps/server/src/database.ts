@@ -120,4 +120,13 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version=6').get()) return
+      sqlite.exec(`
+      ALTER TABLE releases ADD COLUMN name TEXT;
+      INSERT INTO freeflow_migrations(version) VALUES(6);
+    `)
+    })
+    .immediate()
 }

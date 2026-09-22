@@ -13,6 +13,7 @@ type ReleaseRow = {
   site_id: string
   revision: number
   version: number
+  name: string | null
   document: string
   status: 'queued' | 'building' | 'ready' | 'failed'
   created_at: number
@@ -47,7 +48,7 @@ export class Releases extends PublicationReader {
   list(siteId: string) {
     const rows = this.sqlite
       .prepare(
-        'SELECT id,revision,version,status,created_at,finished_at,error,warnings FROM releases WHERE site_id = ? ORDER BY version DESC',
+        'SELECT id,revision,version,name,status,created_at,finished_at,error,warnings FROM releases WHERE site_id = ? ORDER BY version DESC',
       )
       .all(siteId) as Omit<ReleaseRow, 'document' | 'site_id' | 'owner' | 'lease_until'>[]
     return {
@@ -58,6 +59,7 @@ export class Releases extends PublicationReader {
         id: row.id,
         revision: row.revision,
         version: row.version,
+        name: row.name,
         status: row.status,
         createdAt: row.created_at,
         finishedAt: row.finished_at,
@@ -67,7 +69,7 @@ export class Releases extends PublicationReader {
     }
   }
 
-  publish(siteId: string, revision: number, publishedId: string | null) {
+  publish(siteId: string, revision: number, publishedId: string | null, name: string | null) {
     const id = randomUUID()
     this.sqlite
       .transaction(() => {
@@ -84,13 +86,22 @@ export class Releases extends PublicationReader {
           .get(siteId) as { version: number }
         this.sqlite
           .prepare(
-            "INSERT INTO releases(id,site_id,revision,version,document,status,created_at) VALUES(?,?,?,?,?,'queued',?)",
+            "INSERT INTO releases(id,site_id,revision,version,name,document,status,created_at) VALUES(?,?,?,?,?,?,'queued',?)",
           )
-          .run(id, siteId, revision, version, site.document, Date.now())
+          .run(id, siteId, revision, version, name, site.document, Date.now())
       })
       .immediate()
     void this.tick()
     return { id }
+  }
+
+  rename(siteId: string, id: string, name: string | null) {
+    if (
+      !this.sqlite
+        .prepare('UPDATE releases SET name = ? WHERE id = ? AND site_id = ?')
+        .run(name, id, siteId).changes
+    )
+      throw new HTTPException(404, { message: 'Release not found' })
   }
 
   private checkPublication(siteId: string, expected: string | null) {

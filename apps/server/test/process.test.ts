@@ -171,9 +171,8 @@ it.each(['source', 'bundle'])(
           await page.getByLabel('Text', { exact: true }).fill('Ready for publishing')
           await page.getByRole('button', { name: 'Publish', exact: true }).click()
           await page.getByRole('button', { name: 'Publish v2', exact: true }).click()
-          await page
-            .getByRole('button', { name: 'Restore v1', exact: true })
-            .waitFor({ timeout: 20000 })
+          await page.getByText('Earlier releases (1)').click({ timeout: 20000 })
+          await page.getByRole('button', { name: 'Restore v1', exact: true }).waitFor()
           await live.reload()
           expect(await live.locator('h1').textContent()).toBe('Ready for publishing')
           await page.getByRole('button', { name: 'Restore v1', exact: true }).click()

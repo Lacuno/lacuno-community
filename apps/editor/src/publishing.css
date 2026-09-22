@@ -97,3 +97,26 @@
 .rollback-confirm button + button {
   margin-left: 8px;
 }
+.release-name {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  font-size: 12px;
+}
+.release-rename {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+.release-rename input {
+  flex: 1;
+}
+.earlier-releases > summary {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  cursor: pointer;
+}
+.release-list > li > button + button {
+  margin-left: 8px;
+}
