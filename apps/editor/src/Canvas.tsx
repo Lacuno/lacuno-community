@@ -46,7 +46,7 @@ export function Canvas({
   states,
   onState,
   scope,
-  colorProperty,
+  textColor,
   swatches,
   selected,
   selectedName,
@@ -66,7 +66,7 @@ export function Canvas({
   states: State[]
   onState: (state: State) => void
   scope: string
-  colorProperty: string
+  textColor: boolean
   swatches: Swatch[]
   selected: string
   selectedName: string
@@ -83,7 +83,7 @@ export function Canvas({
   useEffect(() => () => dragCleanup.current?.(), [])
   const frame = useRef<HTMLIFrameElement>(null)
   // The colour menu's open state survives the iframe re-render a commit triggers.
-  const colorMenu = useRef<{ open: boolean; hsl?: Hsl }>({ open: false })
+  const colorMenu = useRef<{ open: boolean; hsl?: Hsl; property?: string }>({ open: false })
   const scrollPosition = useRef({ x: 0, y: 0 })
   const motionReplay = useRef<(() => void) | undefined>(undefined)
   const restore = useRef<(() => void) | undefined>(undefined)
@@ -221,7 +221,7 @@ export function Canvas({
     states,
     onState,
     scope,
-    colorProperty,
+    textColor,
     swatches,
     select,
     onHistory,
@@ -329,7 +329,7 @@ export function Canvas({
               scope: latest.current.scope,
               state: latest.current.state,
               states: latest.current.states,
-              colorProperty: latest.current.colorProperty,
+              textColor: latest.current.textColor,
               swatches: latest.current.swatches,
             }),
             (next) => latest.current.onState(next),

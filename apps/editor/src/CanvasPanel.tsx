@@ -148,7 +148,7 @@ export function CanvasPanel({
             states={states}
             onState={(next) => void leave(() => setState(next))}
             scope={doc ? (doc.breakpoints[editingBreakpoint(doc, width)]?.label ?? '') : ''}
-            colorProperty={doc?.nodes[selected]?.type === 'text' ? 'color' : 'background-color'}
+            textColor={doc?.nodes[selected]?.type === 'text'}
             swatches={
               doc
                 ? projectColors(doc).map((token) => ({

@@ -19,16 +19,21 @@ export type Selection = {
   scope: string
   state: State
   states: State[]
-  /** The colour property the swatch edits for this element. */
-  colorProperty: string
+  /** Whether this element takes a text colour, so the text swatch is offered. */
+  textColor: boolean
   swatches: Swatch[]
 }
 
 /** The colour menu's open state, kept by the caller so it survives a commit's canvas re-render. */
-export type ColorMenu = { open: boolean; hsl?: Hsl }
+export type ColorMenu = { open: boolean; hsl?: Hsl; property?: string }
 
 const svg = (icon: string) =>
   `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>`
+
+// The two swatch icons: an "A" for text colour, a striped block for background colour.
+const TEXT_ICON = '<path d="M3.5 13 8 3l4.5 10"/><path d="M5.5 9.5h5"/>'
+const BACKGROUND_ICON =
+  '<rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M4 10 10 4M7 13 13 7"/>'
 
 /**
  * Editor-only selection chrome, isolated from site styles. A top bar (name, breakpoint, state)
@@ -59,7 +64,9 @@ export function selectionOverlay(
     .name { padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
     .scope { padding:4px 8px;border-left:1px solid #ffffff55;color:#ffffffcc;font-weight:500;white-space:nowrap; }
     .bar button { pointer-events:auto;display:flex;align-items:center;gap:5px;padding:4px 8px;border:0;border-left:1px solid #ffffff55;background:#ffffff22;color:inherit;font:inherit;cursor:pointer;white-space:nowrap; }
+    .bar button[hidden] { display:none; }
     .bar-bottom button { border-left:0; }
+    .bar-bottom button + button { border-left:1px solid #ffffff55; }
     .bar button:hover, .bar button[aria-expanded="true"] { background:#ffffff44; }
     .state.active { background:white;color:#6434d9; }
     .swatch i { display:block;width:14px;height:14px;border-radius:50%;border:1px solid #ffffffaa;box-shadow:inset 0 0 0 1px #0002; }
@@ -81,6 +88,11 @@ export function selectionOverlay(
     .color-menu input[type=range] { display:block;width:100%;min-width:0;margin:0;box-sizing:border-box; }
     .readout { display:flex;align-items:center;gap:6px;min-height:16px; }
     .readout i { width:14px;height:14px;border-radius:50%;border:1px solid #0002;flex-shrink:0; }
+    .swatches { display:flex;flex-wrap:wrap;gap:6px; }
+    .swatches:empty { display:none; }
+    .swatches button { width:22px;height:22px;padding:0;border:1px solid #0002;border-radius:50%;cursor:pointer; }
+    .swatches button[aria-pressed="true"] { box-shadow:0 0 0 2px #6434d9; }
+    .swatches-label:empty, .swatches-label.hidden { display:none; }
     .save { display:flex;gap:4px;min-width:0; }
     .save input { flex:1;min-width:0;padding:4px 6px;border:1px solid #d9d2ea;border-radius:4px;font:inherit;font-weight:400; }
     .save button { flex-shrink:0;padding:4px 8px;border:0;border-radius:4px;background:#6434d9;color:white;font:inherit;cursor:pointer; }
@@ -89,7 +101,7 @@ export function selectionOverlay(
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
   </style><svg class="frame"><rect class="selection-base"/><rect class="selection-dashes"/></svg>
   <div class="bar bar-top selection-label"><span class="name"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button></div>
-  <div class="bar bar-bottom"><button class="swatch" type="button" aria-haspopup="dialog" aria-expanded="false"><i></i></button></div>
+  <div class="bar bar-bottom"><button class="swatch text" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(TEXT_ICON)}<i></i></button><button class="swatch background" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(BACKGROUND_ICON)}<i></i></button></div>
   <div class="menu state-menu" role="menu" aria-label="Element state" hidden>${Object.entries(
     STATES,
   )
@@ -102,6 +114,8 @@ export function selectionOverlay(
     <div class="wheel" role="slider" aria-label="Color wheel" tabindex="0"><div class="wheel-thumb"></div></div>
     <label>Saturation<input class="saturation" type="range" min="0" max="100" aria-label="Saturation"></label>
     <div class="readout"><i></i><span class="color-name"></span></div>
+    <label class="swatches-label">Project colors</label>
+    <div class="swatches" role="listbox" aria-label="Project colors"></div>
     <form class="save"><input type="text" placeholder="Save as project color…" aria-label="Project color name" maxlength="40"><button type="submit" disabled>Save</button></form>
   </div>`
   doc.body.append(host)
@@ -111,8 +125,10 @@ export function selectionOverlay(
   const name = shadow.querySelector<HTMLElement>('.name')!
   const scope = shadow.querySelector<HTMLElement>('.scope')!
   const chip = shadow.querySelector<HTMLButtonElement>('.state')!
-  const swatch = shadow.querySelector<HTMLButtonElement>('.swatch')!
-  const swatchDot = swatch.querySelector<HTMLElement>('i')!
+  const textSwatch = shadow.querySelector<HTMLButtonElement>('.swatch.text')!
+  const bgSwatch = shadow.querySelector<HTMLButtonElement>('.swatch.background')!
+  const textDot = textSwatch.querySelector<HTMLElement>('i')!
+  const bgDot = bgSwatch.querySelector<HTMLElement>('i')!
   const stateMenu = shadow.querySelector<HTMLElement>('.state-menu')!
   const colorMenu = shadow.querySelector<HTMLElement>('.color-menu')!
   const wheel = shadow.querySelector<HTMLElement>('.wheel')!
@@ -120,6 +136,8 @@ export function selectionOverlay(
   const saturation = shadow.querySelector<HTMLInputElement>('.saturation')!
   const readoutDot = shadow.querySelector<HTMLElement>('.readout i')!
   const readoutName = shadow.querySelector<HTMLElement>('.color-name')!
+  const swatchList = shadow.querySelector<HTMLElement>('.swatches')!
+  const swatchLabel = shadow.querySelector<HTMLElement>('.swatches-label')!
   const saveForm = shadow.querySelector<HTMLFormElement>('.save')!
   const saveName = saveForm.querySelector<HTMLInputElement>('input')!
   const saveButton = saveForm.querySelector<HTMLButtonElement>('button')!
@@ -131,11 +149,15 @@ export function selectionOverlay(
   let element: Element | null = doc.querySelector('[data-freeflow-selected]')
   let current: Hsl = { h: 0, s: 1, l: 0.5 }
   let snapped: Swatch | undefined
+  // Which colour the open menu edits, and the swatch button it hangs off.
+  let property = 'background-color'
+  let colorButton = bgSwatch
   const closeMenus = () => {
     stateMenu.hidden = true
     colorMenu.hidden = true
     chip.setAttribute('aria-expanded', 'false')
-    swatch.setAttribute('aria-expanded', 'false')
+    textSwatch.setAttribute('aria-expanded', 'false')
+    bgSwatch.setAttribute('aria-expanded', 'false')
     open = undefined
   }
   const openState = () => {
@@ -145,9 +167,9 @@ export function selectionOverlay(
     open = { el: stateMenu, anchor: topBar }
     stateMenu.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
   }
-  const showColor = (hsl: Hsl) => {
+  const showColor = (hsl: Hsl, forced?: Swatch) => {
     current = hsl
-    snapped = nearestSwatch(hsl, latest().swatches)
+    snapped = forced ?? nearestSwatch(hsl, latest().swatches)
     const hex = snapped?.value ?? toHex(hsl)
     readoutDot.style.background = hex
     readoutName.textContent = snapped ? snapped.name : hex
@@ -156,17 +178,45 @@ export function selectionOverlay(
     thumb.style.left = `${at.x * 100}%`
     thumb.style.top = `${at.y * 100}%`
     wheel.style.background = wheelBackground(hsl.s)
+    for (const button of swatchList.querySelectorAll<HTMLElement>('button'))
+      button.setAttribute('aria-pressed', String(button.dataset.id === snapped?.id))
+  }
+  // Build the project-colour dots for the current document; clicking one binds the element to it.
+  const renderSwatches = () => {
+    const list = latest().swatches
+    swatchLabel.classList.toggle('hidden', list.length === 0)
+    swatchList.replaceChildren(
+      ...list.map((item) => {
+        const button = doc.createElement('button')
+        button.type = 'button'
+        button.dataset.id = item.id
+        button.title = item.name
+        button.setAttribute('aria-label', item.name)
+        button.style.background = item.value
+        button.addEventListener('click', (event) => {
+          event.stopPropagation()
+          colorDirty = true
+          const hsl = parseColor(item.value) ?? current
+          saturation.value = String(Math.round((hsl.s || 1) * 100))
+          showColor(hsl, item)
+          menu.set({ open: true, hsl: current, property })
+          edit('drag')
+        })
+        return button
+      }),
+    )
   }
   const openColor = (hsl: Hsl) => {
     closeMenus()
     colorMenu.hidden = false
-    swatch.setAttribute('aria-expanded', 'true')
+    colorButton.setAttribute('aria-expanded', 'true')
     open = { el: colorMenu, anchor: bottomBar }
     saturation.value = String(Math.round((hsl.s || 1) * 100))
     saveName.value = ''
     colorDirty = false
+    renderSwatches()
     showColor(hsl)
-    menu.set({ open: true, hsl })
+    menu.set({ open: true, hsl, property })
   }
 
   chip.addEventListener('click', (event) => {
@@ -182,27 +232,36 @@ export function selectionOverlay(
     setState(item.dataset.state as State)
   })
 
-  const currentColor = () => {
-    const property = latest().colorProperty
-    return element ? view.getComputedStyle(element).getPropertyValue(property) : ''
-  }
+  const currentColor = () =>
+    element ? view.getComputedStyle(element).getPropertyValue(property) : ''
   const edit = (phase: 'drag' | 'commit') =>
     onColor({
-      property: latest().colorProperty,
+      property,
       value: snapped
         ? { type: 'designToken', ref: snapped.id }
         : { type: 'color', value: toHex(current) },
       phase,
     })
-  swatch.addEventListener('click', (event) => {
-    event.stopPropagation()
-    if (open?.el === colorMenu) {
+  // Open the wheel for a property; clicking the same swatch again commits and closes it.
+  const toggleColor = (next: string, button: HTMLButtonElement) => {
+    if (open?.el === colorMenu && property === next) {
       commitColor()
       closeMenus()
       menu.set({ open: false })
       return
     }
+    if (open?.el === colorMenu) commitColor()
+    property = next
+    colorButton = button
     openColor(parseColor(currentColor()) ?? { h: 0, s: 1, l: 0.5 })
+  }
+  textSwatch.addEventListener('click', (event) => {
+    event.stopPropagation()
+    toggleColor('color', textSwatch)
+  })
+  bgSwatch.addEventListener('click', (event) => {
+    event.stopPropagation()
+    toggleColor('background-color', bgSwatch)
   })
 
   let dragging = false
@@ -215,7 +274,7 @@ export function selectionOverlay(
   const track = (event: { clientX: number; clientY: number }) => {
     colorDirty = true
     showColor(wheelColor(wheel, event.clientX, event.clientY, Number(saturation.value) / 100))
-    menu.set({ open: true, hsl: current })
+    menu.set({ open: true, hsl: current, property })
     edit('drag')
   }
   const release = () => {
@@ -239,7 +298,7 @@ export function selectionOverlay(
   saturation.addEventListener('input', () => {
     colorDirty = true
     showColor({ ...current, s: Number(saturation.value) / 100 })
-    menu.set({ open: true, hsl: current })
+    menu.set({ open: true, hsl: current, property })
     edit('drag')
   })
   saveName.addEventListener('input', () => {
@@ -249,7 +308,7 @@ export function selectionOverlay(
     event.preventDefault()
     if (snapped || !saveName.value.trim()) return
     onColor({
-      property: latest().colorProperty,
+      property,
       token: { name: saveName.value.trim(), value: toHex(current) },
     })
     closeMenus()
@@ -266,7 +325,7 @@ export function selectionOverlay(
   const key = (event: KeyboardEvent) => {
     if (!open || event.key !== 'Escape') return
     event.stopPropagation()
-    const opener = open.el === stateMenu ? chip : swatch
+    const opener = open.el === stateMenu ? chip : colorButton
     commitColor()
     closeMenus()
     menu.set({ open: false })
@@ -277,7 +336,11 @@ export function selectionOverlay(
 
   // Reopen the colour menu the caller left open, so a commit's re-render does not close it.
   const restore = menu.get()
-  if (restore.open) openColor(restore.hsl ?? { h: 0, s: 1, l: 0.5 })
+  if (restore.open) {
+    property = restore.property ?? 'background-color'
+    colorButton = property === 'color' ? textSwatch : bgSwatch
+    openColor(restore.hsl ?? { h: 0, s: 1, l: 0.5 })
+  }
 
   const placeBar = (bar: HTMLElement, left: number, top: number) => {
     bar.style.left = `${Math.max(2, Math.min(left, view.innerWidth - bar.offsetWidth - 2))}px`
@@ -321,12 +384,14 @@ export function selectionOverlay(
         }
       }
       if (!dragging) {
-        const color = currentColor()
-        swatchDot.style.background = color
-        swatch.setAttribute(
-          'aria-label',
-          `${selection.colorProperty === 'color' ? 'Text color' : 'Background color'}: ${color}`,
-        )
+        textSwatch.hidden = !selection.textColor
+        const computed = view.getComputedStyle(selected!)
+        const textValue = computed.getPropertyValue('color')
+        const bgValue = computed.getPropertyValue('background-color')
+        textDot.style.background = textValue
+        textSwatch.setAttribute('aria-label', `Text color: ${textValue}`)
+        bgDot.style.background = bgValue
+        bgSwatch.setAttribute('aria-label', `Background color: ${bgValue}`)
       }
       for (const rect of rects) {
         rect.setAttribute('x', String(bounds.left))
@@ -334,14 +399,16 @@ export function selectionOverlay(
         rect.setAttribute('width', String(bounds.width))
         rect.setAttribute('height', String(bounds.height))
       }
-      // Top bar above the element (below when there is no room); bottom bar below (above when not).
+      // Top bar above the element (below when there is no room); bottom bar below. When the bottom
+      // bar cannot fit below, stack it above the top bar so it never covers the element itself.
       const topFits = bounds.top - topBar.offsetHeight - 4 >= 2
-      placeBar(topBar, bounds.left, topFits ? bounds.top - topBar.offsetHeight - 4 : bounds.top + 4)
+      const topTop = topFits ? bounds.top - topBar.offsetHeight - 4 : bounds.top + 4
+      placeBar(topBar, bounds.left, topTop)
       const bottomFits = bounds.bottom + bottomBar.offsetHeight + 4 <= view.innerHeight - 2
       placeBar(
         bottomBar,
         bounds.left,
-        bottomFits ? bounds.bottom + 4 : bounds.bottom - bottomBar.offsetHeight - 4,
+        bottomFits ? bounds.bottom + 4 : Math.max(2, topTop - bottomBar.offsetHeight - 4),
       )
       if (open) {
         const anchor = open.anchor.getBoundingClientRect()

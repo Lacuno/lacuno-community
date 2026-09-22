@@ -44,13 +44,24 @@ it('shows the state chip and colour wheel on the canvas selection bar', async ()
     const cta = canvas.locator('[data-freeflow-node="n-home-cta"]')
     await cta.waitFor()
     await cta.click()
-    // The one bar under the selection carries the state chip and the colour swatch.
+    // The bars carry the state chip and, for a text node, both a text and a background swatch.
     await expect.poll(() => canvas.getByRole('button', { name: /^State: / }).count()).toBe(1)
     await expect.poll(() => canvas.getByRole('button', { name: /^Text color: / }).count()).toBe(1)
-    // Opening the swatch reveals the wheel and the save-as-project-colour field.
+    await expect
+      .poll(() => canvas.getByRole('button', { name: /^Background color: / }).count())
+      .toBe(1)
+    // Opening the swatch reveals the wheel, the project colours and the save field.
     await canvas.getByRole('button', { name: /^Text color: / }).click()
     await expect.poll(() => canvas.locator('.wheel').count()).toBe(1)
     await expect.poll(() => canvas.getByLabel('Project color name').count()).toBe(1)
+    // The template ships project colours; picking one binds the element and commits on close.
+    const dots = canvas.locator('.swatches button')
+    await expect.poll(() => dots.count()).toBeGreaterThan(0)
+    const before = await cta.evaluate((element) => getComputedStyle(element).color)
+    await dots.first().click()
+    await expect
+      .poll(() => cta.evaluate((element) => getComputedStyle(element).color))
+      .not.toBe(before)
   } finally {
     await browser.close()
     await new Promise<void>((resolve) => listener.close(() => resolve()))
