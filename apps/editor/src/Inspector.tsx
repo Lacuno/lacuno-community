@@ -77,6 +77,8 @@ export function Inspector({
 }) {
   const scopeInfoId = useId()
   const scopeInfo = useRef<HTMLDivElement>(null)
+  const embedInfoId = useId()
+  const embedInfo = useRef<HTMLDivElement>(null)
   const isImage = node.type === 'element' && node.tag === 'img'
   const isVideo = node.type === 'element' && node.tag === 'video'
   const isLink = 'tag' in node && node.tag === 'a'
@@ -460,12 +462,30 @@ export function Inspector({
             </label>
           )}
           {node.type === 'embed' && (
-            <label>
-              Embed code
+            <div className="embed-section">
+              <div className="embed-heading">
+                <span>Embed code</span>
+                <button
+                  type="button"
+                  className="scope-info-button"
+                  aria-label="About embed code"
+                  popoverTarget={embedInfoId}
+                  onClick={(event) => placePopover(event.currentTarget, embedInfo.current)}
+                >
+                  <EditorIcon name="info" />
+                </button>
+                <div ref={embedInfo} id={embedInfoId} popover="auto" className="scope-info-popover">
+                  Paste the HTML snippet a service gives you, such as a YouTube video, a map, a form
+                  or a social post. It is published exactly as written. The canvas shows only its
+                  static parts; scripts and iframes run on the published site, so a placeholder
+                  stands in here. The code saves when you leave the field.
+                </div>
+              </div>
               <textarea
                 aria-label="Embed code"
                 className="embed-code"
                 rows={8}
+                placeholder={'<iframe src="https://…"></iframe>'}
                 value={embedHtml}
                 disabled={disabled}
                 onChange={(event) => setEmbedHtml(event.target.value)}
@@ -474,7 +494,7 @@ export function Inspector({
                     void autoSave([{ type: 'node.update', id: node.id, html: embedHtml }])
                 }}
               />
-            </label>
+            </div>
           )}
           {(isImage || isVideo) && (
             <div className="image-controls">

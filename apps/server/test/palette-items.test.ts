@@ -110,6 +110,9 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
 
     // Embed code never runs on the canvas, so an iframe-only embed shows a labelled placeholder.
     await insert('Embed')
+    await page.getByRole('button', { name: 'About embed code' }).click()
+    await page.getByText('Paste the HTML snippet a service gives you').waitFor({ state: 'visible' })
+    await page.keyboard.press('Escape')
     await page
       .getByLabel('Embed code', { exact: true })
       .fill('<iframe src="https://example.com"></iframe>')

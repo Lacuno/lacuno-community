@@ -79,6 +79,17 @@
 .video-flags input {
   width: auto;
 }
+.embed-section {
+  display: grid;
+  gap: 6px;
+}
+.embed-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 550;
+}
 .embed-code {
   font-family: ui-monospace, monospace;
 }
@@ -1283,7 +1294,7 @@
   color: #655484;
   font-size: 11px;
 }
-.responsive-scope .scope-info-button {
+.scope-info-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
