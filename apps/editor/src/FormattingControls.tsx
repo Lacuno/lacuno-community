@@ -4,6 +4,7 @@ import { colorLabel, colorProperties, projectColors } from './colors.js'
 import { EffectsControls } from './EffectsControls.js'
 import { formattingGroups, localValue } from './formatting.js'
 import { MotionControls } from './MotionControls.js'
+import { SpacingControls } from './SpacingControls.js'
 
 const choiceLabel = (value: string) =>
   (
@@ -77,10 +78,15 @@ export function FormattingControls({
               <EffectsControls {...controls} />
             ) : (
               <div className="formatting-grid">
+                {group.name === 'Spacing & shape' && (
+                  <SpacingControls key={`${node.id}-${breakpoint}-${state}`} {...controls} />
+                )}
                 {group.fields
                   .filter(
                     (field) =>
-                      field.property !== 'object-fit' && field.property !== 'object-position',
+                      field.property !== 'object-fit' &&
+                      field.property !== 'object-position' &&
+                      !/^(padding|margin)-/.test(field.property),
                   )
                   .map((field) => {
                     const { property, label } = field

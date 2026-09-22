@@ -72,7 +72,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     )
     await canvas.locator(`[data-freeflow-node="${selectionParentId}"]`).dispatchEvent('click')
     await page.getByRole('button', { name: 'Layout', exact: true }).click()
-    await page.getByLabel('Inside spacing', { exact: true }).fill('24px')
+    await page.getByLabel('Inside spacing top', { exact: true }).fill('24')
     await saved()
     await heading.dispatchEvent('click')
     await expect.poll(() => heading.getAttribute('data-freeflow-selected')).toBe('')
@@ -478,7 +478,11 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     expect(await page.getByRole('button', { name: /^Save/ }).count()).toBe(0)
     // The ribbon moves existing controls between categories without losing an autosave draft.
     await page.getByRole('button', { name: 'Layout', exact: true }).click()
-    await page.locator('.ribbon-controls').getByLabel('Inside spacing', { exact: true }).fill('16')
+    // Linked by default (all sides equal), so one side fills all four longhands → padding: 16px.
+    await page
+      .locator('.ribbon-controls')
+      .getByLabel('Inside spacing top', { exact: true })
+      .fill('16')
     await page.getByRole('button', { name: 'Appearance', exact: true }).click()
     await page
       .locator('.ribbon-controls')
