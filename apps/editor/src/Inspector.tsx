@@ -8,7 +8,7 @@ import { breakpointMedia } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { ClassManager } from './ClassManager.js'
 import { colorTokenName, defaultMode } from './colors.js'
-import type { ColorEdit } from './colorWheel.js'
+import type { StyleEdit } from './colorWheel.js'
 import { ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { FormattingControls } from './FormattingControls.js'
@@ -179,7 +179,7 @@ export function Inspector({
     registerFlush,
   })
   // The canvas bar edits through the same draft as the panel: preview while dragging, one commit.
-  const canvasStyle = useRef((_: ColorEdit & { id: string }) => {})
+  const canvasStyle = useRef((_: StyleEdit & { id: string }) => {})
   canvasStyle.current = (edit) => {
     if (edit.id !== node.id || disabled) return
     if ('token' in edit) {
@@ -208,25 +208,18 @@ export function Inspector({
       return
     }
     setTokenError('')
+    // A single-property colour edit and a multi-side spacing edit share one changes object.
+    const changed = 'changes' in edit ? edit.changes : { [edit.property]: edit.value }
     if (edit.phase === 'drag') {
       // Preview through the panel's draft; the panel's autosave stays disabled while dragging.
       setDragging(true)
-      changeFormatting(edit.property, edit.value)
+      for (const [property, value] of Object.entries(changed)) changeFormatting(property, value)
       return
     }
-    // Commit once when the wheel closes as a single undoable edit, then drop the transient preview.
+    // Commit once when the drag ends as a single undoable edit, then drop the transient preview.
     setDragging(false)
     setChanges({})
-    void save(
-      formattingOperations(
-        doc,
-        node,
-        { [edit.property]: edit.value },
-        () => classId.current,
-        breakpoint,
-        state,
-      ),
-    )
+    void save(formattingOperations(doc, node, changed, () => classId.current, breakpoint, state))
   }
   useEffect(() => {
     const listen = (event: Event) => canvasStyle.current((event as CustomEvent).detail)

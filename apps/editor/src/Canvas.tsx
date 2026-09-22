@@ -2,7 +2,7 @@ import { MOTION_CSS } from '@freeflow/css'
 import type { State } from '@freeflow/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
-import type { ColorEdit, Swatch } from './colorWheel.js'
+import type { StyleEdit, Swatch } from './colorWheel.js'
 import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
 import { selectionOverlay } from './selectionOverlay.js'
@@ -367,7 +367,7 @@ export function Canvas({
               swatches: latest.current.swatches,
             }),
             (next) => latest.current.onState(next),
-            (edit: ColorEdit) =>
+            (edit: StyleEdit) =>
               window.dispatchEvent(
                 new CustomEvent('freeflow:canvas-style', {
                   detail: { id: latest.current.selected, ...edit },

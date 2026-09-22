@@ -3,9 +3,10 @@ import type { CssValue } from '@freeflow/schema'
 export type Swatch = { id: string; name: string; value: string }
 export type Hsl = { h: number; s: number; l: number }
 
-/** What the wheel tells the editor: a preview frame, the final value, or a token to create. */
-export type ColorEdit =
+/** What a canvas control tells the editor: a preview frame, the final value(s), or a token to create. */
+export type StyleEdit =
   | { property: string; value: CssValue; phase: 'drag' | 'commit' }
+  | { changes: Record<string, CssValue>; phase: 'drag' | 'commit' }
   | { property: string; token: { name: string; value: string } }
 
 export function parseColor(text: string): Hsl | undefined {

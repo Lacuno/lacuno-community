@@ -1,9 +1,9 @@
-import type { State } from '@freeflow/schema'
+import { type CssValue, px, type State } from '@freeflow/schema'
 import {
-  type ColorEdit,
   type Hsl,
   nearestSwatch,
   parseColor,
+  type StyleEdit,
   type Swatch,
   thumbPosition,
   toHex,
@@ -42,7 +42,7 @@ export function selectionOverlay(
   doc: Document,
   latest: () => Selection,
   setState: (state: State) => void,
-  onColor: (edit: ColorEdit) => void,
+  onStyle: (edit: StyleEdit) => void,
 ): () => void {
   const view = doc.defaultView
   if (!view) return () => {}
@@ -96,6 +96,14 @@ export function selectionOverlay(
     .save input { flex:1;min-width:0;padding:4px 6px;border:1px solid #d9d2ea;border-radius:4px;font:inherit;font-weight:400; }
     .save button { flex-shrink:0;padding:4px 8px;border:0;border-radius:4px;background:#6434d9;color:white;font:inherit;cursor:pointer; }
     .save button:disabled { opacity:.5;cursor:default; }
+    .handle { position:absolute;pointer-events:auto;border:1px solid white;border-radius:3px;box-shadow:0 1px 3px #0006; }
+    .handle.padding { background:#6434d9; }
+    .handle.margin { background:#e8873b; }
+    .handle.top, .handle.bottom { width:24px;height:6px;margin:-3px 0 0 -12px;cursor:ns-resize; }
+    .handle.left, .handle.right { width:6px;height:24px;margin:-12px 0 0 -3px;cursor:ew-resize; }
+    .handles[hidden] { display:none; }
+    .tag { position:absolute;padding:2px 6px;border-radius:4px;background:#1f1533;color:white;box-shadow:0 2px 8px #0004;pointer-events:none;white-space:nowrap; }
+    .tag[hidden] { display:none; }
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
   </style><svg class="frame"><rect class="selection-base"/><rect class="selection-dashes"/></svg>
@@ -116,7 +124,15 @@ export function selectionOverlay(
     <label class="swatches-label">Project colors</label>
     <div class="swatches" role="listbox" aria-label="Project colors"></div>
     <form class="save"><input type="text" placeholder="Save as project color…" aria-label="Project color name" maxlength="40"><button type="submit" disabled>Save</button></form>
-  </div>`
+  </div>
+  <div class="handles" hidden>${['top', 'right', 'bottom', 'left']
+    .flatMap((side) => ['padding', 'margin'].map((kind) => ({ side, kind })))
+    .map(
+      ({ side, kind }) =>
+        `<div class="handle ${kind} ${side}" data-side="${side}" data-kind="${kind}" aria-label="Drag ${kind} ${side}"></div>`,
+    )
+    .join('')}</div>
+  <div class="tag" hidden></div>`
   doc.body.append(host)
   const rects = shadow.querySelectorAll('rect')
   const topBar = shadow.querySelector<HTMLElement>('.bar-top')!
@@ -140,6 +156,9 @@ export function selectionOverlay(
   const saveForm = shadow.querySelector<HTMLFormElement>('.save')!
   const saveName = saveForm.querySelector<HTMLInputElement>('input')!
   const saveButton = saveForm.querySelector<HTMLButtonElement>('button')!
+  const handlesLayer = shadow.querySelector<HTMLElement>('.handles')!
+  const handles = shadow.querySelectorAll<HTMLElement>('.handle')
+  const tag = shadow.querySelector<HTMLElement>('.tag')!
 
   // Which menu is open, and the anchor bar it hangs off.
   let open: { el: HTMLElement; anchor: HTMLElement } | undefined
@@ -232,7 +251,7 @@ export function selectionOverlay(
   const currentColor = () =>
     element ? view.getComputedStyle(element).getPropertyValue(property) : ''
   const edit = (phase: 'drag' | 'commit') =>
-    onColor({
+    onStyle({
       property,
       value: snapped
         ? { type: 'designToken', ref: snapped.id }
@@ -301,11 +320,82 @@ export function selectionOverlay(
   saveForm.addEventListener('submit', (event) => {
     event.preventDefault()
     if (snapped || !saveName.value.trim()) return
-    onColor({
+    onStyle({
       property,
       token: { name: saveName.value.trim(), value: toHex(current) },
     })
     closeMenus()
+  })
+
+  // Spacing handles: drag an edge to set padding (inside) or margin (outside). Symmetric by
+  // default (the opposite side moves by the same delta); Alt moves only the dragged side.
+  const OPPOSITE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' } as const
+  type Side = keyof typeof OPPOSITE
+  const sideValue = (kind: string, side: Side) =>
+    element
+      ? Number.parseFloat(view.getComputedStyle(element).getPropertyValue(`${kind}-${side}`)) || 0
+      : 0
+  let handleDrag:
+    | {
+        kind: string
+        axis: 'x' | 'y'
+        inward: boolean
+        start: number
+        sides: { side: Side; from: number }[]
+        delta: number
+      }
+    | undefined
+  const emitHandle = (phase: 'drag' | 'commit') => {
+    if (!handleDrag) return
+    const changes: Record<string, CssValue> = {}
+    for (const { side, from } of handleDrag.sides) {
+      const value = Math.round(from + handleDrag.delta)
+      changes[`${handleDrag.kind}-${side}`] = px(
+        handleDrag.kind === 'padding' ? Math.max(0, value) : value,
+      )
+    }
+    onStyle({ changes, phase })
+  }
+  const releaseHandle = () => {
+    if (!handleDrag) return
+    if (handleDrag.delta) emitHandle('commit')
+    handleDrag = undefined
+    tag.hidden = true
+    doc.removeEventListener('pointerup', releaseHandle)
+    doc.removeEventListener('mouseup', releaseHandle)
+  }
+  handlesLayer.addEventListener('pointerdown', (event) => {
+    const handle = (event.target as Element).closest<HTMLElement>('.handle')
+    if (!handle || !element) return
+    event.stopPropagation()
+    event.preventDefault()
+    const side = handle.dataset.side as Side
+    const kind = handle.dataset.kind!
+    const axis = side === 'left' || side === 'right' ? 'x' : 'y'
+    const sides = event.altKey ? [side] : [side, OPPOSITE[side]]
+    handleDrag = {
+      kind,
+      axis,
+      inward: side === 'top' || side === 'left',
+      start: axis === 'x' ? event.clientX : event.clientY,
+      sides: sides.map((s) => ({ side: s, from: sideValue(kind, s) })),
+      delta: 0,
+    }
+    handlesLayer.setPointerCapture(event.pointerId)
+    doc.addEventListener('pointerup', releaseHandle)
+    doc.addEventListener('mouseup', releaseHandle)
+  })
+  handlesLayer.addEventListener('pointermove', (event) => {
+    if (!handleDrag) return
+    // Iframe pointer coordinates are already in CSS px, so the drag tracks the pointer at any zoom.
+    const pos = handleDrag.axis === 'x' ? event.clientX : event.clientY
+    handleDrag.delta = handleDrag.inward ? handleDrag.start - pos : pos - handleDrag.start
+    emitHandle('drag')
+    const value = Math.round(handleDrag.sides[0]!.from + handleDrag.delta)
+    tag.textContent = `${handleDrag.kind === 'padding' ? Math.max(0, value) : value}px`
+    tag.hidden = false
+    tag.style.left = `${Math.min(event.clientX + 12, view.innerWidth - tag.offsetWidth - 2)}px`
+    tag.style.top = `${Math.max(2, event.clientY - 24)}px`
   })
 
   const outside = (event: Event) => {
@@ -328,6 +418,26 @@ export function selectionOverlay(
   const placeBar = (bar: HTMLElement, left: number, top: number) => {
     bar.style.left = `${Math.max(2, Math.min(left, view.innerWidth - bar.offsetWidth - 2))}px`
     bar.style.top = `${top}px`
+  }
+  // A padding handle sits just inside its edge, a margin handle just outside; the drawn point is
+  // clamped into view (the drag math uses the real pointer delta, not this position).
+  const placeHandle = (handle: HTMLElement, bounds: DOMRect) => {
+    const side = handle.dataset.side as Side
+    const off = handle.dataset.kind === 'padding' ? 7 : -11
+    const x =
+      side === 'left'
+        ? bounds.left + off
+        : side === 'right'
+          ? bounds.right - off
+          : bounds.left + bounds.width / 2
+    const y =
+      side === 'top'
+        ? bounds.top + off
+        : side === 'bottom'
+          ? bounds.bottom - off
+          : bounds.top + bounds.height / 2
+    handle.style.left = `${Math.max(2, Math.min(x, view.innerWidth - 2))}px`
+    handle.style.top = `${Math.max(2, Math.min(y, view.innerHeight - 2))}px`
   }
   let frame = 0
   const paint = () => {
@@ -399,6 +509,9 @@ export function selectionOverlay(
         open.el.style.left = `${Math.max(4, Math.min(anchor.left, view.innerWidth - open.el.offsetWidth - 4))}px`
         open.el.style.top = `${fits ? under : Math.max(4, anchor.top - open.el.offsetHeight - 4)}px`
       }
+      // Handles ride the edges every frame, but not while the element's text is being edited.
+      handlesLayer.hidden = !!doc.querySelector('[data-freeflow-editing]')
+      if (!handlesLayer.hidden) for (const handle of handles) placeHandle(handle, bounds)
     }
     // When not visible the host is hidden but the menu stays open, so it returns on its own.
     frame = view.requestAnimationFrame(paint)
