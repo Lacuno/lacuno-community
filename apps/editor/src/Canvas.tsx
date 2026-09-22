@@ -1,7 +1,8 @@
 import { MOTION_CSS } from '@freeflow/css'
 import type { State } from '@freeflow/schema'
+import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
-import type { ColorEdit, Hsl, Swatch } from './colorWheel.js'
+import type { ColorEdit, Swatch } from './colorWheel.js'
 import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
 import { selectionOverlay } from './selectionOverlay.js'
@@ -33,6 +34,20 @@ function highlight(frame: HTMLIFrameElement | null, selected: string, state: Sta
   const element = nodeElement(doc, selected)
   element?.setAttribute('data-freeflow-selected', '')
   if (state !== 'none') element?.setAttribute('data-ff-state', state)
+}
+
+/** A server `<img>` with no source is an empty slot, shown as a drop target instead. */
+function swapImagePlaceholders(doc: Document) {
+  for (const image of doc.querySelectorAll(
+    'img[data-freeflow-node]:not([src]), img[data-freeflow-node][src=""]',
+  )) {
+    const placeholder = doc.createElement('div')
+    for (const attribute of image.attributes)
+      placeholder.setAttribute(attribute.name, attribute.value)
+    placeholder.setAttribute('data-freeflow-image-placeholder', '')
+    placeholder.setAttribute('aria-label', 'Image placeholder. Drop a photo here.')
+    image.replaceWith(placeholder)
+  }
 }
 
 export function Canvas({
@@ -74,18 +89,16 @@ export function Canvas({
   onHistory: (direction: 'undo' | 'redo') => void
   onComputed: (value: { id: string; values: Record<string, string> }) => void
 }) {
-  const renderedHtml = useRef(html)
-  // A preview request from the preceding save must not replace an active text editor.
-  if (!editingText) renderedHtml.current = html
+  // The iframe loads this once; every later render morphs the live document in place instead.
+  const initialHtml = useRef(html)
+  const loaded = useRef(false)
   const selectionCleanup = useRef<(() => void) | undefined>(undefined)
   useEffect(() => () => selectionCleanup.current?.(), [])
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
   useEffect(() => () => dragCleanup.current?.(), [])
   const frame = useRef<HTMLIFrameElement>(null)
-  // The colour menu's open state survives the iframe re-render a commit triggers.
-  const colorMenu = useRef<{ open: boolean; hsl?: Hsl; property?: string }>({ open: false })
-  const scrollPosition = useRef({ x: 0, y: 0 })
-  const motionReplay = useRef<(() => void) | undefined>(undefined)
+  // The generated stylesheet element, swapped by text on every morph.
+  const generatedStyle = useRef<HTMLStyleElement | null>(null)
   const restore = useRef<(() => void) | undefined>(undefined)
   const paint = () => {
     restore.current?.()
@@ -231,6 +244,36 @@ export function Canvas({
   }
   const latest = useRef(current)
   latest.current = current
+  // Reconcile the live document to a new server render without reloading the iframe: swap the
+  // generated stylesheet's text, morph the body to the new markup (keyed on tag/position, editor
+  // chrome kept), then re-derive the placeholders, selection and draft the way a reload used to.
+  const morph = (next: string) => {
+    const doc = frame.current?.contentDocument
+    const generated = generatedStyle.current
+    if (!doc || !generated) return
+    restore.current?.()
+    restore.current = undefined
+    const parsed = new DOMParser().parseFromString(next, 'text/html')
+    generated.textContent = parsed.head.querySelector('style:last-of-type')?.textContent ?? ''
+    // The body's children, not the body itself: idiomorph would otherwise nest a second <body>.
+    Idiomorph.morph(doc.body, [...parsed.body.childNodes], {
+      morphStyle: 'innerHTML',
+      callbacks: {
+        beforeNodeRemoved: (node) =>
+          !(node as Element).hasAttribute?.('data-freeflow-selection-overlay'),
+      },
+    })
+    swapImagePlaceholders(doc)
+    for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
+      element.draggable = true
+    highlight(frame.current, latest.current.selected, latest.current.state)
+    latest.current.paint()
+    latest.current.reportStyles()
+  }
+  // biome-ignore lint/correctness/useExhaustiveDependencies: morph the new render in place; an open text editor freezes it.
+  useEffect(() => {
+    if (loaded.current && !editingText) morph(html)
+  }, [html, editingText])
   // biome-ignore lint/correctness/useExhaustiveDependencies: paint the latest draft into the iframe when the draft changes.
   useEffect(() => {
     latest.current.paint()
@@ -257,7 +300,6 @@ export function Canvas({
       if (id !== latest.current.selected) return
       cleanup?.()
       clearTimeout(timer)
-      motionReplay.current = () => preview(event)
       const doc = frame.current?.contentDocument
       const element = nodeElement(doc, id)
       if (!doc || !element || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -283,7 +325,6 @@ export function Canvas({
         () => {
           cleanup?.()
           cleanup = undefined
-          motionReplay.current = undefined
         },
         duration + delay + 500,
       )
@@ -301,7 +342,7 @@ export function Canvas({
         ref={frame}
         title="Site canvas"
         sandbox="allow-same-origin"
-        srcDoc={renderedHtml.current}
+        srcDoc={initialHtml.current}
         style={{
           width,
           height: `${100 / zoom}%`,
@@ -311,16 +352,9 @@ export function Canvas({
         onLoad={() => {
           const doc = frame.current?.contentDocument
           if (!doc) return
-          for (const image of doc.querySelectorAll(
-            'img[data-freeflow-node]:not([src]), img[data-freeflow-node][src=""]',
-          )) {
-            const placeholder = doc.createElement('div')
-            for (const attribute of image.attributes)
-              placeholder.setAttribute(attribute.name, attribute.value)
-            placeholder.setAttribute('data-freeflow-image-placeholder', '')
-            placeholder.setAttribute('aria-label', 'Image placeholder. Drop a photo here.')
-            image.replaceWith(placeholder)
-          }
+          // The last head stylesheet is the generated CSS; every morph swaps its text in place.
+          generatedStyle.current = doc.head.querySelector('style:last-of-type')
+          swapImagePlaceholders(doc)
           selectionCleanup.current?.()
           selectionCleanup.current = selectionOverlay(
             doc,
@@ -339,12 +373,6 @@ export function Canvas({
                   detail: { id: latest.current.selected, ...edit },
                 }),
               ),
-            {
-              get: () => colorMenu.current,
-              set: (state) => {
-                colorMenu.current = state
-              },
-            },
           )
           dragCleanup.current?.()
           for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
@@ -416,24 +444,7 @@ export function Canvas({
           restore.current = undefined
           latest.current.paint()
           latest.current.reportStyles()
-          motionReplay.current?.()
-          const view = doc.defaultView
-          if (view) {
-            view.scrollTo({
-              left: scrollPosition.current.x,
-              top: scrollPosition.current.y,
-              behavior: 'instant',
-            })
-            view.addEventListener(
-              'scroll',
-              () => {
-                // Ignore events from the document being replaced by an autosave refresh.
-                if (frame.current?.contentDocument === doc)
-                  scrollPosition.current = { x: view.scrollX, y: view.scrollY }
-              },
-              { passive: true },
-            )
-          }
+          loaded.current = true
         }}
       />
     </div>

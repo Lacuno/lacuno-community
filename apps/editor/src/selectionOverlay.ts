@@ -24,9 +24,6 @@ export type Selection = {
   swatches: Swatch[]
 }
 
-/** The colour menu's open state, kept by the caller so it survives a commit's canvas re-render. */
-export type ColorMenu = { open: boolean; hsl?: Hsl; property?: string }
-
 const svg = (icon: string) =>
   `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>`
 
@@ -38,19 +35,21 @@ const BACKGROUND_ICON =
 /**
  * Editor-only selection chrome, isolated from site styles. A top bar (name, breakpoint, state)
  * and a bottom bar (colour) frame the selected element with the controls that belong on the
- * canvas. The colour menu's open state lives in `menu` so it stays open across a commit.
+ * canvas. The overlay is installed once and outlives every render, so an open menu simply stays
+ * open across a commit.
  */
 export function selectionOverlay(
   doc: Document,
   latest: () => Selection,
   setState: (state: State) => void,
   onColor: (edit: ColorEdit) => void,
-  menu: { get: () => ColorMenu; set: (state: ColorMenu) => void },
 ): () => void {
   const view = doc.defaultView
   if (!view) return () => {}
   const host = doc.createElement('div')
   host.setAttribute('data-freeflow-selection-overlay', '')
+  // A unique id keeps the morph from ever matching a server node against this host.
+  host.id = 'freeflow-selection-overlay'
   host.style.cssText =
     'position:fixed;inset:0;pointer-events:none;z-index:2147483646;overflow:hidden;'
   const shadow = host.attachShadow({ mode: 'open' })
@@ -199,7 +198,6 @@ export function selectionOverlay(
           const hsl = parseColor(item.value) ?? current
           saturation.value = String(Math.round((hsl.s || 1) * 100))
           showColor(hsl, item)
-          menu.set({ open: true, hsl: current, property })
           edit('drag')
         })
         return button
@@ -216,7 +214,6 @@ export function selectionOverlay(
     colorDirty = false
     renderSwatches()
     showColor(hsl)
-    menu.set({ open: true, hsl, property })
   }
 
   chip.addEventListener('click', (event) => {
@@ -247,7 +244,6 @@ export function selectionOverlay(
     if (open?.el === colorMenu && property === next) {
       commitColor()
       closeMenus()
-      menu.set({ open: false })
       return
     }
     if (open?.el === colorMenu) commitColor()
@@ -274,7 +270,6 @@ export function selectionOverlay(
   const track = (event: { clientX: number; clientY: number }) => {
     colorDirty = true
     showColor(wheelColor(wheel, event.clientX, event.clientY, Number(saturation.value) / 100))
-    menu.set({ open: true, hsl: current, property })
     edit('drag')
   }
   const release = () => {
@@ -298,7 +293,6 @@ export function selectionOverlay(
   saturation.addEventListener('input', () => {
     colorDirty = true
     showColor({ ...current, s: Number(saturation.value) / 100 })
-    menu.set({ open: true, hsl: current, property })
     edit('drag')
   })
   saveName.addEventListener('input', () => {
@@ -312,14 +306,12 @@ export function selectionOverlay(
       token: { name: saveName.value.trim(), value: toHex(current) },
     })
     closeMenus()
-    menu.set({ open: false })
   })
 
   const outside = (event: Event) => {
     if (open && !event.composedPath().includes(host)) {
       commitColor()
       closeMenus()
-      menu.set({ open: false })
     }
   }
   const key = (event: KeyboardEvent) => {
@@ -328,19 +320,10 @@ export function selectionOverlay(
     const opener = open.el === stateMenu ? chip : colorButton
     commitColor()
     closeMenus()
-    menu.set({ open: false })
     opener.focus()
   }
   doc.addEventListener('pointerdown', outside, true)
   host.addEventListener('keydown', key)
-
-  // Reopen the colour menu the caller left open, so a commit's re-render does not close it.
-  const restore = menu.get()
-  if (restore.open) {
-    property = restore.property ?? 'background-color'
-    colorButton = property === 'color' ? textSwatch : bgSwatch
-    openColor(restore.hsl ?? { h: 0, s: 1, l: 0.5 })
-  }
 
   const placeBar = (bar: HTMLElement, left: number, top: number) => {
     bar.style.left = `${Math.max(2, Math.min(left, view.innerWidth - bar.offsetWidth - 2))}px`
@@ -350,11 +333,10 @@ export function selectionOverlay(
   const paint = () => {
     const selected = doc.querySelector('[data-freeflow-selected]')
     // Close only when the selection moves to a different element, not while it is briefly
-    // absent during the iframe reload a commit triggers.
+    // absent between a morph clearing the marker and highlight() re-applying it.
     if (selected && selected !== element) {
       element = selected
       closeMenus()
-      menu.set({ open: false })
     }
     const bounds = selected?.getBoundingClientRect()
     const visible =
@@ -418,7 +400,7 @@ export function selectionOverlay(
         open.el.style.top = `${fits ? under : Math.max(4, anchor.top - open.el.offsetHeight - 4)}px`
       }
     }
-    // When not visible the host is hidden but the menu stays open, so it returns after a reload.
+    // When not visible the host is hidden but the menu stays open, so it returns on its own.
     frame = view.requestAnimationFrame(paint)
   }
   paint()

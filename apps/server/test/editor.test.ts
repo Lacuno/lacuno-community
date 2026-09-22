@@ -628,7 +628,8 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
     await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/editor-desktop.png') })
     expect(errors).toEqual([])
-    // Saving and undoing a lower-page edit must not return the canvas to its top.
+    // Saving and undoing a lower-page edit must not return the canvas to its top. The canvas
+    // morphs in place rather than reloading, so a marker on the document survives the commit.
     const lowerHeading = canvas.locator('[data-freeflow-node="n-home-feature-publish-title"]')
     await lowerHeading.click()
     const scrollBefore = await lowerHeading.evaluate(() => window.scrollY)
@@ -639,9 +640,10 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     })
     await page.getByLabel('Text', { exact: true }).fill('Publish your site')
     await saved()
-    await expect
-      .poll(() => lowerHeading.evaluate(() => document.documentElement.dataset.scrollTest))
-      .toBeUndefined()
+    await expect.poll(() => lowerHeading.textContent()).toBe('Publish your site')
+    expect(await lowerHeading.evaluate(() => document.documentElement.dataset.scrollTest)).toBe(
+      'before',
+    )
     await expect
       .poll(() => lowerHeading.evaluate(() => window.scrollY))
       .toBeCloseTo(scrollBefore, 0)
