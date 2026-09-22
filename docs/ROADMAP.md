@@ -94,7 +94,10 @@ direct-manipulation controls, is written up in
 [the canvas action bar direction](superpowers/specs/2026-09-21-canvas-action-bar-direction.md). Size handles on the
 selection's right edge, bottom edge and corner set width and height in px by drag, previewing live
 and committing once as one undo step; Shift on the corner keeps the aspect ratio
-([spec](superpowers/specs/2026-09-22-size-handles-design.md)).
+([spec](superpowers/specs/2026-09-22-size-handles-design.md)). The padding and margin handles are a
+mode switched on by the selection's **Spacing** chip, which also draws the padding and margin areas
+with their px values; focusing a sidebar spacing input or holding Alt over the element shows those
+areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.md)).
 
 - Server with auth, workspaces, sites, SQLite, git commits. Yjs sync deferred; undo ships as
   inverse patches.

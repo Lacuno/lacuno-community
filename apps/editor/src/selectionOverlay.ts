@@ -14,6 +14,8 @@ import {
 import { STATES, stateInfo } from './states.js'
 import { type Snap, snapTo, tokenPx } from './tokens.js'
 
+type Side = 'top' | 'right' | 'bottom' | 'left'
+
 export type Selection = {
   name: string
   /** The breakpoint being edited, as shown to the designer. */
@@ -25,6 +27,8 @@ export type Selection = {
   swatches: Swatch[]
   /** The spacing and size tokens the handles snap to. */
   tokens: Record<'spacing' | 'size', { ref: string; name: string; value: CssValue }[]>
+  /** The spacing side whose sidebar input has focus, so its boxes show without the chip. */
+  spacingFocus: { kind: 'padding' | 'margin'; side: Side } | null
 }
 
 const svg = (icon: string) =>
@@ -34,6 +38,14 @@ const svg = (icon: string) =>
 const TEXT_ICON = '<path d="M3.5 13 8 3l4.5 10"/><path d="M5.5 9.5h5"/>'
 const BACKGROUND_ICON =
   '<rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M4 10 10 4M7 13 13 7"/>'
+// The spacing chip's box-model glyph: a border box around its content box.
+const SPACING_ICON =
+  '<rect x="2" y="2" width="12" height="12" rx="1"/><rect x="5.5" y="5.5" width="5" height="5"/>'
+
+const SIDES = ['top', 'right', 'bottom', 'left']
+// Spacing mode is the designer's choice for the editor session, not per element, so it outlives
+// selection changes, morphs and the overlay itself.
+let spacingMode = false
 
 /**
  * Editor-only selection chrome, isolated from site styles. A top bar (name, breakpoint, state)
@@ -70,7 +82,7 @@ export function selectionOverlay(
     .bar-bottom button { border-left:0; }
     .bar-bottom button + button { border-left:1px solid #ffffff55; }
     .bar button:hover, .bar button[aria-expanded="true"] { background:#ffffff44; }
-    .state.active { background:white;color:#6434d9; }
+    .state.active, .bar .spacing[aria-pressed="true"] { background:white;color:#6434d9; }
     .swatch i { display:block;width:14px;height:14px;border-radius:50%;border:1px solid #ffffffaa;box-shadow:inset 0 0 0 1px #0002; }
     .menu { pointer-events:auto;position:absolute;box-sizing:border-box;padding:4px;border-radius:8px;background:white;color:#1f1533;box-shadow:0 6px 24px #0004;font-weight:400; }
     .menu[hidden], .menu button[hidden] { display:none; }
@@ -106,13 +118,25 @@ export function selectionOverlay(
     .handle.left, .handle.right { width:6px;height:24px;margin:-12px 0 0 -3px;cursor:ew-resize; }
     .handle.size { width:7px;height:7px;margin:-5px 0 0 -5px;border:1.5px solid #6434d9;border-radius:1px;background:white; }
     .handle.corner { cursor:nwse-resize; }
-    .handles[hidden] { display:none; }
+    .handles[hidden], .handles:not(.spacing-mode) .handle:not(.size), .handles:not(.strips) .strip { display:none; }
+    .strip { position:absolute;display:flex;align-items:center;justify-content:center;pointer-events:none;background:#6434d926;color:#6434d9; }
+    .strip.margin { background:#e8873b26;color:#e8873b; }
+    .strip.padding.focus { background:#6434d94d; }
+    .strip.margin.focus { background:#e8873b4d; }
+    .strip span { font-size:11px;line-height:14px;text-shadow:0 0 2px white,0 0 2px white; }
+    .strip.top span, .strip.bottom span { translate:28px 0; }
+    .strip.left span, .strip.right span { translate:0 -22px; }
+    .strip.thin span { position:absolute; }
+    .strip.thin.top span { bottom:100%; }
+    .strip.thin.bottom span { top:100%; }
+    .strip.thin.left span { right:100%;padding-right:2px; }
+    .strip.thin.right span { left:100%;padding-left:2px; }
     .tag { position:absolute;padding:2px 6px;border-radius:4px;background:#1f1533;color:white;box-shadow:0 2px 8px #0004;pointer-events:none;white-space:nowrap; }
     .tag[hidden] { display:none; }
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
   </style><svg class="frame"><rect class="selection-base"/><rect class="selection-dashes"/></svg>
-  <div class="bar bar-top selection-label"><span class="name"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button></div>
+  <div class="bar bar-top selection-label"><span class="name"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button></div>
   <div class="bar bar-bottom"><button class="swatch text" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(TEXT_ICON)}<i></i></button><button class="swatch background" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(BACKGROUND_ICON)}<i></i></button></div>
   <div class="menu state-menu" role="menu" aria-label="Element state" hidden>${Object.entries(
     STATES,
@@ -130,8 +154,12 @@ export function selectionOverlay(
     <div class="swatches" role="listbox" aria-label="Project colors"></div>
     <form class="save"><input type="text" placeholder="Save as project color…" aria-label="Project color name" maxlength="40"><button type="submit" disabled>Save</button></form>
   </div>
-  <div class="handles" hidden>${['top', 'right', 'bottom', 'left']
-    .flatMap((side) => ['padding', 'margin'].map((kind) => ({ side, kind })))
+  <div class="handles" hidden>${SIDES.flatMap((side) =>
+    ['padding', 'margin'].map(
+      (kind) =>
+        `<div class="strip ${kind} ${side}" data-side="${side}" data-kind="${kind}"><span></span></div>`,
+    ),
+  ).join('')}${SIDES.flatMap((side) => ['padding', 'margin'].map((kind) => ({ side, kind })))
     .concat(['right', 'bottom', 'corner'].map((side) => ({ side, kind: 'size' })))
     .map(
       ({ side, kind }) =>
@@ -164,6 +192,8 @@ export function selectionOverlay(
   const saveButton = saveForm.querySelector<HTMLButtonElement>('button')!
   const handlesLayer = shadow.querySelector<HTMLElement>('.handles')!
   const handles = shadow.querySelectorAll<HTMLElement>('.handle')
+  const strips = shadow.querySelectorAll<HTMLElement>('.strip')
+  const spacingChip = shadow.querySelector<HTMLButtonElement>('.spacing')!
   const tag = shadow.querySelector<HTMLElement>('.tag')!
 
   // Which menu is open, and the anchor bar it hangs off.
@@ -246,6 +276,18 @@ export function selectionOverlay(
     if (open?.el === stateMenu) closeMenus()
     else openState()
   })
+  spacingChip.addEventListener('click', (event) => {
+    event.stopPropagation()
+    spacingMode = !spacingMode
+    spacingChip.setAttribute('aria-pressed', String(spacingMode))
+  })
+  // Holding Alt over the selected element shows its spacing boxes.
+  let altHeld = false
+  const alt = (event: KeyboardEvent) => {
+    altHeld = event.altKey
+  }
+  doc.addEventListener('keydown', alt)
+  doc.addEventListener('keyup', alt)
   stateMenu.addEventListener('click', (event) => {
     const item = (event.target as Element).closest<HTMLElement>('[data-state]')
     if (!item) return
@@ -338,7 +380,6 @@ export function selectionOverlay(
   // moves by the same delta) and Alt moves only the dragged side; Shift keeps the corner's ratio.
   // A value within 4px of a spacing or size token snaps to it; Ctrl or Cmd turns snapping off.
   const OPPOSITE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' } as const
-  type Side = keyof typeof OPPOSITE
   type Axis = 'x' | 'y'
   // Each target writes max(min, from + sign × the pointer delta on its axis), plus `also`: what
   // would hold a size back. `max` is its computed max cap in px (NaN when there is none), and
@@ -537,6 +578,55 @@ export function selectionOverlay(
     handle.style.left = `${Math.max(2, Math.min(x, view.innerWidth - 2))}px`
     handle.style.top = `${Math.max(2, Math.min(y, view.innerHeight - 2))}px`
   }
+  // Padding and margin boxes, devtools style: the padding strips between the padding box and the
+  // content box, the margin strips between the margin box and the border box (inside it when
+  // negative), each labelled with its px value; the dragged side's label gives way to the readout.
+  const placeStrips = (
+    bounds: DOMRect,
+    style: CSSStyleDeclaration,
+    focus: Selection['spacingFocus'],
+  ) => {
+    const value = (property: string) => Number.parseFloat(style.getPropertyValue(property)) || 0
+    const inset = (box: Record<Side, number>, by: (side: Side) => number) => ({
+      top: box.top + by('top'),
+      right: box.right - by('right'),
+      bottom: box.bottom - by('bottom'),
+      left: box.left + by('left'),
+    })
+    const border = inset(bounds, (side) => value(`border-${side}-width`))
+    const boxes = {
+      padding: [border, inset(border, (side) => value(`padding-${side}`))],
+      margin: [inset(bounds, (side) => -value(`margin-${side}`)), bounds],
+    } as const
+    const dragged = handleDrag?.kind !== 'size' && handleDrag?.targets[0]?.property
+    for (const strip of strips) {
+      const side = strip.dataset.side as Side
+      const kind = strip.dataset.kind as 'padding' | 'margin'
+      const [outer, inner] = boxes[kind]
+      const x =
+        side === 'left'
+          ? [outer.left, inner.left]
+          : side === 'right'
+            ? [inner.right, outer.right]
+            : [outer.left, outer.right]
+      const y =
+        side === 'top'
+          ? [outer.top, inner.top]
+          : side === 'bottom'
+            ? [inner.bottom, outer.bottom]
+            : [inner.top, inner.bottom]
+      const width = Math.abs(x[1]! - x[0]!)
+      const height = Math.abs(y[1]! - y[0]!)
+      strip.style.left = `${Math.min(x[0]!, x[1]!)}px`
+      strip.style.top = `${Math.min(y[0]!, y[1]!)}px`
+      strip.style.width = `${width}px`
+      strip.style.height = `${height}px`
+      strip.classList.toggle('thin', (side === 'top' || side === 'bottom' ? height : width) < 14)
+      strip.classList.toggle('focus', focus?.kind === kind && focus.side === side)
+      const px = Math.round(value(`${kind}-${side}`))
+      strip.firstElementChild!.textContent = px && dragged !== `${kind}-${side}` ? String(px) : ''
+    }
+  }
   let frame = 0
   const paint = () => {
     const selected = doc.querySelector('[data-freeflow-selected]')
@@ -608,8 +698,20 @@ export function selectionOverlay(
         open.el.style.top = `${fits ? under : Math.max(4, anchor.top - open.el.offsetHeight - 4)}px`
       }
       // Handles ride the edges every frame, but not while the element's text is being edited.
-      handlesLayer.hidden = !!doc.querySelector('[data-freeflow-editing]')
-      if (!handlesLayer.hidden) for (const handle of handles) placeHandle(handle, bounds)
+      // Spacing nubs show in spacing mode; the boxes also while a sidebar spacing input has focus
+      // or Alt is held over the element.
+      const editing = !!doc.querySelector('[data-freeflow-editing]')
+      handlesLayer.hidden = editing
+      spacingChip.hidden = editing
+      if (!editing) {
+        const showStrips =
+          spacingMode || !!selection.spacingFocus || (altHeld && selected!.matches(':hover'))
+        handlesLayer.classList.toggle('spacing-mode', spacingMode)
+        handlesLayer.classList.toggle('strips', showStrips)
+        for (const handle of handles) placeHandle(handle, bounds)
+        if (showStrips)
+          placeStrips(bounds, view.getComputedStyle(selected!), selection.spacingFocus)
+      }
     }
     // When not visible the host is hidden but the menu stays open, so it returns on its own.
     frame = view.requestAnimationFrame(paint)
@@ -618,6 +720,8 @@ export function selectionOverlay(
   return () => {
     view.cancelAnimationFrame(frame)
     doc.removeEventListener('pointerdown', outside, true)
+    doc.removeEventListener('keydown', alt)
+    doc.removeEventListener('keyup', alt)
     host.remove()
   }
 }

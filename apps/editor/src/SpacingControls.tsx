@@ -6,6 +6,9 @@ import { TokenField } from './TokenField.js'
 
 const sides = ['top', 'right', 'bottom', 'left'] as const
 const sideLabel = { top: 'Top', right: 'Right', bottom: 'Bottom', left: 'Left' }
+// Tell the canvas which side's input has focus, so it shows the spacing boxes meanwhile.
+const focusSide = (detail: { kind: 'padding' | 'margin'; side: string } | null) =>
+  window.dispatchEvent(new CustomEvent('freeflow:spacing-focus', { detail }))
 
 /** Four per-side inputs bound to the padding/margin longhands, linked when the sides are equal. */
 function SpacingCluster({
@@ -75,6 +78,8 @@ function SpacingCluster({
               placeholder={computed[`${kind}-${side}`]}
               disabled={disabled}
               overridden={overridden(`${kind}-${side}`)}
+              onFocus={() => focusSide({ kind, side })}
+              onBlur={() => focusSide(null)}
               set={(next) => {
                 for (const target of linked ? sides : [side]) set(`${kind}-${target}`, next)
               }}

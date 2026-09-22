@@ -62,6 +62,10 @@ it('keeps the inspector scroll position across a spacing edit', async () => {
     expect(await scrollTop()).toBe(scrolled)
 
     // A padding handle drag commits the same edit from the canvas.
+    // Spacing nubs show in spacing mode, switched on by the chip in the selection's top bar.
+    const spacingChip = canvas.getByRole('button', { name: 'Spacing', exact: true })
+    await spacingChip.click()
+    await expect.poll(() => spacingChip.getAttribute('aria-pressed')).toBe('true')
     const nub = canvas.locator('.handle.padding.top')
     await nub.waitFor()
     const box = (await nub.boundingBox())!

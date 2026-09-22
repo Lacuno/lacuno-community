@@ -72,6 +72,10 @@ it('drags on-canvas padding and margin handles: symmetric, Alt single-side, one 
       .evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).a)
     expect(zoom).toBeLessThan(1)
 
+    // Spacing nubs show in spacing mode, switched on by the chip in the selection's top bar.
+    const spacingChip = canvas.getByRole('button', { name: 'Spacing', exact: true })
+    await spacingChip.click()
+    await expect.poll(() => spacingChip.getAttribute('aria-pressed')).toBe('true')
     const cdp = await context.newCDPSession(page)
     const drag = async (
       handle: string,

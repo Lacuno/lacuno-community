@@ -33,6 +33,9 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   unknown addresses; **New page** offers it as a checkbox.
 - Click the canvas or a layer to select an element. Desktop, tablet and mobile buttons change the
   iframe viewport; the canvas scales to fit available space without changing its media-query width.
+  The **Spacing** chip on the selection's top bar shows the padding and margin areas with their px
+  values and the handles that drag them; focusing a spacing input or holding Alt over the element
+  shows the areas alone.
 - Use Add element to insert a heading, paragraph, span, image, video, embed, list, section with
   starter content, or empty container, and from the **Actions** group a **Link** or a **Button**. Both are `a` elements whose
   destination starts on the current page, so they are focusable and styleable straight away; a

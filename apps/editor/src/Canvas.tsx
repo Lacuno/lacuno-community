@@ -108,6 +108,8 @@ export function Canvas({
   const initialHtml = useRef(html)
   const loaded = useRef(false)
   const selectionCleanup = useRef<(() => void) | undefined>(undefined)
+  // The sidebar spacing input with focus, forwarded to the overlay so it shows the boxes.
+  const spacingFocus = useRef<Selection['spacingFocus']>(null)
   useEffect(() => () => selectionCleanup.current?.(), [])
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
   useEffect(() => () => dragCleanup.current?.(), [])
@@ -345,9 +347,14 @@ export function Canvas({
         duration + delay + 500,
       )
     }
+    const focus = (event: Event) => {
+      spacingFocus.current = (event as CustomEvent<Selection['spacingFocus']>).detail
+    }
     window.addEventListener('freeflow:motion-preview', preview)
+    window.addEventListener('freeflow:spacing-focus', focus)
     return () => {
       window.removeEventListener('freeflow:motion-preview', preview)
+      window.removeEventListener('freeflow:spacing-focus', focus)
       clearTimeout(timer)
       cleanup?.()
     }
@@ -382,6 +389,7 @@ export function Canvas({
               textColor: latest.current.textColor,
               swatches: latest.current.swatches,
               tokens: latest.current.tokens,
+              spacingFocus: spacingFocus.current,
             }),
             (next) => latest.current.onState(next),
             (edit: StyleEdit) =>

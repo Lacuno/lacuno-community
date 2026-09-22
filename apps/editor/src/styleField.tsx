@@ -54,6 +54,8 @@ export function NumberField({
   disabled,
   overridden,
   set,
+  onFocus,
+  onBlur,
 }: {
   label: string
   name?: string | undefined
@@ -67,6 +69,8 @@ export function NumberField({
   disabled: boolean
   overridden: boolean
   set: (value: string) => void
+  onFocus?: () => void
+  onBlur?: () => void
 }) {
   return (
     <label htmlFor={id}>
@@ -81,6 +85,8 @@ export function NumberField({
         step="any"
         placeholder={placeholder}
         disabled={disabled}
+        onFocus={onFocus}
+        onBlur={onBlur}
         value={value ? Math.round(Number.parseFloat(value) * factor * 1000) / 1000 : ''}
         onChange={(event) =>
           set(
