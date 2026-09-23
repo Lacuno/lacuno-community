@@ -17,7 +17,8 @@ export type Change = {
 
 export type DocumentDiff = Record<string, Change[]>
 
-type Fields = Record<string, string>
+/** Raw field values, compared as JSON and turned into display strings only for output. */
+type Fields = Record<string, unknown>
 type Item = { label?: string | undefined; where?: string; fields: Fields; value?: string }
 
 function show(v: unknown): string {
@@ -31,7 +32,7 @@ function flat(value: object, prefix = '', out: Fields = {}): Fields {
   for (const [k, v] of Object.entries(value)) {
     const key = prefix ? `${prefix}.${k}` : k
     if (v && typeof v === 'object' && !Array.isArray(v) && !('type' in v)) flat(v, key, out)
-    else if (v !== undefined) out[key] = show(v)
+    else if (v !== undefined) out[key] = v
   }
   return out
 }
@@ -132,7 +133,7 @@ const SECTIONS: [string, string, (d: Document, other: Document) => Record<string
     (d) =>
       Object.fromEntries(
         d.site.fonts.map((f) => [
-          `${f.family} ${f.weight ?? 400} ${f.style ?? 'normal'}`,
+          `${f.family} ${f.weightRange?.join('-') ?? f.weight ?? 400} ${f.style ?? 'normal'}`,
           { fields: flat(f) },
         ]),
       ),
@@ -159,10 +160,11 @@ function compare(before: Record<string, Item>, after: Record<string, Item>): Cha
       continue
     }
     for (const field of keys(b.fields, a.fields)) {
-      if (b.fields[field] === a.fields[field]) continue
+      const [x, y] = [b.fields[field], a.fields[field]]
+      if (JSON.stringify(x) === JSON.stringify(y)) continue
       const change: Change = { ...head, field }
-      if (b.fields[field] !== undefined) change.before = b.fields[field]
-      if (a.fields[field] !== undefined) change.after = a.fields[field]
+      if (x !== undefined) change.before = show(x)
+      if (y !== undefined) change.after = show(y)
       out.push(change)
     }
   }

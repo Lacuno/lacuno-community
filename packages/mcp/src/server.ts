@@ -22,6 +22,24 @@ import { pngSize, screenshot } from './screenshot.js'
 
 export type ServerOptions = { siteDir?: string }
 
+/**
+ * The canonical path of `file` inside `siteDir`. Canonical paths see through a symlink pointing
+ * out of the site folder, which a lexical comparison of the requested path would not.
+ */
+async function insideSite(siteDir: string | undefined, file: string): Promise<string> {
+  if (!siteDir) throw new InputError('this server has no site folder')
+  const root = await realpath(resolve(siteDir))
+  let target: string
+  try {
+    target = await realpath(resolve(root, file))
+  } catch {
+    throw new InputError(`no file at ${file}`)
+  }
+  if (target !== root && !target.startsWith(root + sep))
+    throw new InputError('path must be inside the site folder')
+  return target
+}
+
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: 'freeflow', version: '0.0.0' })
   let buildQueue: Promise<unknown> = Promise.resolve()
@@ -78,7 +96,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'document.diff',
     {
       description:
-        'Summary of what operations would change (dry run) or of what changed since the freeflow.json at path against. json: structured output.',
+        'Summary of what operations would change (dry run) or of what changed since the freeflow.json at path against, inside the site folder. json: structured output.',
       inputSchema: {
         operations: z.array(z.looseObject({ type: z.string() })).optional(),
         against: z.string().optional(),
@@ -100,7 +118,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           })
           after = applyPatches(document, patches)
         } else {
-          const file = resolve(options.siteDir ?? '', against as string)
+          const file = await insideSite(options.siteDir, against as string)
           before = parseDocument(JSON.parse(await readFile(file, 'utf8')))
         }
         const diff = diffDocuments(before, after)
@@ -132,19 +150,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           throw new InputError('pass exactly one of path or base64')
         let bytes: Uint8Array
         if (file !== undefined) {
-          if (!options.siteDir) throw new InputError('this server has no site folder')
-          // Canonical paths only: this sees through a symlink pointing out of the site folder,
-          // which a lexical comparison of the requested path would not.
-          const root = await realpath(resolve(options.siteDir))
-          let target: string
-          try {
-            target = await realpath(resolve(root, file))
-          } catch {
-            throw new InputError(`no file at ${file}`)
-          }
-          if (target !== root && !target.startsWith(root + sep))
-            throw new InputError('path must be inside the site folder')
-          bytes = new Uint8Array(await readFile(target))
+          bytes = new Uint8Array(await readFile(await insideSite(options.siteDir, file)))
         } else {
           bytes = new Uint8Array(Buffer.from(base64 as string, 'base64'))
         }
@@ -169,7 +175,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'site.build',
     {
-      description: 'Build the site folder to static output with the compiler.',
+      description:
+        'Build the site folder to static output with the compiler. siteUrl is used only when the document has no site.url.',
       inputSchema: { siteUrl: z.url().optional() },
     },
     async ({ siteUrl }) => {
