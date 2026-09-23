@@ -38,7 +38,7 @@ describe('asset.import and site.build', () => {
     expect(allowed.isError).not.toBe(true)
     expect(store.revision).toBe(1)
   })
-  it('imports from a path and from base64, then builds', async () => {
+  it('imports from a path and from data, then builds', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-'))
     dirs.push(dir)
     const store = await DocumentStore.create(dir, 'Site')
@@ -60,14 +60,14 @@ describe('asset.import and site.build', () => {
         arguments: {
           name: 'b.txt',
           mime: 'text/plain',
-          base64: Buffer.from('xy').toString('base64'),
+          data: Buffer.from('xy').toString('base64'),
         },
       }),
     )
     expect(b.size).toBe(2)
     const both = await c.client.callTool({
       name: 'asset.import',
-      arguments: { name: 'c', mime: 'text/plain', path: 'note.txt', base64: 'eA==' },
+      arguments: { name: 'c', mime: 'text/plain', path: 'note.txt', data: 'eA==' },
     })
     expect(jsonOf(both)).toMatchObject({ kind: 'input' })
     const outside = await c.client.callTool({

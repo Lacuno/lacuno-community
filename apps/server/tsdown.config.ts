@@ -12,6 +12,8 @@ export default defineConfig({
   platform: 'node',
   target: 'node22',
   noExternal: [/^@freeflow\//],
+  // page.screenshot loads Playwright only when it is installed.
+  external: ['playwright'],
   dts: false,
   clean: true,
   fixedExtension: false,

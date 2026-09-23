@@ -142,6 +142,9 @@ importers:
       '@freeflow/document':
         specifier: workspace:*
         version: link:../../packages/document
+      '@freeflow/mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
       '@freeflow/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
@@ -151,6 +154,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.1.1
         version: 2.1.1(hono@4.13.8)
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.30.0
+        version: 1.30.0(zod@4.6.5)
       astro:
         specifier: ^7.3.2
         version: 7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@24.13.4)(tsx@4.23.13)

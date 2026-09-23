@@ -1,7 +1,13 @@
 import { readFile, realpath } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { build } from '@freeflow/compiler/build'
-import { applyPatches, type DocumentStore, type Operation } from '@freeflow/document'
+import {
+  type ApplyResult,
+  applyPatches,
+  type Batch,
+  type DocumentStore,
+  type Operation,
+} from '@freeflow/document'
 import { Document, type Node, parseDocument } from '@freeflow/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
@@ -20,7 +26,13 @@ import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
 import { pngSize, screenshot } from './screenshot.js'
 
-export type ServerOptions = { siteDir?: string }
+export type ServerOptions = {
+  siteDir?: string
+  /** Called after each committed `document.apply` batch. */
+  onApply?: (batch: Batch, result: ApplyResult) => void
+  /** Publishes the draft to the testing target; replaces `site.build` with `site.publish`. */
+  publish?: (name: string | undefined) => Promise<{ url: string }>
+}
 
 /**
  * The canonical path of `file` inside `siteDir`. Canonical paths see through a symlink pointing
@@ -79,13 +91,14 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           )
         // The engine parses each operation with its own schema and reports the failing index
         // and path, so there is nothing to gain from parsing the batch again here.
-        return ok(
-          await store.apply({
-            expectedRevision,
-            operations: operations as Operation[],
-            ...(dryRun ? { dryRun } : {}),
-          }),
-        )
+        const batch = {
+          expectedRevision,
+          operations: operations as Operation[],
+          ...(dryRun ? { dryRun } : {}),
+        }
+        const result = await store.apply(batch)
+        if (!dryRun) options.onApply?.(batch, result)
+        return ok(result)
       } catch (e) {
         return fail(e)
       }
@@ -133,26 +146,26 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'asset.import',
     {
       description:
-        'Import an asset from a file path or base64 bytes; returns the asset reference. path is relative to the site folder and must stay inside it.',
+        'Import an asset from a file path or base64 data; returns the asset reference. path is relative to the site folder and must stay inside it.',
       inputSchema: {
         name: z.string().min(1),
         mime: z.string().min(1),
         path: z.string().optional(),
-        base64: z.string().optional(),
+        data: z.string().optional(),
         alt: z.string().optional(),
         width: z.number().int().positive().optional(),
         height: z.number().int().positive().optional(),
       },
     },
-    async ({ name, mime, path: file, base64, alt, width, height }) => {
+    async ({ name, mime, path: file, data, alt, width, height }) => {
       try {
-        if ((file === undefined) === (base64 === undefined))
-          throw new InputError('pass exactly one of path or base64')
+        if ((file === undefined) === (data === undefined))
+          throw new InputError('pass exactly one of path or data')
         let bytes: Uint8Array
         if (file !== undefined) {
           bytes = new Uint8Array(await readFile(await insideSite(options.siteDir, file)))
         } else {
-          bytes = new Uint8Array(Buffer.from(base64 as string, 'base64'))
+          bytes = new Uint8Array(Buffer.from(data as string, 'base64'))
         }
         const maxBytes = 20 * 1024 * 1024
         if (bytes.byteLength > maxBytes) throw new InputError('asset larger than 20 MB')
@@ -172,30 +185,47 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
   )
 
-  server.registerTool(
-    'site.build',
-    {
-      description:
-        'Build the site folder to static output with the compiler. siteUrl is used only when the document has no site.url.',
-      inputSchema: { siteUrl: z.url().optional() },
-    },
-    async ({ siteUrl }) => {
-      const run = buildQueue.then(async () => {
-        if (!options.siteDir) throw new InputError('this server has no site folder to build')
-        return build(options.siteDir, {
-          quiet: true,
-          ...(siteUrl !== undefined ? { siteUrl } : {}),
+  const { publish } = options
+  if (publish)
+    server.registerTool(
+      'site.publish',
+      {
+        description: 'Publish the saved document to the testing address; returns its URL.',
+        inputSchema: { name: z.string().max(80).optional() },
+      },
+      async ({ name }) => {
+        try {
+          return ok(await publish(name))
+        } catch (e) {
+          return fail(e)
+        }
+      },
+    )
+  else
+    server.registerTool(
+      'site.build',
+      {
+        description:
+          'Build the site folder to static output with the compiler. siteUrl is used only when the document has no site.url.',
+        inputSchema: { siteUrl: z.url().optional() },
+      },
+      async ({ siteUrl }) => {
+        const run = buildQueue.then(async () => {
+          if (!options.siteDir) throw new InputError('this server has no site folder to build')
+          return build(options.siteDir, {
+            quiet: true,
+            ...(siteUrl !== undefined ? { siteUrl } : {}),
+          })
         })
-      })
-      buildQueue = run.catch(() => undefined)
-      try {
-        const r = await run
-        return ok({ pages: r.pages, warnings: r.warnings, outDir: r.outDir })
-      } catch (e) {
-        return fail(e)
-      }
-    },
-  )
+        buildQueue = run.catch(() => undefined)
+        try {
+          const r = await run
+          return ok({ pages: r.pages, warnings: r.warnings, outDir: r.outDir })
+        } catch (e) {
+          return fail(e)
+        }
+      },
+    )
 
   server.registerTool(
     'document.read',

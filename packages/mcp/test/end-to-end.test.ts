@@ -31,7 +31,7 @@ describe('building the fixture site through MCP', () => {
         arguments: {
           name: 'hero.png',
           mime: 'image/png',
-          base64: bytes['a-hero'].toString('base64'),
+          data: bytes['a-hero'].toString('base64'),
           alt: 'Hero image',
           width: 1200,
           height: 800,
@@ -44,7 +44,7 @@ describe('building the fixture site through MCP', () => {
         arguments: {
           name: 'clip.mp4',
           mime: 'video/mp4',
-          base64: bytes['a-clip'].toString('base64'),
+          data: bytes['a-clip'].toString('base64'),
         },
       }),
     )
@@ -55,7 +55,7 @@ describe('building the fixture site through MCP', () => {
           arguments: {
             name,
             mime: 'font/woff2',
-            base64: data.toString('base64'),
+            data: data.toString('base64'),
           },
         }),
       )

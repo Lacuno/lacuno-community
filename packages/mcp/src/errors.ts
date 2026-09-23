@@ -10,7 +10,7 @@ export type ToolError = {
 
 export type ToolIssue = { path: string; message: string }
 
-/** Thrown by tools for bad arguments the schema cannot express (unknown page, both path and base64). */
+/** Thrown by tools for bad arguments the schema cannot express (unknown page, both path and data). */
 export class InputError extends Error {
   issues?: ToolIssue[]
 
