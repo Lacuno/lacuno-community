@@ -282,7 +282,9 @@ export function Canvas({
       morphStyle: 'innerHTML',
       callbacks: {
         beforeNodeRemoved: (node) =>
-          !(node as Element).hasAttribute?.('data-freeflow-selection-overlay'),
+          !(node as Element).matches?.(
+            '[data-freeflow-selection-overlay], [data-freeflow-drop-indicator]',
+          ),
       },
     })
     swapPlaceholders(doc)
@@ -325,9 +327,11 @@ export function Canvas({
       const doc = frame.current?.contentDocument
       const element = nodeElement(doc, id)
       if (!doc || !element || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+      const motion = element.hasAttribute('data-freeflow-motion')
       element.setAttribute('data-freeflow-motion', '')
       const before = element.getAttribute('style')
       cleanup = () => {
+        element.toggleAttribute('data-freeflow-motion', motion)
         element.removeAttribute('data-ff-enter')
         if (before === null) element.removeAttribute('style')
         else element.setAttribute('style', before)
@@ -336,10 +340,6 @@ export function Canvas({
       const computed = doc.defaultView!.getComputedStyle(element)
       const duration = Number.parseFloat(computed.getPropertyValue('--ff-duration')) || 400
       const delay = Number.parseFloat(computed.getPropertyValue('--ff-delay')) || 0
-      for (const property of ['opacity', 'translate']) {
-        const value = element.style.getPropertyValue(property)
-        if (value) element.style.setProperty(property, value)
-      }
       element.removeAttribute('data-ff-enter')
       void element.offsetWidth
       element.setAttribute('data-ff-enter', '')

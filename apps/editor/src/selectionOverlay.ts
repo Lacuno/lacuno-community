@@ -147,7 +147,7 @@ export function selectionOverlay(
     )
     .join('')}</div>
   <div class="menu color-menu" role="dialog" aria-label="Color" hidden>
-    <div class="wheel" role="slider" aria-label="Color wheel" tabindex="0"><div class="wheel-thumb"></div></div>
+    <div class="wheel"><div class="wheel-thumb"></div></div>
     <label>Saturation<input class="saturation" type="range" min="0" max="100" aria-label="Saturation"></label>
     <div class="readout"><i></i><span class="color-name"></span></div>
     <label class="swatches-label">Project colors</label>
@@ -163,7 +163,7 @@ export function selectionOverlay(
     .concat(['right', 'bottom', 'corner'].map((side) => ({ side, kind: 'size' })))
     .map(
       ({ side, kind }) =>
-        `<div class="handle ${kind} ${side}" data-side="${side}" data-kind="${kind}" aria-label="Drag ${kind} ${side}"></div>`,
+        `<div class="handle ${kind} ${side}" data-side="${side}" data-kind="${kind}"></div>`,
     )
     .join('')}</div>
   <div class="tag" hidden></div>`
@@ -249,11 +249,12 @@ export function selectionOverlay(
         button.style.background = item.value
         button.addEventListener('click', (event) => {
           event.stopPropagation()
-          colorDirty = true
           const hsl = parseColor(item.value) ?? current
           saturation.value = String(Math.round((hsl.s || 1) * 100))
           showColor(hsl, item)
+          // The drag previews through the panel's draft, so the draft agrees with the commit.
           edit('drag')
+          edit('commit')
         })
         return button
       }),
@@ -266,7 +267,6 @@ export function selectionOverlay(
     open = { el: colorMenu, anchor: bottomBar }
     saturation.value = String(Math.round((hsl.s || 1) * 100))
     saveName.value = ''
-    colorDirty = false
     renderSwatches()
     showColor(hsl)
   }
@@ -281,13 +281,13 @@ export function selectionOverlay(
     spacingMode = !spacingMode
     spacingChip.setAttribute('aria-pressed', String(spacingMode))
   })
-  // Holding Alt over the selected element shows its spacing boxes.
+  // Holding Alt over the selected element shows its spacing boxes. The pointer reports Alt, so a
+  // key released outside the canvas never leaves it stuck.
   let altHeld = false
-  const alt = (event: KeyboardEvent) => {
+  const alt = (event: PointerEvent) => {
     altHeld = event.altKey
   }
-  doc.addEventListener('keydown', alt)
-  doc.addEventListener('keyup', alt)
+  doc.addEventListener('pointermove', alt)
   stateMenu.addEventListener('click', (event) => {
     const item = (event.target as Element).closest<HTMLElement>('[data-state]')
     if (!item) return
@@ -306,14 +306,12 @@ export function selectionOverlay(
         : { type: 'color', value: toHex(current) },
       phase,
     })
-  // Open the wheel for a property; clicking the same swatch again commits and closes it.
+  // Open the wheel for a property; clicking the same swatch again closes it.
   const toggleColor = (next: string, button: HTMLButtonElement) => {
     if (open?.el === colorMenu && property === next) {
-      commitColor()
       closeMenus()
       return
     }
-    if (open?.el === colorMenu) commitColor()
     property = next
     colorButton = button
     openColor(parseColor(currentColor()) ?? { h: 0, s: 1, l: 0.5 })
@@ -327,15 +325,9 @@ export function selectionOverlay(
     toggleColor('background-color', bgSwatch)
   })
 
+  // Each gesture (a wheel drag, a saturation slide, a swatch click) commits once as it ends.
   let dragging = false
-  let colorDirty = false
-  const commitColor = () => {
-    if (!colorDirty) return
-    colorDirty = false
-    edit('commit')
-  }
   const track = (event: { clientX: number; clientY: number }) => {
-    colorDirty = true
     showColor(wheelColor(wheel, event.clientX, event.clientY, Number(saturation.value) / 100))
     edit('drag')
   }
@@ -344,6 +336,7 @@ export function selectionOverlay(
     dragging = false
     doc.removeEventListener('pointerup', release)
     doc.removeEventListener('mouseup', release)
+    edit('commit')
   }
   wheel.addEventListener('pointerdown', (event) => {
     event.stopPropagation()
@@ -358,10 +351,10 @@ export function selectionOverlay(
     if (dragging) track(event)
   })
   saturation.addEventListener('input', () => {
-    colorDirty = true
     showColor({ ...current, s: Number(saturation.value) / 100 })
     edit('drag')
   })
+  saturation.addEventListener('change', () => edit('commit'))
   saveName.addEventListener('input', () => {
     saveButton.disabled = !!snapped || !saveName.value.trim()
   })
@@ -382,8 +375,8 @@ export function selectionOverlay(
   const OPPOSITE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' } as const
   type Axis = 'x' | 'y'
   // Each target writes max(min, from + sign × the pointer delta on its axis), plus `also`: what
-  // would hold a size back. `max` is its computed max cap in px (NaN when there is none), and
-  // `snap` the tokens it may snap to.
+  // would hold a size back. `max` is its computed max cap in px (NaN when there is none or it is
+  // not in px, like an image's 100%), and `snap` the tokens it may snap to.
   type Target = {
     property: string
     axis: Axis
@@ -431,7 +424,9 @@ export function selectionOverlay(
   }
   const releaseHandle = () => {
     if (!handleDrag) return
-    if (handleDrag.targets.some((target) => handleDrag!.delta[target.axis])) emitHandle('commit')
+    // The tag shows from the first drag frame. Commit after any, even one back at the start: the
+    // frames went into the panel's draft.
+    if (!tag.hidden) emitHandle('commit')
     handleDrag = undefined
     tag.hidden = true
     doc.removeEventListener('pointerup', releaseHandle)
@@ -470,7 +465,7 @@ export function selectionOverlay(
       axis,
       sign: 1,
       min: 1,
-      max: Number.parseFloat(style.getPropertyValue(`max-${property}`)),
+      max: Number(style.getPropertyValue(`max-${property}`).replace(/px$/, '')),
       also: axis === mainAxis && style.flexShrink !== '0' ? { 'flex-shrink': num(0) } : {},
       snap: snaps('size'),
       from: contentBox
@@ -538,16 +533,12 @@ export function selectionOverlay(
   })
 
   const outside = (event: Event) => {
-    if (open && !event.composedPath().includes(host)) {
-      commitColor()
-      closeMenus()
-    }
+    if (open && !event.composedPath().includes(host)) closeMenus()
   }
   const key = (event: KeyboardEvent) => {
     if (!open || event.key !== 'Escape') return
     event.stopPropagation()
     const opener = open.el === stateMenu ? chip : colorButton
-    commitColor()
     closeMenus()
     opener.focus()
   }
@@ -720,8 +711,7 @@ export function selectionOverlay(
   return () => {
     view.cancelAnimationFrame(frame)
     doc.removeEventListener('pointerdown', outside, true)
-    doc.removeEventListener('keydown', alt)
-    doc.removeEventListener('keyup', alt)
+    doc.removeEventListener('pointermove', alt)
     host.remove()
   }
 }
