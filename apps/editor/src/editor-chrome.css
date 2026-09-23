@@ -682,7 +682,7 @@ button.source:hover {
 }
 .redirect-form {
   display: grid;
-  grid-template-columns: 1fr 1fr auto auto;
+  grid-template-columns: 1fr 1fr auto;
   gap: 8px;
   margin-top: 8px;
 }
