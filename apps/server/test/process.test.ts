@@ -192,7 +192,7 @@ it.each(['source', 'bundle'])(
           (
             await post(
               `/api/sites/${id}/releases`,
-              { expectedRevision: 1, publishedId: null },
+              { expectedRevision: 1, expectedId: null },
               cookie,
             )
           ).status,
