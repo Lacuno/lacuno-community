@@ -9,6 +9,7 @@ import {
   NodeMeta,
   RichText,
   Semantic,
+  Tag,
 } from '@freeflow/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
@@ -17,7 +18,6 @@ import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
 import { isDescendant, isRootNode, parentIndex, subtreeIds } from '../references.js'
 
-const Tag = z.string().regex(/^[a-z][a-z0-9-]*$/, 'tag must be a lower-case html tag')
 const Query = CollectionListNode.shape.query.unwrap()
 
 const literalBase = {

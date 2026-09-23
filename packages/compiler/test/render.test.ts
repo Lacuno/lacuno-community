@@ -9,6 +9,8 @@ const ctx = { resolveImage: plainImageResolver }
 describe('render', () => {
   it('renders the fixture home page', () => {
     const doc = fixtureDocument()
+    // head.test asserts the font-face rules exactly; leave them out of the snapshot.
+    doc.site.fonts = []
     const result = render(doc, doc.pages['p-home']!, undefined, ctx)
     expect(result.htmlAttrs).toEqual({ lang: 'en' })
     expect(result.warnings).toEqual([])
@@ -37,7 +39,7 @@ describe('render', () => {
     // The post page sets its own language over the site locale.
     expect(result.htmlAttrs).toEqual({ lang: 'en-GB' })
     expect(result.head).toContain('<meta property="og:locale" content="en_GB">')
-    expect(assembleDocument(result)).toMatchSnapshot()
+    expect(result.body).toMatchSnapshot()
   })
 
   it('renders the not-found page like any page', () => {

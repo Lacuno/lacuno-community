@@ -1,4 +1,4 @@
-import type { AssetRef, Document, Page } from '@freeflow/schema'
+import { type AssetRef, type Document, type Page, pageLang } from '@freeflow/schema'
 import { extensionForMime, isImage, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { escapeAttr, escapeHtml } from './html.js'
@@ -102,7 +102,7 @@ export function renderHead(input: HeadInput): string {
   parts.push(og('og:title', title))
   parts.push(og('og:site_name', doc.site.name))
   // Open Graph wants language_TERRITORY (`en_US`); a bare language has no valid form.
-  const locale = (page.lang ?? doc.site.locale).match(/^([a-z]{2,3})(?:-\w+)*-([a-z]{2})$/i)
+  const locale = pageLang(doc, page).match(/^([a-z]{2,3})(?:-\w+)*-([a-z]{2})$/i)
   if (locale) parts.push(og('og:locale', `${locale[1]}_${locale[2]!.toUpperCase()}`))
   if (seo?.description) parts.push(og('og:description', seo.description))
   if (siteUrl) parts.push(og('og:url', absolute(path)))

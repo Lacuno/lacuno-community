@@ -1,14 +1,8 @@
-import { ComponentId, NodeId, PropDef } from '@freeflow/schema'
+import { ComponentId, NodeId, nodeBindings, PropDef } from '@freeflow/schema'
 import { z } from 'zod'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'
-import {
-  instancesOfComponent,
-  isRootNode,
-  nodeBindings,
-  parentIndex,
-  subtreeIds,
-} from '../references.js'
+import { instancesOfComponent, isRootNode, parentIndex, subtreeIds } from '../references.js'
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 
 const componentCreate = defineOperation(

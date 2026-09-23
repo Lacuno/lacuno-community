@@ -1,5 +1,5 @@
 import { assembleDocument, render } from '@freeflow/compiler/render'
-import { generateStylesheet } from '@freeflow/css'
+import { generateStylesheet, styleElement } from '@freeflow/css'
 import type { AssetRef, Document, Entry, Page } from '@freeflow/schema'
 
 export type CanvasResult = { html: string; warnings: { node: string; message: string }[] }
@@ -61,6 +61,6 @@ export function renderCanvas(
   // change the base URL, or load another frame in the editor's authenticated origin.
   const policy =
     "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; font-src 'self'; media-src 'self'; base-uri 'none'; form-action 'none'; frame-src 'none'"
-  result.head = `<meta http-equiv="Content-Security-Policy" content="${policy}">\n${result.head}\n<style>${css.replace(/</g, '\\3c ')}</style>`
+  result.head = `<meta http-equiv="Content-Security-Policy" content="${policy}">\n${result.head}\n${styleElement(css)}`
   return { html: assembleDocument(result), warnings: result.warnings }
 }

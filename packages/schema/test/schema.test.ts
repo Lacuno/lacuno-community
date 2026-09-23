@@ -93,12 +93,16 @@ describe('document schema', () => {
     expect(msgs.some((m) => m.startsWith('key does not match'))).toBe(true)
   })
 
-  it('rejects duplicate page paths and collection pages without a param', () => {
+  it('rejects duplicate page paths, unknown folders and collections, and collection pages without a param', () => {
     const doc = fixtureDocument()
     doc.pages['p-post']!.path = '/'
+    doc.pages['p-home']!.folder = 'fo-nope'
+    doc.pages['p-home']!.collection = 'col-nope'
     const msgs = checkReferences(doc).map((i) => i.message)
     expect(msgs.some((m) => m.includes('already used'))).toBe(true)
     expect(msgs).toContain('collection page path needs a [param]')
+    expect(msgs).toContain('unknown folder fo-nope')
+    expect(msgs).toContain('unknown collection col-nope')
   })
 
   it('requires exactly one default mode', () => {

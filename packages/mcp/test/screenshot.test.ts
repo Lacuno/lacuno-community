@@ -7,6 +7,7 @@ import { writeFixtureSite } from '@freeflow/compiler/build'
 import { DocumentStore } from '@freeflow/document'
 import sharp from 'sharp'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { pngSize } from '../src/screenshot.js'
 import { connect } from './helpers.js'
 
 // Chromium already refuses loopback requests from a public page; lifting that lets a local server
@@ -38,7 +39,7 @@ function png(result: Record<string, unknown>): { width: number; height: number; 
   expect(image?.mimeType).toBe('image/png')
   const bytes = Buffer.from(image?.data ?? '', 'base64')
   expect(bytes.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-  const out = { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), bytes }
+  const out = { ...pngSize(bytes), bytes }
   expect(size?.text).toBe(`${out.width}×${out.height}`)
   return out
 }

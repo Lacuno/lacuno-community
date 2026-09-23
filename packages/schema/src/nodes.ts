@@ -17,7 +17,7 @@ import {
  */
 
 /** Every element-bearing node carries a tag, and they all accept the same names. */
-const Tag = z.string().regex(/^[a-z][a-z0-9-]*$/)
+export const Tag = z.string().regex(/^[a-z][a-z0-9-]*$/, 'tag must be a lower-case html tag')
 
 /** A value that can be static or bound to content. */
 export const Binding = z.discriminatedUnion('type', [

@@ -1,4 +1,9 @@
-export { type GenerateOptions, generateStylesheet, type Stylesheet } from './generate.js'
+export {
+  type GenerateOptions,
+  generateStylesheet,
+  type Stylesheet,
+  styleElement,
+} from './generate.js'
 export { isMotionStyle, MOTION_CSS, MOTION_SCRIPT } from './motion.js'
 export { compareProperties } from './order.js'
 export {

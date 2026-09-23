@@ -157,3 +157,8 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
   if (decls.some(isMotionStyle)) sections.push(MOTION_CSS)
   return { css: `${sections.join('\n\n')}\n`, classNames: names }
 }
+
+/** A stylesheet inlined in HTML: `<` becomes the CSS escape `\3c ` so it cannot close the element. */
+export function styleElement(css: string): string {
+  return `<style>${css.replace(/</g, '\\3c ')}</style>`
+}

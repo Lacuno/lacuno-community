@@ -30,6 +30,8 @@ export type RenderState = {
   warnings: Warning[]
   annotateNodes?: boolean
   editingComponent?: string
+  /** Collects each rendered text node's content, for a plain-text view of the page. */
+  texts?: [NodeId, Resolved][]
 }
 
 /** The classes that carry a Motion field, gathered once so marking a node is a set lookup. */
@@ -160,17 +162,17 @@ function renderText(
   const { attrs } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
   if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
   const warn = (message: string) => state.warnings.push({ node: node.id, message })
+  const text = node.text
+  const v = text.type === 'doc' ? text : resolveBinding(state.doc, text, scope, node.id)
+  state.texts?.push([node.id, v])
   let inner: string
-  if ('type' in node.text && node.text.type === 'doc') {
-    inner = richTextInlineHtml(node.text, warn, state.doc.pages)
-  } else {
-    const v = resolveBinding(state.doc, node.text as Binding, scope, node.id)
-    if (v === undefined || v === null) inner = ''
-    else if (isRichText(v)) inner = richTextToHtml(v, warn, state.doc.pages)
-    else if (isAsset(v))
-      inner = escapeHtml(isImage(v) ? state.resolveImage(v).src : state.resolveAsset(v))
-    else inner = escapeHtml(String(v))
-  }
+  if (v === undefined || v === null) inner = ''
+  // Rich text written on the node renders inline; bound rich text keeps its blocks.
+  else if (isRichText(v))
+    inner = (v === text ? richTextInlineHtml : richTextToHtml)(v, warn, state.doc.pages)
+  else if (isAsset(v))
+    inner = escapeHtml(isImage(v) ? state.resolveImage(v).src : state.resolveAsset(v))
+  else inner = escapeHtml(String(v))
   return `<${node.tag}${renderAttrs(attrs)}>${inner}</${node.tag}>`
 }
 

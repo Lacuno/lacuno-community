@@ -10,20 +10,6 @@ import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 const PagePath = Page.shape.path
 const PageLang = Page.shape.lang.unwrap()
 
-function checkPageRefs(
-  ctx: PlanContext,
-  folder?: string | null,
-  collection?: string | null,
-  path?: string,
-): void {
-  if (folder) ctx.require(ctx.doc.folders[folder], `unknown folder ${folder}`, folder)
-  if (collection) {
-    ctx.require(ctx.doc.collections[collection], `unknown collection ${collection}`, collection)
-    if (path !== undefined && !path.includes('['))
-      ctx.fail(`a collection page needs a [param] in its path, got ${path}`)
-  }
-}
-
 const pageCreate = defineOperation(
   z.strictObject({
     type: z.literal('page.create'),
@@ -39,8 +25,6 @@ const pageCreate = defineOperation(
     root: NodeLiteral.optional(),
   }),
   (op, ctx) => {
-    ctx.unique(Object.values(ctx.doc.pages), 'path', op.path, (p) => p.path)
-    checkPageRefs(ctx, op.folder, op.collection, op.path)
     const id = ctx.id('page', op.id)
     const { rootId, patches } = materialize(op.root ?? { type: 'element', tag: 'main' }, null, ctx)
     const page: Record<string, unknown> = { id, name: op.name, path: op.path, root: rootId }
@@ -65,10 +49,6 @@ const pageUpdate = defineOperation(
   }),
   (op, ctx) => {
     const page = ctx.require(ctx.doc.pages[op.id], `unknown page ${op.id}`, op.id)
-    if (op.path !== undefined)
-      ctx.unique(Object.values(ctx.doc.pages), 'path', op.path, (p) => p.path, op.id)
-    const collection = op.collection === undefined ? page.collection : op.collection
-    checkPageRefs(ctx, op.folder, collection, op.path ?? page.path)
     const { type: _type, id: _id, ...values } = op
     return partialPatches(['pages', op.id], values, page)
   },

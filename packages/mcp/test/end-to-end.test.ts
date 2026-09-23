@@ -1,9 +1,8 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { build, writeFixtureSite } from '@freeflow/compiler/build'
+import { build, fixtureAssetBytes, writeFixtureSite } from '@freeflow/compiler/build'
 import { DocumentStore } from '@freeflow/document'
-import sharp from 'sharp'
 import { afterEach, describe, expect, it } from 'vitest'
 import { fixtureOperations } from '../../document/test/fixture-operations.js'
 import { connect, jsonOf, textOf } from './helpers.js'
@@ -25,18 +24,14 @@ describe('building the fixture site through MCP', () => {
     const c = await connect(store, { siteDir: a })
     close = c.close
     const initialPage = Object.keys(store.read().document.pages)[0] as string
-    const png = await sharp({
-      create: { width: 1200, height: 800, channels: 3, background: '#3b5bdb' },
-    })
-      .png()
-      .toBuffer()
+    const bytes = await fixtureAssetBytes()
     const asset = jsonOf<{ id: string; hash: string }>(
       await c.client.callTool({
         name: 'asset.import',
         arguments: {
           name: 'hero.png',
           mime: 'image/png',
-          base64: png.toString('base64'),
+          base64: bytes['a-hero'].toString('base64'),
           alt: 'Hero image',
           width: 1200,
           height: 800,
@@ -46,22 +41,26 @@ describe('building the fixture site through MCP', () => {
     const clip = jsonOf<{ id: string }>(
       await c.client.callTool({
         name: 'asset.import',
-        arguments: { name: 'clip.mp4', mime: 'video/mp4', base64: 'AAAAGGZ0eXBpc29t' },
+        arguments: {
+          name: 'clip.mp4',
+          mime: 'video/mp4',
+          base64: bytes['a-clip'].toString('base64'),
+        },
       }),
     )
-    const font = async (name: string, n: number) =>
+    const font = async (name: string, data: Buffer) =>
       jsonOf<{ id: string }>(
         await c.client.callTool({
           name: 'asset.import',
           arguments: {
             name,
             mime: 'font/woff2',
-            base64: Buffer.from(`wOF2${'\0'.repeat(n)}`).toString('base64'),
+            base64: data.toString('base64'),
           },
         }),
       )
-    const sans = await font('FixtureSans-Regular.woff2', 8)
-    const sansBold = await font('FixtureSans-Bold.woff2', 12)
+    const sans = await font('FixtureSans-Regular.woff2', bytes['a-sans'])
+    const sansBold = await font('FixtureSans-Bold.woff2', bytes['a-sans-bold'])
     // The fixture registers its assets itself; replace those operations with the imported asset ids.
     const ops = fixtureOperations(initialPage)
       .filter((o) => o.type !== 'asset.create')

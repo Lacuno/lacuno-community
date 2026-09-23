@@ -1,5 +1,5 @@
 import { classNames, MOTION_SCRIPT } from '@freeflow/css'
-import type { AssetRef, Document, Entry, Page } from '@freeflow/schema'
+import { type AssetRef, type Document, type Entry, type Page, pageLang } from '@freeflow/schema'
 import { publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { renderHead } from './head.js'
@@ -15,6 +15,7 @@ export type RenderContext = {
   annotateNodes?: boolean
   editingComponent?: string
   resolveAsset?: (asset: AssetRef) => string
+  texts?: RenderState['texts']
 }
 
 export type RenderResult = {
@@ -56,6 +57,7 @@ export function render(
     warnings: [],
     ...(ctx.annotateNodes ? { annotateNodes: true } : {}),
     ...(ctx.editingComponent ? { editingComponent: ctx.editingComponent } : {}),
+    ...(ctx.texts ? { texts: ctx.texts } : {}),
   }
   const headInput = {
     doc,
@@ -73,7 +75,7 @@ export function render(
     Object.values(doc.styles).some((style) => style.property === '--ff-entrance')
       ? `<script>${MOTION_SCRIPT}</script>`
       : '')
-  return { htmlAttrs: { lang: page.lang ?? doc.site.locale }, head, body, warnings: state.warnings }
+  return { htmlAttrs: { lang: pageLang(doc, page) }, head, body, warnings: state.warnings }
 }
 
 /** Wraps the parts in a full document. Used by tests; Astro does this in production. */

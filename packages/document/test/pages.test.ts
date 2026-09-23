@@ -47,17 +47,7 @@ describe('pages', () => {
     const contact = Object.values(document.pages).find((p) => p.path === '/contact')!
     expect(document.nodes[contact.root]!.children).toHaveLength(1)
   })
-  it('refuses duplicate paths, unknown folders and collections, and collection pages without a param', () => {
-    failing([{ type: 'page.create', name: 'X', path: '/' }], /path \/ is already used by p-home/)
-    failing([{ type: 'page.create', name: 'X', path: '/x', folder: 'nope' }], /unknown folder nope/)
-    failing(
-      [{ type: 'page.create', name: 'X', path: '/x', collection: 'col-nope' }],
-      /unknown collection col-nope/,
-    )
-    failing(
-      [{ type: 'page.create', name: 'X', path: '/x', collection: 'col-posts' }],
-      /needs a \[param\]/,
-    )
+  it('refuses a malformed path', () => {
     failing([{ type: 'page.create', name: 'X', path: 'no-slash' }], /invalid input: path/)
   })
   it('updates fields, clears optional ones, and deletes with the subtree', () => {
@@ -70,11 +60,10 @@ describe('pages', () => {
     expect(document.pages['p-post']).toBeUndefined()
     expect(document.nodes['n-post']).toBeUndefined()
     expect(document.nodes['n-post-title']).toBeUndefined()
-    failing([{ type: 'page.update', id: 'p-post', path: '/' }], /already used by p-home/)
     failing([{ type: 'page.update', id: 'nope', name: 'x' }], /unknown page nope/)
     failing([{ type: 'page.delete', id: 'nope' }], /unknown page nope/)
   })
-  it('sets a page language on create and update, clears it, and refuses a malformed one', () => {
+  it('sets a page language on create and update and clears it', () => {
     const { document } = run([
       { type: 'page.create', id: 'p-about', name: 'About', path: '/about', lang: 'de-AT' },
       { type: 'page.update', id: 'p-home', lang: 'en' },
@@ -83,7 +72,6 @@ describe('pages', () => {
     expect(document.pages['p-about']!.lang).toBe('de-AT')
     expect(document.pages['p-home']!.lang).toBe('en')
     expect(document.pages['p-post']).not.toHaveProperty('lang')
-    failing([{ type: 'page.update', id: 'p-home', lang: 'English' }], /invalid input: lang/)
   })
   it('refuses deleting a page a node binding points at, and allows it once the node is gone', () => {
     const doc = run([

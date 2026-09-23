@@ -56,3 +56,6 @@ export const Document = z.object({
   redirects: z.array(Redirect).default([]),
 })
 export type Document = z.infer<typeof Document>
+
+/** The page's language: its own, or else the site's. */
+export const pageLang = (doc: Document, page: Page): string => page.lang ?? doc.site.locale

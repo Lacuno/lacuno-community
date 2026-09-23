@@ -1,8 +1,6 @@
 import type { CssValue, Document, Node, NodeId } from '@freeflow/schema'
 import { nodeBindings } from '@freeflow/schema'
 
-export { nodeBindings }
-
 export function subtreeIds(doc: Document, rootId: NodeId): NodeId[] {
   const out: NodeId[] = []
   const visit = (id: NodeId) => {
