@@ -1,5 +1,4 @@
 import { contextFromDocument, serializeValue } from '@freeflow/css'
-import type { CssValue, Document, Node, State } from '@freeflow/schema'
 import { colorLabel, colorProperties, projectColors } from './colors.js'
 import { EffectsControls } from './EffectsControls.js'
 import { fontChoices } from './fonts.js'
@@ -7,6 +6,7 @@ import { formattingGroups, localValue } from './formatting.js'
 import { MotionControls } from './MotionControls.js'
 import { SourceLine } from './SourceLine.js'
 import { SpacingControls } from './SpacingControls.js'
+import type { StyleControls } from './styleField.js'
 import { TokenField } from './TokenField.js'
 
 const choiceLabel = (value: string) =>
@@ -36,29 +36,23 @@ const choiceLabel = (value: string) =>
     .replace(/^./, (letter) => letter.toUpperCase())
 
 export function FormattingControls({
-  breakpoint = 'base',
-  state = 'none',
-  doc,
-  node,
-  changes,
-  change,
-  disabled,
-  computed,
   groupName,
   ribbon = false,
-}: {
+  ...controls
+}: StyleControls & {
   groupName?: string
   ribbon?: boolean
-  computed: Record<string, string>
-  breakpoint?: string
-  state?: State
-  doc: Document
-  node: Node
-  changes: Record<string, CssValue | null>
-  change: (property: string, value: CssValue | null) => void
-  disabled: boolean
 }) {
-  const controls = { breakpoint, state, doc, node, computed, changes, change, disabled }
+  const {
+    breakpoint = 'base',
+    state = 'none',
+    doc,
+    node,
+    changes,
+    change,
+    disabled,
+    computed,
+  } = controls
   return (
     <div className={`formatting-controls ${ribbon ? 'ribbon-formatting' : 'inspector-formatting'}`}>
       {formattingGroups

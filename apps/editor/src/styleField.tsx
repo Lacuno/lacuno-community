@@ -12,6 +12,10 @@ export type StyleControls = {
   changes: Record<string, CssValue | null>
   change: (property: string, value: CssValue | null) => void
   disabled: boolean
+  /** Where the source lines lead: the preset manager, the tokens dialog, an ancestor. */
+  openPreset: (id: string) => void
+  openToken: (id: string) => void
+  select: (id: string) => void
 }
 
 /** Read and write the effective value of one style property at the edited breakpoint and state. */

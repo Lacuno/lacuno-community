@@ -6,6 +6,17 @@ import { ErrorNote } from './Dialog.js'
 import { nodeLabel } from './structure.js'
 import { useDirtyChanged } from './useAutosave.js'
 
+/** Brings a class's row in the Classes section into view, opens it and highlights it a moment. */
+export function highlightClass(id: string) {
+  const row = document.querySelector<HTMLElement>(`.class-manager [data-class="${CSS.escape(id)}"]`)
+  if (!row) return
+  for (const details of [row.closest('details'), row.querySelector('details')])
+    if (details) details.open = true
+  row.scrollIntoView({ block: 'nearest' })
+  row.dataset.highlight = ''
+  setTimeout(() => delete row.dataset.highlight, 1500)
+}
+
 export function ClassManager({
   doc,
   node,
@@ -49,7 +60,7 @@ export function ClassManager({
             const cls = doc.classes[id]!
             const uses = nodesUsingClass(doc, id).map((nodeId) => doc.nodes[nodeId]!)
             return (
-              <li key={id}>
+              <li key={id} data-class={id}>
                 <details>
                   <summary>
                     {cls.name ?? 'Local style'}{' '}

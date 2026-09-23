@@ -36,6 +36,7 @@ export function ProjectColors({
   autoSave,
   previewChanged,
   registerFlush,
+  initial = '',
 }: {
   doc: Document
   busy: boolean
@@ -48,8 +49,13 @@ export function ProjectColors({
   autoSave: (ops: Operation[]) => Promise<boolean>
   previewChanged: (preview: LivePreview) => void
   registerFlush: (flush: () => Promise<boolean>) => () => void
+  /** A token to open on, in its group. */
+  initial?: string
 }) {
-  const [selected, setSelected] = useState('')
+  const groups = ['color', ...(Object.keys(tokenGroups) as TokenGroup[])] as const
+  // The dialog opens on the initial token's group, when it has one here.
+  const opening = groups.find((item) => item === doc.designTokens[initial]?.group)
+  const [selected, setSelected] = useState(opening ? initial : '')
   const [family, setFamily] = useState('')
   const [reset, setReset] = useState(0)
   // Leaving saves or discards the draft; the counter starts the next form from the saved color.
@@ -58,8 +64,7 @@ export function ProjectColors({
       setReset((value) => value + 1)
       action()
     })
-  const [group, setGroup] = useState<'color' | TokenGroup>('color')
-  const groups = ['color', ...(Object.keys(tokenGroups) as TokenGroup[])] as const
+  const [group, setGroup] = useState<'color' | TokenGroup>(opening ?? 'color')
   const context = contextFromDocument(doc)
   return (
     <Dialog

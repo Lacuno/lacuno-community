@@ -145,9 +145,7 @@ export function sourceLabel(
     return { text, title: text, origin: 'default' }
   }
   if (source.kind === 'inherited') {
-    // The page root reads "Body", as in the layers panel.
-    const root = doc.pages[pageOf(doc, source.from)]?.root === source.from
-    const from = root ? 'Body' : nodeLabel(doc.nodes[source.from]!)
+    const from = elementName(doc, source.from)
     const inner = sourceLabel(doc, source.source, breakpoint, state, computed, property)
     const value = inner.text.slice(0, inner.text.lastIndexOf(' · '))
     return {
@@ -175,6 +173,29 @@ export function sourceLabel(
   const text = `${value} · ${origin}`
   return { text, title: token ? `${value} = ${resolved} · ${origin}` : text, origin }
 }
+
+/** Where a source line leads: the ancestor, class, preset or token it names, with its spoken
+ * intent. Local and default values lead nowhere. */
+export function sourceTarget(
+  doc: Document,
+  source: StyleSource,
+): { to: 'element' | 'class' | 'preset' | 'token'; id: string; label: string } | undefined {
+  if (source.kind === 'inherited')
+    return { to: 'element', id: source.from, label: `Go to ${elementName(doc, source.from)}` }
+  if (source.kind === 'default') return undefined
+  if (source.kind !== 'local') {
+    const name = doc.classes[source.class]?.name
+    return { to: source.kind, id: source.class, label: `Go to ${source.kind} ${name}` }
+  }
+  const token = source.value.type === 'designToken' && doc.designTokens[source.value.ref]
+  return token
+    ? { to: 'token', id: token.id, label: `Go to token ${tokenLabel(token.name)}` }
+    : undefined
+}
+
+// The page root reads "Body", as in the layers panel.
+const elementName = (doc: Document, id: string) =>
+  doc.pages[pageOf(doc, id)]?.root === id ? 'Body' : nodeLabel(doc.nodes[id]!)
 
 /** Font weights read as names, as the fonts list shows them. */
 const weightName = (value: string) =>

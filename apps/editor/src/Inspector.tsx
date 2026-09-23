@@ -59,6 +59,9 @@ export function Inspector({
   registerFlush,
   ribbonHost,
   ribbonGroup,
+  showPresets,
+  openToken,
+  select,
 }: {
   siteId: string
   breakpoint: string
@@ -75,6 +78,10 @@ export function Inspector({
   save: (ops: Operation[]) => Promise<boolean>
   autoSave: (ops: Operation[]) => Promise<boolean>
   dirtyChanged: (dirty: boolean) => void
+  /** Shows the ribbon tab with the preset manager. */
+  showPresets: () => void
+  openToken: (id: string) => void
+  select: (id: string) => void
 }) {
   const scopeInfoId = useId()
   const scopeInfo = useRef<HTMLDivElement>(null)
@@ -97,6 +104,7 @@ export function Inspector({
   const [changes, setChanges] = useState<Record<string, CssValue | null>>({})
   const [classDraft, setClassDraft] = useState(false)
   const [presetDraft, setPresetDraft] = useState(false)
+  const [presetOpen, setPresetOpen] = useState('')
   const classId = useRef(`c-${crypto.randomUUID()}`)
   const normalized = normalizeFormatting(changes)
   const context = contextFromDocument(doc)
@@ -285,6 +293,12 @@ export function Inspector({
     change: changeFormatting,
     breakpoint,
     state,
+    openPreset: (id: string) => {
+      setPresetOpen(id)
+      showPresets()
+    },
+    openToken,
+    select,
   }
   const resetFormatting = () =>
     void save(
@@ -311,6 +325,8 @@ export function Inspector({
                 disabled={!settled || classDraft}
                 save={save}
                 draftChanged={setPresetDraft}
+                initial={presetOpen}
+                closed={() => setPresetOpen('')}
               />
             )}
             {ribbonGroup === 'Typography' && node.type === 'text' ? (

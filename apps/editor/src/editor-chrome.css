@@ -169,6 +169,11 @@
   gap: 6px;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
+  transition: background-color 0.3s;
+}
+/* A source line pointed here. */
+.assigned-classes > li[data-highlight] {
+  background: #f2edff;
 }
 .assigned-classes details {
   flex: 1;
@@ -355,6 +360,19 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* A line naming a class, preset, token or ancestor goes there when clicked. */
+button.source {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  text-align: left;
+}
+button.source:hover {
+  background: none;
+  text-decoration: underline;
+}
 
 .formatting-grid input,
 .formatting-grid select {
@@ -483,7 +501,7 @@
   min-width: 0;
   width: 100%;
 }
-.spacing-pair > .source:only-of-type {
+.spacing-pair > .source:last-child:not(.source + .source) {
   grid-column: 1 / -1;
 }
 .spacing-pair > .source + .source {
@@ -509,7 +527,7 @@
 }
 .ribbon-formatting .spacing-controls {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 10px;
 }
 
 .pages-toolbar {
@@ -982,16 +1000,25 @@
   grid-template-columns: repeat(4, 106px);
 }
 .ribbon-formatting :where(details[data-group="Layout"]) .formatting-grid {
-  grid-template-columns: repeat(5, 106px);
+  grid-template-columns: repeat(3, 80px) repeat(2, 92px);
 }
 .ribbon-formatting .formatting-grid > div {
   width: 106px;
   flex-shrink: 0;
 }
+/* The Layout tab fits a 1500px window: its fields take the width their labels need beside the
+   token button ("Maximum width" and "Outside bottom" need 92px); the selects truncate
+   "From style · …" either way. */
+.ribbon-formatting
+  :where(details[data-group="Layout"], details[data-group="Spacing & shape"])
+  .formatting-grid
+  > div {
+  width: auto;
+}
 /* Spacing & shape: the per-side spacing fills the first column over both rows, and the gap,
    radius and border fields fill a two-by-two block beside it. */
 .ribbon-formatting :where(details[data-group="Spacing & shape"]) .formatting-grid {
-  grid-template-columns: auto repeat(2, 106px);
+  grid-template-columns: auto repeat(2, 88px);
 }
 /* A divider between the spacing and the shape fields: inside · outside · shape. */
 .ribbon-formatting .formatting-grid > .spacing-controls {
@@ -1003,7 +1030,7 @@
   border-right: 1px solid var(--border);
 }
 .ribbon-formatting .spacing-pair {
-  grid-template-columns: 100px auto 100px;
+  grid-template-columns: 92px auto 92px;
 }
 .ribbon-formatting .formatting-grid [data-property="font-family"] {
   width: 175px;

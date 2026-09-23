@@ -40,7 +40,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [revealSelection, setRevealSelection] = useState(0)
   const [width, setWidth] = useState(1100)
   const [picked, setState] = useState<State>('none')
-  const [colorsOpen, setColorsOpen] = useState(false)
+  // Open with a token to show, or '' for none; undefined while closed.
+  const [colorsOpen, setColorsOpen] = useState<string>()
   const [publishOpen, setPublishOpen] = useState(false)
   const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
     id: '',
@@ -139,7 +140,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         selected={selected}
         width={width}
         setSidebar={setSidebar}
-        openColors={() => setColorsOpen(true)}
+        openColors={() => setColorsOpen('')}
       />
       {error && (
         <div className="error-banner" role="alert">
@@ -151,7 +152,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           )}
         </div>
       )}
-      {colorsOpen && doc && (
+      {colorsOpen !== undefined && doc && (
         <ProjectColors
           doc={doc}
           busy={busy}
@@ -159,11 +160,12 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           error={error}
           dirtyChanged={session.setDirty}
           save={save}
-          close={() => setColorsOpen(false)}
+          close={() => setColorsOpen(undefined)}
           leave={leave}
           autoSave={(operations) => save(operations, 'auto')}
           previewChanged={setColorPreview}
           registerFlush={session.registerFlush}
+          initial={colorsOpen}
         />
       )}
       <ComponentDialogs
@@ -226,6 +228,9 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           ribbonGroup={ribbonGroup}
           computed={computed}
           setLivePreview={setLivePreview}
+          showPresets={() => setRibbonTab('Home')}
+          openToken={setColorsOpen}
+          select={(id) => void leave(() => setSelected(id))}
         />
       </div>
     </div>

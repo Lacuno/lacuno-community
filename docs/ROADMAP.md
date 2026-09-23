@@ -96,7 +96,9 @@ face; nothing is requested from a third party (D013)
 **Style source implemented:** every style field in the panel and the text toolbar names where its
 value comes from under the input: Local (with the wider breakpoint or base state it was set at), the
 shared class or preset, the token it resolves through, the ancestor it inherits from, or Default
-([spec](superpowers/specs/2026-09-23-style-source-design.md)).
+([spec](superpowers/specs/2026-09-23-style-source-design.md)). Clicking a line that names a class,
+preset, token or ancestor goes there, and the Layout ribbon fits a 1500px window
+([spec](superpowers/specs/2026-09-23-phase1-closers-design.md)).
 **MCP preview, screenshot and diff implemented:** `page.preview` returns a route's published HTML
 without a build, or its text one line per node id; `page.screenshot` returns a PNG of a route or one
 node through Playwright's Chromium, an optional dependency; `document.diff` summarises a dry-run
@@ -130,8 +132,8 @@ areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.
 - Publish to testing and production from the instance, build history, rollback (implemented).
 - Docker image and operator-written configuration via the self-hosting guide; `npx freeflow` remains planned.
 - Preview, screenshot and diff tools in MCP (implemented).
-- Remaining after testing publish: clicking a style field's source line to jump to the class, token or
-  ancestor it names, and the Layout ribbon fitting a 1500px window. That closes Phase 1.
+- Clicking a style field's source line to jump to the class, token or ancestor it names, and the
+  Layout ribbon fitting a 1500px window (implemented). That closes Phase 1.
 
 **Deferred out of Phase 1 (2026-09-23):** version history with restore, fluid typography and spacing
 with `clamp` scales, and restyling the default template to reference its own tokens. They are kept
