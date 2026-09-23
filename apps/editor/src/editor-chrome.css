@@ -266,7 +266,8 @@
   color: var(--muted);
 }
 .token-shadow-preview {
-  flex-shrink: 0;
+  display: block;
+  margin: 4px 0 12px;
   width: 40px;
   height: 40px;
   border-radius: 6px;
