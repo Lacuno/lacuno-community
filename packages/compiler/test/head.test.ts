@@ -72,11 +72,36 @@ describe('renderHead', () => {
       '<link rel="preload" as="font" type="font/woff2" href="/assets/ff.woff2" crossorigin>',
     )
     expect(head).toContain(
-      '@font-face{font-family:"Custom Sans";src:url("/assets/ff.woff2") format("woff2");font-display:swap}',
+      '@font-face{font-family:"Custom Sans";src:url("/assets/ff.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}',
     )
     expect(head).not.toContain('Georgia')
     input.doc.site.fonts = [{ family: 'Nope', source: 'asset', asset: 'a-missing' }]
     expect(() => renderHead(input)).toThrow(RenderError)
+  })
+
+  it('emits a font-face per face with its weight and style and one preload per family', () => {
+    const input = base()
+    for (const [id, hash] of [
+      ['a-italic', 'aa'],
+      ['a-regular', 'bb'],
+    ] as const)
+      input.doc.assets[id] = { id, name: id, kind: 'font', hash, mime: 'font/woff2', size: 1 }
+    input.doc.site.fonts = [
+      { family: 'Two', source: 'asset', asset: 'a-italic', weight: 700, style: 'italic' },
+      { family: 'Two', source: 'asset', asset: 'a-regular', weight: 400, style: 'normal' },
+    ]
+    const head = renderHead(input)
+    expect(head).toContain(
+      '@font-face{font-family:"Two";src:url("/assets/aa.woff2") format("woff2");font-weight:700;font-style:italic;font-display:swap}',
+    )
+    expect(head).toContain(
+      '@font-face{font-family:"Two";src:url("/assets/bb.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}',
+    )
+    expect(head.match(/rel="preload"/g)).toHaveLength(1)
+    expect(head).toContain('href="/assets/bb.woff2" crossorigin>')
+    // Without a regular face the family's first face is preloaded.
+    input.doc.site.fonts = input.doc.site.fonts.slice(0, 1)
+    expect(renderHead(input)).toContain('href="/assets/aa.woff2" crossorigin>')
   })
 
   it('escapes a font family that could break out of the font-face string or the style tag', () => {
@@ -94,7 +119,7 @@ describe('renderHead', () => {
     ]
     const head = renderHead(input)
     expect(head).toContain(
-      '@font-face{font-family:"Bad \\"Sans\\3c /style>";src:url("/assets/ff.woff2") format("woff2");font-display:swap}',
+      '@font-face{font-family:"Bad \\"Sans\\3c /style>";src:url("/assets/ff.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}',
     )
     // Exactly one </style>: the real closing tag. None sneaked in from the family name.
     expect(head.split('</style>')).toHaveLength(2)

@@ -3,16 +3,14 @@ import type { Operation } from '@freeflow/document'
 import { nodesUsingClass } from '@freeflow/document/references'
 import type { CssValue, Document, Node, State, StyleDecl } from '@freeflow/schema'
 import { styleKey } from '@freeflow/schema'
+import { FONT_STACKS } from './fonts.js'
 
 export const formattingGroups = [
   {
     name: 'Typography',
     fields: [
-      {
-        property: 'font-family',
-        label: 'Font',
-        choices: ['Inter, sans-serif', 'Arial, sans-serif', 'Georgia, serif', 'monospace'],
-      },
+      // The site's families come first; FormattingControls lists fontChoices(doc).
+      { property: 'font-family', label: 'Font', choices: FONT_STACKS },
       { property: 'font-size', label: 'Size', hint: 'e.g. 24px' },
       { property: 'font-weight', label: 'Weight', choices: ['400', '500', '600', '700', '800'] },
       { property: 'font-style', label: 'Style', choices: ['normal', 'italic'] },

@@ -39,13 +39,16 @@ function cssString(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/</g, '\\3c ')
 }
 
-/** Asset fonts get a preload and a font-face rule. System fonts need nothing. No third parties. */
+/**
+ * Asset fonts get a font-face rule per face and one preload per family, for its regular face
+ * (400 normal) or else its first. System fonts need nothing. No third parties.
+ */
 function renderFonts(
   doc: Document,
   page: Page,
   resolveAsset: (asset: AssetRef) => string,
 ): string[] {
-  const out: string[] = []
+  const preloads = new Map<string, { regular: boolean; link: string }>()
   const faces: string[] = []
   for (const f of doc.site.fonts) {
     if (f.source !== 'asset') continue
@@ -54,13 +57,20 @@ function renderFonts(
     const href = resolveAsset(asset)
     const ext = extensionForMime(asset.mime)
     const format = FONT_FORMAT[ext] ?? ext
-    out.push(
-      `<link rel="preload" as="font" type="${escapeAttr(asset.mime)}" href="${escapeAttr(href)}" crossorigin>`,
-    )
+    const weight = f.weight ?? 400
+    const style = f.style ?? 'normal'
+    const regular = weight === 400 && style === 'normal'
+    const seen = preloads.get(f.family)
+    if (!seen || (regular && !seen.regular))
+      preloads.set(f.family, {
+        regular,
+        link: `<link rel="preload" as="font" type="${escapeAttr(asset.mime)}" href="${escapeAttr(href)}" crossorigin>`,
+      })
     faces.push(
-      `@font-face{font-family:"${cssString(f.family)}";src:url("${href}") format("${format}");font-display:swap}`,
+      `@font-face{font-family:"${cssString(f.family)}";src:url("${href}") format("${format}");font-weight:${weight};font-style:${style};font-display:swap}`,
     )
   }
+  const out = [...preloads.values()].map((p) => p.link)
   if (faces.length) out.push(`<style>${faces.join('')}</style>`)
   return out
 }

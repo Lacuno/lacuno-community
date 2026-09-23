@@ -41,6 +41,10 @@ function highlight(frame: HTMLIFrameElement | null, selected: string, state: Sta
  * An embed whose markup shows nothing here (scripts and frames never run on the canvas) gets a
  * labelled placeholder so it can still be selected and sized.
  */
+/** The text of every style in a rendered head, in order. */
+const headStyles = (doc: Document) =>
+  [...doc.head.querySelectorAll('style')].map((style) => style.textContent).join('\n')
+
 function swapPlaceholders(doc: Document) {
   for (const media of doc.querySelectorAll(
     ':is(img, video)[data-freeflow-node]:not([src]), :is(img, video)[data-freeflow-node][src=""]',
@@ -272,7 +276,7 @@ export function Canvas({
     restore.current?.()
     restore.current = undefined
     const parsed = new DOMParser().parseFromString(next, 'text/html')
-    generated.textContent = parsed.head.querySelector('style:last-of-type')?.textContent ?? ''
+    generated.textContent = headStyles(parsed)
     // The body's children, not the body itself: idiomorph would otherwise nest a second <body>.
     Idiomorph.morph(doc.body, [...parsed.body.childNodes], {
       morphStyle: 'innerHTML',
@@ -375,8 +379,12 @@ export function Canvas({
         onLoad={() => {
           const doc = frame.current?.contentDocument
           if (!doc) return
-          // The last head stylesheet is the generated CSS; every morph swaps its text in place.
-          generatedStyle.current = doc.head.querySelector('style:last-of-type')
+          // The render's head styles (font faces, then the generated CSS) become one stylesheet
+          // whose text every morph swaps in place, so a new font shows without a reload.
+          const styles = [...doc.head.querySelectorAll('style')]
+          generatedStyle.current = styles.pop() ?? null
+          if (generatedStyle.current) generatedStyle.current.textContent = headStyles(doc)
+          for (const style of styles) style.remove()
           swapPlaceholders(doc)
           selectionCleanup.current?.()
           selectionCleanup.current = selectionOverlay(

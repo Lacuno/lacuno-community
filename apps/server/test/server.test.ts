@@ -326,3 +326,25 @@ it('stages MP4 and WebM uploads as videos', async () => {
   expect(await webm.json()).toMatchObject({ kind: 'video', mime: 'video/webm' })
   expect((await upload('fake.mp4', [...Buffer.from('<video>clip</video>')])).status).toBe(415)
 })
+
+it('stages WOFF2, WOFF, TTF and OTF uploads as fonts, typed by their bytes', async () => {
+  const cookie = await register()
+  const site = await createSite(cookie)
+  const route = `/api/sites/${site.id}/assets/upload`
+  const upload = async (name: string, bytes: Buffer) =>
+    request(route, cookie, {
+      name,
+      data: Buffer.concat([bytes, Buffer.alloc(8)]).toString('base64'),
+    })
+  for (const [name, head, mime] of [
+    ['a.woff2', Buffer.from('wOF2'), 'font/woff2'],
+    ['a.woff', Buffer.from('wOFF'), 'font/woff'],
+    ['a.ttf', Buffer.from([0, 1, 0, 0]), 'font/ttf'],
+    ['b.ttf', Buffer.from('true'), 'font/ttf'],
+    ['a.otf', Buffer.from('OTTO'), 'font/otf'],
+  ] as const)
+    expect(await (await upload(name, head)).json()).toMatchObject({ kind: 'font', mime })
+  const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+  expect(await (await upload('renamed.woff2', png)).json()).toMatchObject({ kind: 'image' })
+  expect((await upload('fake.woff2', Buffer.from('@font-face{}'))).status).toBe(415)
+})

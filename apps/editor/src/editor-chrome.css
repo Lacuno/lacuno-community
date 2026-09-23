@@ -572,6 +572,59 @@
   border-top: 1px solid var(--border);
   font-size: 14px;
 }
+.font-list {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.font-list li {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 4px 8px;
+  align-items: center;
+}
+.font-faces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  grid-column: 1;
+}
+.font-list input {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+.font-face {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 2px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.font-face em {
+  color: #b42318;
+  font-style: normal;
+}
+.font-face button {
+  padding: 0 6px;
+  border: 0;
+  background: none;
+}
+.font-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: end;
+  font-size: 12px;
+}
+.font-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .redirect-list {
   margin: 0;
   padding: 0;
@@ -1640,7 +1693,11 @@
   text-align: left;
   cursor: grab;
 }
-.asset-grid :is(img, .asset-video) {
+.asset-grid .asset-font {
+  min-width: 0;
+  padding: 6px;
+}
+.asset-grid :is(img, .asset-glyph) {
   display: block;
   width: 100%;
   height: 76px;
@@ -1648,7 +1705,7 @@
   background: #f3f1f7;
   border-radius: 4px;
 }
-.asset-grid .asset-video {
+.asset-grid .asset-glyph {
   display: grid;
   place-items: center;
   font-style: normal;
@@ -1715,7 +1772,7 @@
 .image-library-dialog .asset-grid {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
-.image-library-dialog .asset-grid :is(img, .asset-video) {
+.image-library-dialog .asset-grid :is(img, .asset-glyph) {
   height: 130px;
 }
 .image-library-dialog .asset-grid button[aria-pressed="true"] {

@@ -112,6 +112,7 @@ and checks the persisted result.
 | `POST /api/sites` | Create a template site: `{name}` |
 | `GET /api/sites/:id/document` | `{document,revision}` |
 | `GET /api/sites/:id/preview?page=<id>&entry=<id>` | Canvas HTML, warnings and revision; entry required for collection pages |
+| `POST /api/sites/:id/assets/upload` | `{name,data}` (base64, up to 10 MB) → staged asset reference; PNG, JPEG, WebP, GIF, MP4, WebM, WOFF2, WOFF, TTF or OTF, typed by its bytes |
 | `GET /api/sites/:id/assets/:hash` | Authenticated asset bytes belonging to the site |
 | `POST /api/sites/:id/document/apply` | `{expectedRevision,operations,dryRun?}`, or `{expectedRevision,patches}` to replay an earlier commit → operation result |
 | `GET /api/sites/:id/releases` | Publishing configuration, current release, URL and release history |

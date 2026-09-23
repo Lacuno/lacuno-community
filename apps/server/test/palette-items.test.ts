@@ -81,7 +81,7 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
 
     // A video without a source is a placeholder until an uploaded clip is chosen.
     await page.getByRole('button', { name: 'Assets', exact: true }).click()
-    await page.getByLabel('Upload image or video', { exact: true }).setInputFiles({
+    await page.getByLabel('Upload image, video or font', { exact: true }).setInputFiles({
       name: 'clip.mp4',
       mimeType: 'video/mp4',
       buffer: Buffer.from('AAAAGGZ0eXBpc29tAAACAGlzb21pc28ybXA0MQ==', 'base64'),

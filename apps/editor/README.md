@@ -26,8 +26,14 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
 - Choose a page in the left panel. Collection pages also offer an entry selector.
 - **Site settings** in the Pages panel set the site name, the public URL (which enables canonical
   links, social URLs and the sitemap), the language, the favicon, head and body code published on
-  every page, and redirects (from a path to a path or URL, with status 301, 302, 307 or 308). Each
-  field saves when you leave it. A page's **•••** opens its settings: name, path, SEO title and
+  every page, fonts, and redirects (from a path to a path or URL, with status 301, 302, 307 or 308).
+  Each field saves when you leave it. **Fonts** lists faces grouped by family with each family's
+  fallback. **Add font** uploads a WOFF2, WOFF, TTF or OTF file and asks for family, weight, style and
+  fallback, prefilled from the file name (`Inter-BoldItalic.woff2` is Inter, 700, italic); **Add
+  system font** asks for family and fallback. The font fields in the style panel and the text
+  toolbar list the site's families as `Family, fallback` (the name quoted when it has spaces or
+  other characters, `"Test Sans", sans-serif`), then `system-ui, sans-serif`, `Georgia, serif` and
+  `ui-monospace, monospace`. A page's **•••** opens its settings: name, path, SEO title and
   description, canonical URL, **Hide from search engines**, social image, and head and body code for
   that page. A page at `/404` is the not-found page, marked **Not found** in the list and served for
   unknown addresses; **New page** offers it as a checkbox.
@@ -47,7 +53,8 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   These actions save immediately and support undo/redo with stable element IDs. Locked elements,
   component interiors and collection structure stay protected.
 - Edit plain text in the inspector or rich text directly on the canvas. Content bindings remain read-only.
-- **Assets** uploads PNG, JPEG, WebP and GIF images and MP4 and WebM videos up to 10 MB. A List
+- **Assets** uploads PNG, JPEG, WebP and GIF images, MP4 and WebM videos, and WOFF2, WOFF, TTF and
+  OTF fonts up to 10 MB; fonts are listed but not inserted. A List
   starts as three bulleted items; **List type** switches it to numbered. A Video's inspector
   chooses an uploaded clip and toggles Controls, Autoplay, Loop and Muted; turning Autoplay on also
   mutes it, since browsers refuse unmuted autoplay. An Embed's **Embed code** is published verbatim;

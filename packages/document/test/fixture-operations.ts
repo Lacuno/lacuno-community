@@ -35,10 +35,6 @@ export function fixtureOperations(initialPageId: string): Operation[] {
   return [
     { type: 'page.delete', id: initialPageId },
     {
-      type: 'site.update',
-      fonts: [{ family: 'system-ui', source: 'system', fallback: 'sans-serif' }],
-    },
-    {
       type: 'mode.create',
       id: 'dark',
       label: 'Dark',
@@ -161,6 +157,38 @@ export function fixtureOperations(initialPageId: string): Operation[] {
       hash: 'fedcba9876543210'.repeat(4),
       mime: 'video/mp4',
       size: 0,
+    },
+    {
+      type: 'asset.create',
+      id: 'a-sans',
+      name: 'FixtureSans-Regular.woff2',
+      kind: 'font',
+      hash: 'abcdef0123456789'.repeat(4),
+      mime: 'font/woff2',
+      size: 0,
+    },
+    {
+      type: 'asset.create',
+      id: 'a-sans-bold',
+      name: 'FixtureSans-Bold.woff2',
+      kind: 'font',
+      hash: '9876543210fedcba'.repeat(4),
+      mime: 'font/woff2',
+      size: 0,
+    },
+    {
+      type: 'site.update',
+      fonts: [
+        { family: 'system-ui', source: 'system', fallback: 'sans-serif' },
+        { family: 'Fixture Sans', source: 'asset', asset: 'a-sans', fallback: 'sans-serif' },
+        {
+          family: 'Fixture Sans',
+          source: 'asset',
+          asset: 'a-sans-bold',
+          weight: 700,
+          fallback: 'sans-serif',
+        },
+      ],
     },
     {
       type: 'collection.create',

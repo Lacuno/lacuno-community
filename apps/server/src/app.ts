@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
   DocumentStore,
+  kindForMime,
   type Operation,
   OperationError,
   Patch,
@@ -56,6 +57,19 @@ const BatchInput = z.strictObject({
   patches: z.array(Patch).min(1).max(5000).optional(),
   dryRun: z.boolean().optional(),
 })
+/** Uploads are typed by their first bytes, as hex, never by name or declared type. */
+const UPLOAD_SIGNATURES: [RegExp, string][] = [
+  [/^89504e470d0a1a0a/, 'image/png'],
+  [/^ffd8ff/, 'image/jpeg'],
+  [/^4749463[79]61/, 'image/gif'], // GIF87a, GIF89a
+  [/^52494646.{8}57454250/, 'image/webp'], // RIFF....WEBP
+  [/^.{8}66747970/, 'video/mp4'], // ....ftyp
+  [/^1a45dfa3/, 'video/webm'],
+  [/^774f4632/, 'font/woff2'], // wOF2
+  [/^774f4646/, 'font/woff'], // wOFF
+  [/^(00010000|74727565)/, 'font/ttf'], // 00 01 00 00, true
+  [/^4f54544f/, 'font/otf'], // OTTO
+]
 
 export async function createServer(options: ServerOptions) {
   if (options.secret.length < 32) throw new Error('Auth secret must contain at least 32 characters')
@@ -365,22 +379,14 @@ export async function createServer(options: ServerOptions) {
       const bytes = Buffer.from(input.data.data, 'base64')
       if (!bytes.length || bytes.length > 10 * 1024 * 1024)
         return c.json({ error: 'Files must be 10 MB or smaller.' }, 413)
-      const mime = bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-        ? 'image/png'
-        : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
-          ? 'image/jpeg'
-          : ['GIF87a', 'GIF89a'].includes(bytes.toString('ascii', 0, 6))
-            ? 'image/gif'
-            : bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP'
-              ? 'image/webp'
-              : bytes.toString('ascii', 4, 8) === 'ftyp'
-                ? 'video/mp4'
-                : bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
-                  ? 'video/webm'
-                  : ''
+      const head = bytes.toString('hex', 0, 12)
+      const mime = UPLOAD_SIGNATURES.find(([pattern]) => pattern.test(head))?.[1]
       if (!mime)
         return c.json(
-          { error: 'Choose a PNG, JPEG, WebP or GIF image, or an MP4 or WebM video.' },
+          {
+            error:
+              'Choose a PNG, JPEG, WebP or GIF image, an MP4 or WebM video, or a WOFF2, WOFF, TTF or OTF font.',
+          },
           415,
         )
       const hash = await hashAsset(bytes)
@@ -392,7 +398,7 @@ export async function createServer(options: ServerOptions) {
       return c.json({
         id: `a-${randomUUID()}`,
         name: input.data.name,
-        kind: mime.startsWith('video/') ? 'video' : 'image',
+        kind: kindForMime(mime),
         hash,
         mime,
         size: bytes.length,

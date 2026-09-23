@@ -87,6 +87,12 @@ hide from search engines, a social image and page code. A page at `/404` is the 
 built to `404.html` and left out of the sitemap with hidden pages; the head gains `og:locale` and
 `twitter:card` ([spec](superpowers/specs/2026-09-22-pages-and-seo-design.md)). Folders, page
 templates, generated social images and a 500 page remain.
+**Fonts implemented:** Site settings has a Fonts section: upload a WOFF2, WOFF, TTF or OTF file,
+confirm the family, weight and style prefilled from its file name, or add a system font; each
+family has a fallback. Both font fields list the site's families before three built-in stacks.
+The published site self-hosts every face with a font-face rule and preloads each family's regular
+face; nothing is requested from a third party (D013)
+([spec](superpowers/specs/2026-09-22-fonts-design.md)).
 Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 The planned direction for editing on the canvas itself, an action bar under the selection with

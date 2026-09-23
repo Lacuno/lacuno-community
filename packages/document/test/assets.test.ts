@@ -57,6 +57,8 @@ describe('assets', () => {
   it('refuses deleting a referenced asset and validates the hash', () => {
     const e = failing([{ type: 'asset.delete', id: 'a-hero' }], /referenced/)
     expect(e.referencedBy).toEqual(['nodes.n-hero-image'])
+    const font = failing([{ type: 'asset.delete', id: 'a-sans' }], /referenced/)
+    expect(font.referencedBy).toEqual(['site.fonts.1'])
     failing(
       [
         {

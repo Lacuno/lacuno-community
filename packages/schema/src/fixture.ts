@@ -270,7 +270,17 @@ export function fixtureDocument(): Document {
           media: '(prefers-color-scheme: dark)',
         },
       ],
-      fonts: [{ family: 'system-ui', source: 'system', fallback: 'sans-serif' }],
+      fonts: [
+        { family: 'system-ui', source: 'system', fallback: 'sans-serif' },
+        { family: 'Fixture Sans', source: 'asset', asset: 'a-sans', fallback: 'sans-serif' },
+        {
+          family: 'Fixture Sans',
+          source: 'asset',
+          asset: 'a-sans-bold',
+          weight: 700,
+          fallback: 'sans-serif',
+        },
+      ],
     },
     pages: {
       'p-home': {
@@ -609,6 +619,22 @@ export function fixtureDocument(): Document {
         kind: 'video',
         hash: 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210',
         mime: 'video/mp4',
+        size: 0,
+      },
+      'a-sans': {
+        id: 'a-sans',
+        name: 'FixtureSans-Regular.woff2',
+        kind: 'font',
+        hash: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+        mime: 'font/woff2',
+        size: 0,
+      },
+      'a-sans-bold': {
+        id: 'a-sans-bold',
+        name: 'FixtureSans-Bold.woff2',
+        kind: 'font',
+        hash: '9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba',
+        mime: 'font/woff2',
         size: 0,
       },
     },

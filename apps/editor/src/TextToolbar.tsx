@@ -1,6 +1,7 @@
 import type { CssValue, Document } from '@freeflow/schema'
 import type { ReactNode } from 'react'
 import { pickerHex } from './colors.js'
+import { fontChoices } from './fonts.js'
 import { LinkTarget, type LinkValue } from './LinkTarget.js'
 import { TokenField } from './TokenField.js'
 import './text-toolbar.css'
@@ -36,6 +37,7 @@ export function TextToolbar({
 }) {
   const bold = Number(values['font-weight']) >= 600
   const italic = values['font-style'] === 'italic'
+  const fonts = fontChoices(doc)
   const tokenField = (property: string, label: string, className: string, field: ReactNode) =>
     tokens ? (
       <TokenField
@@ -68,15 +70,12 @@ export function TextToolbar({
               onChange={(event) => change('font-family', event.target.value)}
             >
               <option value="">Inherited</option>
-              {values['font-family'] &&
-                !['Inter, sans-serif', 'Arial, sans-serif', 'Georgia, serif', 'monospace'].includes(
-                  values['font-family'],
-                ) && <option>{values['font-family']}</option>}
-              {['Inter, sans-serif', 'Arial, sans-serif', 'Georgia, serif', 'monospace'].map(
-                (font) => (
-                  <option key={font}>{font}</option>
-                ),
+              {values['font-family'] && !fonts.includes(values['font-family']) && (
+                <option>{values['font-family']}</option>
               )}
+              {fonts.map((font) => (
+                <option key={font}>{font}</option>
+              ))}
             </select>
           </label>,
         )}

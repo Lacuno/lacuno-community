@@ -2,6 +2,7 @@ import { contextFromDocument, serializeValue } from '@freeflow/css'
 import type { CssValue, Document, Node, State } from '@freeflow/schema'
 import { colorLabel, colorProperties, projectColors } from './colors.js'
 import { EffectsControls } from './EffectsControls.js'
+import { fontChoices } from './fonts.js'
 import { formattingGroups, localValue } from './formatting.js'
 import { MotionControls } from './MotionControls.js'
 import { SpacingControls } from './SpacingControls.js'
@@ -24,6 +25,8 @@ const choiceLabel = (value: string) =>
       '600': 'Semibold',
       '700': 'Bold',
       '800': 'Extra bold',
+      'system-ui, sans-serif': 'System sans-serif',
+      'ui-monospace, monospace': 'Monospace',
     }) as Record<string, string>
   )[value] ??
   value
@@ -92,6 +95,12 @@ export function FormattingControls({
                   )
                   .map((field) => {
                     const { property, label } = field
+                    const choices: readonly string[] =
+                      property === 'font-family'
+                        ? fontChoices(doc)
+                        : 'choices' in field
+                          ? field.choices
+                          : []
                     const value =
                       property in changes
                         ? changes[property]
@@ -169,10 +178,10 @@ export function FormattingControls({
                                       ? `From style · ${choiceLabel(computed[property]!)}`
                                       : 'From style'}
                                   </option>
-                                  {text && !(field.choices as readonly string[]).includes(text) && (
+                                  {text && !choices.includes(text) && (
                                     <option value={text}>{text}</option>
                                   )}
-                                  {field.choices.map((choice) => (
+                                  {choices.map((choice) => (
                                     <option key={choice} value={choice}>
                                       {choiceLabel(choice)}
                                     </option>

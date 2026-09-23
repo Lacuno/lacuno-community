@@ -38,7 +38,10 @@ export const Font = z.strictObject({
   family: z.string().min(1),
   source: z.enum(['asset', 'system']),
   asset: AssetId.optional(),
-  /** Families to fall back to. Descriptive only: nothing in the compiler reads it yet. */
+  /** One entry is one face: several entries share a family. Missing means 400 and normal. */
+  weight: z.number().int().min(100).max(900).multipleOf(100).optional(),
+  style: z.enum(['normal', 'italic']).optional(),
+  /** Families to fall back to. The editor writes it after the family in font-family values. */
   fallback: z.string().optional(),
 })
 export type Font = z.infer<typeof Font>

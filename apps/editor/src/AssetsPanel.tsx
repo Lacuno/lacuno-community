@@ -4,17 +4,17 @@ import { useState } from 'react'
 import { api, message } from './api.js'
 import { ErrorNote } from './Dialog.js'
 
-/** Images include SVGs; videos are MP4 and WebM uploads. */
-export const assetsOfKind = (doc: Document, kind: 'image' | 'video' = 'image') =>
+/** Images include SVGs; videos are MP4 and WebM uploads; fonts are WOFF2, WOFF, TTF and OTF. */
+export const assetsOfKind = (doc: Document, kind: 'image' | 'video' | 'font' = 'image') =>
   Object.values(doc.assets).filter(
     (asset) => asset.kind === kind || (kind === 'image' && asset.kind === 'svg'),
   )
 export const assetUrl = (siteId: string, hash: string) => `/api/sites/${siteId}/assets/${hash}`
 
 export function AssetPreview({ siteId, asset }: { siteId: string; asset: AssetRef }) {
-  return asset.kind === 'video' ? (
-    <i className="asset-video" aria-hidden="true">
-      ▶
+  return asset.kind === 'video' || asset.kind === 'font' ? (
+    <i className="asset-glyph" aria-hidden="true">
+      {asset.kind === 'font' ? 'Aa' : '▶'}
     </i>
   ) : (
     <img src={assetUrl(siteId, asset.hash)} alt="" draggable={false} />
@@ -23,12 +23,6 @@ export function AssetPreview({ siteId, asset }: { siteId: string; asset: AssetRe
 
 export async function uploadAsset(siteId: string, file: File): Promise<AssetRef> {
   if (file.size > 10 * 1024 * 1024) throw new Error('Files must be 10 MB or smaller.')
-  let size = {}
-  if (!file.type.startsWith('video/')) {
-    const bitmap = await createImageBitmap(file)
-    size = { width: bitmap.width, height: bitmap.height }
-    bitmap.close()
-  }
   const data = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result).split(',')[1]!)
@@ -39,6 +33,11 @@ export async function uploadAsset(siteId: string, file: File): Promise<AssetRef>
     name: file.name,
     data,
   })
+  // Browsers often give fonts no type, so size by the kind the server read from the bytes.
+  if (asset.kind !== 'image') return asset
+  const bitmap = await createImageBitmap(file)
+  const size = { width: bitmap.width, height: bitmap.height }
+  bitmap.close()
   return { ...asset, ...size }
 }
 
@@ -58,14 +57,15 @@ export function AssetsPanel({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const assets = [...assetsOfKind(doc), ...assetsOfKind(doc, 'video')]
+  const fonts = assetsOfKind(doc, 'font')
   return (
     <div className="assets-library">
       <label className="asset-upload">
-        Upload image or video
+        Upload image, video or font
         <input
-          aria-label="Upload image or video"
+          aria-label="Upload image, video or font"
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"
+          accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,font/woff2,font/woff,font/ttf,font/otf,.woff2,.woff,.ttf,.otf"
           disabled={disabled || loading}
           onChange={async (event) => {
             const file = event.target.files?.[0]
@@ -85,7 +85,7 @@ export function AssetsPanel({
           }}
         />
       </label>
-      <p className="hint">PNG, JPEG, WebP, GIF, MP4 or WebM · up to 10 MB</p>
+      <p className="hint">PNG, JPEG, WebP, GIF, MP4, WebM, WOFF2, WOFF, TTF or OTF · up to 10 MB</p>
       {loading && <p role="status">Adding file…</p>}
       <ErrorNote message={error} />
       {!assets.length && (
@@ -107,6 +107,12 @@ export function AssetsPanel({
             <AssetPreview siteId={siteId} asset={asset} />
             <span>{asset.name}</span>
           </button>
+        ))}
+        {fonts.map((asset) => (
+          <div key={asset.id} className="asset-font" title={asset.name}>
+            <AssetPreview siteId={siteId} asset={asset} />
+            <span>{asset.name}</span>
+          </div>
         ))}
       </div>
     </div>

@@ -49,6 +49,19 @@ describe('building the fixture site through MCP', () => {
         arguments: { name: 'clip.mp4', mime: 'video/mp4', base64: 'AAAAGGZ0eXBpc29t' },
       }),
     )
+    const font = async (name: string, n: number) =>
+      jsonOf<{ id: string }>(
+        await c.client.callTool({
+          name: 'asset.import',
+          arguments: {
+            name,
+            mime: 'font/woff2',
+            base64: Buffer.from(`wOF2${'\0'.repeat(n)}`).toString('base64'),
+          },
+        }),
+      )
+    const sans = await font('FixtureSans-Regular.woff2', 8)
+    const sansBold = await font('FixtureSans-Bold.woff2', 12)
     // The fixture registers its assets itself; replace those operations with the imported asset ids.
     const ops = fixtureOperations(initialPage)
       .filter((o) => o.type !== 'asset.create')
@@ -56,7 +69,9 @@ describe('building the fixture site through MCP', () => {
         JSON.parse(
           JSON.stringify(o)
             .replaceAll('"a-hero"', `"${asset.id}"`)
-            .replaceAll('"a-clip"', `"${clip.id}"`),
+            .replaceAll('"a-clip"', `"${clip.id}"`)
+            .replaceAll('"a-sans"', `"${sans.id}"`)
+            .replaceAll('"a-sans-bold"', `"${sansBold.id}"`),
         ),
       )
     const applied = jsonOf<{ revision: number }>(
@@ -65,7 +80,7 @@ describe('building the fixture site through MCP', () => {
         arguments: { expectedRevision: store.revision, operations: ops },
       }),
     )
-    expect(applied.revision).toBe(3)
+    expect(applied.revision).toBe(5)
     const built = jsonOf<{ pages: number; outDir: string }>(
       await c.client.callTool({
         name: 'site.build',

@@ -201,6 +201,16 @@ describe('document schema', () => {
     expect(() => parseDocument(doc)).toThrow(DocumentError)
   })
 
+  it('accepts a font face with weight and style, rejects an odd weight, keeps the old shape', () => {
+    const doc = fixtureDocument()
+    doc.site.fonts = [{ family: 'Old', source: 'system' }]
+    expect(parseDocument(doc).site.fonts).toEqual([{ family: 'Old', source: 'system' }])
+    doc.site.fonts = [{ family: 'F', source: 'system', weight: 700, style: 'italic' }]
+    expect(parseDocument(doc).site.fonts[0]).toMatchObject({ weight: 700, style: 'italic' })
+    doc.site.fonts = [{ family: 'F', source: 'system', weight: 350 }]
+    expect(() => parseDocument(doc)).toThrow(DocumentError)
+  })
+
   it('carries a revision that defaults to zero and must be a non-negative integer', () => {
     expect(createEmptyDocument().revision).toBe(0)
     expect(fixtureDocument().revision).toBe(0)

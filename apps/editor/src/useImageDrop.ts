@@ -18,7 +18,7 @@ export function useImageDrop({ siteId, session, setSelected }: Options) {
     setUploadingImage(true)
     setError('')
     try {
-      if (file.type.startsWith('video/')) throw new Error('Drop an image file here.')
+      if (!file.type.startsWith('image/')) throw new Error('Drop an image file here.')
       const asset = await uploadAsset(siteId, file)
       if (!(await flushPending())) return
       const { doc: current, save: write } = latest.current
