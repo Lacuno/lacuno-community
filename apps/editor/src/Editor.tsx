@@ -4,6 +4,7 @@ import { message } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
 import { ComponentDialogs } from './ComponentDialogs.js'
+import { type Activity, ConnectPanel, useConnections } from './ConnectPanel.js'
 import { EditorHeader } from './EditorHeader.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { InspectorColumn } from './InspectorColumn.js'
@@ -43,6 +44,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   // Open with a token to show, or '' for none; undefined while closed.
   const [colorsOpen, setColorsOpen] = useState<string>()
   const [publishOpen, setPublishOpen] = useState(false)
+  const [connectOpen, setConnectOpen] = useState(false)
+  const { connections, refresh: refreshConnections } = useConnections(siteId, connectOpen)
   const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
     id: '',
     values: {},
@@ -124,7 +127,22 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           setInlineTarget(undefined)
           setPublishOpen(true)
         }}
+        connections={connections}
+        connect={() => {
+          setInlineTarget(undefined)
+          setConnectOpen(true)
+        }}
       />
+      {connectOpen && (
+        <ConnectPanel
+          siteId={siteId}
+          connections={connections}
+          refresh={refreshConnections}
+          // Until the session streams site events it has no activity.
+          activity={(session as { activity?: Activity[] }).activity ?? []}
+          close={() => setConnectOpen(false)}
+        />
+      )}
       {publishOpen && session.snapshot && (
         <PublishPanel
           siteId={siteId}
