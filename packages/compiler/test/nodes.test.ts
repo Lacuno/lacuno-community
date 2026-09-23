@@ -123,12 +123,6 @@ describe('renderNode: elements and text', () => {
       attrs: { href: { type: 'page', page: 'p-about' } },
     }
     expect(renderNode('link', empty, state(doc))).toBe('<a href="/about"></a>')
-    doc.nodes.post = {
-      ...doc.nodes.link,
-      id: 'post',
-      attrs: { href: { type: 'page', page: 'p-post' } },
-    }
-    expect(renderNode('post', empty, state(doc))).toBe('<a href="/blog/[slug]"></a>')
   })
 
   it('links an image asset bound to a non-src attribute through the resolver, not a dead public path', () => {
@@ -366,6 +360,14 @@ describe('renderNode: components, slots, lists, embeds', () => {
     expect(published).toBe(`<div class="${state(doc).names.get('l-embed')}">${html}</div>`)
   })
 
+  it('publishes an embed with attributes in a wrapper that carries them', () => {
+    const doc = fixtureDocument()
+    doc.nodes['n-embed']!.attrs = { id: { type: 'static', value: 'quote' } }
+    expect(renderNode('n-embed', empty, state(doc))).toBe(
+      '<div id="quote"><blockquote>Embedded quote</blockquote></div>',
+    )
+  })
+
   it('renders a video asset source with bare boolean attributes', () => {
     const doc = fixtureDocument()
     expect(renderNode('n-video', empty, state(doc))).toBe(
@@ -374,26 +376,28 @@ describe('renderNode: components, slots, lists, embeds', () => {
   })
 })
 
-it('marks elements whose class styles an interactive state, but not a structural one', () => {
+it('marks elements whose class carries a Motion field or an interactive state, not a structural one', () => {
   const doc = withNodes([
-    { id: 'a', type: 'element', tag: 'div', parent: null, children: [], classes: ['hovered'] },
-    { id: 'b', type: 'element', tag: 'div', parent: null, children: [], classes: ['odd'] },
+    { id: 'a', type: 'element', tag: 'div', parent: null, children: [], classes: ['timed'] },
+    { id: 'b', type: 'element', tag: 'div', parent: null, children: [], classes: ['hovered'] },
+    { id: 'c', type: 'element', tag: 'div', parent: null, children: [], classes: ['odd'] },
   ])
-  doc.classes.hovered = { id: 'hovered', kind: 'class', name: 'hovered' }
-  doc.classes.odd = { id: 'odd', kind: 'class', name: 'odd' }
-  for (const [cls, pseudo] of [
-    ['hovered', 'hover'],
-    ['odd', 'first-child'],
+  for (const [cls, pseudo, property] of [
+    ['timed', 'none', '--ff-duration'],
+    ['hovered', 'hover', 'background-color'],
+    ['odd', 'odd', 'background-color'],
   ] as const) {
+    doc.classes[cls] = { id: cls, kind: 'class', name: cls }
     const style = {
       class: cls,
       breakpoint: 'base',
       state: pseudo,
-      property: 'background-color',
-      value: { type: 'color' as const, value: '#fff' },
+      property,
+      value: { type: 'raw' as const, value: '1s' },
     }
     doc.styles[styleKey(style)] = style
   }
   expect(renderNode('a', empty, state(doc))).toContain('data-freeflow-motion')
-  expect(renderNode('b', empty, state(doc))).not.toContain('data-freeflow-motion')
+  expect(renderNode('b', empty, state(doc))).toContain('data-freeflow-motion')
+  expect(renderNode('c', empty, state(doc))).not.toContain('data-freeflow-motion')
 })

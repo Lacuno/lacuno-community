@@ -6,6 +6,22 @@ import { expect, it } from 'vitest'
 import { plainImageResolver } from '../src/images.js'
 import { assembleDocument, render } from '../src/render.js'
 
+it('marks elements for motion exactly when the motion rules are emitted', () => {
+  const doc = fixtureDocument()
+  const home = Object.values(doc.pages).find((page) => page.path === '/')!
+  const output = () => ({
+    body: render(doc, home, undefined, { resolveImage: plainImageResolver }).body,
+    css: generateStylesheet(doc).css,
+  })
+  // The fixture styles `.button:hover` and sets no Motion field: the hover still eases. Without its state styles nothing is marked.
+  expect(output().body).toContain('<a class="button primary" data-freeflow-motion=""')
+  expect(output().css).toContain(':where([data-freeflow-motion])')
+  for (const key of Object.keys(doc.styles))
+    if (doc.styles[key]!.state !== 'none') delete doc.styles[key]
+  expect(output().body).not.toContain('data-freeflow-motion')
+  expect(output().css).not.toContain('data-freeflow-motion')
+})
+
 it('runs entrances once on viewport entry and honors reduced motion in published HTML', async () => {
   const doc = fixtureDocument()
   const id = 'l-hero-title'

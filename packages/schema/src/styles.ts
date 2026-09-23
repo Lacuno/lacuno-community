@@ -7,22 +7,25 @@ import { CssValue } from './values.js'
  * order. Styles are keyed by class, breakpoint, state and property and compile to real CSS rules.
  */
 
-/** Pseudo-classes and pseudo-elements the style panel exposes. */
+/**
+ * Pseudo-classes and pseudo-elements the style panel exposes. The order is the cascade order:
+ * state rules share one specificity, so a later one wins and interaction beats structure.
+ */
 export const State = z.enum([
   'none',
-  'hover',
-  'focus',
-  'focus-visible',
-  'focus-within',
-  'active',
-  'visited',
-  'disabled',
-  'checked',
-  'empty',
   'first-child',
   'last-child',
   'odd',
   'even',
+  'empty',
+  'disabled',
+  'checked',
+  'visited',
+  'hover',
+  'focus-within',
+  'focus',
+  'focus-visible',
+  'active',
   'placeholder',
   'before',
   'after',

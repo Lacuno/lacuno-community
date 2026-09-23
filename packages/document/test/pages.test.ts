@@ -94,24 +94,60 @@ describe('pages', () => {
           type: 'element',
           tag: 'a',
           id: 'n-link',
-          attrs: { href: { type: 'page', page: 'p-post' } },
+          attrs: { href: { type: 'page', page: 'p-not-found' } },
         },
       },
     ]).document
-    const e = failing([{ type: 'page.delete', id: 'p-post' }], /page p-post is referenced/, doc)
+    const e = failing(
+      [{ type: 'page.delete', id: 'p-not-found' }],
+      /page p-not-found is referenced/,
+      doc,
+    )
     expect(e.referencedBy).toEqual(['nodes.n-link'])
     const after = run(
       [
         { type: 'node.delete', id: 'n-link' },
-        { type: 'page.delete', id: 'p-post' },
+        { type: 'page.delete', id: 'p-not-found' },
       ],
       doc,
     )
-    expect(after.document.pages['p-post']).toBeUndefined()
+    expect(after.document.pages['p-not-found']).toBeUndefined()
+  })
+
+  it('refuses deleting a page a rich-text link in a text node or an entry points at', () => {
+    const doc = fixtureDocument()
+    const link = {
+      type: 'doc' as const,
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Lost?',
+              marks: [{ type: 'link', attrs: { pageId: 'p-not-found' } }],
+            },
+          ],
+        },
+      ],
+    }
+    doc.nodes['n-link'] = {
+      id: 'n-link',
+      type: 'text',
+      tag: 'p',
+      parent: 'n-hero-inner',
+      children: [],
+      classes: [],
+      text: link,
+    }
+    doc.nodes['n-hero-inner']!.children.push('n-link')
+    doc.entries['col-posts']![0]!.fields['f-body'] = link
+    const e = failing([{ type: 'page.delete', id: 'p-not-found' }], /is referenced/, doc)
+    expect(e.referencedBy).toEqual(['entries.col-posts.0', 'nodes.n-link'])
   })
 
   it('deletes a page that only links to itself', () => {
-    const root = fixtureDocument().pages['p-post']!.root
+    const root = fixtureDocument().pages['p-not-found']!.root
     const doc = run([
       {
         type: 'node.create',
@@ -120,12 +156,12 @@ describe('pages', () => {
           type: 'element',
           tag: 'a',
           id: 'n-self',
-          attrs: { href: { type: 'page', page: 'p-post' } },
+          attrs: { href: { type: 'page', page: 'p-not-found' } },
         },
       },
     ]).document
-    const after = run([{ type: 'page.delete', id: 'p-post' }], doc)
-    expect(after.document.pages['p-post']).toBeUndefined()
+    const after = run([{ type: 'page.delete', id: 'p-not-found' }], doc)
+    expect(after.document.pages['p-not-found']).toBeUndefined()
     expect(after.document.nodes['n-self']).toBeUndefined()
   })
 })

@@ -69,7 +69,7 @@ describe('document schema', () => {
     expect(msgs).toContain('unknown collection col-nope')
   })
 
-  it('accepts a page binding and rejects one pointing at an unknown page', () => {
+  it('accepts a page binding and rejects one pointing at an unknown or collection page', () => {
     const doc = fixtureDocument()
     doc.nodes['n-hero-cta']!.attrs = { href: { type: 'page', page: 'p-home' } }
     expect(parseDocument(JSON.parse(JSON.stringify(doc))).nodes['n-hero-cta']!.attrs).toEqual({
@@ -78,6 +78,10 @@ describe('document schema', () => {
     doc.nodes['n-hero-cta']!.attrs = { href: { type: 'page', page: 'p-nope' } }
     expect(checkReferences(doc)).toEqual([
       { path: 'nodes.n-hero-cta', message: 'unknown page p-nope' },
+    ])
+    doc.nodes['n-hero-cta']!.attrs = { href: { type: 'page', page: 'p-post' } }
+    expect(checkReferences(doc)).toEqual([
+      { path: 'nodes.n-hero-cta', message: 'page p-post is a collection page' },
     ])
   })
 
@@ -274,6 +278,30 @@ describe('hover shortcut migration', () => {
           value: { type: 'raw', value: '1.2' },
         })
     }
+  })
+
+  it('keeps an explicit hover declaration over the shortcut', () => {
+    const doc = fixtureDocument()
+    for (const [state, property, value] of [
+      ['none', '--ff-hover-scale', '1.2'],
+      ['hover', 'scale', '1.5'],
+    ] as const) {
+      const style = {
+        class: 'c-button',
+        breakpoint: 'base',
+        state,
+        property,
+        value: { type: 'raw' as const, value },
+      }
+      doc.styles[styleKey(style)] = style
+    }
+    const migrated = parseDocument(JSON.parse(JSON.stringify(doc))).styles
+    expect(migrated['c-button|base|none|--ff-hover-scale']).toBeUndefined()
+    expect(migrated['c-button|base|hover|scale']!.value).toEqual({ type: 'raw', value: '1.5' })
+    expect(migrated['c-button|base|focus-visible|scale']!.value).toEqual({
+      type: 'raw',
+      value: '1.2',
+    })
   })
 
   it('leaves a document without the shortcut alone', () => {

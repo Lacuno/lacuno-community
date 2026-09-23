@@ -49,7 +49,13 @@ export function classNames(doc: Document): ClassNames {
  * dropped so only the state picker turns them on; structural states (`:first-child`, `:empty`, …)
  * keep it, so the base view still matches the published site.
  */
-const LIVE_STATES = new Set<State>(['hover', 'focus', 'focus-visible', 'focus-within', 'active'])
+export const LIVE_STATES = new Set<State>([
+  'hover',
+  'focus',
+  'focus-visible',
+  'focus-within',
+  'active',
+])
 
 const STATE_SELECTOR: Record<State, string> = {
   none: '',
@@ -100,8 +106,9 @@ function paddingFor(doc: Document, names: ClassNames): { shared: number; presets
 
 /**
  * `.button.primary:hover` for a combo class with a state. In the canvas (`forced`) the state
- * picker drives styles through `.button.primary[data-ff-state~="hover"]`: interaction states
- * emit only that form so the live pointer can't trigger them, structural states emit both.
+ * picker drives styles through `.button.primary[data-ff-state="hover"]`: interaction states
+ * emit only that form so the live pointer can't trigger them, structural states emit both, and
+ * pseudo-elements, which the picker cannot force onto the element itself, emit only their own.
  */
 export function selectorFor(
   doc: Document,
@@ -125,12 +132,10 @@ export function selectorFor(
     while (chain.length < specificity) chain.push(`.${names.get(classId)}`)
   }
   const base = chain.join('')
-  if (!forced || state === 'none') return `${base}${STATE_SELECTOR[state]}`
-  // The picker drives interaction states through the forced attribute alone, so the live pointer
-  // never changes them; structural states keep their real pseudo-class as well.
-  return LIVE_STATES.has(state)
-    ? `${base}[data-ff-state~="${state}"]`
-    : `${base}${STATE_SELECTOR[state]}, ${base}[data-ff-state~="${state}"]`
+  const real = `${base}${STATE_SELECTOR[state]}`
+  if (!forced || state === 'none' || STATE_SELECTOR[state].startsWith('::')) return real
+  const picked = `${base}[data-ff-state="${state}"]`
+  return LIVE_STATES.has(state) ? picked : `${real}, ${picked}`
 }
 
 /** Emission order: fewer compound parts first, then alphabetical, so combos follow their parents. */

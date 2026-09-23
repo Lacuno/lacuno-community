@@ -1,6 +1,6 @@
 import type { AssetRef, Breakpoint, Document, State, StyleDecl } from '@freeflow/schema'
 import { BASE_BREAKPOINT_ID, designTokenCssName, State as StateSchema } from '@freeflow/schema'
-import { MOTION_CSS } from './motion.js'
+import { isMotionStyle, MOTION_CSS } from './motion.js'
 import { compareProperties } from './order.js'
 import { type ClassNames, classNames, compareSelectors, selectorFor } from './selector.js'
 import { contextFromDocument, serializeValue, type ValueContext } from './value.js'
@@ -154,6 +154,6 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
     sections.push(mq ? `${mq} {\n${body}\n}` : body)
   }
 
-  if (decls.some((style) => style.property.startsWith('--ff-'))) sections.push(MOTION_CSS)
+  if (decls.some(isMotionStyle)) sections.push(MOTION_CSS)
   return { css: `${sections.join('\n\n')}\n`, classNames: names }
 }

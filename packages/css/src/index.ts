@@ -1,5 +1,5 @@
 export { type GenerateOptions, generateStylesheet, type Stylesheet } from './generate.js'
-export { MOTION_CSS, MOTION_SCRIPT } from './motion.js'
+export { isMotionStyle, MOTION_CSS, MOTION_SCRIPT } from './motion.js'
 export { compareProperties } from './order.js'
 export {
   type ClassNames,
@@ -7,6 +7,7 @@ export {
   classNames,
   compareSelectors,
   cssIdent,
+  LIVE_STATES,
   selectorFor,
 } from './selector.js'
 export { contextFromDocument, serializeValue, type ValueContext } from './value.js'

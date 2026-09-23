@@ -142,12 +142,30 @@ export function referencesToCollection(doc: Document, id: string): string[] {
   return out.sort()
 }
 
-/** Where a page is used: node bindings, so a page with a link pointing at it cannot be deleted. */
+/** Whether rich text, or any JSON holding it, has a link mark to the page. */
+const linksToPage = (value: unknown, id: string): boolean =>
+  typeof value === 'object' &&
+  value !== null &&
+  ((value as { pageId?: unknown }).pageId === id ||
+    Object.values(value).some((v) => linksToPage(v, id)))
+
+/**
+ * Where a page is used: node bindings and rich-text links in text nodes and entries, so a page
+ * with a link pointing at it cannot be deleted.
+ */
 export function referencesToPage(doc: Document, id: string): string[] {
-  return Object.values(doc.nodes)
-    .filter((n) => nodeBindings(n).some((b) => b.type === 'page' && b.page === id))
+  const out = Object.values(doc.nodes)
+    .filter(
+      (n) =>
+        nodeBindings(n).some((b) => b.type === 'page' && b.page === id) ||
+        (n.type === 'text' && linksToPage(n.text, id)),
+    )
     .map((n) => `nodes.${n.id}`)
-    .sort()
+  for (const [collection, entries] of Object.entries(doc.entries))
+    entries.forEach((entry, index) => {
+      if (linksToPage(entry.fields, id)) out.push(`entries.${collection}.${index}`)
+    })
+  return out.sort()
 }
 
 export function referencesToField(doc: Document, fieldId: string): string[] {

@@ -36,7 +36,7 @@ describe('render', () => {
     )
     // The post page sets its own language over the site locale.
     expect(result.htmlAttrs).toEqual({ lang: 'en-GB' })
-    expect(result.head).toContain('<meta property="og:locale" content="en-GB">')
+    expect(result.head).toContain('<meta property="og:locale" content="en_GB">')
     expect(assembleDocument(result)).toMatchSnapshot()
   })
 
