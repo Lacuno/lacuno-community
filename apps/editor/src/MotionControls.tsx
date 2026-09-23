@@ -1,5 +1,8 @@
 import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 
+// The fields count milliseconds; a time set in seconds reads as its milliseconds.
+const ms = (time: string) => (/\ds$/.test(time) ? `${Number.parseFloat(time) * 1000}ms` : time)
+
 export function MotionControls(props: StyleControls) {
   const { disabled, node } = props
   const { overridden, value: read, set } = useStyleField(props)
@@ -13,7 +16,7 @@ export function MotionControls(props: StyleControls) {
             key={key}
             label={key === 'duration' ? 'Duration (ms)' : 'Delay (ms)'}
             name={`Motion ${key}`}
-            value={read(`--ff-${key}`, key === 'duration' ? '400ms' : '0ms')}
+            value={ms(read(`--ff-${key}`, key === 'duration' ? '400ms' : '0ms'))}
             unit="ms"
             min={0}
             max={10000}

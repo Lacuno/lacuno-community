@@ -91,15 +91,19 @@ it('reuses private styles, isolates accidentally shared locals and preserves imp
   expect(formattingOperations(doc, node, { color: null })).toEqual([])
 })
 
-it('accepts pixel sizes without requiring CSS units', () => {
+it('accepts pixel sizes without requiring CSS units and keeps any other unit or keyword', () => {
   expect(
     normalizeFormatting({
       'font-size': { type: 'raw', value: '24' },
       'line-height': { type: 'raw', value: '1.5' },
+      'padding-top': { type: 'raw', value: '1.5rem' },
+      'margin-left': { type: 'raw', value: 'auto' },
     }),
   ).toEqual({
     'font-size': { type: 'unit', value: 24, unit: 'px' },
     'line-height': { type: 'raw', value: '1.5' },
+    'padding-top': { type: 'raw', value: '1.5rem' },
+    'margin-left': { type: 'raw', value: 'auto' },
   })
 })
 

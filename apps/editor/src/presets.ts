@@ -14,18 +14,22 @@ import { formattingGroups, formattingOperations, localClass } from './formatting
 import { nodeLabel, pageOf } from './structure.js'
 import { tokenLabel, tokenValue } from './tokens.js'
 
-const properties = new Set<string>(
-  formattingGroups.flatMap((group) => group.fields.map((field) => field.property)),
-)
+// The spacing shorthands too, so presets keep a class's token and see legacy local shorthands.
+const properties = new Set<string>([
+  ...formattingGroups.flatMap((group) => group.fields.map((field) => field.property)),
+  'padding',
+  'margin',
+])
 
 export function activePreset(doc: Document, node: Node) {
   return node.classes.map((id) => doc.classes[id]).find((cls) => cls?.preset)
 }
 
 /**
- * The declaration that wins each property on this element at this breakpoint and state. Classes
- * apply in selector order and, within one, wider scopes first; a state rule outranks every
- * base-state rule, as its extra specificity does in CSS, and !important outranks both.
+ * The declaration that wins each property on this element at this breakpoint and state, ranked
+ * as CSS ranks them: a state rule outranks every base-state rule by its extra specificity, a
+ * narrower breakpoint's media block comes later in the stylesheet than wider ones, then classes
+ * apply in selector order; !important outranks all of these.
  */
 export function winningStyles(
   doc: Document,
@@ -40,23 +44,30 @@ export function winningStyles(
   const scopes = inheritedBreakpoints(doc, breakpoint)
   const states: State[] = state === 'none' ? ['none'] : ['none', state]
   const styles = Object.values(doc.styles)
-    .filter((style) => scopes.includes(style.breakpoint) && states.includes(style.state))
+    .filter(
+      (style) =>
+        classes.includes(style.class) &&
+        scopes.includes(style.breakpoint) &&
+        states.includes(style.state),
+    )
     .sort(
       (a, b) =>
         states.indexOf(a.state) - states.indexOf(b.state) ||
-        scopes.indexOf(a.breakpoint) - scopes.indexOf(b.breakpoint),
+        scopes.indexOf(a.breakpoint) - scopes.indexOf(b.breakpoint) ||
+        classes.indexOf(a.class) - classes.indexOf(b.class),
     )
   const winners: Record<string, StyleDecl> = {}
-  for (const id of classes) {
-    for (const style of styles) {
-      if (style.class !== id || (winners[style.property]?.important && !style.important)) continue
-      winners[style.property] = style
-    }
+  for (const style of styles) {
+    if (winners[style.property]?.important && !style.important) continue
+    winners[style.property] = style
   }
   return winners
 }
 
-/** Capture effective formatting at this breakpoint and state, retaining typed values and color references. */
+/**
+ * Capture effective formatting at this breakpoint and state, retaining typed values, color and
+ * token references. A side set through a shorthand keeps the shorthand, token and all.
+ */
 export function presetValues(
   doc: Document,
   node: Node,
@@ -64,13 +75,13 @@ export function presetValues(
   breakpoint = 'base',
   state: State = 'none',
 ) {
+  const winners = winningStyles(doc, node, breakpoint, state)
   const values: Record<string, CssValue> = {}
   for (const property of properties) {
-    if (!property.startsWith('--ff-') && computed[property])
+    const style = [property, ...shorthands(property)].map((name) => winners[name]).find(Boolean)
+    if (style) values[style.property] = structuredClone(style.value)
+    else if (!property.startsWith('--ff-') && computed[property])
       values[property] = { type: 'raw', value: computed[property]! }
-  }
-  for (const [property, style] of Object.entries(winningStyles(doc, node, breakpoint, state))) {
-    if (properties.has(property)) values[property] = structuredClone(style.value)
   }
   return values
 }

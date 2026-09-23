@@ -4,7 +4,7 @@ import { EditorIcon } from './EditorIcon.js'
 import { localValue } from './formatting.js'
 import { sourceLabel, styleSource } from './presets.js'
 import { SourceLine } from './SourceLine.js'
-import { NumberField, type StyleControls, useStyleField } from './styleField.js'
+import { type StyleControls, useStyleField } from './styleField.js'
 import { TokenField } from './TokenField.js'
 
 const pairs = [
@@ -20,7 +20,6 @@ const focusSide = (detail: { kind: 'padding' | 'margin'; side: string } | null) 
 type ClusterProps = StyleControls & {
   kind: 'padding' | 'margin'
   prefix: 'Inside' | 'Outside'
-  min?: number
 }
 
 /** Two opposite sides bound to their longhands, with a chain that edits both at once. It starts
@@ -28,7 +27,6 @@ type ClusterProps = StyleControls & {
 function SpacingPair({
   kind,
   prefix,
-  min,
   pair,
   ...props
 }: ClusterProps & { pair: (typeof pairs)[number] }) {
@@ -75,20 +73,21 @@ function SpacingPair({
         for (const target of targets(side)) change(`${kind}-${target}`, next)
       }}
     >
-      <NumberField
-        label={`${prefix} ${side}`}
-        name={`${prefix} spacing ${side}`}
-        value={local(side)}
-        min={min}
-        placeholder={computed[`${kind}-${side}`]}
-        disabled={disabled}
-        overridden={overridden(`${kind}-${side}`)}
-        onFocus={() => focusSide({ kind, side })}
-        onBlur={() => focusSide(null)}
-        set={(next) => {
-          for (const target of targets(side)) set(`${kind}-${target}`, next)
-        }}
-      />
+      <label>
+        {prefix} {side}
+        <input
+          aria-label={`${prefix} spacing ${side}`}
+          data-overridden={overridden(`${kind}-${side}`)}
+          placeholder={computed[`${kind}-${side}`]}
+          disabled={disabled}
+          value={local(side)}
+          onFocus={() => focusSide({ kind, side })}
+          onBlur={() => focusSide(null)}
+          onChange={(event) => {
+            for (const target of targets(side)) set(`${kind}-${target}`, event.target.value)
+          }}
+        />
+      </label>
     </TokenField>
   )
   return (
@@ -128,7 +127,7 @@ function SpacingCluster(props: ClusterProps) {
 export function SpacingControls(props: StyleControls) {
   return (
     <div className="spacing-controls">
-      <SpacingCluster {...props} kind="padding" prefix="Inside" min={0} />
+      <SpacingCluster {...props} kind="padding" prefix="Inside" />
       <SpacingCluster {...props} kind="margin" prefix="Outside" />
     </div>
   )
