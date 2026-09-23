@@ -185,7 +185,7 @@ export function fixtureOperations(initialPageId: string): Operation[] {
           family: 'Fixture Sans',
           source: 'asset',
           asset: 'a-sans-bold',
-          weight: 700,
+          weightRange: [100, 900],
           fallback: 'sans-serif',
         },
       ],

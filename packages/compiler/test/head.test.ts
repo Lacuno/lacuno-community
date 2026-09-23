@@ -104,6 +104,28 @@ describe('renderHead', () => {
     expect(renderHead(input)).toContain('href="/assets/aa.woff2" crossorigin>')
   })
 
+  it('emits a weight range for a variable face and preloads it when the range holds 400', () => {
+    const input = base()
+    for (const [id, hash] of [
+      ['a-bold', 'aa'],
+      ['a-variable', 'bb'],
+    ] as const)
+      input.doc.assets[id] = { id, name: id, kind: 'font', hash, mime: 'font/woff2', size: 1 }
+    input.doc.site.fonts = [
+      { family: 'Var', source: 'asset', asset: 'a-bold', weight: 700 },
+      { family: 'Var', source: 'asset', asset: 'a-variable', weightRange: [100, 900] },
+    ]
+    const head = renderHead(input)
+    expect(head).toContain(
+      '@font-face{font-family:"Var";src:url("/assets/bb.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}',
+    )
+    expect(head.match(/rel="preload"/g)).toHaveLength(1)
+    expect(head).toContain('href="/assets/bb.woff2" crossorigin>')
+    // A range without 400 is not the regular face, so the first face is preloaded.
+    input.doc.site.fonts[1]!.weightRange = [500, 900]
+    expect(renderHead(input)).toContain('href="/assets/aa.woff2" crossorigin>')
+  })
+
   it('escapes a font family that could break out of the font-face string or the style tag', () => {
     const input = base()
     input.doc.assets['a-font'] = {

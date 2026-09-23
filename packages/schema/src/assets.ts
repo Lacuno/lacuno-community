@@ -34,14 +34,25 @@ export type AssetRef = z.infer<typeof AssetRef>
  * provider option: a font loaded from a third party sends every visitor's IP address to that
  * party, which the Munich Regional Court ruled a GDPR violation for Google Fonts in 2022. See D013.
  */
-export const Font = z.strictObject({
-  family: z.string().min(1),
-  source: z.enum(['asset', 'system']),
-  asset: AssetId.optional(),
-  /** One entry is one face: several entries share a family. Missing means 400 and normal. */
-  weight: z.number().int().min(100).max(900).multipleOf(100).optional(),
-  style: z.enum(['normal', 'italic']).optional(),
-  /** Families to fall back to. The editor writes it after the family in font-family values. */
-  fallback: z.string().optional(),
-})
+const FontWeight = z.number().int().min(100).max(900).multipleOf(100)
+
+export const Font = z
+  .strictObject({
+    family: z.string().min(1),
+    source: z.enum(['asset', 'system']),
+    asset: AssetId.optional(),
+    /** One entry is one face: several entries share a family. Missing means 400 and normal. */
+    weight: FontWeight.optional(),
+    /** A variable face covers every weight from min to max; it replaces `weight`. */
+    weightRange: z
+      .tuple([FontWeight, FontWeight])
+      .refine(([min, max]) => min < max, 'weightRange min must be below max')
+      .optional(),
+    style: z.enum(['normal', 'italic']).optional(),
+    /** Families to fall back to. The editor writes it after the family in font-family values. */
+    fallback: z.string().optional(),
+  })
+  .refine((f) => f.weight === undefined || f.weightRange === undefined, {
+    message: 'a font face has weight or weightRange, not both',
+  })
 export type Font = z.infer<typeof Font>

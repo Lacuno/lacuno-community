@@ -16,9 +16,22 @@ export const WEIGHT_NAMES = [
 /** Stacks every site offers after its own families; they need no file. */
 export const FONT_STACKS = ['system-ui, sans-serif', 'Georgia, serif', 'ui-monospace, monospace']
 
-/** Prefills a face from a file name: `Inter-BoldItalic.woff2` is Inter, 700, italic. */
+/**
+ * Prefills a face from a file name: `Inter-BoldItalic.woff2` is Inter, 700, italic. A name with
+ * `Variable`, `VF` or `wght` is a variable face from 100 to 900: `Outfit-Variable.woff2` is Outfit.
+ */
 export function faceFromFileName(name: string) {
   const stem = name.replace(/\.[^.]*$/, '')
+  const variable = stem.search(/variable|vf|wght/i)
+  if (variable > 0)
+    return {
+      family: stem
+        .slice(0, variable)
+        .replace(/[-_[]+/g, ' ')
+        .trim(),
+      weightRange: [100, 900] as [number, number],
+      style: /italic/i.test(stem) ? ('italic' as const) : ('normal' as const),
+    }
   const cut = Math.max(stem.lastIndexOf('-'), stem.lastIndexOf('_'))
   const suffix = stem.slice(cut + 1).toLowerCase()
   const italic = suffix.endsWith('italic')
@@ -51,9 +64,10 @@ export const setFallback = (fonts: Font[], family: string, fallback: string) =>
     font.family === family ? { ...font, fallback: fallback || undefined } : font,
   )
 
-/** "Regular", "Bold", "Bold Italic", "Italic"; a system font is "System". */
+/** "Regular", "Bold", "Bold Italic", "Italic", "Variable"; a system font is "System". */
 export function faceLabel(font: Font) {
   if (font.source === 'system') return 'System'
+  if (font.weightRange) return font.style === 'italic' ? 'Variable Italic' : 'Variable'
   const weight = WEIGHT_NAMES[(font.weight ?? 400) / 100 - 1]!
   if (font.style !== 'italic') return weight
   return weight === 'Regular' ? 'Italic' : `${weight} Italic`

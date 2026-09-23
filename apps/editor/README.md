@@ -29,8 +29,10 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   every page, fonts, and redirects (from a path to a path or URL, with status 301, 302, 307 or 308).
   Each field saves when you leave it. **Fonts** lists faces grouped by family with each family's
   fallback. **Add font** uploads a WOFF2, WOFF, TTF or OTF file and asks for family, weight, style and
-  fallback, prefilled from the file name (`Inter-BoldItalic.woff2` is Inter, 700, italic); **Add
-  system font** asks for family and fallback. The font fields in the style panel and the text
+  fallback, prefilled from the file name (`Inter-BoldItalic.woff2` is Inter, 700, italic). **Variable
+  font** swaps the weight for a From and To range, one face for every weight in it; a file name with
+  `Variable`, `VF` or `wght` (`Outfit-Variable.woff2`) prefills it as 100 to 900. **Add system font**
+  asks for family and fallback. The font fields in the style panel and the text
   toolbar list the site's families as `Family, fallback` (the name quoted when it has spaces or
   other characters, `"Test Sans", sans-serif`), then `system-ui, sans-serif`, `Georgia, serif` and
   `ui-monospace, monospace`. A page's **•••** opens its settings: name, path, language (empty uses

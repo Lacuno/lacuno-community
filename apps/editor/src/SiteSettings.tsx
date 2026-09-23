@@ -116,6 +116,17 @@ export function ImageChoice({
   )
 }
 
+/** Weight options from 100 Thin to 900 Black, those that pass keep. */
+const weightOptions = (keep: (weight: number) => boolean) =>
+  WEIGHT_NAMES.map(
+    (name, i) =>
+      keep((i + 1) * 100) && (
+        <option key={name} value={(i + 1) * 100}>
+          {(i + 1) * 100} {name}
+        </option>
+      ),
+  )
+
 /**
  * The site's font faces grouped by family, each face removable and the fallback saved on blur,
  * plus the forms that add an uploaded face or a system font. Every change writes the whole list.
@@ -131,6 +142,7 @@ function FontSettings({
 }) {
   const { fonts } = doc.site
   const [face, setFace] = useState<Font | null>(null)
+  const range = face?.weightRange
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const save = (next: Font[]) => write('fonts', [{ type: 'site.update', fonts: next }])
@@ -199,20 +211,65 @@ function FontSettings({
           </label>
           {face.source === 'asset' && (
             <>
-              <label>
-                Weight
-                <select
-                  aria-label="Weight"
-                  value={face.weight}
-                  onChange={(event) => setFace({ ...face, weight: Number(event.target.value) })}
-                >
-                  {WEIGHT_NAMES.map((name, i) => (
-                    <option key={name} value={(i + 1) * 100}>
-                      {(i + 1) * 100} {name}
-                    </option>
-                  ))}
-                </select>
+              <label className="check-label">
+                <input
+                  type="checkbox"
+                  checked={!!face.weightRange}
+                  onChange={(event) =>
+                    setFace(
+                      event.target.checked
+                        ? { ...face, weight: undefined, weightRange: [100, 900] }
+                        : { ...face, weight: 400, weightRange: undefined },
+                    )
+                  }
+                />
+                Variable font
               </label>
+              {range ? (
+                <>
+                  <label>
+                    From
+                    <select
+                      aria-label="From"
+                      value={range[0]}
+                      onChange={(event) =>
+                        setFace({
+                          ...face,
+                          weightRange: [Number(event.target.value), range[1]],
+                        })
+                      }
+                    >
+                      {weightOptions((weight) => weight < range[1])}
+                    </select>
+                  </label>
+                  <label>
+                    To
+                    <select
+                      aria-label="To"
+                      value={range[1]}
+                      onChange={(event) =>
+                        setFace({
+                          ...face,
+                          weightRange: [range[0], Number(event.target.value)],
+                        })
+                      }
+                    >
+                      {weightOptions((weight) => weight > range[0])}
+                    </select>
+                  </label>
+                </>
+              ) : (
+                <label>
+                  Weight
+                  <select
+                    aria-label="Weight"
+                    value={face.weight}
+                    onChange={(event) => setFace({ ...face, weight: Number(event.target.value) })}
+                  >
+                    {weightOptions(() => true)}
+                  </select>
+                </label>
+              )}
               <label>
                 Style
                 <select

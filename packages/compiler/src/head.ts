@@ -41,7 +41,8 @@ function cssString(s: string): string {
 
 /**
  * Asset fonts get a font-face rule per face and one preload per family, for its regular face
- * (400 normal) or else its first. System fonts need nothing. No third parties.
+ * (normal, with weight 400 or a weight range containing 400) or else its first. System fonts
+ * need nothing. No third parties.
  */
 function renderFonts(
   doc: Document,
@@ -57,9 +58,10 @@ function renderFonts(
     const href = resolveAsset(asset)
     const ext = extensionForMime(asset.mime)
     const format = FONT_FORMAT[ext] ?? ext
-    const weight = f.weight ?? 400
+    const [min, max] = f.weightRange ?? [f.weight ?? 400, f.weight ?? 400]
+    const weight = min === max ? min : `${min} ${max}`
     const style = f.style ?? 'normal'
-    const regular = weight === 400 && style === 'normal'
+    const regular = min <= 400 && max >= 400 && style === 'normal'
     const seen = preloads.get(f.family)
     if (!seen || (regular && !seen.regular))
       preloads.set(f.family, {

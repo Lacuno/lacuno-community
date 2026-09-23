@@ -20,12 +20,20 @@ it('prefills family, weight and style from a font file name', () => {
     style: 'italic',
   })
   expect(faceFromFileName('Roboto-Regular.woff')).toMatchObject({ family: 'Roboto', weight: 400 })
-  expect(faceFromFileName('Inter-Variable.woff2')).toEqual({
-    family: 'Inter Variable',
-    weight: 400,
-    style: 'normal',
-  })
   expect(faceFromFileName('Bold.woff2')).toEqual({ family: 'Bold', weight: 400, style: 'normal' })
+})
+
+it('prefills a variable face from 100 to 900 when the name says Variable, VF or wght', () => {
+  const variable = { weightRange: [100, 900], style: 'normal' }
+  expect(faceFromFileName('Outfit-Variable.woff2')).toEqual({ family: 'Outfit', ...variable })
+  expect(faceFromFileName('Inter-Variable.woff2')).toEqual({ family: 'Inter', ...variable })
+  expect(faceFromFileName('Outfit[wght].ttf')).toEqual({ family: 'Outfit', ...variable })
+  expect(faceFromFileName('Recursive_VF.woff2')).toEqual({ family: 'Recursive', ...variable })
+  expect(faceFromFileName('outfit-latin-wght-normal.woff2')).toMatchObject(variable)
+  expect(faceFromFileName('outfit-latin-wght-italic.woff2')).toMatchObject({
+    weightRange: [100, 900],
+    style: 'italic',
+  })
 })
 
 it('lists the template font, then the built-in stacks', () => {
@@ -81,4 +89,7 @@ it('labels a face by weight and style', () => {
   expect(faceLabel(face(400, 'italic'))).toBe('Italic')
   expect(faceLabel(face(200))).toBe('Extra Light')
   expect(faceLabel({ family: 'F', source: 'system' })).toBe('System')
+  const variable: Font = { family: 'F', source: 'asset', asset: 'a', weightRange: [100, 900] }
+  expect(faceLabel(variable)).toBe('Variable')
+  expect(faceLabel({ ...variable, style: 'italic' })).toBe('Variable Italic')
 })

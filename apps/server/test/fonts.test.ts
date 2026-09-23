@@ -70,6 +70,22 @@ it('uploads a font in site settings, picks it in the Font control and publishes 
     await saved()
     await site.getByRole('button', { name: 'Remove Test Sans Bold', exact: true }).waitFor()
     await expect.poll(() => site.locator('.font-face').allTextContents()).toContain('Bold×')
+    // A variable face of the same family, italic so the regular preload stays the bold file.
+    await site.getByLabel('Upload font', { exact: true }).setInputFiles({
+      name: 'TestSans-Variable.woff2',
+      mimeType: '',
+      buffer: Buffer.concat([Buffer.from('wOF2'), Buffer.alloc(61)]),
+    })
+    expect(await form.getByLabel('Variable font', { exact: true }).isChecked()).toBe(true)
+    expect(await form.getByLabel('From', { exact: true }).inputValue()).toBe('100')
+    expect(await form.getByLabel('To', { exact: true }).inputValue()).toBe('900')
+    await form.getByLabel('Family', { exact: true }).fill('Test Sans')
+    await form.getByLabel('Style', { exact: true }).selectOption('italic')
+    await form.getByRole('button', { name: 'Add', exact: true }).click()
+    await saved()
+    await expect
+      .poll(() => site.locator('.font-face').allTextContents())
+      .toContain('Variable Italic×')
     await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
     await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/site-fonts.png') })
     await site.getByRole('button', { name: 'Close', exact: true }).click()
@@ -120,6 +136,7 @@ it('uploads a font in site settings, picks it in the Font control and publishes 
     expect(home).toContain(
       `@font-face{font-family:"Test Sans";src:url("${href}") format("woff2");font-weight:700;font-style:normal;font-display:swap}`,
     )
+    expect(home).toContain('font-weight:100 900;font-style:italic')
     const file = await server.published!.request(`${live}${href}`)
     expect(file.status).toBe(200)
     expect(file.headers.get('content-type')).toBe('font/woff2')
@@ -127,6 +144,10 @@ it('uploads a font in site settings, picks it in the Font control and publishes 
     // Removing the face drops the family from the list; the heading keeps its value.
     await page.getByRole('button', { name: 'Site settings', exact: true }).click()
     await site.getByRole('button', { name: 'Remove Test Sans Bold', exact: true }).click()
+    await saved()
+    await site
+      .getByRole('button', { name: 'Remove Test Sans Variable Italic', exact: true })
+      .click()
     await saved()
     await expect.poll(() => site.locator('.font-list').textContent()).not.toContain('Test Sans')
     await site.getByRole('button', { name: 'Close', exact: true }).click()

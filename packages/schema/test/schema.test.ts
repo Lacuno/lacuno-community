@@ -221,6 +221,18 @@ describe('document schema', () => {
     expect(() => parseDocument(doc)).toThrow(DocumentError)
   })
 
+  it('accepts a font face with a weight range instead of a weight, with min below max', () => {
+    const doc = fixtureDocument()
+    doc.site.fonts = [{ family: 'V', source: 'system', weightRange: [100, 900] }]
+    expect(parseDocument(doc).site.fonts[0]).toMatchObject({ weightRange: [100, 900] })
+    doc.site.fonts = [{ family: 'V', source: 'system', weight: 400, weightRange: [100, 900] }]
+    expect(() => parseDocument(doc)).toThrow(DocumentError)
+    doc.site.fonts = [{ family: 'V', source: 'system', weightRange: [700, 700] }]
+    expect(() => parseDocument(doc)).toThrow(DocumentError)
+    doc.site.fonts = [{ family: 'V', source: 'system', weightRange: [900, 100] }]
+    expect(() => parseDocument(doc)).toThrow(DocumentError)
+  })
+
   it('carries a revision that defaults to zero and must be a non-negative integer', () => {
     expect(createEmptyDocument().revision).toBe(0)
     expect(fixtureDocument().revision).toBe(0)
