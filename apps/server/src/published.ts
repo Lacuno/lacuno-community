@@ -9,9 +9,12 @@ export function publishedApp(reader: PublicationReader) {
   const app = new Hono()
   app.on(['GET', 'HEAD'], '*', async (c) => {
     const url = new URL(c.req.url)
-    const site = reader.siteForHost(url.hostname)
-    if (!site) return c.notFound()
-    const current = reader.current(site)
+    const host = reader.siteForHost(url.hostname)
+    if (!host) return c.notFound()
+    const site = host.siteId
+    // Staging must never be indexed, including its 404s.
+    if (host.target === 'staging') c.header('X-Robots-Tag', 'noindex, nofollow')
+    const current = reader.current(site, host.target)
     if (!current) return c.notFound()
     let name: string
     try {

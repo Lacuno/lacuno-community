@@ -15,7 +15,7 @@ const sqlite = new Database(path.join(directory, 'freeflow.sqlite'), {
 })
 const reader = new PublicationReader(sqlite, directory, base)
 // Fail startup for unsupported databases. Never migrate or start a build queue here.
-sqlite.prepare('SELECT site_id,release_id FROM publications LIMIT 1').all()
+sqlite.prepare('SELECT site_id,target,release_id FROM publications LIMIT 1').all()
 if (process.argv[2] === '--list') {
   console.log(JSON.stringify(reader.publications()))
   sqlite.close()

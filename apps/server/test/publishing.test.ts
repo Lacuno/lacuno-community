@@ -7,11 +7,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createServer, type ServerOptions } from '../src/app.js'
 import { backupWorkspace, restoreWorkspace } from '../src/backup.js'
 import { openDatabase } from '../src/database.js'
+import { PublicationReader } from '../src/publication-reader.js'
 
 const origin = 'http://localhost:3000'
 type History = {
   publishedId: string | null
   url: string
+  stagedId: string | null
+  stagingUrl: string
   releases: { id: string; revision: number; version: number; name: string | null; status: string }[]
 }
 const build = 30000
@@ -298,6 +301,75 @@ describe('publishing', () => {
       expect((await rename(firstId, 'Taken', other)).status).toBe(404)
       expect((await rename(randomUUID(), 'Missing')).status).toBe(404)
       expect(await release(firstId)).toMatchObject({ name: 'Launch day' })
+    },
+    build,
+  )
+
+  it(
+    'stages a release, promotes it without a rebuild and rolls production back on its own',
+    async () => {
+      // Drop the missing asset so the draft builds again.
+      expect((await edit(162, { type: 'asset.delete', id: 'a-missing' })).status).toBe(200)
+      const production = (await history()).publishedId
+      const { stagingUrl } = await history()
+      const staging = (path = '/') => server.published!.request(stagingUrl + path)
+      const { sqlite } = openDatabase(dir)
+      const reader = new PublicationReader(sqlite, dir, 'http://localhost:3001')
+      try {
+        const listed = reader.publications()
+        expect(stagingUrl).toBe(liveURL.replace('.localhost', '-staging.localhost'))
+        expect((await staging()).status).toBe(404)
+        expect((await staging()).headers.get('x-robots-tag')).toBe('noindex, nofollow')
+        const toStaging = (expectedId: string | null) =>
+          request(`${route}/releases`, cookie, {
+            expectedRevision: 163,
+            expectedId,
+            target: 'staging',
+          })
+        // The pointer guarded is the staging one, not production.
+        expect((await toStaging(production)).status).toBe(409)
+        const response = await toStaging(null)
+        expect(response.status).toBe(202)
+        const staged = ((await response.json()) as { id: string; target: string }).id
+        await waitFor(staged, 'ready')
+        expect(await history()).toMatchObject({ publishedId: production, stagedId: staged })
+        const page = await staging()
+        expect(page.headers.get('x-freeflow-release')).toBe(staged)
+        expect(page.headers.get('x-robots-tag')).toBe('noindex, nofollow')
+        expect((await staging('/missing')).headers.get('x-robots-tag')).toBe('noindex, nofollow')
+        const livePage = await live()
+        expect(livePage.headers.get('x-freeflow-release')).toBe(production)
+        expect(livePage.headers.get('x-robots-tag')).toBeNull()
+        // The cloud runtime's `--list` shape and rows are unchanged by a staging publication.
+        expect(reader.publications()).toEqual(listed)
+        expect(listed).toEqual([
+          { siteId: route.slice('/api/sites/'.length), releaseId: production },
+        ])
+
+        const activate = (releaseId: string, expectedId: string | null, target: string) =>
+          request(`${route}/releases/${releaseId}/activate`, cookie, { expectedId, target })
+        const count = (await history()).releases.length
+        expect((await activate(staged, staged, 'production')).status).toBe(409)
+        expect((await activate(staged, production, 'production')).status).toBe(200)
+        expect(await history()).toMatchObject({ publishedId: staged, stagedId: staged })
+        expect((await history()).releases).toHaveLength(count)
+        expect((await live()).headers.get('x-freeflow-release')).toBe(staged)
+
+        // Rolling production back leaves staging where it was.
+        expect((await activate(production!, staged, 'production')).status).toBe(200)
+        expect(await history()).toMatchObject({ publishedId: production, stagedId: staged })
+        expect((await staging()).headers.get('x-freeflow-release')).toBe(staged)
+
+        const failed = (await history()).releases.find((row) => row.status === 'failed')!
+        expect((await activate(failed.id, staged, 'staging')).status).toBe(404)
+        const next = await toStaging(staged)
+        const building = ((await next.json()) as { id: string }).id
+        expect((await activate(building, production, 'production')).status).toBe(409)
+        await waitFor(building, 'ready')
+        expect(await history()).toMatchObject({ publishedId: production, stagedId: building })
+      } finally {
+        sqlite.close()
+      }
     },
     build,
   )

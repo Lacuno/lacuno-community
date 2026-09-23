@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { hashAsset, parseDocument } from '@freeflow/schema'
 import type Database from 'better-sqlite3'
 import { HTTPException } from 'hono/http-exception'
-import { PublicationReader } from './publication-reader.js'
+import { PublicationReader, type Target } from './publication-reader.js'
 
 type ReleaseRow = {
   id: string
@@ -14,6 +14,7 @@ type ReleaseRow = {
   revision: number
   version: number
   name: string | null
+  target: Target
   document: string
   status: 'queued' | 'building' | 'ready' | 'failed'
   created_at: number
@@ -48,18 +49,21 @@ export class Releases extends PublicationReader {
   list(siteId: string) {
     const rows = this.sqlite
       .prepare(
-        'SELECT id,revision,version,name,status,created_at,finished_at,error,warnings FROM releases WHERE site_id = ? ORDER BY version DESC',
+        'SELECT id,revision,version,name,target,status,created_at,finished_at,error,warnings FROM releases WHERE site_id = ? ORDER BY version DESC',
       )
       .all(siteId) as Omit<ReleaseRow, 'document' | 'site_id' | 'owner' | 'lease_until'>[]
     return {
       enabled: true,
       publishedId: this.current(siteId),
       url: this.url(siteId),
+      stagedId: this.current(siteId, 'staging'),
+      stagingUrl: this.url(siteId, 'staging'),
       releases: rows.map((row) => ({
         id: row.id,
         revision: row.revision,
         version: row.version,
         name: row.name,
+        target: row.target,
         status: row.status,
         createdAt: row.created_at,
         finishedAt: row.finished_at,
@@ -69,11 +73,17 @@ export class Releases extends PublicationReader {
     }
   }
 
-  publish(siteId: string, revision: number, publishedId: string | null, name: string | null) {
+  publish(
+    siteId: string,
+    revision: number,
+    expectedId: string | null,
+    name: string | null,
+    target: Target = 'production',
+  ) {
     const id = randomUUID()
     this.sqlite
       .transaction(() => {
-        this.checkPublication(siteId, publishedId)
+        this.checkPublication(siteId, expectedId, target)
         const site = this.sqlite
           .prepare('SELECT document, revision FROM sites WHERE id = ?')
           .get(siteId) as { document: string; revision: number }
@@ -86,9 +96,9 @@ export class Releases extends PublicationReader {
           .get(siteId) as { version: number }
         this.sqlite
           .prepare(
-            "INSERT INTO releases(id,site_id,revision,version,name,document,status,created_at) VALUES(?,?,?,?,?,?,'queued',?)",
+            "INSERT INTO releases(id,site_id,revision,version,name,target,document,status,created_at) VALUES(?,?,?,?,?,?,?,'queued',?)",
           )
-          .run(id, siteId, revision, version, name, site.document, Date.now())
+          .run(id, siteId, revision, version, name, target, site.document, Date.now())
       })
       .immediate()
     void this.tick()
@@ -104,8 +114,8 @@ export class Releases extends PublicationReader {
       throw new HTTPException(404, { message: 'Release not found' })
   }
 
-  private checkPublication(siteId: string, expected: string | null) {
-    if (this.current(siteId) !== expected)
+  private checkPublication(siteId: string, expected: string | null, target: Target) {
+    if (this.current(siteId, target) !== expected)
       throw conflict('The published release changed. Refresh release history and try again.')
     if (
       this.sqlite
@@ -115,25 +125,26 @@ export class Releases extends PublicationReader {
       throw conflict('A publish is already queued or building for this site.')
   }
 
-  rollback(siteId: string, id: string, expected: string | null) {
+  /** Points a target at a ready release without a build: rollback, promote or stage. */
+  rollback(siteId: string, id: string, expected: string | null, target: Target = 'production') {
     this.sqlite
       .transaction(() => {
-        this.checkPublication(siteId, expected)
+        this.checkPublication(siteId, expected, target)
         const release = this.sqlite
           .prepare("SELECT id FROM releases WHERE id = ? AND site_id = ? AND status = 'ready'")
           .get(id, siteId)
         if (!release) throw new HTTPException(404, { message: 'Successful release not found' })
-        this.activate(siteId, id)
+        this.activate(siteId, id, target)
       })
       .immediate()
   }
 
-  private activate(siteId: string, id: string) {
+  private activate(siteId: string, id: string, target: Target) {
     this.sqlite
       .prepare(
-        'INSERT INTO publications(site_id,release_id) VALUES(?,?) ON CONFLICT(site_id) DO UPDATE SET release_id=excluded.release_id',
+        'INSERT INTO publications(site_id,target,release_id) VALUES(?,?,?) ON CONFLICT(site_id,target) DO UPDATE SET release_id=excluded.release_id',
       )
-      .run(siteId, id)
+      .run(siteId, target, id)
   }
 
   private async tick() {
@@ -181,7 +192,7 @@ export class Releases extends PublicationReader {
               "UPDATE releases SET status='ready',finished_at=?,warnings=?,owner=NULL,lease_until=NULL WHERE id=? AND owner=? AND status='building'",
             )
             .run(Date.now(), JSON.stringify(warnings), id, this.owner)
-          if (result.changes) this.activate(job!.site_id, id)
+          if (result.changes) this.activate(job!.site_id, id, job!.target)
         })
         .immediate()
     } catch (error) {

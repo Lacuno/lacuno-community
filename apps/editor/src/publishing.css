@@ -74,6 +74,22 @@
   padding: 4px 8px;
   background: #f0edf8;
 }
+.release-status[data-status="staging"] {
+  background: #e3f1fb;
+  color: #1d5c86;
+}
+.release-badges {
+  display: flex;
+  gap: 6px;
+}
+.publish-buttons {
+  display: grid;
+  gap: 6px;
+}
+.publish-links {
+  display: flex;
+  gap: 16px;
+}
 .release-status[data-status="failed"] {
   background: #fff0f1;
   color: #a03240;

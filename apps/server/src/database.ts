@@ -129,4 +129,22 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version=7').get()) return
+      sqlite.exec(`
+      ALTER TABLE publications RENAME TO publications_old;
+      CREATE TABLE publications (
+        site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        target TEXT NOT NULL CHECK(target IN ('production','staging')),
+        release_id TEXT NOT NULL REFERENCES releases(id),
+        PRIMARY KEY(site_id, target)
+      );
+      INSERT INTO publications SELECT site_id,'production',release_id FROM publications_old;
+      DROP TABLE publications_old;
+      ALTER TABLE releases ADD COLUMN target TEXT NOT NULL DEFAULT 'production' CHECK(target IN ('production','staging'));
+      INSERT INTO freeflow_migrations(version) VALUES(7);
+    `)
+    })
+    .immediate()
 }

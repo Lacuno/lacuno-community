@@ -102,7 +102,13 @@ without a build, or its text one line per node id; `page.screenshot` returns a P
 node through Playwright's Chromium, an optional dependency; `document.diff` summarises a dry-run
 batch or the changes since another `freeflow.json`
 ([spec](superpowers/specs/2026-09-23-mcp-preview-tools.md)).
-Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
+**Staging implemented:** **Publish vN to staging** builds the draft for
+`<site-id>-staging.<publishing base>`, which sends `X-Robots-Tag: noindex, nofollow`. The panel
+shows Live and Staging badges; **Promote vN to production** makes the staged build live without a
+rebuild, **Stage vN** points staging at any successful release and **Restore vN** stays the
+production rollback. The cloud runtime's `--list` still reports production only
+([spec](superpowers/specs/2026-09-23-staging-publish-design.md)).
+Managed custom domains/TLS are Cloud work. Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 The planned direction for editing on the canvas itself, an action bar under the selection with
 direct-manipulation controls, is written up in
@@ -121,8 +127,7 @@ areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.
   design tokens, pages, page settings and SEO, assets, fonts, undo and redo (all implemented).
 - Components with props (implemented). Slots and visible instance overrides move to Phase 2,
   where they are built together with the CMS (decided 2026-09-23).
-- Publish to staging and production from the instance, build history, rollback (build history and
-  rollback implemented; staging is the last Phase 1 build).
+- Publish to staging and production from the instance, build history, rollback (implemented).
 - Docker image and operator-written configuration via the self-hosting guide; `npx freeflow` remains planned.
 - Preview, screenshot and diff tools in MCP (implemented).
 - Remaining after staging: clicking a style field's source line to jump to the class, token or

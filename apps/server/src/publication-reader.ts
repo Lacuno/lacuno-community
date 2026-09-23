@@ -1,6 +1,8 @@
 import path from 'node:path'
 import type Database from 'better-sqlite3'
 
+export type Target = 'production' | 'staging'
+
 /** Read-only publication metadata, shared by the editor and standalone publishing process. */
 export class PublicationReader {
   readonly dataDir: string
@@ -24,26 +26,26 @@ export class PublicationReader {
     if (this.base.hostname.includes(':') || /^\d+\.\d+\.\d+\.\d+$/.test(this.base.hostname))
       throw new Error('Published base URL needs a hostname, such as localhost or sites.example.net')
   }
-  url(siteId: string) {
+  url(siteId: string, target: Target = 'production') {
     const url = new URL(this.base)
-    url.hostname = `${siteId}.${url.hostname}`
+    url.hostname = `${siteId}${target === 'staging' ? '-staging' : ''}.${url.hostname}`
     return url.origin
   }
-  siteForHost(hostname: string) {
+  siteForHost(hostname: string): { siteId: string; target: Target } | undefined {
     const suffix = `.${this.base.hostname}`
     if (!hostname.endsWith(suffix)) return
-    const id = hostname.slice(0, -suffix.length)
-    return /^[0-9a-f-]{36}$/.test(id) ? id : undefined
+    const match = hostname.slice(0, -suffix.length).match(/^([0-9a-f-]{36})(-staging)?$/)
+    if (match) return { siteId: match[1]!, target: match[2] ? 'staging' : 'production' }
   }
   directory(siteId: string, releaseId: string) {
     return path.join(this.dataDir, 'builds', siteId, releaseId)
   }
-  current(siteId: string): string | null {
+  current(siteId: string, target: Target = 'production'): string | null {
     return (
       (
-        this.sqlite.prepare('SELECT release_id FROM publications WHERE site_id = ?').get(siteId) as
-          | { release_id: string }
-          | undefined
+        this.sqlite
+          .prepare('SELECT release_id FROM publications WHERE site_id = ? AND target = ?')
+          .get(siteId, target) as { release_id: string } | undefined
       )?.release_id ?? null
     )
   }
@@ -56,11 +58,12 @@ export class PublicationReader {
         .all(siteId) as { id: string }[]
     ).map((row) => row.id)
   }
-  publications() {
+  /** `--list` prints the production rows; the cloud runtime parses exactly this shape. */
+  publications(target: Target = 'production') {
     return this.sqlite
       .prepare(
-        'SELECT site_id AS siteId, release_id AS releaseId FROM publications ORDER BY site_id',
+        'SELECT site_id AS siteId, release_id AS releaseId FROM publications WHERE target = ? ORDER BY site_id',
       )
-      .all() as { siteId: string; releaseId: string }[]
+      .all(target) as { siteId: string; releaseId: string }[]
   }
 }

@@ -78,6 +78,11 @@ Expose HTTPS through that proxy, leaving application ports private:
 | `editor.example.com` | `http://127.0.0.1:3000` | HTTPS; forward the original Host and request scheme |
 | `*.sites.example.net` | `http://127.0.0.1:3001` | HTTPS; preserve Host so the server identifies the site UUID |
 
+The same wildcard covers staging: `<site-id>-staging.sites.example.net` serves a site's staging
+publication, so no extra DNS record or certificate is needed. Every staging response carries
+`X-Robots-Tag: noindex, nofollow`; staging has no password or private link, so anyone with the
+address can open it.
+
 For a proxy in another container, connect it to the Compose network and use `freeflow:3000` and
 `freeflow:3001` instead of loopback. Only expose the proxy's HTTP/HTTPS ports publicly. Configure
 body-size/time limits to accommodate uploads (the API allows 15 MiB on its image-upload endpoint).

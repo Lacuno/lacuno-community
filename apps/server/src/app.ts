@@ -45,6 +45,14 @@ const ReleaseName = z
   .trim()
   .max(80)
   .transform((name) => name || null)
+/** The pointer the caller saw for the target; `publishedId` is its old name, accepted for one release. */
+const Pointer = {
+  expectedId: z.string().uuid().nullable().optional(),
+  publishedId: z.string().uuid().nullable().optional(),
+  target: z.enum(['production', 'staging']).default('production'),
+}
+const pointed = (input: { expectedId?: unknown; publishedId?: unknown }) =>
+  input.expectedId !== undefined || input.publishedId !== undefined
 const BatchInput = z.strictObject({
   expectedRevision: z.number().int().nonnegative(),
   /** Shape only; the store's engine validates each operation and names the one that failed. */
@@ -305,6 +313,8 @@ export async function createServer(options: ServerOptions) {
           enabled: false,
           publishedId: null,
           url: null,
+          stagedId: null,
+          stagingUrl: null,
           releases: [],
         },
       ),
@@ -314,20 +324,21 @@ export async function createServer(options: ServerOptions) {
       const input = z
         .strictObject({
           expectedRevision: z.number().int().nonnegative(),
-          publishedId: z.string().uuid().nullable(),
           name: ReleaseName.optional(),
+          ...Pointer,
         })
+        .refine(pointed)
         .safeParse(await c.req.json().catch(() => null))
       if (!input.success) return c.json({ error: 'Invalid publish request' }, 400)
-      return c.json(
-        releases.publish(
-          c.req.param('id'),
-          input.data.expectedRevision,
-          input.data.publishedId,
-          input.data.name ?? null,
-        ),
-        202,
+      const { expectedId, publishedId, target, expectedRevision, name } = input.data
+      const { id } = releases.publish(
+        c.req.param('id'),
+        expectedRevision,
+        expectedId ?? publishedId ?? null,
+        name ?? null,
+        target,
       )
+      return c.json({ id, target }, 202)
     })
     app.post('/api/sites/:id/releases/:releaseId/name', async (c) => {
       if (!releases) return c.json({ error: 'Publishing is not configured on this server.' }, 503)
@@ -341,11 +352,14 @@ export async function createServer(options: ServerOptions) {
     app.post('/api/sites/:id/releases/:releaseId/activate', async (c) => {
       if (!releases) return c.json({ error: 'Publishing is not configured on this server.' }, 503)
       const input = z
-        .strictObject({ publishedId: z.string().uuid().nullable() })
+        .strictObject(Pointer)
+        .refine(pointed)
         .safeParse(await c.req.json().catch(() => null))
       if (!input.success) return c.json({ error: 'Invalid rollback request' }, 400)
-      releases.rollback(c.req.param('id'), c.req.param('releaseId'), input.data.publishedId)
-      return c.json({ publishedId: c.req.param('releaseId') })
+      const { expectedId, publishedId, target } = input.data
+      const id = c.req.param('releaseId')
+      releases.rollback(c.req.param('id'), id, expectedId ?? publishedId ?? null, target)
+      return c.json({ id, target })
     })
     app.get('/api/sites/:id/document', async (c) => c.json((await store(c.req.param('id'))).read()))
     app.get('/api/sites/:id/preview', async (c) => {

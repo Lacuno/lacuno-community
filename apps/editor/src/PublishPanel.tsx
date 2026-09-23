@@ -3,10 +3,13 @@ import { api, message } from './api.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import './publishing.css'
 
+type Target = 'production' | 'staging'
 type Release = {
   id: string
   version: number
   name: string | null
+  /** The target the release was published for. */
+  target: Target
   status: 'queued' | 'building' | 'ready' | 'failed'
   createdAt: number
   finishedAt: number | null
@@ -17,10 +20,30 @@ type History = {
   enabled: boolean
   publishedId: string | null
   url: string | null
+  stagedId: string | null
+  stagingUrl: string | null
   releases: Release[]
 }
 
 const title = (row: Release) => (row.name ? `v${row.version} · ${row.name}` : `v${row.version}`)
+/** Every row action re-points one target at a ready release without a build. */
+const actions = {
+  restore: {
+    target: 'production',
+    ask: (release: string) => `Make ${release} live again?`,
+    confirm: 'Confirm rollback',
+  },
+  promote: {
+    target: 'production',
+    ask: (release: string) => `Promote ${release} to production?`,
+    confirm: 'Confirm promotion',
+  },
+  stage: {
+    target: 'staging',
+    ask: (release: string) => `Show ${release} on the staging site?`,
+    confirm: 'Confirm staging',
+  },
+} as const
 
 export function PublishPanel({
   siteId,
@@ -34,7 +57,7 @@ export function PublishPanel({
   const [history, setHistory] = useState<History>()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [confirm, setConfirm] = useState<string>()
+  const [confirm, setConfirm] = useState<{ id: string; action: keyof typeof actions }>()
   const [name, setName] = useState('')
   const [renaming, setRenaming] = useState<{ id: string; name: string }>()
   const refresh = useCallback(
@@ -45,8 +68,10 @@ export function PublishPanel({
     },
     [siteId],
   )
-  const pending =
-    history?.releases.some((row) => row.status === 'queued' || row.status === 'building') ?? false
+  const building = history?.releases.find(
+    (row) => row.status === 'queued' || row.status === 'building',
+  )
+  const pending = !!building
   // biome-ignore lint/correctness/useExhaustiveDependencies: accepting a new publish restarts polling after an idle history view.
   useEffect(() => {
     const controller = new AbortController()
@@ -86,8 +111,11 @@ export function PublishPanel({
     }
   }
   const current = history?.releases.find((row) => row.id === history.publishedId)
-  // The newest release and the live one stay in view; older ones fold away.
-  const latest = history?.releases.filter((row, index) => index === 0 || row === current) ?? []
+  const staged = history?.releases.find((row) => row.id === history.stagedId)
+  const pointer = (target: Target) => (target === 'staging' ? staged : current)?.id ?? null
+  // The newest, the live and the staged release stay in view; older ones fold away.
+  const latest =
+    history?.releases.filter((row, index) => index === 0 || row === current || row === staged) ?? []
   const earlier = history?.releases.filter((row) => !latest.includes(row)) ?? []
   const release = (row: Release) => (
     <li key={row.id}>
@@ -118,16 +146,24 @@ export function PublishPanel({
         ) : (
           <strong>{title(row)}</strong>
         )}
-        <span className="release-status" data-status={row.status}>
-          {row === current
-            ? 'Live'
-            : row.status === 'ready'
-              ? 'Ready'
-              : row.status === 'failed'
-                ? 'Failed'
-                : row.status === 'building'
-                  ? 'Building'
-                  : 'Queued'}
+        <span className="release-badges">
+          {row === current && <span className="release-status">Live</span>}
+          {row === staged && (
+            <span className="release-status" data-status="staging">
+              Staging
+            </span>
+          )}
+          {row !== current && row !== staged && (
+            <span className="release-status" data-status={row.status}>
+              {row.status === 'ready'
+                ? 'Ready'
+                : row.status === 'failed'
+                  ? 'Failed'
+                  : row.status === 'building'
+                    ? 'Building'
+                    : 'Queued'}
+            </span>
+          )}
         </span>
       </div>
       <time dateTime={new Date(row.createdAt).toISOString()}>
@@ -149,33 +185,64 @@ export function PublishPanel({
           Rename v{row.version}
         </button>
       )}
-      {row.status === 'ready' && row !== current && (
-        <button type="button" disabled={busy || pending} onClick={() => setConfirm(row.id)}>
+      {row === staged && row !== current && (
+        <button
+          type="button"
+          disabled={busy || pending}
+          onClick={() => setConfirm({ id: row.id, action: 'promote' })}
+        >
+          Promote v{row.version} to production
+        </button>
+      )}
+      {row.status === 'ready' && row !== current && row !== staged && (
+        <button
+          type="button"
+          disabled={busy || pending}
+          onClick={() => setConfirm({ id: row.id, action: 'restore' })}
+        >
           Restore v{row.version}
         </button>
       )}
-      {confirm === row.id && (
+      {row.status === 'ready' && row !== staged && (
+        <button
+          type="button"
+          disabled={busy || pending}
+          onClick={() => setConfirm({ id: row.id, action: 'stage' })}
+        >
+          Stage v{row.version}
+        </button>
+      )}
+      {confirm?.id === row.id && (
         <div className="rollback-confirm">
-          <p>Make {title(row)} live again? Your editing draft will stay unchanged.</p>
+          <p>{actions[confirm.action].ask(title(row))} Your editing draft will stay unchanged.</p>
           <button
             type="button"
             disabled={busy || pending}
-            onClick={() =>
+            onClick={() => {
+              const { target } = actions[confirm.action]
               void run(`/api/sites/${siteId}/releases/${row.id}/activate`, {
-                publishedId: current?.id ?? null,
+                expectedId: pointer(target),
+                target,
               })
-            }
+            }}
           >
-            Confirm rollback
+            {actions[confirm.action].confirm}
           </button>
           <button type="button" onClick={() => setConfirm(undefined)}>
-            Cancel rollback
+            Cancel
           </button>
         </div>
       )}
     </li>
   )
   const nextVersion = Math.max(0, ...(history?.releases.map((row) => row.version) ?? [])) + 1
+  const publish = (target: Target) =>
+    void run(`/api/sites/${siteId}/releases`, {
+      expectedRevision: revision,
+      expectedId: pointer(target),
+      name,
+      target,
+    }).then((ok) => ok && setName(''))
   return (
     <Dialog
       title="Publish your site"
@@ -200,6 +267,7 @@ export function PublishPanel({
                   <p>
                     {current ? `Live: ${title(current)}` : 'This site has not been published yet.'}
                   </p>
+                  {staged && <p>Staging: {title(staged)}</p>}
                 </div>
                 <label className="release-name">
                   Release name
@@ -210,30 +278,40 @@ export function PublishPanel({
                     onChange={(event) => setName(event.target.value)}
                   />
                 </label>
-                <button
-                  type="button"
-                  className="publish-action"
-                  disabled={busy || pending}
-                  onClick={() =>
-                    void run(`/api/sites/${siteId}/releases`, {
-                      expectedRevision: revision,
-                      publishedId: history.publishedId,
-                      name,
-                    }).then((ok) => ok && setName(''))
-                  }
-                >
-                  Publish v{nextVersion}
-                </button>
+                <div className="publish-buttons">
+                  <button
+                    type="button"
+                    className="publish-action"
+                    disabled={busy || pending}
+                    onClick={() => publish('production')}
+                  >
+                    Publish v{nextVersion}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || pending}
+                    onClick={() => publish('staging')}
+                  >
+                    Publish v{nextVersion} to staging
+                  </button>
+                </div>
               </div>
-              {current && history.url && (
-                <a href={history.url} target="_blank" rel="noopener noreferrer">
-                  Open published site ↗
-                </a>
-              )}
-              {pending && (
+              <div className="publish-links">
+                {current && history.url && (
+                  <a href={history.url} target="_blank" rel="noopener noreferrer">
+                    Open published site ↗
+                  </a>
+                )}
+                {staged && history.stagingUrl && (
+                  <a href={history.stagingUrl} target="_blank" rel="noopener noreferrer">
+                    Open staging site ↗
+                  </a>
+                )}
+              </div>
+              {building && (
                 <p role="status">
-                  Publishing… You can close this window and keep editing. The current live release
-                  stays available.
+                  {building.target === 'staging' ? 'Publishing to staging…' : 'Publishing…'} You can
+                  close this window and keep editing. The current live release stays available.
                 </p>
               )}
             </>

@@ -40,11 +40,18 @@ it('backs up pending releases without mutating live state and rejects incomplete
     expect(created.status).toBe(201)
     const sqlite = new Database(path.join(dataDir, 'freeflow.sqlite'))
     try {
+      const releaseId = randomUUID()
       sqlite
         .prepare(
           "INSERT INTO releases(id,site_id,revision,document,status,created_at,version) SELECT ?,id,revision,document,'queued',?,1 FROM sites",
         )
-        .run(randomUUID(), Date.now())
+        .run(releaseId, Date.now())
+      // Both pointers travel with the SQLite snapshot.
+      sqlite
+        .prepare(
+          "INSERT INTO publications(site_id,target,release_id) SELECT id,'production',? FROM sites UNION ALL SELECT id,'staging',? FROM sites",
+        )
+        .run(releaseId, releaseId)
       const backup = path.join(root, 'backup')
       await backupWorkspace(dataDir, backup)
       expect(
@@ -56,6 +63,13 @@ it('backs up pending releases without mutating live state and rejects incomplete
       ).toBe('failed')
       snapshot.close()
       await restoreWorkspace(backup, path.join(root, 'restored'))
+      const restored = new Database(path.join(root, 'restored', 'freeflow.sqlite'), {
+        readonly: true,
+      })
+      expect(
+        restored.prepare('SELECT target FROM publications ORDER BY target').pluck().all(),
+      ).toEqual(['production', 'staging'])
+      restored.close()
       await expect(backupWorkspace(dataDir, path.join(dataDir, 'unsafe'))).rejects.toThrow(
         'outside',
       )
