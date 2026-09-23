@@ -201,6 +201,16 @@ describe('document schema', () => {
     expect(() => parseDocument(doc)).toThrow(DocumentError)
   })
 
+  it('accepts a page language tag and rejects a language name', () => {
+    const doc = fixtureDocument()
+    for (const lang of ['en', 'de-AT']) {
+      doc.pages['p-home']!.lang = lang
+      expect(parseDocument(doc).pages['p-home']!.lang).toBe(lang)
+    }
+    doc.pages['p-home']!.lang = 'English'
+    expect(() => parseDocument(doc)).toThrow(DocumentError)
+  })
+
   it('accepts a font face with weight and style, rejects an odd weight, keeps the old shape', () => {
     const doc = fixtureDocument()
     doc.site.fonts = [{ family: 'Old', source: 'system' }]

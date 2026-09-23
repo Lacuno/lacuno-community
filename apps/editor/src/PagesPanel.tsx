@@ -3,7 +3,7 @@ import type { Document, Page } from '@freeflow/schema'
 import { useState } from 'react'
 import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
-import { canonicalError, duplicatePage, pagePathError, pageSeo } from './pages.js'
+import { canonicalError, duplicatePage, langError, pagePathError, pageSeo } from './pages.js'
 import { CodeField, codeInfo, ImageChoice, SiteSettings } from './SiteSettings.js'
 
 export function PagesPanel({
@@ -116,6 +116,7 @@ function PageSettings({
 }) {
   const [name, setName] = useState(page?.name ?? '')
   const [path, setPath] = useState(page?.path ?? '')
+  const [lang, setLang] = useState(page?.lang ?? '')
   const [title, setTitle] = useState(page?.seo?.title ?? '')
   const [description, setDescription] = useState(page?.seo?.description ?? '')
   const [canonical, setCanonical] = useState(page?.seo?.canonical ?? '')
@@ -145,7 +146,9 @@ function PageSettings({
           event.preventDefault()
           const issue = !name.trim()
             ? 'Enter a page name.'
-            : pagePathError(doc, path.trim(), page?.id) || canonicalError(canonical.trim())
+            : pagePathError(doc, path.trim(), page?.id) ||
+              langError(lang.trim()) ||
+              canonicalError(canonical.trim())
           if (issue) {
             setError(issue)
             return
@@ -164,6 +167,7 @@ function PageSettings({
                 id: page.id,
                 name: name.trim(),
                 path: path.trim(),
+                lang: lang.trim() || null,
                 seo,
                 headCode: headCode || null,
                 bodyCode: bodyCode || null,
@@ -178,6 +182,7 @@ function PageSettings({
                   id,
                   name: name.trim(),
                   path: path.trim(),
+                  lang: lang.trim() || undefined,
                   seo,
                   headCode: headCode || undefined,
                   bodyCode: bodyCode || undefined,
@@ -241,6 +246,16 @@ function PageSettings({
         {path.trim() === '/404' && (
           <p className="note">Served for unknown addresses. Not listed in the sitemap.</p>
         )}
+        <label>
+          Language
+          <input
+            value={lang}
+            disabled={disabled}
+            placeholder={doc.site.locale}
+            onChange={(event) => setLang(event.target.value)}
+          />
+        </label>
+        <p className="hint">Leave empty to use the site language.</p>
         <label>
           SEO title
           <input

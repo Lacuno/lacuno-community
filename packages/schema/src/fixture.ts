@@ -297,6 +297,7 @@ export function fixtureDocument(): Document {
         root: 'n-post',
         collection: 'col-posts',
         seo: { noindex: true },
+        lang: 'en-GB',
       },
       'p-not-found': { id: 'p-not-found', name: 'Not found', path: '/404', root: 'n-not-found' },
     },

@@ -99,7 +99,7 @@ export function renderHead(input: HeadInput): string {
   parts.push(og('og:type', 'website'))
   parts.push(og('og:title', title))
   parts.push(og('og:site_name', doc.site.name))
-  parts.push(og('og:locale', doc.site.locale))
+  parts.push(og('og:locale', page.lang ?? doc.site.locale))
   if (seo?.description) parts.push(og('og:description', seo.description))
   if (siteUrl) parts.push(og('og:url', absolute(path)))
   if (seo?.ogImage) {

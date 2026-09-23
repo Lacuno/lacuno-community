@@ -8,6 +8,7 @@ import { referencesToPage, subtreeIds } from '../references.js'
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 
 const PagePath = Page.shape.path
+const PageLang = Page.shape.lang.unwrap()
 
 function checkPageRefs(
   ctx: PlanContext,
@@ -32,6 +33,7 @@ const pageCreate = defineOperation(
     folder: FolderId.optional(),
     collection: CollectionId.optional(),
     seo: Seo.optional(),
+    lang: PageLang.optional(),
     headCode: z.string().optional(),
     bodyCode: z.string().optional(),
     root: NodeLiteral.optional(),
@@ -42,7 +44,7 @@ const pageCreate = defineOperation(
     const id = ctx.id('page', op.id)
     const { rootId, patches } = materialize(op.root ?? { type: 'element', tag: 'main' }, null, ctx)
     const page: Record<string, unknown> = { id, name: op.name, path: op.path, root: rootId }
-    for (const key of ['folder', 'collection', 'seo', 'headCode', 'bodyCode'] as const)
+    for (const key of ['folder', 'collection', 'seo', 'lang', 'headCode', 'bodyCode'] as const)
       if (op[key] !== undefined) page[key] = op[key]
     return [...patches, { op: 'set', path: ['pages', id], value: page }]
   },
@@ -57,6 +59,7 @@ const pageUpdate = defineOperation(
     folder: FolderId.nullable().optional(),
     collection: CollectionId.nullable().optional(),
     seo: Seo.nullable().optional(),
+    lang: PageLang.nullable().optional(),
     headCode: z.string().nullable().optional(),
     bodyCode: z.string().nullable().optional(),
   }),

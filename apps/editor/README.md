@@ -33,9 +33,9 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   system font** asks for family and fallback. The font fields in the style panel and the text
   toolbar list the site's families as `Family, fallback` (the name quoted when it has spaces or
   other characters, `"Test Sans", sans-serif`), then `system-ui, sans-serif`, `Georgia, serif` and
-  `ui-monospace, monospace`. A page's **•••** opens its settings: name, path, SEO title and
-  description, canonical URL, **Hide from search engines**, social image, and head and body code for
-  that page. A page at `/404` is the not-found page, marked **Not found** in the list and served for
+  `ui-monospace, monospace`. A page's **•••** opens its settings: name, path, language (empty uses
+  the site language), SEO title and description, canonical URL, **Hide from search engines**, social
+  image, and head and body code for that page. A page at `/404` is the not-found page, marked **Not found** in the list and served for
   unknown addresses; **New page** offers it as a checkbox.
 - Click the canvas or a layer to select an element. Desktop, tablet and mobile buttons change the
   iframe viewport; the canvas scales to fit available space without changing its media-query width.

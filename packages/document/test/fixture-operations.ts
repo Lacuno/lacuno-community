@@ -343,6 +343,7 @@ export function fixtureOperations(initialPageId: string): Operation[] {
       path: '/blog/[slug]',
       collection: 'col-posts',
       seo: { noindex: true },
+      lang: 'en-GB',
       root: {
         type: 'element',
         id: 'n-post',

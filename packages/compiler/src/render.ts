@@ -73,7 +73,7 @@ export function render(
     Object.values(doc.styles).some((style) => style.property === '--ff-entrance')
       ? `<script>${MOTION_SCRIPT}</script>`
       : '')
-  return { htmlAttrs: { lang: doc.site.locale }, head, body, warnings: state.warnings }
+  return { htmlAttrs: { lang: page.lang ?? doc.site.locale }, head, body, warnings: state.warnings }
 }
 
 /** Wraps the parts in a full document. Used by tests; Astro does this in production. */

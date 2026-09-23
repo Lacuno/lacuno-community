@@ -74,6 +74,17 @@ describe('pages', () => {
     failing([{ type: 'page.update', id: 'nope', name: 'x' }], /unknown page nope/)
     failing([{ type: 'page.delete', id: 'nope' }], /unknown page nope/)
   })
+  it('sets a page language on create and update, clears it, and refuses a malformed one', () => {
+    const { document } = run([
+      { type: 'page.create', id: 'p-about', name: 'About', path: '/about', lang: 'de-AT' },
+      { type: 'page.update', id: 'p-home', lang: 'en' },
+      { type: 'page.update', id: 'p-post', lang: null },
+    ])
+    expect(document.pages['p-about']!.lang).toBe('de-AT')
+    expect(document.pages['p-home']!.lang).toBe('en')
+    expect(document.pages['p-post']).not.toHaveProperty('lang')
+    failing([{ type: 'page.update', id: 'p-home', lang: 'English' }], /invalid input: lang/)
+  })
   it('refuses deleting a page a node binding points at, and allows it once the node is gone', () => {
     const doc = run([
       {

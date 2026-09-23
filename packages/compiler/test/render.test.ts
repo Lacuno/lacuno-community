@@ -34,6 +34,9 @@ describe('render', () => {
     expect(result.head).toContain(
       '<link rel="canonical" href="https://example.com/blog/hello-world">',
     )
+    // The post page sets its own language over the site locale.
+    expect(result.htmlAttrs).toEqual({ lang: 'en-GB' })
+    expect(result.head).toContain('<meta property="og:locale" content="en-GB">')
     expect(assembleDocument(result)).toMatchSnapshot()
   })
 

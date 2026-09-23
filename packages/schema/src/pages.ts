@@ -21,6 +21,11 @@ export const Page = z.object({
   /** A collection page renders once per entry; `path` must contain a `[param]`. */
   collection: CollectionId.optional(),
   seo: Seo.optional(),
+  /** BCP 47 language tag; overrides `site.locale` for this page. */
+  lang: z
+    .string()
+    .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/)
+    .optional(),
   headCode: z.string().optional(),
   bodyCode: z.string().optional(),
 })

@@ -37,6 +37,12 @@ export function canonicalError(value: string) {
     : 'Enter a full address, such as https://example.com/about.'
 }
 
+export function langError(value: string) {
+  return !value || Page.shape.lang.safeParse(value).success
+    ? ''
+    : 'Enter a language code such as en or de-AT.'
+}
+
 export function redirectError(doc: Document, from: string, to: string) {
   if (!/^\/[^\s?#]*$/.test(from)) return 'Redirect from a path on this site, such as /old-page.'
   if (!/^\/\S*$/.test(to) && !isHttpUrl(to))

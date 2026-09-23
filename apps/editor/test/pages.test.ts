@@ -4,6 +4,7 @@ import { expect, it } from 'vitest'
 import {
   canonicalError,
   duplicatePage,
+  langError,
   pagePathError,
   pageSeo,
   redirectError,
@@ -95,6 +96,8 @@ it('accepts only an origin as the public site URL', () => {
   expect(canonicalError('')).toBe('')
   expect(canonicalError('https://example.com/about')).toBe('')
   expect(canonicalError('/about')).not.toBe('')
+  for (const lang of ['', 'en', 'de-AT']) expect(langError(lang)).toBe('')
+  expect(langError('English')).not.toBe('')
 })
 
 it('refuses malformed, self and duplicate redirects', () => {

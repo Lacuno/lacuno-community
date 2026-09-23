@@ -2,7 +2,7 @@
 
 exports[`render > renders a collection page for an entry with the entry path in the head 1`] = `
 "<!doctype html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,7 +12,7 @@ exports[`render > renders a collection page for an entry with the entry path in 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Post">
 <meta property="og:site_name" content="Fixture Co">
-<meta property="og:locale" content="en">
+<meta property="og:locale" content="en-GB">
 <meta property="og:url" content="https://example.com/blog/hello-world">
 <meta name="twitter:card" content="summary">
 <link rel="preload" as="font" type="font/woff2" href="/assets/abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789.woff2" crossorigin>
