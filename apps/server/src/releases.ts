@@ -78,7 +78,7 @@ export class Releases extends PublicationReader {
     revision: number,
     expectedId: string | null,
     name: string | null,
-    target: Target = 'production',
+    target: Target,
   ) {
     const id = randomUUID()
     this.sqlite
@@ -126,7 +126,7 @@ export class Releases extends PublicationReader {
   }
 
   /** Points a target at a ready release without a build: rollback, promote or send to testing. */
-  rollback(siteId: string, id: string, expected: string | null, target: Target = 'production') {
+  rollback(siteId: string, id: string, expected: string | null, target: Target) {
     this.sqlite
       .transaction(() => {
         this.checkPublication(siteId, expected, target)

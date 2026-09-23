@@ -16,15 +16,17 @@ type Release = {
   error: string | null
   warnings: { message: string }[]
 }
+/** The pointers and URLs are only sent while publishing is enabled. */
 type History = {
   enabled: boolean
-  publishedId: string | null
-  url: string | null
-  testingId: string | null
-  testingUrl: string | null
+  publishedId?: string | null
+  url?: string | null
+  testingId?: string | null
+  testingUrl?: string | null
   releases: Release[]
 }
 
+const statusLabel = { queued: 'Queued', building: 'Building', ready: 'Ready', failed: 'Failed' }
 const title = (row: Release) => (row.name ? `v${row.version} · ${row.name}` : `v${row.version}`)
 /** Every row action re-points one target at a ready release without a build. */
 const actions = {
@@ -112,7 +114,8 @@ export function PublishPanel({
   }
   const current = history?.releases.find((row) => row.id === history.publishedId)
   const testing = history?.releases.find((row) => row.id === history.testingId)
-  const pointer = (target: Target) => (target === 'testing' ? testing : current)?.id ?? null
+  const pointer = (target: Target) =>
+    (target === 'testing' ? history?.testingId : history?.publishedId) ?? null
   // The newest, the live and the testing release stay in view; older ones fold away.
   const latest =
     history?.releases.filter((row, index) => index === 0 || row === current || row === testing) ??
@@ -156,13 +159,7 @@ export function PublishPanel({
           )}
           {row !== current && row !== testing && (
             <span className="release-status" data-status={row.status}>
-              {row.status === 'ready'
-                ? 'Ready'
-                : row.status === 'failed'
-                  ? 'Failed'
-                  : row.status === 'building'
-                    ? 'Building'
-                    : 'Queued'}
+              {statusLabel[row.status]}
             </span>
           )}
         </span>

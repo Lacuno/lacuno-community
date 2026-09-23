@@ -59,11 +59,11 @@ export class PublicationReader {
     ).map((row) => row.id)
   }
   /** `--list` prints the production rows; the cloud runtime parses exactly this shape. */
-  publications(target: Target = 'production') {
+  publications() {
     return this.sqlite
       .prepare(
-        'SELECT site_id AS siteId, release_id AS releaseId FROM publications WHERE target = ? ORDER BY site_id',
+        "SELECT site_id AS siteId, release_id AS releaseId FROM publications WHERE target = 'production' ORDER BY site_id",
       )
-      .all(target) as { siteId: string; releaseId: string }[]
+      .all() as { siteId: string; releaseId: string }[]
   }
 }
