@@ -20,8 +20,8 @@
   color: #62677c;
 }
 /* Direct children only: the shared link popover sits in this row but keeps its own sizing. */
-:where(.text-toolbar-fields, .text-field) > label :where(input, select),
-:where(.text-toolbar-fields, .text-field) > .token-field > label :where(input, select),
+:is(.text-toolbar-fields, .text-field) > label :is(input, select),
+:is(.text-toolbar-fields, .text-field) > .token-field > label :is(input, select),
 .text-toolbar-fields > button {
   padding: 4px 8px;
   line-height: normal;
@@ -67,7 +67,7 @@
 .text-toolbar-fields .text-alignment select {
   width: 90px;
 }
-.text-toolbar-fields input[type="color"] {
+:is(.text-toolbar-fields, .text-field) > label > input[type="color"] {
   width: 32px;
   padding: 3px;
 }
