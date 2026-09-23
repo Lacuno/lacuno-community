@@ -114,6 +114,8 @@ export function Canvas({
   const selectionCleanup = useRef<(() => void) | undefined>(undefined)
   // The sidebar spacing input with focus, forwarded to the overlay so it shows the boxes.
   const spacingFocus = useRef<Selection['spacingFocus']>(null)
+  // The nodes an agent batch just changed, outlined on the canvas until `until`.
+  const flash = useRef({ ids: [] as string[], until: 0 })
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
   useEffect(
     () => () => {
@@ -362,11 +364,16 @@ export function Canvas({
     const focus = (event: Event) => {
       spacingFocus.current = (event as CustomEvent<Selection['spacingFocus']>).detail
     }
+    const flashNodes = (event: Event) => {
+      flash.current = { ids: (event as CustomEvent<string[]>).detail, until: Date.now() + 1000 }
+    }
     window.addEventListener('freeflow:motion-preview', preview)
     window.addEventListener('freeflow:spacing-focus', focus)
+    window.addEventListener('freeflow:flash', flashNodes)
     return () => {
       window.removeEventListener('freeflow:motion-preview', preview)
       window.removeEventListener('freeflow:spacing-focus', focus)
+      window.removeEventListener('freeflow:flash', flashNodes)
       clearTimeout(timer)
       cleanup?.()
     }
@@ -405,6 +412,7 @@ export function Canvas({
               swatches: latest.current.swatches,
               tokens: latest.current.tokens,
               spacingFocus: spacingFocus.current,
+              flash: Date.now() < flash.current.until ? flash.current.ids : [],
             }),
             (next) => latest.current.onState(next),
             (edit: StyleEdit) =>

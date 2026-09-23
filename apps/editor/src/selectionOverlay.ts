@@ -29,6 +29,8 @@ export type Selection = {
   tokens: Record<'spacing' | 'size', { ref: string; name: string; value: CssValue }[]>
   /** The spacing side whose sidebar input has focus, so its boxes show without the chip. */
   spacingFocus: { kind: 'padding' | 'margin'; side: Side } | null
+  /** Nodes an agent batch just changed, outlined briefly whether or not anything is selected. */
+  flash: string[]
 }
 
 const svg = (icon: string) =>
@@ -130,6 +132,9 @@ export function selectionOverlay(
     .strip.thin.left span { right:100%;padding-right:2px; }
     .strip.thin.right span { left:100%;padding-left:2px; }
     .tag { position:absolute;padding:2px 6px;border-radius:4px;background:#1f1533;color:white;box-shadow:0 2px 8px #0004;pointer-events:none;white-space:nowrap; }
+    :host([data-idle]) > :not(.flash) { display:none !important; }
+    .flash > div { position:absolute;box-sizing:border-box;border:2px solid #12a150;border-radius:2px;animation:flash-fade 1s ease-in forwards; }
+    @keyframes flash-fade { from { opacity:1; } to { opacity:0; } }
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
   </style><svg class="frame"><rect class="selection-base"/><rect class="selection-dashes"/></svg>
@@ -163,7 +168,7 @@ export function selectionOverlay(
         `<div class="handle ${kind} ${side}" data-side="${side}" data-kind="${kind}"></div>`,
     )
     .join('')}</div>
-  <div class="tag" hidden></div>`
+  <div class="tag" hidden></div><div class="flash"></div>`
   doc.body.append(host)
   const rects = shadow.querySelectorAll('rect')
   const topBar = shadow.querySelector<HTMLElement>('.bar-top')!
@@ -192,6 +197,7 @@ export function selectionOverlay(
   const strips = shadow.querySelectorAll<HTMLElement>('.strip')
   const spacingChip = shadow.querySelector<HTMLButtonElement>('.spacing')!
   const tag = shadow.querySelector<HTMLElement>('.tag')!
+  const flashLayer = shadow.querySelector<HTMLElement>('.flash')!
 
   // Which menu is open, and the anchor bar it hangs off.
   let open: { el: HTMLElement; anchor: HTMLElement } | undefined
@@ -616,6 +622,22 @@ export function selectionOverlay(
     }
   }
   let frame = 0
+  let flashing = ''
+  const paintFlash = (ids: string[]) => {
+    if (ids.join() !== flashing) {
+      flashing = ids.join()
+      flashLayer.replaceChildren(...ids.map(() => doc.createElement('div')))
+    }
+    ids.forEach((id, index) => {
+      const outline = flashLayer.children[index] as HTMLElement
+      const bounds = doc
+        .querySelector(`[data-freeflow-node="${CSS.escape(id)}"]`)
+        ?.getBoundingClientRect()
+      outline.hidden = !bounds
+      if (bounds)
+        outline.style.cssText = `left:${bounds.left}px;top:${bounds.top}px;width:${bounds.width}px;height:${bounds.height}px`
+    })
+  }
   const paint = () => {
     const selected = doc.querySelector('[data-freeflow-selected]')
     // Close only when the selection moves to a different element, not while it is briefly
@@ -634,9 +656,11 @@ export function selectionOverlay(
       bounds.right > 0 &&
       bounds.top < view.innerHeight &&
       bounds.left < view.innerWidth
-    host.style.display = visible ? 'block' : 'none'
+    const selection = latest()
+    paintFlash(selection.flash)
+    host.style.display = visible || flashing ? 'block' : 'none'
+    host.toggleAttribute('data-idle', !visible)
     if (visible) {
-      const selection = latest()
       const info = stateInfo(selection.state)
       const key = `${selection.name}|${selection.scope}|${selection.state}|${selection.states.join()}`
       if (key !== shown) {

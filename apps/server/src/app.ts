@@ -19,9 +19,10 @@ import { and, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
+import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
-import { siteEvents, summarize } from './events.js'
+import { type SiteEvent, siteEvents, summarize } from './events.js'
 import { GatewayAuth, type GatewayOptions } from './gateway-auth.js'
 import { mcpRoutes } from './mcp.js'
 import { createOAuth, oauthPlugins } from './oauth.js'
@@ -353,6 +354,32 @@ export async function createServer(options: ServerOptions) {
       return c.json({ id, target })
     })
     app.get('/api/sites/:id/document', async (c) => c.json((await store(c.req.param('id'))).read()))
+    // Every committed batch as it lands, after replaying the kept ones the client has not seen.
+    app.get('/api/sites/:id/events', (c) => {
+      const id = c.req.param('id')
+      const since = Number(c.req.header('Last-Event-ID') ?? c.req.query('since') ?? 0)
+      const response = streamSSE(c, async (stream) => {
+        // One write at a time, so the replay and live events arrive in revision order.
+        let writes = Promise.resolve()
+        const send = (event: SiteEvent) => {
+          writes = writes.then(() =>
+            stream.writeSSE({
+              event: 'batch',
+              id: String(event.revision),
+              data: JSON.stringify(event),
+            }),
+          )
+        }
+        for (const event of siteEvents.recent(id)) if (event.revision > since) send(event)
+        stream.onAbort(siteEvents.subscribe(id, send))
+        while (!stream.aborted) {
+          await stream.sleep(25_000)
+          await stream.write(': heartbeat\n\n')
+        }
+      })
+      response.headers.set('Cache-Control', 'no-store')
+      return response
+    })
     app.get('/api/sites/:id/preview', async (c) => {
       const { document, revision } = (await store(c.req.param('id'))).read()
       const page = document.pages[c.req.query('page') ?? '']
