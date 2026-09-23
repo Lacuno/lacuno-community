@@ -348,7 +348,7 @@ export function Inspector({
                       : localValue(doc, node, property, breakpoint, state),
                   set: changeFormatting,
                 }}
-                source={(property) => <SourceLine {...controls} property={property} />}
+                source={(property) => <SourceLine {...controls} property={property} compact />}
                 linkDisabled={
                   !settled ||
                   (node.text.type !== 'doc' && node.text.type !== 'static') ||

@@ -184,35 +184,46 @@ it('names the source of each style: local by scope, class, preset, token, ancest
   const doc = fixtureDocument()
   const title = doc.nodes['n-hero-title']!
   const cta = doc.nodes['n-hero-cta']!
-  const label = (
+  const full = (
     node = title,
     property: string,
     breakpoint = 'base',
     state: 'none' | 'hover' = 'none',
     changes = {},
+    computed?: string,
   ) =>
     sourceLabel(
       doc,
       styleSource(doc, node, property, breakpoint, state, changes),
       breakpoint,
       state,
+      computed,
+      property,
     )
-  expect(label(title, 'letter-spacing')).toBe('Local')
-  expect(label(title, 'letter-spacing', 'tablet')).toBe('Local · Desktop')
-  expect(label(title, 'letter-spacing', 'base', 'hover')).toBe('Local · base state')
-  expect(label(title, 'font-size')).toBe('Class heading')
-  expect(label(cta, 'background-color', 'base', 'hover')).toBe('Class primary · brand.hover')
-  expect(label(cta, 'background-color', 'tablet')).toBe('Class primary · Desktop · brand')
-  expect(label(cta, 'padding-top')).toBe('Class button')
+  const label = (...args: Parameters<typeof full>) => full(...args).text
+  expect(label(title, 'letter-spacing')).toBe('-0.02em · local')
+  expect(label(title, 'letter-spacing', 'tablet')).toBe('-0.02em · local, Desktop')
+  expect(label(title, 'letter-spacing', 'base', 'hover')).toBe('-0.02em · local, base state')
+  expect(label(title, 'font-size')).toBe('clamp(2rem, 5vw, 4rem) · class heading')
+  expect(label(cta, 'background-color', 'base', 'hover')).toBe('brand.hover · class primary')
+  expect(label(cta, 'background-color', 'tablet')).toBe('brand · class primary, Desktop')
+  expect(label(cta, 'padding-top')).toBe('var(--space-sm) var(--space-md) · class button')
+  expect(label(cta, 'padding-top', 'base', 'none', {}, '8px')).toBe('8px · class button')
   expect(styleSource(doc, title, 'font-family')).toMatchObject({
     kind: 'inherited',
     from: 'n-home',
   })
-  expect(label(title, 'font-family')).toBe('From Body · Class page · body')
-  expect(label(title, 'width')).toBe('Default')
-  expect(label(title, 'text-align', 'tablet')).toBe('Default')
-  expect(label(title, 'font-family', 'base', 'none', { 'font-family': rem(1) })).toBe('Local')
-  expect(label(title, 'letter-spacing', 'base', 'none', { 'letter-spacing': null })).toBe('Local')
+  expect(label(title, 'font-family')).toBe('body · inherited')
+  expect(full(title, 'font-family').title).toBe('body · inherited from Body (class page)')
+  expect(label(title, 'width')).toBe('default')
+  expect(label(title, 'font-weight', 'base', 'none', {}, '700')).toBe('Bold · default')
+  expect(label(title, 'text-align', 'tablet')).toBe('default')
+  expect(label(title, 'font-family', 'base', 'none', { 'font-family': rem(1) })).toBe(
+    '1rem · local',
+  )
+  expect(label(title, 'letter-spacing', 'base', 'none', { 'letter-spacing': null })).toBe(
+    '-0.02em · local',
+  )
   doc.classes['c-heading']!.preset = true
-  expect(label(title, 'font-size')).toBe('Preset heading')
+  expect(label(title, 'font-size')).toBe('clamp(2rem, 5vw, 4rem) · preset heading')
 })

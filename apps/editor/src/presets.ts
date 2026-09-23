@@ -1,4 +1,4 @@
-import { classNames, compareSelectors } from '@freeflow/css'
+import { classNames, compareSelectors, contextFromDocument, serializeValue } from '@freeflow/css'
 import type { Operation } from '@freeflow/document'
 import {
   type CssValue,
@@ -9,9 +9,10 @@ import {
   styleKey,
 } from '@freeflow/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
+import { WEIGHT_NAMES } from './fonts.js'
 import { formattingGroups, formattingOperations, localClass } from './formatting.js'
 import { nodeLabel, pageOf } from './structure.js'
-import { tokenLabel } from './tokens.js'
+import { tokenLabel, tokenValue } from './tokens.js'
 
 const properties = new Set<string>(
   formattingGroups.flatMap((group) => group.fields.map((field) => field.property)),
@@ -94,7 +95,7 @@ const shorthands = (property: string) => {
 export type StyleSource =
   | ({ kind: 'local' | 'class' | 'preset' } & Pick<
       StyleDecl,
-      'class' | 'breakpoint' | 'state' | 'value'
+      'class' | 'breakpoint' | 'state' | 'value' | 'property'
     >)
   | { kind: 'inherited'; from: string; source: StyleSource }
   | { kind: 'default' }
@@ -112,7 +113,7 @@ export function styleSource(
   changes: Record<string, CssValue | null> = {},
 ): StyleSource {
   const draft = changes[property]
-  if (draft) return { kind: 'local', class: '', breakpoint, state, value: draft }
+  if (draft) return { kind: 'local', class: '', breakpoint, state, value: draft, property }
   const winners = winningStyles(doc, node, breakpoint, state)
   const style = [property, ...shorthands(property)].map((name) => winners[name]).find(Boolean)
   if (style) {
@@ -129,30 +130,55 @@ export function styleSource(
 }
 
 /** The one-line wording of a source, with the scope it was set at when that is wider than this one. */
+/** The line under a field: the effective value, then where it comes from. */
 export function sourceLabel(
   doc: Document,
   source: StyleSource,
   breakpoint = 'base',
   state: State = 'none',
-): string {
-  if (source.kind === 'default') return 'Default'
+  computed?: string,
+  property?: string,
+): { text: string; title: string; origin: string } {
+  const shown = (value?: string) => (value ? weightName(value) : '')
+  if (source.kind === 'default') {
+    const text = [shown(computed), 'default'].filter(Boolean).join(' · ')
+    return { text, title: text, origin: 'default' }
+  }
   if (source.kind === 'inherited') {
     // The page root reads "Body", as in the layers panel.
     const root = doc.pages[pageOf(doc, source.from)]?.root === source.from
-    return `From ${root ? 'Body' : nodeLabel(doc.nodes[source.from]!)} · ${sourceLabel(doc, source.source, breakpoint, state)}`
+    const from = root ? 'Body' : nodeLabel(doc.nodes[source.from]!)
+    const inner = sourceLabel(doc, source.source, breakpoint, state, computed, property)
+    const value = inner.text.slice(0, inner.text.lastIndexOf(' · '))
+    return {
+      text: `${value} · inherited`,
+      title: `${value} · inherited from ${from} (${inner.origin})`,
+      origin: 'inherited',
+    }
   }
   const name = doc.classes[source.class]?.name
   const token = source.value.type === 'designToken' && doc.designTokens[source.value.ref]
-  return [
-    source.kind === 'local' ? 'Local' : `${source.kind === 'preset' ? 'Preset' : 'Class'} ${name}`,
+  const resolved = token
+    ? serializeValue(tokenValue(doc, token), contextFromDocument(doc))
+    : serializeValue(source.value, contextFromDocument(doc))
+  // A longhand set through its shorthand shows this side's computed value, not the whole shorthand.
+  const shorthand = computed !== undefined && source.property !== property
+  const value = token ? tokenLabel(token.name) : shown(shorthand ? computed : resolved)
+  const origin = [
+    source.kind === 'local' ? 'local' : `${source.kind} ${name}`,
     source.breakpoint !== breakpoint &&
       (doc.breakpoints[source.breakpoint]?.label ?? source.breakpoint),
     source.state !== state && 'base state',
-    token && tokenLabel(token.name),
   ]
     .filter(Boolean)
-    .join(' · ')
+    .join(', ')
+  const text = `${value} · ${origin}`
+  return { text, title: token ? `${value} = ${resolved} · ${origin}` : text, origin }
 }
+
+/** Font weights read as names, as the fonts list shows them. */
+const weightName = (value: string) =>
+  /^[1-9]00$/.test(value) ? (WEIGHT_NAMES[Number(value) / 100 - 1] ?? value) : value
 
 export function presetOverrides(doc: Document, node: Node, breakpoint = 'base') {
   const local = localClass(doc, node)

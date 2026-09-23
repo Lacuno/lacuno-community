@@ -59,7 +59,9 @@ export function TextToolbar({
     )
   const withSource = (property: string, field: ReactNode) =>
     source ? (
-      <div className="text-field">
+      <div
+        className={`text-field ${['font-size', 'color'].includes(property) ? 'text-field-wide' : ''}`}
+      >
         {field}
         {source(property)}
       </div>

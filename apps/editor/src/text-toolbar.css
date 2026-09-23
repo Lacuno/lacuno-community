@@ -43,6 +43,11 @@
   left: 0;
   right: 0;
 }
+/* Size and colour are narrow; their lines run on under the buttons beside them, which have none. */
+.text-field-wide > .source {
+  right: auto;
+  overflow: visible;
+}
 /* A truncated line reads in full over its neighbours while its field is hovered or focused. */
 .text-field:is(:hover, :focus-within) > .source {
   right: auto;
