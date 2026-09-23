@@ -18,8 +18,8 @@ const freePort = async () => {
   return address.port
 }
 
-it('publishes to staging, promotes the same build and keeps staging through a rollback', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-staging-'))
+it('publishes to testing, promotes the same build and keeps testing through a rollback', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-testing-'))
   const root = fileURLToPath(new URL('../../../', import.meta.url))
   const port = await freePort()
   const publishPort = await freePort()
@@ -30,7 +30,7 @@ it('publishes to staging, promotes the same build and keeps staging through a ro
     editorDir: path.join(root, 'apps/editor/dist'),
     baseURL: origin,
     publishBaseURL: `http://localhost:${publishPort}`,
-    secret: 'staging-test-secret-5b1e0c7d93a4f2',
+    secret: 'testing-test-secret-5b1e0c7d93a4f2',
     allowSignup: true,
   })
   const listener = serve({ fetch: server.app.fetch, port, hostname: '127.0.0.1' })
@@ -45,11 +45,11 @@ it('publishes to staging, promotes the same build and keeps staging through a ro
     page.setDefaultTimeout(8000)
     await page.goto(origin)
     await page.getByRole('button', { name: 'New here? Create an account' }).click()
-    await page.getByLabel('Your name').fill('Staging')
-    await page.getByLabel('Email', { exact: true }).fill('staging@example.test')
-    await page.getByLabel('Password', { exact: true }).fill('staging-test-password')
+    await page.getByLabel('Your name').fill('Tester')
+    await page.getByLabel('Email', { exact: true }).fill('testing@example.test')
+    await page.getByLabel('Password', { exact: true }).fill('testing-test-password')
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
-    await page.getByLabel('Site name').fill('Staged site')
+    await page.getByLabel('Site name').fill('Testing site')
     await page.getByRole('button', { name: 'Create site', exact: false }).click()
     const heading = page
       .frameLocator('iframe[title="Site canvas"]')
@@ -77,18 +77,18 @@ it('publishes to staging, promotes the same build and keeps staging through a ro
 
     await page.getByRole('button', { name: 'Publish', exact: true }).click()
     await dialog.getByLabel('Release name', { exact: true }).fill('Draft check')
-    await dialog.getByRole('button', { name: 'Publish v1 to staging', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Publish v1 to testing', exact: true }).click()
     await expect
       .poll(() => summary.textContent(), { timeout: 60_000 })
-      .toContain('Staging: v1 · Draft check')
+      .toContain('Testing: v1 · Draft check')
     expect(await summary.textContent()).toContain('This site has not been published yet.')
-    expect(await badges(1)).toEqual(['Staging'])
-    const stagingUrl = await dialog
-      .getByRole('link', { name: 'Open staging site' })
+    expect(await badges(1)).toEqual(['Testing'])
+    const testingUrl = await dialog
+      .getByRole('link', { name: 'Open testing site' })
       .getAttribute('href')
-    expect(stagingUrl).toMatch(/^http:\/\/[0-9a-f-]{36}-staging\.localhost:\d+$/)
-    const productionUrl = stagingUrl!.replace('-staging.', '.')
-    expect(await visit(stagingUrl!)).toEqual({
+    expect(testingUrl).toMatch(/^http:\/\/[0-9a-f-]{36}-testing\.localhost:\d+$/)
+    const productionUrl = testingUrl!.replace('-testing.', '.')
+    expect(await visit(testingUrl!)).toEqual({
       status: 200,
       robots: 'noindex, nofollow',
       h1: 'Your website. Your rules.',
@@ -98,7 +98,7 @@ it('publishes to staging, promotes the same build and keeps staging through a ro
     // Promotion re-points production at the same build; no new release appears.
     await confirm('Promote v1 to production', 'Confirm promotion')
     await expect.poll(() => summary.textContent()).toContain('Live: v1 · Draft check')
-    expect(await badges(1)).toEqual(['Live', 'Staging'])
+    expect(await badges(1)).toEqual(['Live', 'Testing'])
     expect(await dialog.locator('.release-list > li').count()).toBe(1)
     expect(await visit(productionUrl)).toMatchObject({ status: 200, robots: undefined })
 
@@ -108,21 +108,21 @@ it('publishes to staging, promotes the same build and keeps staging through a ro
     await page.getByRole('button', { name: 'Publish', exact: true }).click()
     await dialog.getByRole('button', { name: 'Publish v2', exact: true }).click()
     await expect.poll(() => summary.textContent(), { timeout: 60_000 }).toContain('Live: v2')
-    expect(await summary.textContent()).toContain('Staging: v1 · Draft check')
+    expect(await summary.textContent()).toContain('Testing: v1 · Draft check')
     expect((await visit(productionUrl)).h1).toBe('Second release')
-    expect((await visit(stagingUrl!)).h1).toBe('Your website. Your rules.')
+    expect((await visit(testingUrl!)).h1).toBe('Your website. Your rules.')
 
-    // v1 is staged, so rolling production back to it is a promotion.
+    // v1 is on testing, so rolling production back to it is a promotion.
     expect(await row(1).getByRole('button', { name: 'Restore v1' }).count()).toBe(0)
     await confirm('Promote v1 to production', 'Confirm promotion')
     await expect.poll(() => summary.textContent()).toContain('Live: v1 · Draft check')
-    expect(await badges(1)).toEqual(['Live', 'Staging'])
+    expect(await badges(1)).toEqual(['Live', 'Testing'])
     expect((await visit(productionUrl)).h1).toBe('Your website. Your rules.')
 
-    await confirm('Stage v2', 'Confirm staging')
-    await expect.poll(() => summary.textContent()).toContain('Staging: v2')
-    expect(await badges(2)).toEqual(['Staging'])
-    expect((await visit(stagingUrl!)).h1).toBe('Second release')
+    await confirm('Send v2 to testing', 'Confirm send')
+    await expect.poll(() => summary.textContent()).toContain('Testing: v2')
+    expect(await badges(2)).toEqual(['Testing'])
+    expect((await visit(testingUrl!)).h1).toBe('Second release')
     expect((await visit(productionUrl)).h1).toBe('Your website. Your rules.')
   } finally {
     await browser.close()

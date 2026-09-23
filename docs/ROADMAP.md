@@ -102,12 +102,12 @@ without a build, or its text one line per node id; `page.screenshot` returns a P
 node through Playwright's Chromium, an optional dependency; `document.diff` summarises a dry-run
 batch or the changes since another `freeflow.json`
 ([spec](superpowers/specs/2026-09-23-mcp-preview-tools.md)).
-**Staging implemented:** **Publish vN to staging** builds the draft for
-`<site-id>-staging.<publishing base>`, which sends `X-Robots-Tag: noindex, nofollow`. The panel
-shows Live and Staging badges; **Promote vN to production** makes the staged build live without a
-rebuild, **Stage vN** points staging at any successful release and **Restore vN** stays the
-production rollback. The cloud runtime's `--list` still reports production only
-([spec](superpowers/specs/2026-09-23-staging-publish-design.md)).
+**Testing implemented:** **Publish vN to testing** builds the draft for
+`<site-id>-testing.<publishing base>`, which sends `X-Robots-Tag: noindex, nofollow`. The panel
+shows Live and Testing badges; **Promote vN to production** makes the testing build live without a
+rebuild, **Send vN to testing** points testing at any successful release and **Restore vN** stays
+the production rollback. The cloud runtime's `--list` still reports production only
+([spec](superpowers/specs/2026-09-23-testing-publish-design.md)).
 Managed custom domains/TLS are Cloud work. Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 The planned direction for editing on the canvas itself, an action bar under the selection with
@@ -127,10 +127,10 @@ areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.
   design tokens, pages, page settings and SEO, assets, fonts, undo and redo (all implemented).
 - Components with props (implemented). Slots and visible instance overrides move to Phase 2,
   where they are built together with the CMS (decided 2026-09-23).
-- Publish to staging and production from the instance, build history, rollback (implemented).
+- Publish to testing and production from the instance, build history, rollback (implemented).
 - Docker image and operator-written configuration via the self-hosting guide; `npx freeflow` remains planned.
 - Preview, screenshot and diff tools in MCP (implemented).
-- Remaining after staging: clicking a style field's source line to jump to the class, token or
+- Remaining after testing publish: clicking a style field's source line to jump to the class, token or
   ancestor it names, and the Layout ribbon fitting a 1500px window. That closes Phase 1.
 
 **Deferred out of Phase 1 (2026-09-23):** version history with restore, fluid typography and spacing
@@ -186,7 +186,7 @@ Not scheduled; recorded so they are not lost.
 - Fluid typography and spacing: a design token that is a scale (`clamp` between two sizes) rather
   than one value.
 - Default template bound to its own tokens, so a new site shows tokens working from the first edit.
-- Staging protection: a password or a private link for the staging origin.
+- Testing protection: a password or a private link for the testing origin.
 
 ## Not planned
 

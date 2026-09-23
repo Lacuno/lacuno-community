@@ -74,7 +74,7 @@
   padding: 4px 8px;
   background: #f0edf8;
 }
-.release-status[data-status="staging"] {
+.release-status[data-status="testing"] {
   background: #e3f1fb;
   color: #1d5c86;
 }

@@ -49,7 +49,7 @@ it('backs up pending releases without mutating live state and rejects incomplete
       // Both pointers travel with the SQLite snapshot.
       sqlite
         .prepare(
-          "INSERT INTO publications(site_id,target,release_id) SELECT id,'production',? FROM sites UNION ALL SELECT id,'staging',? FROM sites",
+          "INSERT INTO publications(site_id,target,release_id) SELECT id,'production',? FROM sites UNION ALL SELECT id,'testing',? FROM sites",
         )
         .run(releaseId, releaseId)
       const backup = path.join(root, 'backup')
@@ -68,7 +68,7 @@ it('backs up pending releases without mutating live state and rejects incomplete
       })
       expect(
         restored.prepare('SELECT target FROM publications ORDER BY target').pluck().all(),
-      ).toEqual(['production', 'staging'])
+      ).toEqual(['production', 'testing'])
       restored.close()
       await expect(backupWorkspace(dataDir, path.join(dataDir, 'unsafe'))).rejects.toThrow(
         'outside',

@@ -13,8 +13,8 @@ const origin = 'http://localhost:3000'
 type History = {
   publishedId: string | null
   url: string
-  stagedId: string | null
-  stagingUrl: string
+  testingId: string | null
+  testingUrl: string
   releases: { id: string; revision: number; version: number; name: string | null; status: string }[]
 }
 const build = 30000
@@ -306,41 +306,41 @@ describe('publishing', () => {
   )
 
   it(
-    'stages a release, promotes it without a rebuild and rolls production back on its own',
+    'publishes to testing, promotes it without a rebuild and rolls production back on its own',
     async () => {
       // Drop the missing asset so the draft builds again.
       expect((await edit(162, { type: 'asset.delete', id: 'a-missing' })).status).toBe(200)
       const production = (await history()).publishedId
-      const { stagingUrl } = await history()
-      const staging = (path = '/') => server.published!.request(stagingUrl + path)
+      const { testingUrl } = await history()
+      const testing = (path = '/') => server.published!.request(testingUrl + path)
       const { sqlite } = openDatabase(dir)
       const reader = new PublicationReader(sqlite, dir, 'http://localhost:3001')
       try {
         const listed = reader.publications()
-        expect(stagingUrl).toBe(liveURL.replace('.localhost', '-staging.localhost'))
-        expect((await staging()).status).toBe(404)
-        expect((await staging()).headers.get('x-robots-tag')).toBe('noindex, nofollow')
-        const toStaging = (expectedId: string | null) =>
+        expect(testingUrl).toBe(liveURL.replace('.localhost', '-testing.localhost'))
+        expect((await testing()).status).toBe(404)
+        expect((await testing()).headers.get('x-robots-tag')).toBe('noindex, nofollow')
+        const toTesting = (expectedId: string | null) =>
           request(`${route}/releases`, cookie, {
             expectedRevision: 163,
             expectedId,
-            target: 'staging',
+            target: 'testing',
           })
-        // The pointer guarded is the staging one, not production.
-        expect((await toStaging(production)).status).toBe(409)
-        const response = await toStaging(null)
+        // The pointer guarded is the testing one, not production.
+        expect((await toTesting(production)).status).toBe(409)
+        const response = await toTesting(null)
         expect(response.status).toBe(202)
-        const staged = ((await response.json()) as { id: string; target: string }).id
-        await waitFor(staged, 'ready')
-        expect(await history()).toMatchObject({ publishedId: production, stagedId: staged })
-        const page = await staging()
-        expect(page.headers.get('x-freeflow-release')).toBe(staged)
+        const sent = ((await response.json()) as { id: string; target: string }).id
+        await waitFor(sent, 'ready')
+        expect(await history()).toMatchObject({ publishedId: production, testingId: sent })
+        const page = await testing()
+        expect(page.headers.get('x-freeflow-release')).toBe(sent)
         expect(page.headers.get('x-robots-tag')).toBe('noindex, nofollow')
-        expect((await staging('/missing')).headers.get('x-robots-tag')).toBe('noindex, nofollow')
+        expect((await testing('/missing')).headers.get('x-robots-tag')).toBe('noindex, nofollow')
         const livePage = await live()
         expect(livePage.headers.get('x-freeflow-release')).toBe(production)
         expect(livePage.headers.get('x-robots-tag')).toBeNull()
-        // The cloud runtime's `--list` shape and rows are unchanged by a staging publication.
+        // The cloud runtime's `--list` shape and rows are unchanged by a testing publication.
         expect(reader.publications()).toEqual(listed)
         expect(listed).toEqual([
           { siteId: route.slice('/api/sites/'.length), releaseId: production },
@@ -349,24 +349,24 @@ describe('publishing', () => {
         const activate = (releaseId: string, expectedId: string | null, target: string) =>
           request(`${route}/releases/${releaseId}/activate`, cookie, { expectedId, target })
         const count = (await history()).releases.length
-        expect((await activate(staged, staged, 'production')).status).toBe(409)
-        expect((await activate(staged, production, 'production')).status).toBe(200)
-        expect(await history()).toMatchObject({ publishedId: staged, stagedId: staged })
+        expect((await activate(sent, sent, 'production')).status).toBe(409)
+        expect((await activate(sent, production, 'production')).status).toBe(200)
+        expect(await history()).toMatchObject({ publishedId: sent, testingId: sent })
         expect((await history()).releases).toHaveLength(count)
-        expect((await live()).headers.get('x-freeflow-release')).toBe(staged)
+        expect((await live()).headers.get('x-freeflow-release')).toBe(sent)
 
-        // Rolling production back leaves staging where it was.
-        expect((await activate(production!, staged, 'production')).status).toBe(200)
-        expect(await history()).toMatchObject({ publishedId: production, stagedId: staged })
-        expect((await staging()).headers.get('x-freeflow-release')).toBe(staged)
+        // Rolling production back leaves testing where it was.
+        expect((await activate(production!, sent, 'production')).status).toBe(200)
+        expect(await history()).toMatchObject({ publishedId: production, testingId: sent })
+        expect((await testing()).headers.get('x-freeflow-release')).toBe(sent)
 
         const failed = (await history()).releases.find((row) => row.status === 'failed')!
-        expect((await activate(failed.id, staged, 'staging')).status).toBe(404)
-        const next = await toStaging(staged)
+        expect((await activate(failed.id, sent, 'testing')).status).toBe(404)
+        const next = await toTesting(sent)
         const building = ((await next.json()) as { id: string }).id
         expect((await activate(building, production, 'production')).status).toBe(409)
         await waitFor(building, 'ready')
-        expect(await history()).toMatchObject({ publishedId: production, stagedId: building })
+        expect(await history()).toMatchObject({ publishedId: production, testingId: building })
       } finally {
         sqlite.close()
       }

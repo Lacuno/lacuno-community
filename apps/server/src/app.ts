@@ -49,7 +49,7 @@ const ReleaseName = z
 const Pointer = {
   expectedId: z.string().uuid().nullable().optional(),
   publishedId: z.string().uuid().nullable().optional(),
-  target: z.enum(['production', 'staging']).default('production'),
+  target: z.enum(['production', 'testing']).default('production'),
 }
 const pointed = (input: { expectedId?: unknown; publishedId?: unknown }) =>
   input.expectedId !== undefined || input.publishedId !== undefined
@@ -313,8 +313,8 @@ export async function createServer(options: ServerOptions) {
           enabled: false,
           publishedId: null,
           url: null,
-          stagedId: null,
-          stagingUrl: null,
+          testingId: null,
+          testingUrl: null,
           releases: [],
         },
       ),

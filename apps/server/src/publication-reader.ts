@@ -1,7 +1,7 @@
 import path from 'node:path'
 import type Database from 'better-sqlite3'
 
-export type Target = 'production' | 'staging'
+export type Target = 'production' | 'testing'
 
 /** Read-only publication metadata, shared by the editor and standalone publishing process. */
 export class PublicationReader {
@@ -28,14 +28,14 @@ export class PublicationReader {
   }
   url(siteId: string, target: Target = 'production') {
     const url = new URL(this.base)
-    url.hostname = `${siteId}${target === 'staging' ? '-staging' : ''}.${url.hostname}`
+    url.hostname = `${siteId}${target === 'testing' ? '-testing' : ''}.${url.hostname}`
     return url.origin
   }
   siteForHost(hostname: string): { siteId: string; target: Target } | undefined {
     const suffix = `.${this.base.hostname}`
     if (!hostname.endsWith(suffix)) return
-    const match = hostname.slice(0, -suffix.length).match(/^([0-9a-f-]{36})(-staging)?$/)
-    if (match) return { siteId: match[1]!, target: match[2] ? 'staging' : 'production' }
+    const match = hostname.slice(0, -suffix.length).match(/^([0-9a-f-]{36})(-testing)?$/)
+    if (match) return { siteId: match[1]!, target: match[2] ? 'testing' : 'production' }
   }
   directory(siteId: string, releaseId: string) {
     return path.join(this.dataDir, 'builds', siteId, releaseId)

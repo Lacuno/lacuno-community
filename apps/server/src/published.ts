@@ -12,8 +12,8 @@ export function publishedApp(reader: PublicationReader) {
     const host = reader.siteForHost(url.hostname)
     if (!host) return c.notFound()
     const site = host.siteId
-    // Staging must never be indexed, including its 404s.
-    if (host.target === 'staging') c.header('X-Robots-Tag', 'noindex, nofollow')
+    // Testing must never be indexed, including its 404s.
+    if (host.target === 'testing') c.header('X-Robots-Tag', 'noindex, nofollow')
     const current = reader.current(site, host.target)
     if (!current) return c.notFound()
     let name: string

@@ -115,9 +115,9 @@ and checks the persisted result.
 | `POST /api/sites/:id/assets/upload` | `{name,data}` (base64, up to 10 MB) → staged asset reference; PNG, JPEG, WebP, GIF, MP4, WebM, WOFF2, WOFF, TTF or OTF, typed by its bytes |
 | `GET /api/sites/:id/assets/:hash` | Authenticated asset bytes belonging to the site |
 | `POST /api/sites/:id/document/apply` | `{expectedRevision,operations,dryRun?}`, or `{expectedRevision,patches}` to replay an earlier commit → operation result |
-| `GET /api/sites/:id/releases` | Publishing configuration, `publishedId` and `url` (production), `stagedId` and `stagingUrl`, and release history |
+| `GET /api/sites/:id/releases` | Publishing configuration, `publishedId` and `url` (production), `testingId` and `testingUrl`, and release history |
 | `POST /api/sites/:id/releases` | `{expectedRevision,expectedId,name?,target?}` → `202 {id,target}`; enqueue an immutable snapshot that goes live on `target` (`production` by default) when it is built |
-| `POST /api/sites/:id/releases/:releaseId/activate` | `{expectedId,target?}` → `{id,target}`; point `target` (`production` by default) at a successful release without a build: rollback, promote or stage; draft unchanged |
+| `POST /api/sites/:id/releases/:releaseId/activate` | `{expectedId,target?}` → `{id,target}`; point `target` (`production` by default) at a successful release without a build: rollback, promote or send to testing; draft unchanged |
 | `POST /api/sites/:id/releases/:releaseId/name` | `{name}` → rename a release; an empty name clears it |
 
 Application routes require a session cookie. JSON writes reject cross-origin requests; API responses
@@ -144,15 +144,15 @@ Each accepted publish attempt reserves the next version, including failed builds
 the original version. Existing release history is numbered chronologically on upgrade. Document
 revisions remain internal snapshot/concurrency metadata and are not shown in the publishing dialog.
 An optional **Release name** (at most 80 characters) is shown after the version, as in `v7 · Spring
-launch`, and can be changed later with **Rename v7**. The dialog lists the live, staged and newest
+launch`, and can be changed later with **Rename v7**. The dialog lists the live, testing and newest
 release; older ones sit in a closed **Earlier releases** section with their restore buttons.
 
-**Publish v8 to staging** builds the draft for the staging address,
-`http://<site-id>-staging.localhost:3001` locally, which sends `X-Robots-Tag: noindex, nofollow` on
-every response. The staged release carries a **Staging** badge next to the **Live** one and offers
+**Publish v8 to testing** builds the draft for the testing address,
+`http://<site-id>-testing.localhost:3001` locally, which sends `X-Robots-Tag: noindex, nofollow` on
+every response. The testing release carries a **Testing** badge next to the **Live** one and offers
 **Promote v8 to production**, which makes the same build live without rebuilding it. Any successful
-release offers **Stage v7** to point staging at it; **Restore v7** stays the production rollback and
-leaves staging alone. Releases are not tied to a target; each records the target it was published
+release offers **Send v7 to testing** to point testing at it; **Restore v7** stays the production
+rollback and leaves testing alone. Releases are not tied to a target; each records the target it was published
 for. Built pages link to the production URL, so a promoted build needs no rebuild.
 
 Locally, the default published URL is `http://<site-id>.localhost:3001`. A **Public URL** set in Site settings replaces it in canonical links, social URLs, the sitemap and robots.txt. Modern browsers resolve
@@ -183,7 +183,7 @@ stored document untouched. Failed site creation removes its partially copied ass
 during creation can leave an unreferenced asset directory.
 
 The database is authoritative for server sites; these directories are not CLI site folders yet.
-Yjs sync, git snapshots, staging environments, custom-domain management, shared workspace membership, email verification and
+Yjs sync, git snapshots, custom-domain management, shared workspace membership, email verification and
 password recovery are later work. The existing CLI/MCP site-folder workflow remains separate.
 
 ```sh

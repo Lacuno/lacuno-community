@@ -56,8 +56,8 @@ export class Releases extends PublicationReader {
       enabled: true,
       publishedId: this.current(siteId),
       url: this.url(siteId),
-      stagedId: this.current(siteId, 'staging'),
-      stagingUrl: this.url(siteId, 'staging'),
+      testingId: this.current(siteId, 'testing'),
+      testingUrl: this.url(siteId, 'testing'),
       releases: rows.map((row) => ({
         id: row.id,
         revision: row.revision,
@@ -125,7 +125,7 @@ export class Releases extends PublicationReader {
       throw conflict('A publish is already queued or building for this site.')
   }
 
-  /** Points a target at a ready release without a build: rollback, promote or stage. */
+  /** Points a target at a ready release without a build: rollback, promote or send to testing. */
   rollback(siteId: string, id: string, expected: string | null, target: Target = 'production') {
     this.sqlite
       .transaction(() => {

@@ -64,7 +64,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Feature | When | Notes |
 | --- | --- | --- |
 | One-click publish: compile to Astro, build, serve static output from the instance | MVP | |
-| Staging and production environments with separate URLs | MVP | |
+| Testing and production environments with separate URLs | MVP | |
 | Managed custom domains and automatic TLS provisioning | Cloud | Community operators configure their own DNS, proxy and certificates |
 | Export the generated Astro project as a zip or push to a git repository | MVP | The escape hatch |
 | Deploy hooks for Cloudflare Pages, Netlify, Vercel, GitHub Pages | Next | Push the built output or the Astro project |

@@ -218,8 +218,8 @@ The compiler has no knowledge of the server. The CLI exposes it as `freeflow bui
   `builds/<site>/<build-id>/`. The first publishing milestone atomically updates a SQLite live-release
   pointer after a successful build; the separate static listener resolves that pointer per request.
   Immutable document snapshots and release states live in SQLite, builds run in child processes,
-  and rollback switches the pointer without changing the draft. Per-environment staging remains
-  planned; managed domain/TLS provisioning belongs to Cloud.
+  and rollback switches the pointer without changing the draft. A testing pointer per site is served
+  at `<site>-testing.<base>` and promoted to production without a rebuild; managed domain/TLS provisioning belongs to Cloud.
 - **Serving.** Published output is served with immutable caching for hashed assets and short
   caching for HTML. An operator-managed reverse proxy terminates TLS and forwards published hosts
   to the isolated static listener, preserving the Host header.

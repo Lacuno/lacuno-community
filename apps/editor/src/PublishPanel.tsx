@@ -3,7 +3,7 @@ import { api, message } from './api.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import './publishing.css'
 
-type Target = 'production' | 'staging'
+type Target = 'production' | 'testing'
 type Release = {
   id: string
   version: number
@@ -20,8 +20,8 @@ type History = {
   enabled: boolean
   publishedId: string | null
   url: string | null
-  stagedId: string | null
-  stagingUrl: string | null
+  testingId: string | null
+  testingUrl: string | null
   releases: Release[]
 }
 
@@ -38,10 +38,10 @@ const actions = {
     ask: (release: string) => `Promote ${release} to production?`,
     confirm: 'Confirm promotion',
   },
-  stage: {
-    target: 'staging',
-    ask: (release: string) => `Show ${release} on the staging site?`,
-    confirm: 'Confirm staging',
+  send: {
+    target: 'testing',
+    ask: (release: string) => `Send ${release} to the testing site?`,
+    confirm: 'Confirm send',
   },
 } as const
 
@@ -111,11 +111,12 @@ export function PublishPanel({
     }
   }
   const current = history?.releases.find((row) => row.id === history.publishedId)
-  const staged = history?.releases.find((row) => row.id === history.stagedId)
-  const pointer = (target: Target) => (target === 'staging' ? staged : current)?.id ?? null
-  // The newest, the live and the staged release stay in view; older ones fold away.
+  const testing = history?.releases.find((row) => row.id === history.testingId)
+  const pointer = (target: Target) => (target === 'testing' ? testing : current)?.id ?? null
+  // The newest, the live and the testing release stay in view; older ones fold away.
   const latest =
-    history?.releases.filter((row, index) => index === 0 || row === current || row === staged) ?? []
+    history?.releases.filter((row, index) => index === 0 || row === current || row === testing) ??
+    []
   const earlier = history?.releases.filter((row) => !latest.includes(row)) ?? []
   const release = (row: Release) => (
     <li key={row.id}>
@@ -148,12 +149,12 @@ export function PublishPanel({
         )}
         <span className="release-badges">
           {row === current && <span className="release-status">Live</span>}
-          {row === staged && (
-            <span className="release-status" data-status="staging">
-              Staging
+          {row === testing && (
+            <span className="release-status" data-status="testing">
+              Testing
             </span>
           )}
-          {row !== current && row !== staged && (
+          {row !== current && row !== testing && (
             <span className="release-status" data-status={row.status}>
               {row.status === 'ready'
                 ? 'Ready'
@@ -185,7 +186,7 @@ export function PublishPanel({
           Rename v{row.version}
         </button>
       )}
-      {row === staged && row !== current && (
+      {row === testing && row !== current && (
         <button
           type="button"
           disabled={busy || pending}
@@ -194,7 +195,7 @@ export function PublishPanel({
           Promote v{row.version} to production
         </button>
       )}
-      {row.status === 'ready' && row !== current && row !== staged && (
+      {row.status === 'ready' && row !== current && row !== testing && (
         <button
           type="button"
           disabled={busy || pending}
@@ -203,13 +204,13 @@ export function PublishPanel({
           Restore v{row.version}
         </button>
       )}
-      {row.status === 'ready' && row !== staged && (
+      {row.status === 'ready' && row !== testing && (
         <button
           type="button"
           disabled={busy || pending}
-          onClick={() => setConfirm({ id: row.id, action: 'stage' })}
+          onClick={() => setConfirm({ id: row.id, action: 'send' })}
         >
-          Stage v{row.version}
+          Send v{row.version} to testing
         </button>
       )}
       {confirm?.id === row.id && (
@@ -267,7 +268,7 @@ export function PublishPanel({
                   <p>
                     {current ? `Live: ${title(current)}` : 'This site has not been published yet.'}
                   </p>
-                  {staged && <p>Staging: {title(staged)}</p>}
+                  {testing && <p>Testing: {title(testing)}</p>}
                 </div>
                 <label className="release-name">
                   Release name
@@ -290,9 +291,9 @@ export function PublishPanel({
                   <button
                     type="button"
                     disabled={busy || pending}
-                    onClick={() => publish('staging')}
+                    onClick={() => publish('testing')}
                   >
-                    Publish v{nextVersion} to staging
+                    Publish v{nextVersion} to testing
                   </button>
                 </div>
               </div>
@@ -302,15 +303,15 @@ export function PublishPanel({
                     Open published site ↗
                   </a>
                 )}
-                {staged && history.stagingUrl && (
-                  <a href={history.stagingUrl} target="_blank" rel="noopener noreferrer">
-                    Open staging site ↗
+                {testing && history.testingUrl && (
+                  <a href={history.testingUrl} target="_blank" rel="noopener noreferrer">
+                    Open testing site ↗
                   </a>
                 )}
               </div>
               {building && (
                 <p role="status">
-                  {building.target === 'staging' ? 'Publishing to staging…' : 'Publishing…'} You can
+                  {building.target === 'testing' ? 'Publishing to testing…' : 'Publishing…'} You can
                   close this window and keep editing. The current live release stays available.
                 </p>
               )}
