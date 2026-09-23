@@ -536,9 +536,6 @@ function TokenForm({
         </span>
       </label>
       <div className="color-value-row">
-        {group === 'shadow' && (
-          <span className="token-shadow-preview" style={{ boxShadow: problem ? '' : value }} />
-        )}
         <label>
           Token value
           <input
@@ -549,6 +546,9 @@ function TokenForm({
             onChange={(event) => setValue(event.target.value)}
           />
         </label>
+        {group === 'shadow' && (
+          <span className="token-shadow-preview" style={{ boxShadow: problem ? '' : value }} />
+        )}
       </div>
       <label>
         Description
