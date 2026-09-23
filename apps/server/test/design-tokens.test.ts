@@ -130,9 +130,17 @@ it('creates a spacing token, binds a field to it, snaps a handle to it, detaches
       .toEqual({ type: 'unit', value: 32, unit: 'px' })
     expect(await ctaPadding('top')).toEqual({ type: 'designToken', ref: card.id })
 
-    // Linked, a pick binds all four sides.
-    await ribbon.getByLabel('Link inside spacing', { exact: true }).check()
+    // Both chains start pressed (the sides are symmetric), so a pick binds both sides of its pair.
+    for (const pair of ['top and bottom', 'left and right'])
+      await expect
+        .poll(() =>
+          ribbon
+            .getByRole('button', { name: `Link inside spacing ${pair}`, exact: true })
+            .getAttribute('aria-pressed'),
+        )
+        .toBe('true')
     await pickToken('bottom', 'card')
+    await pickToken('left', 'card')
     await expect.poll(padding).toEqual([32, 32, 32, 32])
     await saved()
     await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
@@ -207,12 +215,13 @@ it('creates a spacing token, binds a field to it, snaps a handle to it, detaches
     expect(css).toMatch(/:root\{[^}]*--space-card:32px/)
     expect(css).toContain('var(--space-card)')
 
-    // Detach writes the token's value to the linked sides as plain pixels.
+    // Detach writes the token's value to the linked pair as plain pixels; the other pair stays bound.
     await pickToken('top', 'Detach')
     await expect.poll(() => top.inputValue()).toBe('32')
     await expect.poll(() => ctaPadding('top')).toEqual({ type: 'unit', value: 32, unit: 'px' })
     await saved()
-    expect(await ctaPadding('left')).toEqual({ type: 'unit', value: 32, unit: 'px' })
+    expect(await ctaPadding('bottom')).toEqual({ type: 'unit', value: 32, unit: 'px' })
+    expect(await ctaPadding('left')).toEqual({ type: 'designToken', ref: card.id })
 
     // With Ctrl held nothing snaps, even within 4px of the token.
     expect(await drag(2, 2)).toBe('30px')

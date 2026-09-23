@@ -1,5 +1,5 @@
 import { once } from 'node:events'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { createServer as tcpServer } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
@@ -9,7 +9,7 @@ import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
 import { createServer } from '../src/app.js'
 
-it('binds per-side spacing inputs to the longhands and the handles, with a link toggle', async () => {
+it('binds per-side spacing inputs to the longhands and the handles, with a chain per pair of sides', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-per-side-'))
   const root = fileURLToPath(new URL('../../../', import.meta.url))
   const reservation = tcpServer().listen(0, '127.0.0.1')
@@ -65,24 +65,36 @@ it('binds per-side spacing inputs to the longhands and the handles, with a link 
       })
     const initial = await padding()
 
-    // The button's padding is asymmetric, so link starts off: editing one side moves only that side.
-    await ribbon.getByLabel('Inside spacing left', { exact: true }).fill('40')
-    await expect.poll(async () => (await padding())[3]).toBe(40)
-    await saved()
-    const perSide = await padding()
-    expect(perSide[0]).toBeCloseTo(initial[0]!, 1)
-    expect(perSide[1]).toBeCloseTo(initial[1]!, 1)
-    expect(perSide[3]).toBe(40)
+    // The button's padding is symmetric per pair, so both chains start pressed: editing one side
+    // moves the opposite side too, in a single write / undo step.
+    const chain = (pair: string) =>
+      ribbon.getByRole('button', { name: `Link inside spacing ${pair}`, exact: true })
+    for (const pair of ['top and bottom', 'left and right'])
+      await expect.poll(() => chain(pair).getAttribute('aria-pressed')).toBe('true')
+    for (const [side, value, expected] of [
+      ['top', '30', [30, initial[1], 30, initial[3]]],
+      ['left', '40', [initial[0], 40, initial[2], 40]],
+    ] as const) {
+      const before = writes
+      await ribbon.getByLabel(`Inside spacing ${side}`, { exact: true }).fill(value)
+      await expect.poll(padding).toEqual(expected)
+      await saved()
+      expect(writes).toBe(before + 1)
+      await page.getByRole('button', { name: 'Undo', exact: true }).click()
+      await expect.poll(padding).toEqual(initial)
+      await saved()
+    }
 
-    // Link on: one side fills all four longhands in a single write / undo step.
-    await ribbon.getByLabel('Link inside spacing', { exact: true }).check()
-    const before = writes
-    await ribbon.getByLabel('Inside spacing top', { exact: true }).fill('30')
-    await expect.poll(padding).toEqual([30, 30, 30, 30])
+    // Chain off: editing one side moves only that side.
+    await chain('left and right').click()
+    await ribbon.getByLabel('Inside spacing left', { exact: true }).fill('40')
+    await expect.poll(padding).toEqual([initial[0], initial[1], initial[2], 40])
     await saved()
-    expect(writes).toBe(before + 1)
-    await page.getByRole('button', { name: 'Undo', exact: true }).click()
-    await expect.poll(async () => (await padding())[3]).toBe(40)
+
+    await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
+    await ribbon.locator('.spacing-controls').screenshot({
+      path: path.join(root, '.freeflow/editor-preview/spacing-ribbon.png'),
+    })
 
     // Dragging a padding handle updates the matching side input live, before the commit lands.
     const zoom = await page

@@ -478,11 +478,12 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     expect(await page.getByRole('button', { name: /^Save/ }).count()).toBe(0)
     // The ribbon moves existing controls between categories without losing an autosave draft.
     await page.getByRole('button', { name: 'Layout', exact: true }).click()
-    // Linked by default (all sides equal), so one side fills all four longhands → padding: 16px.
-    await page
-      .locator('.ribbon-controls')
-      .getByLabel('Inside spacing top', { exact: true })
-      .fill('16')
+    // Each pair is linked by default (its sides equal), so top and left fill all four → padding: 16px.
+    for (const side of ['top', 'left'])
+      await page
+        .locator('.ribbon-controls')
+        .getByLabel(`Inside spacing ${side}`, { exact: true })
+        .fill('16')
     await page.getByRole('button', { name: 'Appearance', exact: true }).click()
     await page
       .locator('.ribbon-controls')

@@ -53,9 +53,9 @@ it('names where each style field gets its value', async () => {
     const heading = canvas.locator('[data-freeflow-node="n-home-title"]')
     await heading.waitFor()
     await heading.click()
-    await expect.poll(() => source('font-family')).toBe('From Body · Class site · body')
+    await expect.poll(() => source('font-family')).toBe('body · inherited')
     await ribbon.getByLabel('Font', { exact: true }).selectOption({ index: 2 })
-    await expect.poll(() => source('font-family')).toBe('Local')
+    await expect.poll(() => source('font-family')).toBe('local')
     await saved()
     await page.mouse.move(0, 0)
     await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
@@ -72,33 +72,42 @@ it('names where each style field gets its value', async () => {
     const cta = canvas.locator('[data-freeflow-node="n-home-cta"]')
     await cta.click()
     await tab('Layout')
-    await expect.poll(() => source('padding-top')).toBe('Class button')
-    await ribbon.getByLabel('Link inside spacing', { exact: true }).check()
+    await expect.poll(() => source('padding-top')).toMatch(/^[\d.]+px · class button$/)
+    await expect
+      .poll(() =>
+        ribbon
+          .getByRole('button', { name: 'Link inside spacing top and bottom', exact: true })
+          .getAttribute('aria-pressed'),
+      )
+      .toBe('true')
     await ribbon.getByLabel('Inside spacing top', { exact: true }).fill('30')
-    await expect.poll(() => source('padding-top')).toBe('Local')
+    await expect.poll(() => source('padding-top')).toMatch(/ · local$/)
     await saved()
     await page.locator('.editor-ribbon').screenshot({
       path: path.join(root, '.freeflow/editor-preview/style-source-spacing.png'),
     })
     await tab('Tablet')
-    await expect.poll(() => source('padding-top')).toBe('Local · Desktop')
+    await expect.poll(() => source('padding-top')).toMatch(/^[\d.]+px · local, Desktop$/)
     await tab('Desktop')
 
     // A preset made from the link supplies its background, still through the accent token.
     await tab('Home')
+    await page.locator('.editor-ribbon').screenshot({
+      path: path.join(root, '.freeflow/editor-preview/style-source-home.png'),
+    })
     await page.getByRole('button', { name: 'Preset actions', exact: true }).click()
     await page.getByRole('button', { name: 'Create preset from selection', exact: true }).click()
     await page.getByLabel('Preset name', { exact: true }).fill('Call to action')
     await page.getByRole('button', { name: 'Create preset', exact: true }).click()
     await saved()
     await tab('Appearance')
-    await expect.poll(() => source('background-color')).toBe('Preset Call to action · accent')
+    await expect.poll(() => source('background-color')).toBe('accent · preset Call to action')
 
     // Binding a side to a spacing token names the token.
     await tab('Layout')
     await ribbon.getByRole('button', { name: 'Use a token for Inside spacing top' }).click()
     await ribbon.getByRole('menuitemradio', { name: /^md/ }).click()
-    await expect.poll(() => source('padding-top')).toBe('Local · md')
+    await expect.poll(() => source('padding-top')).toBe('md · local')
     await saved()
     expect(errors).toEqual([])
   } finally {

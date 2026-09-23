@@ -1,5 +1,5 @@
 import { once } from 'node:events'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { createServer as tcpServer } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
@@ -76,6 +76,10 @@ it('keeps the inspector scroll position across a spacing edit', async () => {
     await expect.poll(() => input.inputValue()).not.toBe('30')
     await saved()
     expect(await scrollTop()).toBe(scrolled)
+    await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
+    await inspector.locator('.spacing-controls').screenshot({
+      path: path.join(root, '.freeflow/editor-preview/spacing-inspector.png'),
+    })
 
     expect(errors).toEqual([])
   } finally {

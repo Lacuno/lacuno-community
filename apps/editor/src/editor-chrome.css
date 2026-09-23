@@ -461,38 +461,51 @@
   display: grid;
   gap: 12px;
 }
-.spacing-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 10px;
-  color: #565d73;
-  margin-bottom: 6px;
-}
-.spacing-link {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 0;
-}
-.spacing-link input {
-  width: auto;
-}
-.spacing-sides {
+.spacing-cluster {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 10px;
 }
-.spacing-sides label {
+/* Two opposite sides with the chain between them; source lines on the row below. */
+.spacing-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  column-gap: 4px;
+}
+.spacing-pair label {
   display: grid;
   gap: 4px;
   margin: 0;
   font-size: 10px;
   color: #565d73;
 }
-.spacing-sides input {
+.spacing-pair input {
   min-width: 0;
   width: 100%;
+}
+.spacing-pair > .source:only-of-type {
+  grid-column: 1 / -1;
+}
+.spacing-pair > .source + .source {
+  grid-column: 3;
+}
+.spacing-chain {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 28px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.spacing-chain[aria-pressed="true"] {
+  background: #f2edff;
+  color: var(--accent);
+}
+.spacing-chain svg {
+  width: 14px;
+  height: 14px;
 }
 .ribbon-formatting .spacing-controls {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -934,16 +947,27 @@
   display: flex;
   flex-direction: column;
 }
+.ribbon-formatting details + details {
+  border-left: 1px solid var(--border);
+  padding-left: 16px;
+  margin-left: 8px;
+}
 .ribbon-formatting summary {
   display: none;
 }
-.ribbon-formatting details::after {
+/* The group's title sits above its label row, one height for every group so the rows align. */
+.editor-ribbon {
+  --group-title: 19px;
+}
+.ribbon-formatting details::before {
   content: attr(data-group);
   display: block;
-  text-align: center;
+  height: var(--group-title);
   font-size: 10px;
+  line-height: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #777b8c;
-  padding-top: 9px;
 }
 .ribbon-formatting .formatting-grid {
   display: flex;
@@ -964,9 +988,22 @@
   width: 106px;
   flex-shrink: 0;
 }
-/* The per-side spacing spans the group's four columns rather than one field's width. */
+/* Spacing & shape: the per-side spacing fills the first column over both rows, and the gap,
+   radius and border fields fill a two-by-two block beside it. */
+.ribbon-formatting :where(details[data-group="Spacing & shape"]) .formatting-grid {
+  grid-template-columns: auto repeat(2, 106px);
+}
+/* A divider between the spacing and the shape fields: inside · outside · shape. */
 .ribbon-formatting .formatting-grid > .spacing-controls {
   width: auto;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  padding-right: 16px;
+  margin-right: 6px;
+  border-right: 1px solid var(--border);
+}
+.ribbon-formatting .spacing-pair {
+  grid-template-columns: 100px auto 100px;
 }
 .ribbon-formatting .formatting-grid [data-property="font-family"] {
   width: 175px;
@@ -1013,7 +1050,7 @@
 }
 .ribbon-reset {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   border-left: 1px solid var(--border);
   margin-left: 20px;
   padding-left: 18px;
@@ -1031,6 +1068,11 @@
 .ribbon-reset button:hover:not(:disabled) {
   color: var(--accent);
   background: #f4f0ff;
+}
+/* The preset picker and Reset beside the groups start at the groups' label row. */
+.preset-manager:has(+ .ribbon-formatting),
+.ribbon-formatting + .ribbon-reset {
+  padding-top: var(--group-title);
 }
 
 .ribbon-project-colors {
