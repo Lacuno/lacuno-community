@@ -16,7 +16,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | States: hover, focus, focus-visible, active, visited, disabled, checked, first, last, nth, placeholder, before, after | MVP | The picker offers hover, focus, focus-visible, active, visited, first, last, odd and even; the rest wait for form controls in the palette and a content field |
 | Design tokens: color, spacing, typography, radius, shadow, with modes such as light and dark | MVP | Compiled to CSS custom properties. In: color, spacing, size, typography, radius and shadow in the Design tokens dialog, a token button on every matching style field, and canvas spacing and size handles that snap to tokens. Border and motion groups, and per-mode values for non-colour tokens in the dialog, wait |
 | Fluid typography and spacing with clamp | Later | A design token can be a scale, not just a value. Deferred out of Phase 1 |
-| Components with props, slots and variants | Phase 2 | Props are in. Slots and visible instance overrides are built with the CMS |
+| Components with props, slots and variants | Phase 4 | Props are in. Slots and visible instance overrides are built with the CMS |
 | Rich text editing on canvas | MVP | Tiptap. Same editor used in CMS rich fields |
 | Copy and paste of HTML plus CSS, Tailwind HTML, Webflow clipboard, Webstudio JSON, SVG, images | Next | Import is how people switch. Tailwind paste is how AI output gets in |
 | Scroll-driven and view-timeline animations, transitions | Next | Native CSS. No engine of our own |
@@ -68,7 +68,6 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Managed custom domains and automatic TLS provisioning | Cloud | Community operators configure their own DNS, proxy and certificates |
 | Export the generated Astro project as a zip or push to a git repository | MVP | The escape hatch |
 | Deploy hooks for Cloudflare Pages, Netlify, Vercel, GitHub Pages | Next | Push the built output or the Astro project |
-| Preview URLs per proposal branch | Next | Every agent proposal and every human branch gets one |
 | Incremental builds for large collections | Later | Full rebuilds are fine until they are not |
 | Build logs, build history, rollback to a previous publish | MVP | |
 
@@ -81,8 +80,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Undo and redo across the whole document | MVP | Inverse patches of each committed batch |
 | Realtime multiplayer with presence | Next | Same Yjs document over WebSocket |
 | Comments pinned to elements | Next | Also how humans talk to the agent about a specific element |
-| Branches and proposals with visual diff | Next | Git-backed. Agent proposals use the same mechanism |
-| Version history and restore | Later | Every publish and every accepted proposal is a commit. Deferred out of Phase 1 |
+| Version history and restore | Later | Browsable draft snapshots distinct from releases. Deferred out of Phase 1 |
 
 ## Extensibility
 
@@ -102,10 +100,11 @@ See [AGENTS.md](AGENTS.md). Summary of what ships when:
 | --- | --- |
 | MCP server over the document with progressive tool discovery | MVP |
 | Screenshot and visual diff tools | MVP |
-| In-app agent panel with selection context and canvas proposals | Next |
-| Skills stored in the site repository | Next |
+| Connect your AI: a remote MCP endpoint per site with OAuth, one-click registration in Claude, ChatGPT, Cursor and VS Code, a connection badge and a live view of the agent's edits on the canvas | Phase 2 |
+| Selection context through MCP, so the agent acts on "this element" | Phase 3 |
+| Skills stored in the site repository, semantic annotations, design linter | Phase 3 |
 | Background jobs: content generation, audits, translation | Later |
-| Bring your own key, local models through Ollama | Next |
+| Model providers, API keys, local models | Not planned. The user's own AI app does the thinking |
 
 ## Self-hosting and operations
 

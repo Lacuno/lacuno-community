@@ -8,9 +8,8 @@
                     │  Hono + Node 22                               │
   Browser ─────────►│  ├─ /api        REST + tRPC-style typed API   │
   (editor SPA)      │  ├─ /ws         Yjs sync + presence           │
-                    │  ├─ /mcp        MCP over streamable HTTP      │
-  Claude Code ─────►│  ├─ /agent      agent runtime (proposals,     │
-  Cursor, CLI       │  │              jobs, model providers)         │
+  Claude, ChatGPT ─►│  ├─ /mcp        MCP over streamable HTTP,     │
+  Cursor, VS Code   │  │              OAuth per site, no model calls │
                     │  ├─ /build      build queue → Astro compiler   │
                     │  ├─ /forms      submissions endpoint for       │
   Published site ──►│  │              published sites                │
@@ -43,7 +42,7 @@ freeflow/
     compiler/      Document + content → static site, using Astro as an internal engine
     cms/           Collection schema, storage, queries, export to content collections
     mcp/           MCP server: tool definitions over the document API
-    agent/         Agent runtime: proposals, skills, providers, jobs
+    agent/         Skills, semantic annotations, design linter
     importers/     Webflow clipboard, Webstudio JSON, HTML+CSS, Tailwind HTML, Markdown
     ui/            Shared editor UI kit (Radix-based)
   docs/
@@ -109,7 +108,7 @@ Design choices that matter:
   part of the design. Entries are content and live in SQLite. On publish, entries are exported into
   the repository so the repository is a complete site.
 - **Entries live in the document for now.** Until the server and its database exist, collection
-  entries are a map in the document keyed by collection id. Phase 2 moves them out with a
+  entries are a map in the document keyed by collection id. The content phase moves them out with a
   migration. Nothing else in the design depends on where they live.
 - **Semantic annotations are optional and cheap.** Role and archetype like `hero`, `pricing`,
   `testimonial`, and constraints like `above-fold` give the agent and the linter a vocabulary
@@ -121,8 +120,8 @@ and written back on the next commit.
 
 ## Live document and persistence
 
-- In the editor, undo and redo replay a committed batch's patches inverted, so one agent proposal
-  or one drag is one undo step.
+- In the editor, undo and redo replay a committed batch's patches inverted, so one drag is one
+  undo step. Agent batches arrive over an event stream and are not the designer's undo steps.
 - Yjs sync is deferred. When it lands, the document becomes a Yjs doc that panels subscribe to, and
   the server keeps it in memory per open site, syncs over WebSocket, and persists updates to SQLite
   as they arrive so a crash loses nothing.
@@ -133,7 +132,7 @@ and written back on the next commit.
   counter: a batch names the revision it read, a stale batch is rejected, a dry run returns the
   patches without committing, and the whole result is validated before commit. Nothing outside
   the store's commit path can bump the revision.
-- **Commits.** On publish, on accepted proposal, or on explicit save, the document is serialized to
+- **Commits.** On publish or on explicit save, the document is serialized to
   JSON and committed to the site's git repository along with exported CMS entries and assets
   metadata. Git is the durable history; SQLite is the live buffer.
 - Repository layout:
@@ -212,7 +211,7 @@ The compiler has no knowledge of the server. The CLI exposes it as `freeflow bui
 - **Auth** with better-auth: email and password, magic link, then OIDC.
 - **Storage** through Drizzle. SQLite by default with WAL. Postgres via config.
 - **Tables** cover accounts, workspaces, sites, memberships, CMS entries, form submissions, builds,
-  proposals, jobs, audit log, and the Yjs update buffer.
+  MCP connections, activity log, and the Yjs update buffer.
 - **Build queue.** A small in-process queue runs each build in a child process, one at a time per
   site, because the build changes its working directory for Astro. Output goes to
   `builds/<site>/<build-id>/`. The first publishing milestone atomically updates a SQLite live-release
@@ -244,9 +243,9 @@ The compiler has no knowledge of the server. The CLI exposes it as `freeflow bui
 - Multi-tenant by workspace; every query is scoped.
 - Custom code and embeds are user-trusted content and only render in the published site and the
   canvas iframe, never in editor chrome.
-- Agent tool calls run under the invoking user's permissions and are recorded in the audit log.
+- Agent tool calls run under the permissions of the user who connected the app, scoped to one
+  site by an OAuth token the user can revoke, and are recorded in the activity log.
 - Form endpoints are rate limited per site and per IP.
-- Model provider keys are encrypted at rest and never leave the server.
 
 ## Performance targets
 

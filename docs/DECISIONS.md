@@ -68,7 +68,7 @@ subscriptions rather than by framework choice.
 **Why.** One container with no external services is the self-host promise. Drizzle keeps the
 schema portable so Postgres is a config switch for larger deployments.
 
-## D009. Agents are users with proposals
+## D009. Agents are users with proposals (superseded by D016)
 
 **Alternatives.** Agent edits apply directly. Agent edits require per-mutation confirmation.
 
@@ -144,3 +144,20 @@ invitations, roles, billing and managed recovery separately.
 **Why.** Authentication protects the editor and publish controls on an internet-reachable instance.
 Removing it would shift that protection onto operators or require us to maintain password/session
 security ourselves. A setup token prevents the first visitor from claiming an unconfigured server.
+
+## D016. The user's own AI app is the agent; edits land live on the canvas
+
+Supersedes D009.
+
+**Alternatives.** Freeflow calls a model with the instance's key (bring your own key, Ollama).
+Agent work lands as proposals reviewed in a diff.
+
+**Why.** Everyone already pays for Claude, ChatGPT or an AI editor, and those apps speak MCP.
+Freeflow therefore never calls a model and never holds a key: the editor's Connect your AI
+button registers a per-site MCP endpoint in the user's app, protected by OAuth issued by the
+same server. Agent batches stream into the open editor and land on the canvas as they happen,
+which is the review; the designer's own draft is never overwritten and their undo history stays
+theirs. A proposal flow would double the mechanism for little safety, since every batch is
+version-pinned, logged and undoable by a later batch. Production publishing and site deletion
+remain human-only actions and are not exposed as tools.
+

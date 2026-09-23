@@ -74,7 +74,7 @@ compiler resolves to the page's path, so a link follows a page through a path ch
 inspector switches to numbered), a self-hosted video and an HTML embed. Uploads accept MP4 and WebM
 next to images; the video inspector chooses a clip from the library and toggles controls, autoplay,
 loop and muted. Embeds publish verbatim; the canvas shows a labelled placeholder where their
-scripts and iframes would run. Form controls follow with Phase 2 forms.
+scripts and iframes would run. Form controls follow with the forms work in Phase 4.
 **Design tokens implemented:** the ribbon's Design tokens dialog manages colour, spacing, size,
 typography, radius and shadow tokens, named by group (`space.card`, `font.body`). Every matching
 style field has a token button that binds it to a token, shows the bound token's name and can
@@ -127,8 +127,8 @@ areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.
 - Editor: canvas iframe, layer tree, element palette, style panel, classes, breakpoints,
   states (implemented: hover, focus, focus-visible, active, visited, first, last, odd, even),
   design tokens, pages, page settings and SEO, assets, fonts, undo and redo (all implemented).
-- Components with props (implemented). Slots and visible instance overrides move to Phase 2,
-  where they are built together with the CMS (decided 2026-09-23).
+- Components with props (implemented). Slots and visible instance overrides move to the content
+  phase, where they are built together with the CMS (decided 2026-09-23).
 - Publish to testing and production from the instance, build history, rollback (implemented).
 - Docker image and operator-written configuration via the self-hosting guide; `npx freeflow` remains planned.
 - Preview, screenshot and diff tools in MCP (implemented).
@@ -143,9 +143,47 @@ under Future ideas below.
 published and rolled back from the container. An operator can deploy it with their own domain and
 TLS using the self-hosting guide; automated domain/TLS management is not a Community exit requirement.
 
-## Phase 2. Content and forms
+## Phase 2. Connect your AI
 
-Goal: the reasons people pay for Webflow.
+Goal: the differentiator. A designer connects the AI app they already pay for to a site in one
+click, and watches it work on the canvas. Freeflow never calls a model and never holds an API key;
+the user's own subscription does the thinking, Freeflow gives it hands
+([spec](superpowers/specs/2026-09-23-connect-your-ai-design.md)).
+
+- A remote MCP endpoint per site on the Community server, exposing the existing tools over
+  Streamable HTTP with OAuth. The same server that runs the editor is the MCP server.
+- A prominent **Connect your AI** button in the editor: one card per app (Claude Code, Claude
+  Desktop, claude.ai, ChatGPT, Cursor, VS Code), each with the best registration that app offers:
+  an install link, a one-line command or a URL to paste, plus the OAuth consent screen. Localhost
+  works for the desktop and CLI apps; the cloud-hosted apps need a public address.
+- The editor shows which app is connected and when it last acted, and lets you disconnect it.
+- Live view: the agent's batches stream into the open editor and land on the canvas without a
+  reload, touched elements flash, and an activity list names each batch. The designer's own
+  pending edits are never overwritten.
+- Uploads through MCP (inline file data instead of a server path) and publish to testing from MCP,
+  so an agent can show its result on the testing origin.
+
+**Exit:** from a fresh site, click Connect your AI, pick Claude, approve once, and ask it for a
+pricing page in the site's tokens and components. The page appears in the editor while Claude
+builds it, the connection badge shows Claude working, and one section is then edited by hand and
+published.
+
+## Phase 3. Agent on the canvas
+
+Goal: the agent works with the designer's context, not beside it.
+
+- Selection context through MCP: the agent can read what is selected, which page and breakpoint
+  are open, and act on "this element".
+- Skills in the repository and default skills (brand, layout, copy) that connected apps pick up.
+- Semantic annotations and a design linter the agent can run before it hands over.
+
+**Exit:** with a section selected, "make this match the hero" produces an edit that respects the
+tokens and passes the linter, seen live on the canvas.
+
+## Phase 4. Content and forms
+
+Goal: the reasons people pay for Webflow. Deferred behind the AI work on 2026-09-23: an agent
+already writes content through the document, so native content editing can wait.
 
 - Native collections, fields, references, collection templates and lists.
 - Components with slots and visible instance overrides in the layer tree, built with the
@@ -158,19 +196,7 @@ Goal: the reasons people pay for Webflow.
 **Exit:** a blog with fifty posts and a contact form, imported from a Webflow export, published
 and receiving submissions.
 
-## Phase 3. Agent on the canvas
-
-Goal: the differentiator.
-
-- Proposals as branches with preview builds and a rendered diff in the editor.
-- In-app agent panel with selection context and slash commands.
-- Skills in the repository, default skills, semantic annotations, design linter.
-- Model providers with BYO keys and Ollama.
-
-**Exit:** "build a pricing page using our brand skill" produces a proposal that respects design tokens and
-components, passes the linter, and is accepted from the review UI with one section edited by hand.
-
-## Phase 4. Collaboration and scale
+## Phase 5. Collaboration and scale
 
 - Realtime multiplayer with presence and element comments.
 - Background jobs and schedules.
@@ -194,4 +220,6 @@ Not scheduled; recorded so they are not lost.
 
 - Interactions timeline engine. Native CSS animation support instead, revisited on demand.
 - Web app features: authentication for visitors, per-user state, dashboards.
-- Freeflow-operated inference. Bring your own provider.
+- Model calls of any kind: no Freeflow-operated inference, no bring-your-own key, no provider
+  settings. The user's own AI app connects through MCP.
+- Proposals as branches with a rendered diff; the live canvas is the review.
