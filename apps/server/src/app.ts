@@ -23,8 +23,8 @@ import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { siteEvents, summarize } from './events.js'
 import { GatewayAuth, type GatewayOptions } from './gateway-auth.js'
-import { mcpRoutes } from './mcp.js'
-import { createOAuth, oauthPlugins } from './oauth.js'
+import { activeConnections, closeSessions, mcpRoutes } from './mcp.js'
+import { createOAuth, type OAuth, oauthPlugins } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
 import { SqlitePersistence } from './persistence.js'
 import { publishedApp } from './published.js'
@@ -39,6 +39,8 @@ export type ServerOptions = {
   editorDir?: string
   publishBaseURL?: string
   gateway?: GatewayOptions
+  /** Test-only: replaces the OAuth grants so tests can call the MCP endpoint with a fixed token. */
+  oauth?: OAuth
 }
 
 const SiteInput = z.strictObject({ name: z.string().trim().min(1).max(200) })
@@ -103,7 +105,7 @@ export async function createServer(options: ServerOptions) {
     const setup = gateway ? undefined : new OwnerSetup(sqlite, options.allowSignup ?? false)
     if (gateway || setup?.singleOwner) authOptions.emailAndPassword.disableSignUp = true
     const auth = betterAuth(authOptions)
-    const oauth = createOAuth(auth, sqlite, origin)
+    const oauth = options.oauth ?? createOAuth(auth, sqlite, origin)
     // Only the token-protected setup endpoint can reach this registration-enabled handler.
     const setupAuth = betterAuth({
       ...authOptions,
@@ -149,6 +151,8 @@ export async function createServer(options: ServerOptions) {
       c.json({
         allowSignup: !gateway && !setup?.singleOwner && (options.allowSignup ?? false),
         setupRequired: setup?.required ?? false,
+        origin,
+        local: ['localhost', '127.0.0.1'].includes(new URL(origin).hostname),
         ...(gateway ? { authentication: 'gateway', gatewayProtocol: 1 } : {}),
       }),
     )
@@ -309,7 +313,21 @@ export async function createServer(options: ServerOptions) {
     })
     const store = (id: string) =>
       DocumentStore.withPersistence(new SqlitePersistence(db, id, options.dataDir))
-    app.route('/mcp', mcpRoutes({ store, oauth, events: siteEvents }))
+    app.route('/mcp', mcpRoutes({ store, oauth, events: siteEvents, releases }))
+    app.get('/api/sites/:id/connections', (c) => {
+      const active = activeConnections(c.req.param('id'))
+      return c.json(
+        oauth
+          .connections(c.req.param('id'))
+          .map((connection) => ({ ...connection, active: active.has(connection.id) })),
+      )
+    })
+    app.delete('/api/sites/:id/connections/:cid', async (c) => {
+      if (!(await oauth.revoke(c.req.param('id'), c.req.param('cid'))))
+        return c.json({ error: 'Connection not found' }, 404)
+      await closeSessions(c.req.param('id'), c.req.param('cid'))
+      return c.body(null, 204)
+    })
     app.get('/api/sites/:id/releases', (c) =>
       c.json(releases?.list(c.req.param('id')) ?? { enabled: false, releases: [] }),
     )
