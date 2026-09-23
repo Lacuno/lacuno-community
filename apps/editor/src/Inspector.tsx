@@ -196,6 +196,8 @@ export function Inspector({
   const canvasStyle = useRef((_: StyleEdit & { id: string }) => {})
   canvasStyle.current = (edit) => {
     if (edit.id !== node.id || disabled) return
+    // The panel's autosave stays disabled while a canvas drag previews through its draft.
+    setDragging('phase' in edit && edit.phase === 'drag')
     if ('token' in edit) {
       try {
         const id = `dt-${crypto.randomUUID()}`
@@ -225,14 +227,11 @@ export function Inspector({
     // A single-property colour edit and a multi-side spacing edit share one changes object.
     const changed = 'changes' in edit ? edit.changes : { [edit.property]: edit.value }
     if (edit.phase === 'drag') {
-      // Preview through the panel's draft; the panel's autosave stays disabled while dragging.
-      setDragging(true)
       for (const [property, value] of Object.entries(changed)) changeFormatting(property, value)
       return
     }
     // Commit once when the drag ends as a single undoable edit. Like the panel's autosave, it keeps
     // the panel and its draft, so the canvas shows the new value until the new render lands.
-    setDragging(false)
     void autoSave(
       formattingOperations(doc, node, changed, () => classId.current, breakpoint, state),
     )

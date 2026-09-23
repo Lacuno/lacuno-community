@@ -105,7 +105,7 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
     await canvas.getByRole('button', { name: /^Text color: / }).click()
     await expect.poll(() => canvas.locator('.wheel').count()).toBe(1)
     await canvas.locator('.swatches button').nth(4).click()
-    // Reaching for the background swatch commits the text colour and opens the background wheel.
+    // The pick commits the text colour; the background swatch opens the background wheel.
     await canvas.getByRole('button', { name: /^Background color: / }).click()
     await expect
       .poll(() =>
@@ -122,10 +122,10 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
     ).toBe('true')
     expect(await sentinel()).toBe('kept')
 
-    // The reported flicker: with the background wheel open, pick a colour and reach for the text
-    // swatch. Its commit must not drop the preview before the new render lands, so every frame
-    // until the morph shows the picked background, never the one it replaces. Transitions are off
-    // so a frame shows exactly the value applied, not a blend.
+    // The reported flicker: with the background wheel open, pick a colour. Its commit must not drop
+    // the preview before the new render lands, so from the first frame that shows the picked
+    // background every frame shows it, never the one it replaces. Transitions are off so a frame
+    // shows exactly the value applied, not a blend.
     await canvas.locator('head').evaluate((head) => {
       head.append(
         Object.assign(document.createElement('style'), {
@@ -134,11 +134,6 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
       )
     })
     const committed = await cta.evaluate((element) => getComputedStyle(element).backgroundColor)
-    await canvas.locator('.swatches button').nth(1).click()
-    await expect
-      .poll(() => cta.evaluate((element) => getComputedStyle(element).backgroundColor))
-      .not.toBe(committed)
-    const picked = await cta.evaluate((element) => getComputedStyle(element).backgroundColor)
     // The canvas iframe runs no scripts of its own, so the editor page samples it every frame.
     await page.evaluate(() => {
       const doc = document.querySelector<HTMLIFrameElement>('iframe[title="Site canvas"]')!
@@ -156,14 +151,16 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
       }
       sample()
     })
-    await canvas.getByRole('button', { name: /^Text color: / }).click()
-    await saved()
+    await canvas.locator('.swatches button').nth(1).click()
     const frames = () =>
       page.evaluate(
         () => (window as unknown as { __frames: { frames: string[]; morphed: boolean } }).__frames,
       )
     await expect.poll(async () => (await frames()).morphed).toBe(true)
-    expect(new Set((await frames()).frames)).toEqual(new Set([picked]))
+    const picked = await cta.evaluate((element) => getComputedStyle(element).backgroundColor)
+    expect(picked).not.toBe(committed)
+    const sampled = (await frames()).frames
+    expect(new Set(sampled.slice(sampled.indexOf(picked)))).toEqual(new Set([picked]))
   } finally {
     await browser.close()
     await new Promise<void>((resolve) => listener.close(() => resolve()))

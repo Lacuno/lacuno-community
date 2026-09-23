@@ -54,14 +54,52 @@ it('shows the state chip and colour wheel on the canvas selection bar', async ()
     await canvas.getByRole('button', { name: /^Text color: / }).click()
     await expect.poll(() => canvas.locator('.wheel').count()).toBe(1)
     await expect.poll(() => canvas.getByLabel('Project color name').count()).toBe(1)
-    // The template ships project colours; picking one binds the element and commits on close.
+    // Every colour gesture commits as it ends, with the wheel still open.
+    const applied = (property: string) =>
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/document/apply') &&
+          !!response.request().postData()?.includes(property),
+      )
+    // The template ships project colours; picking one binds the element.
     const dots = canvas.locator('.swatches button')
     await expect.poll(() => dots.count()).toBeGreaterThan(0)
     const before = await cta.evaluate((element) => getComputedStyle(element).color)
+    const color = applied('"color"')
     await dots.first().click()
+    await color
     await expect
       .poll(() => cta.evaluate((element) => getComputedStyle(element).color))
       .not.toBe(before)
+
+    // A wheel drag commits on release, so switching state straight after keeps the colour.
+    await canvas.getByRole('button', { name: /^Background color: / }).click()
+    const wheel = (await canvas.locator('.wheel').boundingBox())!
+    const background = applied('background-color')
+    // Raw input events: Playwright's mouse.move never resolves under the wheel's pointer capture.
+    const cdp = await context.newCDPSession(page)
+    const mouse = (
+      type: 'mousePressed' | 'mouseMoved' | 'mouseReleased',
+      x: number,
+      y: number,
+      buttons = 1,
+    ) =>
+      cdp.send('Input.dispatchMouseEvent', {
+        type,
+        x: wheel.x + wheel.width * x,
+        y: wheel.y + wheel.height * y,
+        button: 'left',
+        buttons,
+        clickCount: 1,
+      })
+    await mouse('mousePressed', 0.2, 0.5)
+    for (const step of [0.25, 0.3, 0.35]) await mouse('mouseMoved', step, step)
+    await mouse('mouseReleased', 0.35, 0.35, 0)
+    await background
+    // The open wheel covers the chip here, so the click goes to the chip itself.
+    await canvas.getByRole('button', { name: /^State: / }).dispatchEvent('click')
+    await canvas.getByRole('menuitemradio', { name: /^Hover/ }).click()
+    await expect.poll(() => page.locator('.save-state').textContent()).toBe('All changes saved')
   } finally {
     await browser.close()
     await new Promise<void>((resolve) => listener.close(() => resolve()))

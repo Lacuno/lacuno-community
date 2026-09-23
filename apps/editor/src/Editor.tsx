@@ -1,5 +1,5 @@
 import type { State } from '@freeflow/schema'
-import { useId, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { message } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
@@ -49,6 +49,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   })
   const [livePreview, setLivePreview] = useState<LivePreview>({})
   const [colorPreview, setColorPreview] = useState<LivePreview>({})
+  // A stable object, so the canvas repaints its draft only when a preview changes.
+  const draft = useMemo(() => ({ ...livePreview, ...colorPreview }), [livePreview, colorPreview])
   const session = useDocumentSession(siteId, {
     blocked: !!inlineTarget,
     setPageId,
@@ -213,7 +215,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           setRibbonTab={setRibbonTab}
           nodeAction={(action, id) => void nodeAction(action, id)}
           bindDragSurface={bindDragSurface}
-          livePreview={{ ...livePreview, ...colorPreview }}
+          livePreview={draft}
           setComputed={setComputed}
         />
         <InspectorColumn

@@ -47,6 +47,8 @@ function createController(getOptions: () => Options) {
   const bind = (surface: Document) => {
     const indicator = surface.createElement('div')
     indicator.setAttribute('data-freeflow-drop-indicator', '')
+    // A unique id keeps the canvas morph from matching a server node against the indicator.
+    indicator.id = 'freeflow-drop-indicator'
     indicator.style.cssText =
       'display:none;position:fixed;pointer-events:none;z-index:2147483647;box-sizing:border-box;border:2px solid #7952ed;background:#7952ed16;'
     const label = surface.createElement('span')

@@ -63,6 +63,7 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
       handle: string,
       move: { dx?: number; dy?: number },
       modifiers = 0,
+      back = false,
     ): Promise<void> => {
       const nub = canvas.locator(handle)
       await nub.waitFor()
@@ -70,6 +71,8 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
       const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
       const dx = move.dx ?? 0
       const dy = move.dy ?? 0
+      // Out and back ends where it started.
+      const end = back ? from : { x: from.x + dx, y: from.y + dy }
       await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...from })
       await cdp.send('Input.dispatchMouseEvent', {
         type: 'mousePressed',
@@ -88,10 +91,17 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
           buttons: 1,
           modifiers,
         })
+      if (back)
+        await cdp.send('Input.dispatchMouseEvent', {
+          type: 'mouseMoved',
+          ...end,
+          button: 'left',
+          buttons: 1,
+          modifiers,
+        })
       await cdp.send('Input.dispatchMouseEvent', {
         type: 'mouseReleased',
-        x: from.x + dx,
-        y: from.y + dy,
+        ...end,
         button: 'left',
         buttons: 0,
         clickCount: 1,
@@ -169,11 +179,11 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
 
     // The committed declarations of the CTA's classes, from the saved document.
     const siteId = new URL(page.url()).searchParams.get('site')!
-    const committed = async () => {
+    const committed = async (id = 'n-home-cta') => {
       const { document: doc } = await context.request
         .get(`${origin}/api/sites/${siteId}/document`)
         .then((response) => response.json())
-      const classes: string[] = doc.nodes['n-home-cta'].classes
+      const classes: string[] = doc.nodes[id].classes
       return Object.values(
         doc.styles as Record<string, { class: string; property: string; value: unknown }>,
       ).filter((style) => classes.includes(style.class))
@@ -199,7 +209,7 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
     expect(writes).toBe(before + 1)
     await undo()
     await saved()
-    await expect.poll(committed).toEqual(beforeCap)
+    await expect.poll(() => committed()).toEqual(beforeCap)
     await expect.poll(async () => (await size()).w).toBeCloseTo(capped.w, 0)
 
     // In a flex row the element would shrink back into the free space, so a width drag also stops
@@ -221,6 +231,35 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
         property: 'flex-shrink',
         value: { type: 'unit', value: 0, unit: 'number' },
       }),
+    )
+
+    // A drag out and back still ends the drag, so the panel's autosave is not left switched off.
+    await drag('.handle.size.right', { dx: 40 }, 0, true)
+    await page.getByRole('button', { name: 'Layout', exact: true }).click()
+    const applied = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/document/apply') &&
+        !!response.request().postData()?.includes('padding-top'),
+    )
+    await page
+      .locator('.ribbon-controls')
+      .getByLabel('Inside spacing top', { exact: true })
+      .fill('30')
+    await applied
+
+    // A percentage cap, like the image preset's max-width: 100%, is not a px cap to clear.
+    const image = canvas.locator('[data-freeflow-node="n-home-preview-image"]')
+    await image.click()
+    await expect
+      .poll(() => image.evaluate((element: HTMLImageElement) => element.complete))
+      .toBe(true)
+    await inject(':where([data-freeflow-node="n-home-preview-image"]) { max-width: 100% }')
+    await drag('.handle.size.right', { dx: -60 })
+    await expect
+      .poll(async () => (await committed('n-home-preview-image')).map((style) => style.property))
+      .toContain('width')
+    expect((await committed('n-home-preview-image')).map((style) => style.property)).not.toContain(
+      'max-width',
     )
 
     expect(errors).toEqual([])
