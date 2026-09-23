@@ -55,11 +55,12 @@ export function LinkTarget({
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            if (!pageId && !safeLinkHref(url)) {
+            const href = safeLinkHref(url)
+            if (!pageId && !href) {
               setError('Enter an https:// URL, /path, #section, mailto: or tel: destination.')
               return
             }
-            apply({ pageId: pageId || null, href: pageId ? null : url.trim() })
+            apply({ pageId: pageId || null, href: pageId ? null : href! })
             popover.current?.hidePopover()
           }}
         >

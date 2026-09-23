@@ -13,6 +13,10 @@ export const WEIGHT_NAMES = [
   'Black',
 ]
 
+/** Font weights read as names, as the fonts list shows them: 600 is Semi Bold. */
+export const weightName = (value: string) =>
+  /^[1-9]00$/.test(value) ? (WEIGHT_NAMES[Number(value) / 100 - 1] ?? value) : value
+
 /** Stacks every site offers after its own families; they need no file. */
 export const FONT_STACKS = ['system-ui, sans-serif', 'Georgia, serif', 'ui-monospace, monospace']
 
@@ -47,7 +51,7 @@ export function faceFromFileName(name: string) {
 
 /** The font-family value the editor writes for a family: the name, quoted unless it is a plain
  * identifier, then its fallback. */
-export const fontValue = ({ family, fallback }: Font) =>
+const fontValue = ({ family, fallback }: Font) =>
   `${/^[A-Za-z_-][\w-]*$/.test(family) ? family : `"${family}"`}, ${fallback ?? 'sans-serif'}`
 
 /** The site's families in first-seen order, each with its first face's fallback, then the stacks. */

@@ -1,12 +1,12 @@
 import { contextFromDocument, serializeValue } from '@freeflow/css'
 import { colorLabel, colorProperties, projectColors } from './colors.js'
 import { EffectsControls } from './EffectsControls.js'
-import { fontChoices } from './fonts.js'
-import { formattingGroups, localValue } from './formatting.js'
+import { fontChoices, weightName } from './fonts.js'
+import { formattingGroups } from './formatting.js'
 import { MotionControls } from './MotionControls.js'
 import { SourceLine } from './SourceLine.js'
 import { SpacingControls } from './SpacingControls.js'
-import type { StyleControls } from './styleField.js'
+import { type StyleControls, useStyleField } from './styleField.js'
 import { TokenField } from './TokenField.js'
 
 const choiceLabel = (value: string) =>
@@ -21,16 +21,11 @@ const choiceLabel = (value: string) =>
       wrap: 'Wrap',
       'flex-start': 'Start',
       'flex-end': 'End',
-      '400': 'Regular',
-      '500': 'Medium',
-      '600': 'Semibold',
-      '700': 'Bold',
-      '800': 'Extra bold',
       'system-ui, sans-serif': 'System sans-serif',
       'ui-monospace, monospace': 'Monospace',
     }) as Record<string, string>
   )[value] ??
-  value
+  weightName(value)
     .split(',')[0]!
     .replaceAll('"', '')
     .replace(/^./, (letter) => letter.toUpperCase())
@@ -43,16 +38,8 @@ export function FormattingControls({
   groupName?: string
   ribbon?: boolean
 }) {
-  const {
-    breakpoint = 'base',
-    state = 'none',
-    doc,
-    node,
-    changes,
-    change,
-    disabled,
-    computed,
-  } = controls
+  const { doc, node, change, disabled, computed } = controls
+  const { local, overridden } = useStyleField(controls)
   return (
     <div className={`formatting-controls ${ribbon ? 'ribbon-formatting' : 'inspector-formatting'}`}>
       {formattingGroups
@@ -78,9 +65,7 @@ export function FormattingControls({
               <EffectsControls {...controls} />
             ) : (
               <div className="formatting-grid">
-                {group.name === 'Spacing & shape' && (
-                  <SpacingControls key={`${node.id}-${breakpoint}-${state}`} {...controls} />
-                )}
+                {group.name === 'Spacing & shape' && <SpacingControls {...controls} />}
                 {group.fields
                   .filter(
                     (field) =>
@@ -96,10 +81,7 @@ export function FormattingControls({
                         : 'choices' in field
                           ? field.choices
                           : []
-                    const value =
-                      property in changes
-                        ? changes[property]
-                        : localValue(doc, node, property, breakpoint, state)
+                    const value = local(property)
                     const ref = value?.type === 'designToken' ? value.ref : ''
                     const text = value ? serializeValue(value, contextFromDocument(doc)) : ''
                     const color = colorProperties.has(property)
@@ -107,7 +89,7 @@ export function FormattingControls({
                       <div
                         key={property}
                         data-property={property}
-                        data-overridden={(breakpoint !== 'base' || state !== 'none') && !!value}
+                        data-overridden={overridden(property)}
                         className={color || property === 'font-family' ? 'formatting-wide' : ''}
                       >
                         {color && (

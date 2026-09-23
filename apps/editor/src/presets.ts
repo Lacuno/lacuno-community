@@ -9,8 +9,14 @@ import {
   styleKey,
 } from '@freeflow/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
-import { WEIGHT_NAMES } from './fonts.js'
-import { formattingGroups, formattingOperations, localClass } from './formatting.js'
+import { weightName } from './fonts.js'
+import {
+  clearStyles,
+  formattingGroups,
+  formattingOperations,
+  important,
+  localClass,
+} from './formatting.js'
 import { nodeLabel, pageOf } from './structure.js'
 import { tokenLabel, tokenValue } from './tokens.js'
 
@@ -140,8 +146,8 @@ export function styleSource(
     : { kind: 'inherited', from: parent.id, source }
 }
 
-/** The one-line wording of a source, with the scope it was set at when that is wider than this one. */
-/** The line under a field: the effective value, then where it comes from. */
+/** The line under a field: the effective value, then where it comes from, with the scope it was
+ * set at when that is wider than this one. */
 export function sourceLabel(
   doc: Document,
   source: StyleSource,
@@ -149,19 +155,19 @@ export function sourceLabel(
   state: State = 'none',
   computed?: string,
   property?: string,
-): { text: string; title: string; origin: string } {
+): { value: string; text: string; title: string; origin: string } {
   const shown = (value?: string) => (value ? weightName(value) : '')
   if (source.kind === 'default') {
     const text = [shown(computed), 'default'].filter(Boolean).join(' · ')
-    return { text, title: text, origin: 'default' }
+    return { value: shown(computed), text, title: text, origin: 'default' }
   }
   if (source.kind === 'inherited') {
     const from = elementName(doc, source.from)
-    const inner = sourceLabel(doc, source.source, breakpoint, state, computed, property)
-    const value = inner.text.slice(0, inner.text.lastIndexOf(' · '))
+    const { value, origin } = sourceLabel(doc, source.source, breakpoint, state, computed, property)
     return {
+      value,
       text: `${value} · inherited`,
-      title: `${value} · inherited from ${from} (${inner.origin})`,
+      title: `${value} · inherited from ${from} (${origin})`,
       origin: 'inherited',
     }
   }
@@ -182,7 +188,7 @@ export function sourceLabel(
     .filter(Boolean)
     .join(', ')
   const text = `${value} · ${origin}`
-  return { text, title: token ? `${value} = ${resolved} · ${origin}` : text, origin }
+  return { value, text, title: token ? `${value} = ${resolved} · ${origin}` : text, origin }
 }
 
 /** Where a source line leads: the ancestor, class, preset or token it names, with its spoken
@@ -207,10 +213,6 @@ export function sourceTarget(
 // The page root reads "Body", as in the layers panel.
 const elementName = (doc: Document, id: string) =>
   doc.pages[pageOf(doc, id)]?.root === id ? 'Body' : nodeLabel(doc.nodes[id]!)
-
-/** Font weights read as names, as the fonts list shows them. */
-const weightName = (value: string) =>
-  /^[1-9]00$/.test(value) ? (WEIGHT_NAMES[Number(value) / 100 - 1] ?? value) : value
 
 export function presetOverrides(doc: Document, node: Node, breakpoint = 'base') {
   const local = localClass(doc, node)
@@ -282,12 +284,7 @@ export function createPreset(
         state: 'none',
         property,
         value,
-        ...(Object.values(doc.styles).some(
-          (style) =>
-            node.classes.includes(style.class) && style.property === property && style.important,
-        )
-          ? { important: true }
-          : {}),
+        ...(important(doc, node, property) ? { important: true } : {}),
       }),
     ),
     ...Object.keys(doc.breakpoints)
@@ -332,12 +329,6 @@ export function updatePreset(doc: Document, node: Node, breakpoint = 'base'): Op
         class: preset.id,
       }),
     ),
-    ...formattingOperations(
-      doc,
-      node,
-      Object.fromEntries(overrides.map((style) => [style.property, null])),
-      undefined,
-      breakpoint,
-    ),
+    ...clearStyles(doc, node, overrides, breakpoint),
   ]
 }

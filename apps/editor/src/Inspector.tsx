@@ -1,25 +1,32 @@
 import { classNames, contextFromDocument, selectorFor, serializeValue } from '@freeflow/css'
 import type { Operation } from '@freeflow/document'
 import type { CssValue, Document, Node, State } from '@freeflow/schema'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { assetUrl } from './AssetsPanel.js'
 import { breakpointMedia } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { ClassManager } from './ClassManager.js'
+import { CodeField, InfoButton } from './CodeField.js'
 import { colorTokenName, defaultMode } from './colors.js'
 import type { StyleEdit } from './colorWheel.js'
 import { ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { FormattingControls } from './FormattingControls.js'
-import { formattingOperations, localClass, localValue, normalizeFormatting } from './formatting.js'
-import { ImageLibrary } from './ImageLibrary.js'
+import {
+  clearStyles,
+  formattingOperations,
+  localClass,
+  localValue,
+  normalizeFormatting,
+} from './formatting.js'
 import { LinkTarget } from './LinkTarget.js'
+import { MediaControls } from './MediaControls.js'
 import { PresetManager } from './PresetManager.js'
-import { placePopover } from './popover.js'
 import { SourceLine } from './SourceLine.js'
 import { stateInfo } from './states.js'
-import { hasAnchorParent, isLocked, isShared, nodeLabel, toggleAttr } from './structure.js'
+import { hasAnchorParent, isLocked, isShared, nodeLabel } from './structure.js'
+import { useStyleField } from './styleField.js'
 import { TextToolbar } from './TextToolbar.js'
 import { textLink, textProperties, wholeText } from './textFormatting.js'
 import { useAutosave } from './useAutosave.js'
@@ -83,19 +90,20 @@ export function Inspector({
   openToken: (id: string) => void
   select: (id: string) => void
 }) {
-  const scopeInfoId = useId()
-  const scopeInfo = useRef<HTMLDivElement>(null)
-  const embedInfoId = useId()
-  const embedInfo = useRef<HTMLDivElement>(null)
   const isImage = node.type === 'element' && node.tag === 'img'
   const isVideo = node.type === 'element' && node.tag === 'video'
   const isLink = 'tag' in node && node.tag === 'a'
   const linkHref = isLink ? node.attrs?.href : undefined
+  const link =
+    linkHref?.type === 'page'
+      ? { pageId: linkHref.page }
+      : linkHref?.type === 'static'
+        ? { href: String(linkHref.value) }
+        : undefined
   const originalAlt = node.attrs?.alt?.type === 'static' ? String(node.attrs.alt.value) : ''
   const originalAsset = node.attrs?.src?.type === 'asset' ? node.attrs.src.asset : ''
   const [imageAlt, setImageAlt] = useState(originalAlt)
   const [imageAsset, setImageAsset] = useState(originalAsset)
-  const [imageLibraryOpen, setImageLibraryOpen] = useState(false)
   const imageDirty =
     (isImage || isVideo) && (imageAlt !== originalAlt || imageAsset !== originalAsset)
   const [embedHtml, setEmbedHtml] = useState(node.type === 'embed' ? node.html : '')
@@ -299,17 +307,7 @@ export function Inspector({
     openToken,
     select,
   }
-  const resetFormatting = () =>
-    void save(
-      formattingOperations(
-        doc,
-        node,
-        Object.fromEntries(overrides.map((style) => [style.property, null])),
-        undefined,
-        breakpoint,
-        state,
-      ),
-    )
+  const { local: current } = useStyleField(controls)
   return (
     <aside className="inspector">
       {ribbonHost &&
@@ -337,10 +335,7 @@ export function Inspector({
                 disabled={disabled}
                 values={Object.fromEntries(
                   textProperties.map((property) => {
-                    const value =
-                      property in changes
-                        ? changes[property]
-                        : localValue(doc, node, property, breakpoint, state)
+                    const value = current(property)
                     return [
                       property,
                       value
@@ -356,13 +351,7 @@ export function Inspector({
                 change={(property, value) =>
                   changeFormatting(property, value ? { type: 'raw', value } : null)
                 }
-                tokens={{
-                  value: (property) =>
-                    property in changes
-                      ? changes[property]
-                      : localValue(doc, node, property, breakpoint, state),
-                  set: changeFormatting,
-                }}
+                tokens={{ value: current, set: changeFormatting }}
                 source={(property) => <SourceLine {...controls} property={property} compact />}
                 linkDisabled={
                   !settled ||
@@ -385,7 +374,7 @@ export function Inspector({
                 aria-label="Reset formatting"
                 title="Reset local formatting"
                 disabled={disabled || !settled || !overrides.length}
-                onClick={resetFormatting}
+                onClick={() => void save(clearStyles(doc, node, overrides, breakpoint, state))}
               >
                 <EditorIcon name="reset" />
                 <span>Reset</span>
@@ -407,21 +396,12 @@ export function Inspector({
               {stateInfo(state).label}
             </span>
           )}
-          <button
-            type="button"
-            className="scope-info-button"
-            aria-label="About responsive editing"
-            popoverTarget={scopeInfoId}
-            onClick={(event) => placePopover(event.currentTarget, scopeInfo.current)}
-          >
-            <EditorIcon name="info" />
-          </button>
-          <div ref={scopeInfo} id={scopeInfoId} popover="auto" className="scope-info-popover">
+          <InfoButton label="About responsive editing">
             {breakpoint === 'base' && state === 'none'
               ? `${overrides.length} local base styles. These apply to all sizes unless overridden.`
               : `${overrides.length} local overrides. Purple fields override this size or state; reset restores inheritance.`}{' '}
             Text and preset assignment apply to all sizes.
-          </div>
+          </InfoButton>
         </div>
         {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
         {locked && <p className="note">This element or its parent is locked.</p>}
@@ -429,23 +409,15 @@ export function Inspector({
           <div className="link-target-row">
             <span>Link target</span>
             <strong>
-              {linkHref?.type === 'page'
-                ? (doc.pages[linkHref.page]?.name ?? 'Unknown page')
-                : linkHref?.type === 'static'
-                  ? String(linkHref.value)
-                  : 'No destination yet'}
+              {link && 'pageId' in link
+                ? (doc.pages[link.pageId]?.name ?? 'Unknown page')
+                : (link?.href ?? 'No destination yet')}
             </strong>
             <LinkTarget
               doc={doc}
               label="Change"
               disabled={disabled || !settled}
-              current={
-                linkHref?.type === 'page'
-                  ? { pageId: linkHref.page }
-                  : linkHref?.type === 'static'
-                    ? { href: String(linkHref.value) }
-                    : undefined
-              }
+              current={link}
               apply={(value) =>
                 void save([
                   {
@@ -486,157 +458,30 @@ export function Inspector({
             </label>
           )}
           {node.type === 'embed' && (
-            <div className="embed-section">
-              <div className="embed-heading">
-                <span>Embed code</span>
-                <button
-                  type="button"
-                  className="scope-info-button"
-                  aria-label="About embed code"
-                  popoverTarget={embedInfoId}
-                  onClick={(event) => placePopover(event.currentTarget, embedInfo.current)}
-                >
-                  <EditorIcon name="info" />
-                </button>
-                <div ref={embedInfo} id={embedInfoId} popover="auto" className="scope-info-popover">
-                  Paste the HTML snippet a service gives you, such as a YouTube video, a map, a form
-                  or a social post. It is published exactly as written. The canvas shows only its
-                  static parts; scripts and iframes run on the published site, so a placeholder
-                  stands in here. The code saves when you leave the field.
-                </div>
-              </div>
-              <textarea
-                aria-label="Embed code"
-                className="embed-code"
-                rows={8}
-                placeholder={'<iframe src="https://…"></iframe>'}
-                value={embedHtml}
-                disabled={disabled}
-                onChange={(event) => setEmbedHtml(event.target.value)}
-                onBlur={() => {
-                  if (embedHtml !== node.html)
-                    void autoSave([{ type: 'node.update', id: node.id, html: embedHtml }])
-                }}
-              />
-            </div>
+            <CodeField
+              label="Embed code"
+              info="Paste the HTML snippet a service gives you, such as a YouTube video, a map, a form or a social post. It is published exactly as written. The canvas shows only its static parts; scripts and iframes run on the published site, so a placeholder stands in here. The code saves when you leave the field."
+              rows={8}
+              placeholder={'<iframe src="https://…"></iframe>'}
+              value={embedHtml}
+              disabled={disabled}
+              change={setEmbedHtml}
+              commit={() => {
+                if (embedHtml !== node.html)
+                  void autoSave([{ type: 'node.update', id: node.id, html: embedHtml }])
+              }}
+            />
           )}
           {(isImage || isVideo) && (
-            <div className="image-controls">
-              <button
-                type="button"
-                disabled={disabled}
-                aria-haspopup="dialog"
-                onClick={() => setImageLibraryOpen(true)}
-              >
-                {`${imageAsset ? 'Change' : 'Choose'} ${isVideo ? 'video' : 'image'}`}
-              </button>
-              {imageLibraryOpen && (
-                <ImageLibrary
-                  siteId={siteId}
-                  doc={doc}
-                  kind={isVideo ? 'video' : 'image'}
-                  selected={imageAsset}
-                  close={() => setImageLibraryOpen(false)}
-                  choose={(id) => {
-                    setImageAsset(id)
-                    setImageLibraryOpen(false)
-                  }}
-                />
-              )}
-              {isVideo ? (
-                <div className="video-flags">
-                  {['controls', 'autoplay', 'loop', 'muted'].map((name) => (
-                    <label key={name}>
-                      <input
-                        type="checkbox"
-                        disabled={disabled}
-                        checked={
-                          node.attrs?.[name]?.type === 'static' && node.attrs[name].value === true
-                        }
-                        onChange={(event) =>
-                          void autoSave([toggleAttr(node, name, event.target.checked)])
-                        }
-                      />
-                      {name[0]!.toUpperCase() + name.slice(1)}
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <label>
-                    Alt text
-                    <input
-                      aria-label="Image alt text"
-                      value={imageAlt}
-                      disabled={disabled}
-                      onChange={(event) => setImageAlt(event.target.value)}
-                    />
-                  </label>
-                  <p className="hint">Describe the image, or leave empty if it is decorative.</p>
-                  <label>
-                    Fit
-                    <select
-                      aria-label="Image fit"
-                      disabled={disabled}
-                      value={
-                        changes['object-fit']?.type === 'raw'
-                          ? changes['object-fit'].value
-                          : computed['object-fit'] || 'fill'
-                      }
-                      onChange={(event) =>
-                        changeFormatting('object-fit', { type: 'raw', value: event.target.value })
-                      }
-                    >
-                      {Object.entries({
-                        cover: 'Fill frame',
-                        contain: 'Fit inside',
-                        fill: 'Stretch',
-                        none: 'Original size',
-                        'scale-down': 'Shrink to fit',
-                      }).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Focal point
-                    <select
-                      aria-label="Image focal point"
-                      disabled={disabled}
-                      value={
-                        changes['object-position']?.type === 'raw'
-                          ? changes['object-position'].value
-                          : computed['object-position'] || '50% 50%'
-                      }
-                      onChange={(event) =>
-                        changeFormatting('object-position', {
-                          type: 'raw',
-                          value: event.target.value,
-                        })
-                      }
-                    >
-                      {[
-                        ['0% 0%', 'Top left'],
-                        ['50% 0%', 'Top'],
-                        ['100% 0%', 'Top right'],
-                        ['0% 50%', 'Left'],
-                        ['50% 50%', 'Center'],
-                        ['100% 50%', 'Right'],
-                        ['0% 100%', 'Bottom left'],
-                        ['50% 100%', 'Bottom'],
-                        ['100% 100%', 'Bottom right'],
-                      ].map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </>
-              )}
-            </div>
+            <MediaControls
+              {...controls}
+              siteId={siteId}
+              alt={imageAlt}
+              setAlt={setImageAlt}
+              asset={imageAsset}
+              setAsset={setImageAsset}
+              autoSave={autoSave}
+            />
           )}
           {originalText !== undefined ? (
             <label>

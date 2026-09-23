@@ -5,10 +5,12 @@
   gap: 8px;
   padding: 0 16px;
 }
+/* Source lines hang in space every toolbar reserves, so the fields sit alike with or without them. */
 .text-toolbar-fields {
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  padding-bottom: 15px;
 }
 .text-toolbar-fields label,
 .text-link-popover label {
@@ -30,10 +32,6 @@
   margin: 0;
   font-size: 12px;
 }
-/* Source lines hang in space every toolbar reserves, so the fields sit alike with or without them. */
-.text-toolbar-fields {
-  padding-bottom: 15px;
-}
 .text-field {
   position: relative;
 }
@@ -43,15 +41,14 @@
   left: 0;
   right: 0;
 }
-/* Size and colour are narrow; their lines run on under the buttons beside them, which have none. */
-.text-field-wide > .source {
-  right: auto;
-  overflow: visible;
-}
-/* A truncated line reads in full over its neighbours while its field is hovered or focused. */
+/* Size and colour are narrow; their lines run on under the buttons beside them, which have none.
+ * A truncated line reads in full over its neighbours while its field is hovered or focused. */
+.text-field-wide > .source,
 .text-field:is(:hover, :focus-within) > .source {
   right: auto;
   overflow: visible;
+}
+.text-field:is(:hover, :focus-within) > .source {
   z-index: 1;
   background: #fff;
 }

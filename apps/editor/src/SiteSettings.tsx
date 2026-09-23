@@ -1,62 +1,13 @@
 import type { Operation } from '@freeflow/document'
 import type { Document, Font } from '@freeflow/schema'
-import { type ReactNode, useId, useRef, useState } from 'react'
+import { useState } from 'react'
 import { uploadAsset } from './AssetsPanel.js'
 import { message } from './api.js'
+import { CodeField } from './CodeField.js'
 import { Dialog, ErrorNote } from './Dialog.js'
-import { EditorIcon } from './EditorIcon.js'
 import { faceFromFileName, faceLabel, setFallback, WEIGHT_NAMES } from './fonts.js'
 import { ImageLibrary } from './ImageLibrary.js'
 import { langError, redirectError, siteUrlError } from './pages.js'
-import { placePopover } from './popover.js'
-
-/** A monospace code field with the embed field's info popover. */
-export function CodeField({
-  label,
-  info,
-  value,
-  disabled = false,
-  change,
-  commit,
-}: {
-  label: string
-  info: ReactNode
-  value: string
-  disabled?: boolean
-  change: (value: string) => void
-  commit?: () => void
-}) {
-  const id = useId()
-  const popover = useRef<HTMLDivElement>(null)
-  return (
-    <div className="embed-section">
-      <div className="embed-heading">
-        <span>{label}</span>
-        <button
-          type="button"
-          className="scope-info-button"
-          aria-label={`About ${label.toLowerCase()}`}
-          popoverTarget={id}
-          onClick={(event) => placePopover(event.currentTarget, popover.current)}
-        >
-          <EditorIcon name="info" />
-        </button>
-        <div ref={popover} id={id} popover="auto" className="scope-info-popover">
-          {info}
-        </div>
-      </div>
-      <textarea
-        aria-label={label}
-        className="embed-code"
-        rows={4}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => change(event.target.value)}
-        onBlur={commit}
-      />
-    </div>
-  )
-}
 
 export const codeInfo = (where: string) =>
   `Code such as analytics, verification tags or chat widgets. It is published exactly as written at the end of the ${where} on every page it applies to, and it does not run on the canvas.`

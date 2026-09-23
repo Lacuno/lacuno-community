@@ -1,6 +1,7 @@
 import type { CssValue, DesignToken, Document } from '@freeflow/schema'
 import { designTokenCssName, safeTextStyleValue } from '@freeflow/schema'
 import { defaultMode } from './colors.js'
+import { isNumber } from './formatting.js'
 
 const lengthPattern = /^(\d*\.?\d+)(px|rem|em|%|vw|vh)$/
 const length = (value: string) =>
@@ -62,7 +63,7 @@ export const tokensOfGroup = (doc: Document, group: TokenGroup) =>
     .sort((a, b) => a.name.localeCompare(b.name))
 
 const numeric = (value: CssValue | undefined) =>
-  value?.type === 'unit' || (value?.type === 'raw' && /^\d*\.?\d+$/.test(value.value.trim()))
+  value?.type === 'unit' || (value?.type === 'raw' && isNumber(value.value))
 
 /** The tokens a field may bind to: its group's, and for typography only those of the right kind. */
 export const tokensForProperty = (doc: Document, property: string) => {

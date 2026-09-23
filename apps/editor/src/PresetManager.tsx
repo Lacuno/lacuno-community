@@ -4,7 +4,7 @@ import type { Document, Node } from '@freeflow/schema'
 import { useEffect, useId, useRef, useState } from 'react'
 import { message } from './api.js'
 import { ErrorNote } from './Dialog.js'
-import { formattingOperations } from './formatting.js'
+import { clearStyles } from './formatting.js'
 import { placePopover } from './popover.js'
 import {
   activePreset,
@@ -175,15 +175,7 @@ export function PresetManager({
                   type="button"
                   disabled={disabled || !overrides.length}
                   onClick={() =>
-                    void runAction(() =>
-                      formattingOperations(
-                        doc,
-                        node,
-                        Object.fromEntries(overrides.map((style) => [style.property, null])),
-                        undefined,
-                        breakpoint,
-                      ),
-                    )
+                    void runAction(() => clearStyles(doc, node, overrides, breakpoint))
                   }
                 >
                   Reset to preset

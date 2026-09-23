@@ -24,34 +24,32 @@ import {
 } from './tokens.js'
 import { useAutosave } from './useAutosave.js'
 
-export function ProjectColors({
-  doc,
-  busy,
-  conflict,
-  error,
-  dirtyChanged,
-  save,
-  close,
-  leave,
-  autoSave,
-  previewChanged,
-  registerFlush,
-  initial = '',
-}: {
+/** What both token forms get from the dialog. */
+type FormProps = {
   doc: Document
   busy: boolean
   conflict: boolean
-  error: string
-  dirtyChanged: (value: boolean) => void
+  dirtyChanged: (dirty: boolean) => void
   save: (ops: Operation[]) => Promise<boolean>
-  close: () => void
-  leave: (action: () => void) => Promise<void>
   autoSave: (ops: Operation[]) => Promise<boolean>
   previewChanged: (preview: LivePreview) => void
   registerFlush: (flush: () => Promise<boolean>) => () => void
+}
+
+export function ProjectColors({
+  error,
+  close,
+  leave,
+  initial = '',
+  ...form
+}: FormProps & {
+  error: string
+  close: () => void
+  leave: (action: () => void) => Promise<void>
   /** A token to open on, in its group. */
   initial?: string
 }) {
+  const { doc, busy, conflict } = form
   const groups = ['color', ...(Object.keys(tokenGroups) as TokenGroup[])] as const
   // The dialog opens on the initial token's group, when it has one here.
   const opening = groups.find((item) => item === doc.designTokens[initial]?.group)
@@ -133,16 +131,9 @@ export function ProjectColors({
           </nav>
           <ColorForm
             key={`${selected}-${family}-${reset}`}
-            doc={doc}
+            {...form}
             selected={selected}
             family={family}
-            busy={busy}
-            conflict={conflict}
-            dirtyChanged={dirtyChanged}
-            save={save}
-            autoSave={autoSave}
-            previewChanged={previewChanged}
-            registerFlush={registerFlush}
             created={(id) => {
               setSelected(id)
               setFamily('')
@@ -188,16 +179,9 @@ export function ProjectColors({
           </nav>
           <TokenForm
             key={`${group}-${selected}-${reset}`}
-            doc={doc}
+            {...form}
             group={group}
             selected={selected}
-            busy={busy}
-            conflict={conflict}
-            dirtyChanged={dirtyChanged}
-            save={save}
-            autoSave={autoSave}
-            previewChanged={previewChanged}
-            registerFlush={registerFlush}
             selectToken={setSelected}
           />
         </div>
@@ -210,33 +194,56 @@ export function ProjectColors({
   )
 }
 
+/**
+ * Autosaves a saved token's edits unless a problem holds them, and previews them on the canvas. Its
+ * status reads how saving goes or the problem, with Retry after a failed save.
+ */
+function useTokenSave(
+  { busy, conflict, dirtyChanged, autoSave, previewChanged, registerFlush }: FormProps,
+  operations: Operation[],
+  saved: boolean,
+  dirty: boolean,
+  problem: string,
+  preview: LivePreview,
+) {
+  const autosave = useAutosave(operations, saved && !problem && !conflict, busy, autoSave, {
+    dirty,
+    dirtyChanged,
+    registerFlush,
+  })
+  const previewKey = JSON.stringify(preview)
+  useEffect(() => {
+    previewChanged(JSON.parse(previewKey))
+    return () => previewChanged({})
+  }, [previewKey, previewChanged])
+  const status = saved && (
+    <>
+      <span className="hint" role="status">
+        {conflict ? 'Changes paused' : problem || (busy || dirty ? 'Saving…' : 'All changes saved')}
+      </span>
+      {autosave.hasFailed && !conflict && (
+        <button type="button" onClick={autosave.retry}>
+          Retry changes
+        </button>
+      )}
+    </>
+  )
+  return { flush: autosave.flush, status }
+}
+
 function ColorForm({
-  doc,
   selected,
   family,
-  busy,
-  conflict,
-  dirtyChanged,
-  save,
   created,
   variant,
-  autoSave,
-  previewChanged,
-  registerFlush,
-}: {
-  doc: Document
+  ...form
+}: FormProps & {
   selected: string
   family: string
-  busy: boolean
-  conflict: boolean
-  dirtyChanged: (dirty: boolean) => void
-  save: (ops: Operation[]) => Promise<boolean>
   created: (id: string) => void
   variant: () => void
-  autoSave: (ops: Operation[]) => Promise<boolean>
-  previewChanged: (preview: LivePreview) => void
-  registerFlush: (flush: () => Promise<boolean>) => () => void
 }) {
+  const { doc, busy, conflict, save } = form
   const token = doc.designTokens[selected]
   const [name, setName] = useState('')
   const [mode, setMode] = useState(defaultMode(doc))
@@ -260,18 +267,14 @@ function ColorForm({
           },
         ]
       : []
-  const autosave = useAutosave(operations, !!token && valid && !conflict, busy, autoSave, {
+  const { flush, status } = useTokenSave(
+    form,
+    operations,
+    !!token,
     dirty,
-    dirtyChanged,
-    registerFlush,
-  })
-  const previewKey = JSON.stringify(
+    valid ? '' : 'Enter a valid color',
     token && valid ? { colors: { [designTokenCssName(token.name)]: value } } : {},
   )
-  useEffect(() => {
-    previewChanged(JSON.parse(previewKey))
-    return () => previewChanged({})
-  }, [previewKey, previewChanged])
   const uses = token
     ? referencesToDesignToken(doc, token.id)
         .filter((reference) => reference.startsWith('styles.'))
@@ -289,7 +292,7 @@ function ColorForm({
           return
         }
         if (token) {
-          await autosave.flush()
+          await flush()
           return
         }
         try {
@@ -399,25 +402,12 @@ function ColorForm({
           </button>
         )}
         {token && (
-          <span className="hint" role="status">
-            {conflict
-              ? 'Changes paused'
-              : !valid
-                ? 'Enter a valid color'
-                : busy || dirty
-                  ? 'Saving…'
-                  : 'All changes saved'}
-          </span>
-        )}
-        {autosave.hasFailed && !conflict && (
-          <button type="button" onClick={autosave.retry}>
-            Retry changes
-          </button>
-        )}
-        {token && (
-          <button type="button" disabled={conflict} onClick={variant}>
-            Add variant
-          </button>
+          <>
+            {status}
+            <button type="button" disabled={conflict} onClick={variant}>
+              Add variant
+            </button>
+          </>
         )}
       </div>
     </form>
@@ -425,30 +415,16 @@ function ColorForm({
 }
 
 function TokenForm({
-  doc,
   group,
   selected,
-  busy,
-  conflict,
-  dirtyChanged,
-  save,
-  autoSave,
-  previewChanged,
-  registerFlush,
   selectToken,
-}: {
-  doc: Document
+  ...form
+}: FormProps & {
   group: TokenGroup
   selected: string
-  busy: boolean
-  conflict: boolean
-  dirtyChanged: (dirty: boolean) => void
-  save: (ops: Operation[]) => Promise<boolean>
-  autoSave: (ops: Operation[]) => Promise<boolean>
-  previewChanged: (preview: LivePreview) => void
-  registerFlush: (flush: () => Promise<boolean>) => () => void
   selectToken: (id: string) => void
 }) {
+  const { doc, busy, conflict, save, autoSave } = form
   const token = doc.designTokens[selected]
   const { label, prefix, example, validate } = tokenGroups[group]
   const context = contextFromDocument(doc)
@@ -497,12 +473,12 @@ function TokenForm({
             : []),
         ]
       : []
-  const autosave = useAutosave(operations, !!token && valid && !conflict, busy, autoSave, {
+  const { flush, status } = useTokenSave(
+    form,
+    operations,
+    !!token,
     dirty,
-    dirtyChanged,
-    registerFlush,
-  })
-  const previewKey = JSON.stringify(
+    nameProblem || problem || '',
     token && !problem
       ? {
           colors: {
@@ -511,10 +487,6 @@ function TokenForm({
         }
       : {},
   )
-  useEffect(() => {
-    previewChanged(JSON.parse(previewKey))
-    return () => previewChanged({})
-  }, [previewKey, previewChanged])
   const uses = token ? referencesToDesignToken(doc, token.id).length : 0
   const disabled = conflict || (busy && !token)
   return (
@@ -525,7 +497,7 @@ function TokenForm({
         setValidation('')
         if (busy || conflict) return
         if (token) {
-          await autosave.flush()
+          await flush()
           return
         }
         if (nameProblem || problem) {
@@ -601,22 +573,7 @@ function TokenForm({
             Create token
           </button>
         )}
-        {token && (
-          <span className="hint" role="status">
-            {conflict
-              ? 'Changes paused'
-              : !valid
-                ? nameProblem || problem
-                : busy || dirty
-                  ? 'Saving…'
-                  : 'All changes saved'}
-          </span>
-        )}
-        {autosave.hasFailed && !conflict && (
-          <button type="button" onClick={autosave.retry}>
-            Retry changes
-          </button>
-        )}
+        {status}
         {token && (
           <button
             type="button"
