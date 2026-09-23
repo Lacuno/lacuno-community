@@ -21,7 +21,10 @@ import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
+import { siteEvents, summarize } from './events.js'
 import { GatewayAuth, type GatewayOptions } from './gateway-auth.js'
+import { mcpRoutes } from './mcp.js'
+import { createOAuth, oauthPlugins } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
 import { SqlitePersistence } from './persistence.js'
 import { publishedApp } from './published.js'
@@ -89,6 +92,7 @@ export async function createServer(options: ServerOptions) {
       trustedOrigins: [origin],
       emailAndPassword: { enabled: true, disableSignUp: !options.allowSignup },
       rateLimit: { enabled: true, storage: 'database' },
+      plugins: oauthPlugins(),
     } satisfies BetterAuthOptions
     const migrations = await getMigrations(authOptions)
     await migrations.runMigrations()
@@ -99,6 +103,7 @@ export async function createServer(options: ServerOptions) {
     const setup = gateway ? undefined : new OwnerSetup(sqlite, options.allowSignup ?? false)
     if (gateway || setup?.singleOwner) authOptions.emailAndPassword.disableSignUp = true
     const auth = betterAuth(authOptions)
+    const oauth = createOAuth(auth, sqlite, origin)
     // Only the token-protected setup endpoint can reach this registration-enabled handler.
     const setupAuth = betterAuth({
       ...authOptions,
@@ -304,6 +309,7 @@ export async function createServer(options: ServerOptions) {
     })
     const store = (id: string) =>
       DocumentStore.withPersistence(new SqlitePersistence(db, id, options.dataDir))
+    app.route('/mcp', mcpRoutes({ store, oauth, events: siteEvents }))
     app.get('/api/sites/:id/releases', (c) =>
       c.json(releases?.list(c.req.param('id')) ?? { enabled: false, releases: [] }),
     )
@@ -428,17 +434,24 @@ export async function createServer(options: ServerOptions) {
       if (!input.success)
         return c.json({ error: 'Invalid operation batch', issues: input.error.issues }, 400)
       const batch = input.data
-      return c.json(
-        await (await store(c.req.param('id'))).apply(
-          batch.patches
-            ? { expectedRevision: batch.expectedRevision, patches: batch.patches as Patch[] }
-            : {
-                expectedRevision: batch.expectedRevision,
-                operations: batch.operations as Operation[],
-                ...(batch.dryRun === undefined ? {} : { dryRun: batch.dryRun }),
-              },
-        ),
+      const result = await (await store(c.req.param('id'))).apply(
+        batch.patches
+          ? { expectedRevision: batch.expectedRevision, patches: batch.patches as Patch[] }
+          : {
+              expectedRevision: batch.expectedRevision,
+              operations: batch.operations as Operation[],
+              ...(batch.dryRun === undefined ? {} : { dryRun: batch.dryRun }),
+            },
       )
+      if (!batch.dryRun)
+        siteEvents.emit(c.req.param('id'), {
+          revision: result.revision,
+          patches: result.patches,
+          actor: { kind: 'editor' },
+          at: Date.now(),
+          summary: summarize(batch.operations as Operation[] | undefined, result.patches),
+        })
+      return c.json(result)
     })
     if (options.editorDir) {
       app.get('/assets/*', serveStatic({ root: options.editorDir }))
