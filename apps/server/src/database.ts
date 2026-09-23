@@ -54,17 +54,12 @@ export function migrateApplication(sqlite: Database.Database) {
         revision INTEGER NOT NULL CHECK (revision >= 0)
       );
       CREATE INDEX sites_workspace_id ON sites(workspace_id);
-      INSERT INTO freeflow_migrations (version) VALUES (1);
-    `)
-    })
-    .immediate()
-  sqlite
-    .transaction(() => {
-      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version = 2').get()) return
-      sqlite.exec(`
       CREATE TABLE releases (
         id TEXT PRIMARY KEY NOT NULL,
         site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        version INTEGER NOT NULL CHECK(version > 0),
+        name TEXT,
+        target TEXT NOT NULL DEFAULT 'production' CHECK(target IN ('production','testing')),
         revision INTEGER NOT NULL,
         document TEXT NOT NULL,
         status TEXT NOT NULL CHECK(status IN ('queued','building','ready','failed')),
@@ -77,73 +72,18 @@ export function migrateApplication(sqlite: Database.Database) {
       );
       CREATE INDEX releases_site_created ON releases(site_id, created_at DESC);
       CREATE UNIQUE INDEX releases_one_active ON releases(site_id) WHERE status IN ('queued','building');
-      CREATE TABLE publications (
-        site_id TEXT PRIMARY KEY NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-        release_id TEXT NOT NULL REFERENCES releases(id)
-      );
-      INSERT INTO freeflow_migrations(version) VALUES(2);
-    `)
-    })
-    .immediate()
-  sqlite
-    .transaction(() => {
-      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version = 3').get()) return
-      sqlite.exec(`
-      ALTER TABLE releases ADD COLUMN version INTEGER NOT NULL DEFAULT 1 CHECK(version > 0);
-      WITH numbered AS (
-        SELECT id, ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY created_at, rowid) AS version
-        FROM releases
-      )
-      UPDATE releases SET version = (SELECT version FROM numbered WHERE numbered.id = releases.id);
       CREATE UNIQUE INDEX releases_site_version ON releases(site_id, version);
-      INSERT INTO freeflow_migrations(version) VALUES(3);
-    `)
-    })
-    .immediate()
-  sqlite
-    .transaction(() => {
-      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version = 4').get()) return
-      sqlite.exec(`
-      CREATE TABLE owner_setup (id INTEGER PRIMARY KEY CHECK(id = 1), token TEXT);
-      INSERT INTO freeflow_migrations(version) VALUES(4);
-    `)
-    })
-    .immediate()
-  sqlite
-    .transaction(() => {
-      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version=5').get()) return
-      sqlite.exec(`
-      CREATE TABLE gateway_mode (id INTEGER PRIMARY KEY CHECK(id=1),issuer TEXT NOT NULL,audience TEXT NOT NULL);
-      CREATE TABLE gateway_nonce (id TEXT PRIMARY KEY,expires_at INTEGER NOT NULL);
-      CREATE INDEX gateway_nonce_expiry ON gateway_nonce(expires_at);
-      INSERT INTO freeflow_migrations(version) VALUES(5);
-    `)
-    })
-    .immediate()
-  sqlite
-    .transaction(() => {
-      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version=6').get()) return
-      sqlite.exec(`
-      ALTER TABLE releases ADD COLUMN name TEXT;
-      INSERT INTO freeflow_migrations(version) VALUES(6);
-    `)
-    })
-    .immediate()
-  sqlite
-    .transaction(() => {
-      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version=7').get()) return
-      sqlite.exec(`
-      ALTER TABLE publications RENAME TO publications_old;
       CREATE TABLE publications (
         site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
         target TEXT NOT NULL CHECK(target IN ('production','testing')),
         release_id TEXT NOT NULL REFERENCES releases(id),
         PRIMARY KEY(site_id, target)
       );
-      INSERT INTO publications SELECT site_id,'production',release_id FROM publications_old;
-      DROP TABLE publications_old;
-      ALTER TABLE releases ADD COLUMN target TEXT NOT NULL DEFAULT 'production' CHECK(target IN ('production','testing'));
-      INSERT INTO freeflow_migrations(version) VALUES(7);
+      CREATE TABLE owner_setup (id INTEGER PRIMARY KEY CHECK(id = 1), token TEXT);
+      CREATE TABLE gateway_mode (id INTEGER PRIMARY KEY CHECK(id = 1), issuer TEXT NOT NULL, audience TEXT NOT NULL);
+      CREATE TABLE gateway_nonce (id TEXT PRIMARY KEY, expires_at INTEGER NOT NULL);
+      CREATE INDEX gateway_nonce_expiry ON gateway_nonce(expires_at);
+      INSERT INTO freeflow_migrations (version) VALUES (1);
     `)
     })
     .immediate()
