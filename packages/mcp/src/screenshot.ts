@@ -46,6 +46,13 @@ export async function screenshot(
     })
     await page.goto(`${ORIGIN}/`, { waitUntil: 'load' })
     await page.evaluate('document.fonts.ready.then(() => {})')
+    // Lazy images below the fold would otherwise be captured blank.
+    await page.evaluate(`Promise.all([...document.images].map((img) => {
+      img.loading = 'eager'
+      return img.complete
+        ? img.decode().catch(() => {})
+        : new Promise((r) => { img.onload = img.onerror = r })
+    }))`)
     if (node === undefined) return await page.screenshot({ fullPage: height === undefined })
     const element = page.locator(`[data-freeflow-node="${node}"]`).first()
     if (!(await element.count())) throw new InputError(`node ${node} is not rendered on this page`)

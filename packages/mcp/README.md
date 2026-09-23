@@ -14,7 +14,7 @@ MCP tools and resources over a Freeflow site folder, served on stdio by `freeflo
 | `document.diff` | Readable summary of what a batch would change (dry run) or of the changes since another `freeflow.json` (`against`); `json: true` for structured output. |
 | `asset.import` | Stores a file from the site folder or base64 bytes and registers the asset. |
 | `page.preview` | A route's full HTML as published, without a build; `text: true` gives `nodeId<TAB>text` per text node. |
-| `page.screenshot` | PNG of a route at `width` (default 1280), the full page unless `height` is set, or cropped to `node`. |
+| `page.screenshot` | PNG of a route at `width` (default 1280), the full page unless `height` is set, or cropped to `node`. Lazy images are loaded and decoded before capture, so images below the fold are not blank. |
 | `site.build` | Builds the site folder to static output. |
 
 Resources: `freeflow://schema/document` and `freeflow://schema/operations`, the JSON Schemas of the
