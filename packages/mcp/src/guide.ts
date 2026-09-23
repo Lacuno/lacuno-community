@@ -8,6 +8,8 @@ A site is one JSON document. Pages point at root nodes; nodes form a tree (eleme
 
 Workflow: call document.read for the revision and an overview, page.outline to see a tree, then document.apply with a batch of operations and the revision you read as expectedRevision. Batches are atomic and validated; a stale revision is rejected, so re-read and retry. Use dryRun to preview patches. You may supply ids (letters, digits, - and _) so later operations in the same batch can reference them; generated ids come back under created. Deleting something referenced elsewhere is refused with the referencing ids. Call site.build to produce static output.
 
+To see your work without a build: page.preview returns a route's HTML as it publishes (\`text: true\` gives one line per text node, \`nodeId<TAB>text\`, to read rather than parse); page.screenshot returns a PNG of a route at a viewport width, or of one node, and needs Playwright's Chromium; document.diff summarises what a batch of operations would change before you apply it, or what changed since another freeflow.json. The loop: read, change (check the batch with document.diff first when it is large), preview or screenshot the page, and verify before moving on.
+
 ## Rich text
 
 Text node content is Tiptap-style JSON. Node types: \`paragraph\`, \`heading\` (attrs.level 1-6), \`blockquote\`, \`bulletList\`, \`orderedList\`, \`listItem\`, \`codeBlock\`, \`hardBreak\`, \`horizontalRule\`, \`text\`. Marks (on \`text\` nodes): \`bold\`, \`italic\`, \`code\`, \`underline\`, \`strike\`, \`link\` (attrs.href). Unknown node types render their children with a warning.

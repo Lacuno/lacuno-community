@@ -11,14 +11,24 @@
   },
   "dependencies": {
     "@freeflow/compiler": "workspace:*",
+    "@freeflow/css": "workspace:*",
     "@freeflow/document": "workspace:*",
     "@freeflow/schema": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "playwright": "^1.63.0",
     "sharp": "^0.35.4",
     "typescript": "^5.9.3",
     "vitest": "^5.0.0"
+  },
+  "peerDependencies": {
+    "playwright": "*"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
   }
 }

@@ -97,6 +97,11 @@ face; nothing is requested from a third party (D013)
 value comes from under the input: Local (with the wider breakpoint or base state it was set at), the
 shared class or preset, the token it resolves through, the ancestor it inherits from, or Default
 ([spec](superpowers/specs/2026-09-23-style-source-design.md)).
+**MCP preview, screenshot and diff implemented:** `page.preview` returns a route's published HTML
+without a build, or its text one line per node id; `page.screenshot` returns a PNG of a route or one
+node through Playwright's Chromium, an optional dependency; `document.diff` summarises a dry-run
+batch or the changes since another `freeflow.json`
+([spec](superpowers/specs/2026-09-23-mcp-preview-tools.md)).
 Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 The planned direction for editing on the canvas itself, an action bar under the selection with
@@ -117,7 +122,7 @@ areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.
 - Components with props and slots.
 - Publish to staging and production from the instance, build history, rollback.
 - Docker image and operator-written configuration via the self-hosting guide; `npx freeflow` remains planned.
-- Preview, screenshot and diff tools in MCP.
+- Preview, screenshot and diff tools in MCP (implemented).
 
 **Community exit:** a five-page site with components, design tokens and dark mode, built in the editor,
 published and rolled back from the container. An operator can deploy it with their own domain and

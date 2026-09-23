@@ -17,11 +17,14 @@ describe('guide and resources', () => {
     expect(tools).toEqual([
       'asset.import',
       'document.apply',
+      'document.diff',
       'document.read',
       'entries.list',
       'guide',
       'node.get',
       'page.outline',
+      'page.preview',
+      'page.screenshot',
       'site.build',
       'styles.get',
     ])
@@ -30,6 +33,7 @@ describe('guide and resources', () => {
     // asset.create registers bytes that may not exist; only asset.import is offered.
     expect(guide).not.toContain('asset.create')
     expect(guide).toContain('expectedRevision')
+    expect(guide).toContain('page.preview')
     expect(guide).toContain('Call guide with a group to get the schemas.')
     expect(guide).toContain('bulletList')
     expect(guide).toContain('attrs.href')
@@ -47,7 +51,7 @@ describe('guide and resources', () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const size = Buffer.byteLength(JSON.stringify(await c.client.listTools()), 'utf8')
-    expect(size).toBeLessThan(4000)
+    expect(size).toBeLessThan(5500)
   })
 
   it('refuses asset.create and points at asset.import', async () => {

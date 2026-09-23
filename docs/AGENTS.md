@@ -45,6 +45,9 @@ The same tool set, exposed for external agents such as Claude Code, Cursor and C
 - **Phase 0 tools.** `guide`, `document.read`, `page.outline`, `node.get`, `styles.get`,
   `entries.list`, `document.apply`, `asset.import` and `site.build`, plus the document schema and
   operations schema resources.
+- **Preview tools.** `page.preview` returns a route's HTML as published, or its visible text with
+  node ids; `page.screenshot` returns a PNG of a route or a node through an optional Playwright
+  Chromium; `document.diff` summarises a dry-run batch or the changes since another document file.
 - **Bindings.** A node attribute, a bound text value and a component prop each hold a binding:
   `static`, `field`, `designToken`, `asset`, `prop` or `page`. A `page` binding names a page id and
   compiles to that page's path, so a link survives a path change; deleting a referenced page is

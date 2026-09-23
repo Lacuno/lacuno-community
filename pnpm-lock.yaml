@@ -263,6 +263,9 @@ importers:
       '@freeflow/compiler':
         specifier: workspace:*
         version: link:../compiler
+      '@freeflow/css':
+        specifier: workspace:*
+        version: link:../css
       '@freeflow/document':
         specifier: workspace:*
         version: link:../document
@@ -276,6 +279,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      playwright:
+        specifier: ^1.63.0
+        version: 1.63.0
       sharp:
         specifier: ^0.35.4
         version: 0.35.4(@types/node@24.13.4)

@@ -1,10 +1,11 @@
 import { readFile, realpath } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { build } from '@freeflow/compiler/build'
-import type { DocumentStore, Operation } from '@freeflow/document'
-import { Document, type Node } from '@freeflow/schema'
+import { applyPatches, type DocumentStore, type Operation } from '@freeflow/document'
+import { Document, type Node, parseDocument } from '@freeflow/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
+import { diffDocuments, formatDiff } from './diff.js'
 import { fail, InputError } from './errors.js'
 import {
   catalog,
@@ -15,7 +16,9 @@ import {
   WITHHELD_OPERATIONS,
 } from './guide.js'
 import { outlineLines } from './outline.js'
+import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
+import { pngSize, screenshot } from './screenshot.js'
 
 export type ServerOptions = { siteDir?: string }
 
@@ -65,6 +68,43 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
             ...(dryRun ? { dryRun } : {}),
           }),
         )
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'document.diff',
+    {
+      description:
+        'Summary of what operations would change (dry run) or of what changed since the freeflow.json at path against. json: structured output.',
+      inputSchema: {
+        operations: z.array(z.looseObject({ type: z.string() })).optional(),
+        against: z.string().optional(),
+        json: z.boolean().optional(),
+      },
+    },
+    async ({ operations, against, json }) => {
+      try {
+        if ((operations === undefined) === (against === undefined))
+          throw new InputError('pass exactly one of operations or against')
+        const { document, revision } = store.read()
+        let before = document
+        let after = document
+        if (operations) {
+          const { patches } = await store.apply({
+            expectedRevision: revision,
+            operations: operations as Operation[],
+            dryRun: true,
+          })
+          after = applyPatches(document, patches)
+        } else {
+          const file = resolve(options.siteDir ?? '', against as string)
+          before = parseDocument(JSON.parse(await readFile(file, 'utf8')))
+        }
+        const diff = diffDocuments(before, after)
+        return json ? ok(diff) : text(formatDiff(diff))
       } catch (e) {
         return fail(e)
       }
@@ -193,6 +233,65 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
             `unknown ${page !== undefined ? 'page' : 'component'} ${page ?? component}`,
           )
         return text(outlineLines(d, root, depth).join('\n'))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'page.preview',
+    {
+      description:
+        "A route's HTML as published, without a build. page: id or path; entry: id or slug on a collection page; text: one line per text node, `nodeId<TAB>text`.",
+      inputSchema: {
+        page: z.string(),
+        entry: z.string().optional(),
+        text: z.boolean().optional(),
+      },
+    },
+    async ({ page, entry, text: asText }) => {
+      try {
+        const d = store.read().document
+        const route = resolveRoute(d, page, entry)
+        return text(asText ? previewText(d, route).join('\n') : previewHtml(d, route))
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'page.screenshot',
+    {
+      description:
+        "PNG of a route through Playwright's Chromium. The full page unless height is set; node crops to one element.",
+      inputSchema: {
+        page: z.string(),
+        entry: z.string().optional(),
+        width: z.number().int().positive().optional(),
+        height: z.number().int().positive().optional(),
+        node: z.string().optional(),
+      },
+    },
+    async ({ page, entry, width = 1280, height, node }) => {
+      try {
+        if (!options.siteDir) throw new InputError('this server has no site folder')
+        const d = store.read().document
+        if (node !== undefined && !d.nodes[node]) throw new InputError(`unknown node ${node}`)
+        const html = previewHtml(d, resolveRoute(d, page, entry), node !== undefined)
+        const png = await screenshot(d, options.siteDir, html, {
+          width,
+          ...(height !== undefined ? { height } : {}),
+          ...(node !== undefined ? { node } : {}),
+        })
+        const size = pngSize(png)
+        return {
+          content: [
+            { type: 'image', data: png.toString('base64'), mimeType: 'image/png' },
+            { type: 'text', text: `${size.width}×${size.height}` },
+          ],
+        }
       } catch (e) {
         return fail(e)
       }

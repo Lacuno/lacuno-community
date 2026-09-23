@@ -6,7 +6,7 @@ import { DocumentStore } from '@freeflow/document'
 import sharp from 'sharp'
 import { afterEach, describe, expect, it } from 'vitest'
 import { fixtureOperations } from '../../document/test/fixture-operations.js'
-import { connect, jsonOf } from './helpers.js'
+import { connect, jsonOf, textOf } from './helpers.js'
 
 const dirs: string[] = []
 let close: (() => Promise<void>) | undefined
@@ -81,6 +81,10 @@ describe('building the fixture site through MCP', () => {
       }),
     )
     expect(applied.revision).toBe(5)
+    const preview = textOf(
+      await c.client.callTool({ name: 'page.preview', arguments: { page: '/' } }),
+    )
+    expect(preview).toContain('Design it. Publish it. Own it.')
     const built = jsonOf<{ pages: number; outDir: string }>(
       await c.client.callTool({
         name: 'site.build',
