@@ -10,7 +10,8 @@ const ORIGIN = 'http://preview.freeflow'
 
 /**
  * A PNG of `html` in headless Chromium. The page and its `/assets/*` requests are served from
- * memory and the site folder by request interception, so nothing is written to disk. Without a
+ * memory and the site folder by request interception, so nothing is written to disk; every other
+ * request is aborted, so embeds and custom code reach no third party. Without a
  * height the whole page is captured; with `node`, only that element, which needs annotated HTML.
  */
 export async function screenshot(
@@ -34,6 +35,9 @@ export async function screenshot(
       viewport: { width, height: height ?? 800 },
       reducedMotion: 'reduce',
     })
+    page.setDefaultTimeout(15_000)
+    // The later route wins, so only the preview origin is served.
+    await page.route('**', (route) => route.abort())
     await page.route(`${ORIGIN}/**`, async (route) => {
       const pathname = new URL(route.request().url()).pathname
       if (pathname === '/') return route.fulfill({ contentType: 'text/html', body: html })
@@ -45,14 +49,16 @@ export async function screenshot(
         : route.fulfill({ status: 404 })
     })
     await page.goto(`${ORIGIN}/`, { waitUntil: 'load' })
-    await page.evaluate('document.fonts.ready.then(() => {})')
-    // Lazy images below the fold would otherwise be captured blank.
-    await page.evaluate(`Promise.all([...document.images].map((img) => {
-      img.loading = 'eager'
-      return img.complete
-        ? img.decode().catch(() => {})
-        : new Promise((r) => { img.onload = img.onerror = r })
-    }))`)
+    // Fonts, then lazy images below the fold, which would otherwise be captured blank; at most 5s.
+    await page.evaluate(`Promise.race([
+      new Promise((r) => setTimeout(r, 5000)),
+      document.fonts.ready.then(() => Promise.all([...document.images].map((img) => {
+        img.loading = 'eager'
+        return img.complete
+          ? img.decode().catch(() => {})
+          : new Promise((r) => { img.onload = img.onerror = r })
+      }))),
+    ]).then(() => {})`)
     if (node === undefined) return await page.screenshot({ fullPage: height === undefined })
     const element = page.locator(`[data-freeflow-node="${node}"]`).first()
     if (!(await element.count())) throw new InputError(`node ${node} is not rendered on this page`)

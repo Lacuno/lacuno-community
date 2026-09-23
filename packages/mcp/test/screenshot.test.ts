@@ -1,11 +1,21 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { writeFixtureSite } from '@freeflow/compiler/build'
 import { DocumentStore } from '@freeflow/document'
 import sharp from 'sharp'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { connect } from './helpers.js'
+
+// Chromium already refuses loopback requests from a public page; lifting that lets a local server
+// stand in for a third party.
+vi.mock('playwright', async (importOriginal) => {
+  const pw = await importOriginal<typeof import('playwright')>()
+  const args = ['--disable-features=LocalNetworkAccessChecks']
+  return { ...pw, chromium: { launch: () => pw.chromium.launch({ args }) } }
+})
 
 // The tool launches the headless shell, which can be missing when the full browser is not.
 const chromium = await import('playwright')
@@ -104,5 +114,35 @@ describe('page.screenshot', () => {
       .raw()
       .toBuffer()
     expect([...pixel.subarray(0, 3)]).toEqual([59, 91, 219])
+  })
+
+  it.skipIf(!chromium)('sends no request beyond the preview origin', async () => {
+    let requests = 0
+    // Never answers, so a request that got through would also stall the capture.
+    const thirdParty = createServer(() => requests++)
+    await new Promise<void>((r) => thirdParty.listen(0, '127.0.0.1', r))
+    const { port } = thirdParty.address() as AddressInfo
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-shot-'))
+    dirs.push(dir)
+    const doc = await writeFixtureSite(dir)
+    doc.nodes['n-home']!.children.push('n-beacon')
+    doc.nodes['n-beacon'] = {
+      id: 'n-beacon',
+      type: 'embed',
+      parent: 'n-home',
+      children: [],
+      classes: [],
+      html: `<img src="http://127.0.0.1:${port}/pixel.png"><script>fetch('http://127.0.0.1:${port}/beacon')</script>`,
+    }
+    await writeFile(path.join(dir, 'freeflow.json'), JSON.stringify(doc))
+    const c = await connect(await DocumentStore.open(dir), { siteDir: dir })
+    close = c.close
+    try {
+      png(await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/' } }))
+      expect(requests).toBe(0)
+    } finally {
+      thirdParty.closeAllConnections()
+      thirdParty.close()
+    }
   })
 })
