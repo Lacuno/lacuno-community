@@ -1,5 +1,6 @@
 import type { Page } from '@freeflow/schema'
 import { Brand } from './App.js'
+import { type Connection, connectionLabel } from './ConnectPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import type { DocumentSession } from './session.js'
 
@@ -9,14 +10,19 @@ export function EditorHeader({
   back,
   uploadingImage,
   publish,
+  connections,
+  connect,
 }: {
   session: DocumentSession
   page: Page | undefined
   back: () => void
   uploadingImage: boolean
   publish: () => void
+  connections: Connection[]
+  connect: () => void
 }) {
   const { doc, snapshot, error, busy, dirty, conflict, saved } = session
+  const connection = connectionLabel(connections)
   return (
     <header className="editor-header">
       <button
@@ -82,6 +88,14 @@ export function EditorHeader({
         className="reload-button"
       >
         <EditorIcon name="reload" />
+      </button>
+      <button
+        type="button"
+        className="connect-trigger"
+        data-state={connection.state}
+        onClick={connect}
+      >
+        {connection.label}
       </button>
       <button
         type="button"

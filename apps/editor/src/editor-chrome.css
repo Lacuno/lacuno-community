@@ -1927,3 +1927,103 @@ button.source:hover {
 .token-popover small {
   color: var(--muted);
 }
+
+/* Connect your AI: a strong secondary action until an app is connected, then a status. */
+.editor-header .connect-trigger {
+  padding: 7px 14px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.editor-header .connect-trigger[data-state="none"] {
+  background: #efeafd;
+  border-color: #d9cffb;
+  color: var(--accent);
+  font-weight: 600;
+}
+.editor-header .connect-trigger[data-state="none"]:hover {
+  background: #e4dcfc;
+}
+.editor-header .connect-trigger:not([data-state="none"])::before {
+  content: "";
+  display: inline-block;
+  border-radius: 50%;
+  margin: 0 7px 1px 0;
+  width: 7px;
+  height: 7px;
+  background: #a3a5b1;
+}
+.editor-header .connect-trigger[data-state="active"]::before {
+  background: #37a66b;
+}
+.connect-url code {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  word-break: break-all;
+}
+/* The URL takes the free width so the copy button keeps its one line. */
+.connect-address {
+  flex: 1;
+  min-width: 0;
+}
+.connect-status {
+  min-height: 1em;
+  color: var(--accent);
+}
+.connect-apps {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.connect-dialog .connect-card {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.connect-dialog .connect-card[aria-disabled="true"] {
+  background: #f8f8fa;
+  color: #8a8d99;
+}
+.connect-dialog .connect-card > * {
+  margin: 0;
+}
+.connect-dialog .connect-card h3 {
+  font-size: 14px;
+}
+.connect-dialog .connect-card code,
+.connect-dialog .connect-card pre {
+  font-size: 11px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f5f2fc;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+/* The install link is the card's action, so it looks like the other cards' buttons. */
+.connect-dialog .connect-card > a {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 13px;
+  font-size: 13px;
+  color: inherit;
+  text-decoration: none;
+}
+.connect-dialog .connect-card > a:hover {
+  border-color: #b8afde;
+  background: #f8f6ff;
+}
+.connect-heading {
+  font-size: 14px;
+  margin: 24px 0 8px;
+}
+.release-status[data-status="active"] {
+  background: #e5f5ec;
+  color: #1f6e45;
+}
