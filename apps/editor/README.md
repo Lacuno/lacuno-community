@@ -214,5 +214,3 @@ canvas selection, direct formatting without classes, reset formatting, text/styl
 collection previews, sandbox isolation, insertion, button insertion with a page destination that
 survives publishing and a page path change, site and page SEO settings through to the published head, sitemap, not-found page and redirects, sibling moves, class assignment, shared colors and variants, color conflicts, slow and failed autosaves, navigation flushes, undo/redo, sign-out and sign-in. Unit tests exercise undo
 patches, restoration of rich text and typed CSS, history bounds and branching, and shortcuts.
-The browser test saves a desktop screenshot under
-`.freeflow/editor-preview/` for visual inspection.
