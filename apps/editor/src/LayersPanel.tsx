@@ -1,5 +1,5 @@
 import { Navigator } from './Navigator.js'
-import { StructurePanel } from './StructurePanel.js'
+import { ElementActions } from './StructurePanel.js'
 import type { DocumentSession } from './session.js'
 import { nodeLabel } from './structure.js'
 import type { ComponentEditing } from './useComponentEditing.js'
@@ -51,11 +51,9 @@ export function LayersPanel({
               ? nodeLabel(editableDoc.nodes[selected]!)
               : 'Element actions'}
           </strong>
-          <StructurePanel
-            nodeAction={(action) => nodeAction(action, selected)}
-            mode="actions"
+          <ElementActions
+            nodeAction={nodeAction}
             doc={editableDoc}
-            root={editingRoot}
             selected={selected}
             disabled={frozen}
             save={save}

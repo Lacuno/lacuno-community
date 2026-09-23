@@ -14,7 +14,6 @@ export function useImageDrop({ siteId, session, setSelected }: Options) {
   const latest = useRef({ doc, save })
   latest.current = { doc, save }
   async function dropImage(id: string, file: File) {
-    if (uploadingImage) return
     setUploadingImage(true)
     setError('')
     try {

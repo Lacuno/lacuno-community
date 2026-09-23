@@ -1,5 +1,10 @@
 const paths = {
   image: 'M3 3h18v18H3zM3 18l6-8 5 6 3-4 4 6M16 7h1',
+  container: 'M3 3h18v18H3zM7 7h10v10H7z',
+  heading: 'M6 4v16M18 4v16M6 12h12',
+  paragraph: 'M4 5h16M4 10h16M4 15h16M4 20h9',
+  span: 'M7 15V7h4.5a2.25 2.25 0 0 1 0 4.5H7M5 19h14',
+  button: 'M3 6h18v9H3zM13 13.5l6.5 3-3 1.1-1.1 3z',
   section: 'M3 3h18v18H3zM3 8h18M3 16h18',
   grid: 'M3 3h18v18H3zM12 3v18M3 12h18',
   row: 'M3 4h18v16H3zM9 4v16M15 4v16',
@@ -21,7 +26,6 @@ const paths = {
   reload: 'M20 7V3l-4 4M20 7a9 9 0 1 0 1 7M20 7h-5',
   plus: 'M12 5v14M5 12h14',
   reset: 'M4 10a8 8 0 1 1 1 7M4 10V4M4 10h6',
-  bolt: 'm13 2-8 12h6l-1 8 9-13h-6z',
   chevron: 'm9 6 6 6-6 6',
   info: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 11v5M12 8h.01',
   up: 'm6 11 6-6 6 6M12 5v14',

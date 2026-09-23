@@ -1,8 +1,28 @@
 import type { Operation } from '@freeflow/document'
 import { isDescendant, subtreeIds } from '@freeflow/document/references'
-import type { Document, Node } from '@freeflow/schema'
+import type { Document, ElementNode, Node, TextNode } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
-import { type InsertNode, type PageTree, pageTree } from './history.js'
+
+type DefinedFields<T> = { [K in keyof T]: Exclude<T[K], undefined> }
+export type InsertNode = (
+  | DefinedFields<Omit<ElementNode, 'parent' | 'children'>>
+  | DefinedFields<Omit<TextNode, 'parent' | 'children'>>
+  | DefinedFields<Omit<Extract<Node, { type: 'embed' }>, 'parent' | 'children'>>
+) & { children?: InsertNode[] }
+
+type TreeFields<T> = T extends Node
+  ? DefinedFields<Omit<T, 'parent' | 'children' | 'overrides'>>
+  : never
+export type PageTree = TreeFields<Exclude<Node, { type: 'code-component' }>> & {
+  children: PageTree[]
+}
+export function pageTree(doc: Document, id: string): PageTree {
+  const node = doc.nodes[id]!
+  if (node.type === 'code-component' || (node.type === 'component' && node.overrides?.length))
+    throw new Error('Code components and instance overrides cannot be copied or deleted yet.')
+  const { parent: _, children, ...fields } = structuredClone(node)
+  return { ...fields, children: children.map((child) => pageTree(doc, child)) } as PageTree
+}
 
 export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
 export type Structure = (typeof structures)[number]
@@ -39,10 +59,18 @@ const containers = new Set([
   'figcaption',
 ])
 
+/** The id and each ancestor's id, up to the root. */
+function* ancestors(doc: Document, id: string | null | undefined) {
+  for (let current = id; current; current = doc.nodes[current]?.parent) yield current
+}
+
+const componentRoots = (doc: Document) =>
+  new Set(Object.values(doc.components).map((component) => component.root))
+
 /** Definitions stay protected unless explicitly opened in the shared-component editor. */
 export function structureRestriction(doc: Document, id: string): string | undefined {
-  const roots = new Set(Object.values(doc.components).map((component) => component.root))
-  for (let current: string | null = id; current; current = doc.nodes[current]?.parent ?? null) {
+  const roots = componentRoots(doc)
+  for (const current of ancestors(doc, id)) {
     const node = doc.nodes[current]
     if (!node) return 'This element no longer exists.'
     if (node.meta?.locked) return 'This element or one of its parents is locked.'
@@ -55,37 +83,28 @@ export function structureRestriction(doc: Document, id: string): string | undefi
 }
 
 /** True when this node or any ancestor is locked. */
-export function isLocked(doc: Document, id: string) {
-  for (let current: string | null = id; current; current = doc.nodes[current]?.parent ?? null)
-    if (doc.nodes[current]?.meta?.locked) return true
-  return false
-}
+export const isLocked = (doc: Document, id: string) =>
+  [...ancestors(doc, id)].some((current) => doc.nodes[current]?.meta?.locked)
 
 /** True when this node sits inside a link: nested anchors are invalid HTML. */
 export function hasAnchorParent(doc: Document, node: Node): boolean {
-  for (
-    let parent = node.parent ? doc.nodes[node.parent] : undefined;
-    parent;
-    parent = parent.parent ? doc.nodes[parent.parent] : undefined
-  ) {
-    if ('tag' in parent && parent.tag === 'a') return true
+  for (const id of ancestors(doc, node.parent)) {
+    const parent = doc.nodes[id]
+    if (parent && 'tag' in parent && parent.tag === 'a') return true
   }
   return false
 }
 
 /** The page a node belongs to, so a new link can point at it. Empty inside a component. */
 export function pageOf(doc: Document, id: string): string {
-  let root = id
-  for (let parent = doc.nodes[root]?.parent; parent; parent = doc.nodes[root]?.parent) root = parent
+  const root = [...ancestors(doc, id)].at(-1)
   return Object.values(doc.pages).find((page) => page.root === root)?.id ?? ''
 }
 
 /** True when this node or any ancestor is the shared root of a component definition. */
 export function isShared(doc: Document, id: string) {
-  const roots = new Set(Object.values(doc.components).map((component) => component.root))
-  for (let current: string | null = id; current; current = doc.nodes[current]?.parent ?? null)
-    if (roots.has(current)) return true
-  return false
+  const roots = componentRoots(doc)
+  return [...ancestors(doc, id)].some((current) => roots.has(current))
 }
 
 const tagLabels: Record<string, string> = {
@@ -305,22 +324,22 @@ export function structureInsertion(
   return { node, operations }
 }
 
-/** Why this wrapper cannot go around the selection, if it cannot. */
-export function wrapRestriction(doc: Document, id: string, preset: Wrapper): string | undefined {
+/** Where this wrapper goes around the selection, or why it cannot. */
+export function wrapTarget(doc: Document, id: string, preset: Wrapper) {
   try {
-    insertionTarget(doc, '', id, 'after')
+    const target = insertionTarget(doc, '', id, 'after')
+    const node = doc.nodes[id]!
+    if (preset === 'link' && (('tag' in node && node.tag === 'a') || hasAnchorParent(doc, node)))
+      return 'A link cannot be wrapped in another link.'
+    return target
   } catch (error) {
     return (error as Error).message
   }
-  const node = doc.nodes[id]!
-  if (preset === 'link' && (('tag' in node && node.tag === 'a') || hasAnchorParent(doc, node)))
-    return 'A link cannot be wrapped in another link.'
 }
 
 export function wrapSelection(doc: Document, id: string, preset: Wrapper) {
-  const reason = wrapRestriction(doc, id, preset)
-  if (reason) throw new Error(reason)
-  const target = insertionTarget(doc, '', id, 'after')
+  const target = wrapTarget(doc, id, preset)
+  if (typeof target === 'string') throw new Error(target)
   const result = structureInsertion(
     preset === 'link' ? 'link-wrapper' : preset,
     { ...target, index: target.index - 1 },

@@ -2,10 +2,11 @@ import type { Operation } from '@freeflow/document'
 import { instancesOfComponent, subtreeIds } from '@freeflow/document/references'
 import type { Binding, Component, Document, Node } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
-import { type PageTree, pageTree } from './history.js'
 import {
   copySubtree,
   insertionTarget,
+  type PageTree,
+  pageTree,
   structureRestriction,
   subtreeRestriction,
 } from './structure.js'

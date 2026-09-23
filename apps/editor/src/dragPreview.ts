@@ -57,13 +57,14 @@ export function createDragPreview(
   }
   // Chrome paints the native drag image at the element's unscaled size, ignoring the canvas zoom,
   // so the canvas hides it and the dragged element is drawn here at its size on the canvas instead.
-  const ghost = 'id' in item ? (source.cloneNode(true) as HTMLElement) : undefined
-  if (ghost) {
+  let ghost: HTMLElement | undefined
+  if ('id' in item) {
+    ghost = source.cloneNode(true) as HTMLElement
     for (const element of [ghost, ...ghost.querySelectorAll('[data-freeflow-node]')])
       element.removeAttribute('data-freeflow-node')
     ghost.setAttribute('data-freeflow-drag-ghost', '')
     const { width, height } = surface
-      .querySelector(`[data-freeflow-node="${CSS.escape(source.dataset.freeflowNode!)}"]`)!
+      .querySelector(`[data-freeflow-node="${CSS.escape(item.id)}"]`)!
       .getBoundingClientRect()
     ghost.style.cssText += `;position:fixed!important;width:${width}px!important;height:${height}px!important;margin:0!important;box-sizing:border-box!important;translate:none!important;opacity:.75!important;pointer-events:none;z-index:2147483647`
     source.before(ghost)

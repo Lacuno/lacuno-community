@@ -18,11 +18,6 @@
   color: #b7bbc3;
   opacity: 1;
 }
-.layers-panel,
-.inspector {
-  background: #fff;
-  min-height: 0;
-}
 .panel-title span {
   color: #8b8f97;
   font-size: 11px;
@@ -50,6 +45,8 @@
   font-size: 13px;
 }
 .inspector {
+  background: #fff;
+  min-height: 0;
   border-left: 1px solid var(--border);
   overflow-y: auto;
 }
@@ -383,8 +380,7 @@ button.source:hover {
   display: grid;
   gap: 12px;
 }
-.motion-timing,
-.motion-hover {
+.motion-timing {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
@@ -403,8 +399,7 @@ button.source:hover {
   margin: 0;
   font-size: 10px;
 }
-.ribbon-formatting .motion-timing,
-.ribbon-formatting .motion-hover {
+.ribbon-formatting .motion-timing {
   display: flex;
   align-items: end;
 }
@@ -875,6 +870,8 @@ button.source:hover {
   flex-shrink: 0;
   background: #fff;
   border-bottom: 1px solid #dddfe9;
+  /* A group's title sits above its label row, one height for every group so the rows align. */
+  --group-title: 19px;
 }
 .ribbon-tabs {
   display: flex;
@@ -941,16 +938,14 @@ button.source:hover {
   padding: 8px 0;
 }
 
-.ribbon-empty strong,
-.ribbon-empty span {
+.ribbon-empty strong {
   display: block;
   font-size: 12px;
-}
-.ribbon-empty strong {
   font-weight: 550;
   margin-bottom: 5px;
 }
 .ribbon-empty span {
+  display: block;
   font-size: 11px;
   color: #8b8c99;
 }
@@ -973,10 +968,6 @@ button.source:hover {
 .ribbon-formatting summary {
   display: none;
 }
-/* The group's title sits above its label row, one height for every group so the rows align. */
-.editor-ribbon {
-  --group-title: 19px;
-}
 .ribbon-formatting details::before {
   content: attr(data-group);
   display: block;
@@ -997,7 +988,6 @@ button.source:hover {
   :where(details[data-group="Layout"], details[data-group="Spacing & shape"])
   .formatting-grid {
   display: grid;
-  grid-template-columns: repeat(4, 106px);
 }
 .ribbon-formatting :where(details[data-group="Layout"]) .formatting-grid {
   grid-template-columns: repeat(3, 80px) repeat(2, 92px);
@@ -1572,6 +1562,8 @@ button.source:hover {
 
 .editor .layers-panel {
   display: flex;
+  background: #fff;
+  min-height: 0;
   border-right: 1px solid var(--border);
   flex-direction: row;
   overflow: hidden;
