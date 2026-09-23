@@ -9,6 +9,9 @@ export const assetsOfKind = (doc: Document, kind: 'image' | 'video' | 'font' = '
   Object.values(doc.assets).filter(
     (asset) => asset.kind === kind || (kind === 'image' && asset.kind === 'svg'),
   )
+/** The font files uploads accept, as a file input's accept list and in words. */
+export const FONT_ACCEPT = 'font/woff2,font/woff,font/ttf,font/otf,.woff2,.woff,.ttf,.otf'
+export const FONT_FORMATS = 'WOFF2, WOFF, TTF or OTF'
 export const assetUrl = (siteId: string, hash: string) => `/api/sites/${siteId}/assets/${hash}`
 
 export function AssetPreview({ siteId, asset }: { siteId: string; asset: AssetRef }) {
@@ -65,7 +68,7 @@ export function AssetsPanel({
         <input
           aria-label="Upload image, video or font"
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,font/woff2,font/woff,font/ttf,font/otf,.woff2,.woff,.ttf,.otf"
+          accept={`image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,${FONT_ACCEPT}`}
           disabled={disabled || loading}
           onChange={async (event) => {
             const file = event.target.files?.[0]
@@ -85,7 +88,7 @@ export function AssetsPanel({
           }}
         />
       </label>
-      <p className="hint">PNG, JPEG, WebP, GIF, MP4, WebM, WOFF2, WOFF, TTF or OTF · up to 10 MB</p>
+      <p className="hint">PNG, JPEG, WebP, GIF, MP4, WebM, {FONT_FORMATS} · up to 10 MB</p>
       {loading && <p role="status">Adding file…</p>}
       <ErrorNote message={error} />
       {!assets.length && (

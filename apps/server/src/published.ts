@@ -61,7 +61,7 @@ export function publishedApp(reader: PublicationReader) {
     ).catch(() => undefined)
     if (!page) return c.notFound()
     c.header('Content-Type', 'text/html; charset=utf-8')
-    return c.body(c.req.method === 'HEAD' ? null : new Uint8Array(page), 404)
+    return c.req.method === 'HEAD' ? c.body(null, 404) : c.body(new Uint8Array(page), 404)
   })
   return app
 }

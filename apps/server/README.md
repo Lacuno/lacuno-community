@@ -115,7 +115,7 @@ and checks the persisted result.
 | `POST /api/sites/:id/assets/upload` | `{name,data}` (base64, up to 10 MB) → staged asset reference; PNG, JPEG, WebP, GIF, MP4, WebM, WOFF2, WOFF, TTF or OTF, typed by its bytes |
 | `GET /api/sites/:id/assets/:hash` | Authenticated asset bytes belonging to the site |
 | `POST /api/sites/:id/document/apply` | `{expectedRevision,operations,dryRun?}`, or `{expectedRevision,patches}` to replay an earlier commit → operation result |
-| `GET /api/sites/:id/releases` | Publishing configuration, `publishedId` and `url` (production), `testingId` and `testingUrl`, and release history |
+| `GET /api/sites/:id/releases` | `enabled`, `publishedId` and `url` (production), `testingId` and `testingUrl`, and release history; `{enabled:false,releases:[]}` when publishing is not configured |
 | `POST /api/sites/:id/releases` | `{expectedRevision,expectedId,name?,target?}` → `202 {id,target}`; enqueue an immutable snapshot that goes live on `target` (`production` by default) when it is built |
 | `POST /api/sites/:id/releases/:releaseId/activate` | `{expectedId,target?}` → `{id,target}`; point `target` (`production` by default) at a successful release without a build: rollback, promote or send to testing; draft unchanged |
 | `POST /api/sites/:id/releases/:releaseId/name` | `{name}` → rename a release; an empty name clears it |
@@ -167,8 +167,8 @@ Each release stores the exact document and revision in SQLite and copies hash-ve
 Only a successful build atomically updates the SQLite live-release pointer. Failed builds leave
 the previous site available; rollback changes this pointer, not the draft. Requests include the
 expected current pointer for their target as `expectedId` (initially `null`) to prevent stale
-publish/rollback actions; `publishedId` is still accepted in its place for one release. Only one
-release per site can be queued or building. Each server instance runs one build at a time.
+publish/rollback actions. Only one release per site can be queued or building. Each server instance
+runs one build at a time.
 
 Queued jobs resume after restart. Graceful shutdown marks its active build failed; after a crash,
 the queue marks it failed once its 30-second worker lease has expired so it can be retried. Multiple

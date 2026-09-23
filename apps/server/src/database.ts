@@ -136,35 +136,14 @@ export function migrateApplication(sqlite: Database.Database) {
       ALTER TABLE publications RENAME TO publications_old;
       CREATE TABLE publications (
         site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-        target TEXT NOT NULL CHECK(target IN ('production','staging')),
+        target TEXT NOT NULL CHECK(target IN ('production','testing')),
         release_id TEXT NOT NULL REFERENCES releases(id),
         PRIMARY KEY(site_id, target)
       );
       INSERT INTO publications SELECT site_id,'production',release_id FROM publications_old;
       DROP TABLE publications_old;
-      ALTER TABLE releases ADD COLUMN target TEXT NOT NULL DEFAULT 'production' CHECK(target IN ('production','staging'));
-      INSERT INTO freeflow_migrations(version) VALUES(7);
-    `)
-    })
-    .immediate()
-  sqlite
-    .transaction(() => {
-      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version=8').get()) return
-      sqlite.exec(`
-      ALTER TABLE publications RENAME TO publications_old;
-      CREATE TABLE publications (
-        site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-        target TEXT NOT NULL CHECK(target IN ('production','testing')),
-        release_id TEXT NOT NULL REFERENCES releases(id),
-        PRIMARY KEY(site_id, target)
-      );
-      INSERT INTO publications SELECT site_id,replace(target,'staging','testing'),release_id FROM publications_old;
-      DROP TABLE publications_old;
-      ALTER TABLE releases RENAME COLUMN target TO target_old;
       ALTER TABLE releases ADD COLUMN target TEXT NOT NULL DEFAULT 'production' CHECK(target IN ('production','testing'));
-      UPDATE releases SET target=replace(target_old,'staging','testing');
-      ALTER TABLE releases DROP COLUMN target_old;
-      INSERT INTO freeflow_migrations(version) VALUES(8);
+      INSERT INTO freeflow_migrations(version) VALUES(7);
     `)
     })
     .immediate()
