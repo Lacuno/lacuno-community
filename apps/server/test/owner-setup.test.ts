@@ -1,18 +1,13 @@
 import { execFile } from 'node:child_process'
-import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
-import { createServer as tcpServer } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { serve } from '@hono/node-server'
-import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
 import { createServer } from '../src/app.js'
 import { openDatabase } from '../src/database.js'
+import { launch, root } from './harness.js'
 
-const root = fileURLToPath(new URL('../../../', import.meta.url))
 const exec = promisify(execFile)
 const settings = (dataDir: string, baseURL: string) => ({
   dataDir,
@@ -131,41 +126,24 @@ it('protects first-owner setup, serializes claims across instances, and never re
 })
 
 it('creates the owner through the browser and returns to sign-in after setup', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-owner-browser-'))
-  const reservation = tcpServer().listen(0, '127.0.0.1')
-  await once(reservation, 'listening')
-  const address = reservation.address()
-  if (!address || typeof address === 'string') throw new Error('No port available')
-  await new Promise<void>((resolve) => reservation.close(() => resolve()))
-  const origin = `http://127.0.0.1:${address.port}`
-  const server = await createServer(settings(dir, origin))
-  const listener = serve({ fetch: server.app.fetch, port: address.port, hostname: '127.0.0.1' })
-  const browser = await chromium.launch({ headless: true })
-  try {
-    const page = await browser.newPage({ viewport: { width: 1300, height: 900 } })
-    await page.goto(origin)
-    await page.getByLabel('Your name').fill(account.name)
-    await page.getByLabel('Email', { exact: true }).fill(account.email)
-    await page.getByLabel('Password', { exact: true }).fill(account.password)
-    await page.getByLabel('Setup token', { exact: true }).fill('wrong')
-    await page.getByRole('button', { name: 'Create owner account' }).click()
-    await expect.poll(() => page.getByRole('alert').textContent()).toBe('Invalid setup token.')
-    await page.getByLabel('Setup token', { exact: true }).fill(await token(dir))
-    await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/owner-setup.png') })
-    await page.getByRole('button', { name: 'Create owner account' }).click()
-    await page.getByLabel('Site name').waitFor()
-    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
-    await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor()
-    expect(await page.getByLabel('Setup token', { exact: true }).count()).toBe(0)
-    expect(await page.getByRole('button', { name: 'New here? Create an account' }).count()).toBe(0)
-    await page.getByLabel('Email', { exact: true }).fill(account.email)
-    await page.getByLabel('Password', { exact: true }).fill(account.password)
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-    await page.getByLabel('Site name').waitFor()
-  } finally {
-    await browser.close()
-    await new Promise<void>((resolve) => listener.close(() => resolve()))
-    server.close()
-    await rm(dir, { recursive: true, force: true })
-  }
+  const { dir, page, origin } = await launch({ width: 1300, height: 900 }, false)
+  await page.goto(origin)
+  await page.getByLabel('Your name').fill(account.name)
+  await page.getByLabel('Email', { exact: true }).fill(account.email)
+  await page.getByLabel('Password', { exact: true }).fill(account.password)
+  await page.getByLabel('Setup token', { exact: true }).fill('wrong')
+  await page.getByRole('button', { name: 'Create owner account' }).click()
+  await expect.poll(() => page.getByRole('alert').textContent()).toBe('Invalid setup token.')
+  await page.getByLabel('Setup token', { exact: true }).fill(await token(dir))
+  await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/owner-setup.png') })
+  await page.getByRole('button', { name: 'Create owner account' }).click()
+  await page.getByLabel('Site name').waitFor()
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).waitFor()
+  expect(await page.getByLabel('Setup token', { exact: true }).count()).toBe(0)
+  expect(await page.getByRole('button', { name: 'New here? Create an account' }).count()).toBe(0)
+  await page.getByLabel('Email', { exact: true }).fill(account.email)
+  await page.getByLabel('Password', { exact: true }).fill(account.password)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.getByLabel('Site name').waitFor()
 })

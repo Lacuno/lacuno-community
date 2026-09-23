@@ -50,10 +50,10 @@ describe('publishing', () => {
       .join('; ')
   }
   const history = async () => (await (await request(`${route}/releases`, cookie)).json()) as History
-  const publish = async (expectedRevision: number, publishedId: string | null, name?: string) => {
+  const publish = async (expectedRevision: number, expectedId: string | null, name?: string) => {
     const response = await request(`${route}/releases`, cookie, {
       expectedRevision,
-      publishedId,
+      expectedId,
       name,
     })
     expect(response.status).toBe(202)
@@ -104,11 +104,11 @@ describe('publishing', () => {
       expect((await request(`${route}/releases`)).status).toBe(401)
       expect((await request(`${route}/releases`, other)).status).toBe(404)
       expect((await request(`${route}/releases`, cookie, { expectedRevision: 0 })).status).toBe(400)
-      const stale = { expectedRevision: 1, publishedId: null }
+      const stale = { expectedRevision: 1, expectedId: null }
       expect((await request(`${route}/releases`, other, stale)).status).toBe(404)
       expect((await request(`${route}/releases`, cookie, stale)).status).toBe(409)
       firstId = await publish(160, null)
-      const queued = { expectedRevision: 0, publishedId: null }
+      const queued = { expectedRevision: 0, expectedId: null }
       expect((await request(`${route}/releases`, cookie, queued)).status).toBe(409)
       const edited = await edit(160, {
         type: 'node.update',
@@ -191,7 +191,7 @@ describe('publishing', () => {
     const assetPath = originalHtml.match(/(?:src|href)="(\/(?:_astro|assets)\/[^" ]+)"/)?.[1]
     expect(assetPath).toBeTruthy()
     expect((await live(assetPath)).headers.get('cache-control')).toContain('immutable')
-    const crossOrigin = { expectedRevision: 161, publishedId: firstId }
+    const crossOrigin = { expectedRevision: 161, expectedId: firstId }
     expect((await request(`${route}/releases`, cookie, crossOrigin, liveURL)).status).toBe(403)
   })
 
@@ -217,8 +217,8 @@ describe('publishing', () => {
       expect((await history()).releases[0]).toMatchObject({ version: 3, revision: 162 })
       expect((await history()).publishedId).toBe(secondId)
       expect(await (await live()).text()).toContain('An unpublished draft')
-      const activate = (releaseId: string, publishedId: string | null, as = cookie, site = route) =>
-        request(`${site}/releases/${releaseId}/activate`, as, { publishedId })
+      const activate = (releaseId: string, expectedId: string | null, as = cookie, site = route) =>
+        request(`${site}/releases/${releaseId}/activate`, as, { expectedId })
       const another = (await (
         await request('/api/sites', cookie, { name: 'Another site' })
       ).json()) as {
