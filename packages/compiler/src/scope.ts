@@ -52,7 +52,7 @@ export function resolveBinding(doc: Document, b: Binding, scope: Scope, nodeId: 
     case 'page': {
       const p = doc.pages[b.page]
       if (!p) throw new RenderError(`unknown page ${b.page}`, nodeId)
-      // The path as written, params included, matching what a rich-text link mark resolves to.
+      // Validation keeps page bindings off collection pages, so this is a real address.
       return p.path
     }
     case 'prop': {

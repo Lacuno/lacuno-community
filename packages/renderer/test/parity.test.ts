@@ -1,18 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { assembleDocument, render } from '@freeflow/compiler/render'
-import { generateStylesheet } from '@freeflow/css'
+import { generateStylesheet, LIVE_STATES } from '@freeflow/css'
 import { fixtureDocument, parseDocument } from '@freeflow/schema'
 import { expect, it } from 'vitest'
 import { renderCanvas } from '../src/index.js'
-
-// The canvas drives these through the forced attribute alone; published output uses the pseudo.
-const LIVE_PSEUDO: Record<string, string> = {
-  hover: ':hover',
-  focus: ':focus',
-  'focus-visible': ':focus-visible',
-  'focus-within': ':focus-within',
-  active: ':active',
-}
 
 it('keeps page instances opaque, exposes only the active definition, and preserves inherited styles', () => {
   const doc = parseDocument(
@@ -81,9 +72,11 @@ it.each([
           .replace(/ data-freeflow-embed/g, '')
           .replace(/ data-freeflow-node="[^"]*"/g, '')
           // Structural states emit both forms in the canvas: drop the forced sibling.
-          .replace(/, \S+\[data-ff-state~="[^"]*"\]/g, '')
+          .replace(/, \S+\[data-ff-state="[^"]*"\]/g, '')
           // Interaction states emit only the forced form: map it back to its real pseudo-class.
-          .replace(/\[data-ff-state~="([^"]+)"\]/g, (whole, state) => LIVE_PSEUDO[state] ?? whole)
+          .replace(/\[data-ff-state="([^"]+)"\]/g, (whole, state) =>
+            LIVE_STATES.has(state) ? `:${state}` : whole,
+          )
           .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\n/, '')
         expect(normalized).toBe(assembleDocument(compiled))
         expect(canvas.html).toContain('data-freeflow-node=')

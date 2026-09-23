@@ -60,7 +60,11 @@ export function checkReferences(doc: Document): Issue[] {
       if (!doc.classes[cls]) add(`nodes.${id}`, `unknown class ${cls}`)
     }
     for (const b of nodeBindings(node)) {
-      if (b.type === 'page' && !doc.pages[b.page]) add(`nodes.${id}`, `unknown page ${b.page}`)
+      if (b.type !== 'page') continue
+      const page = doc.pages[b.page]
+      if (!page) add(`nodes.${id}`, `unknown page ${b.page}`)
+      // A collection page has no single address to link to.
+      else if (page.collection) add(`nodes.${id}`, `page ${b.page} is a collection page`)
     }
     if (node.type === 'component' && !doc.components[node.component])
       add(`nodes.${id}`, `unknown component ${node.component}`)
@@ -153,7 +157,8 @@ function migrateHoverShortcut(doc: Document): void {
     const property = decl.property.slice('--ff-hover-'.length)
     for (const state of ['hover', 'focus-visible'] as const) {
       const moved = { ...decl, state, property }
-      doc.styles[styleKey(moved)] = moved
+      // An explicit declaration for the same state wins over the shortcut.
+      doc.styles[styleKey(moved)] ??= moved
     }
   }
 }

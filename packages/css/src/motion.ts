@@ -1,3 +1,14 @@
+import type { StyleDecl } from '@freeflow/schema'
+import { LIVE_STATES } from './selector.js'
+
+/**
+ * A Motion field (`--ff-duration`, `--ff-entrance`, …) or a state a visitor triggers. Either turns
+ * on the shared motion rules, so a hover eases instead of snapping, and the compiler marks exactly
+ * the classes that carry one. The rules sit in `:where()`, so an authored `transition` still wins.
+ */
+export const isMotionStyle = (style: StyleDecl): boolean =>
+  style.property.startsWith('--ff-') || LIVE_STATES.has(style.state)
+
 /** Shared motion rules for published pages and the editor's trusted preview. */
 export const MOTION_CSS = `
 * { --ff-duration: 400ms; --ff-delay: 0ms; --ff-easing: ease-out; --ff-entrance: none; }
@@ -7,13 +18,13 @@ export const MOTION_CSS = `
 @keyframes ff-slide-left { from { opacity: 0; translate: 24px 0; } }
 @keyframes ff-slide-right { from { opacity: 0; translate: -24px 0; } }
 @media (prefers-reduced-motion: no-preference) {
-  [data-freeflow-motion] {
+  :where([data-freeflow-motion]) {
     transition-property: opacity, scale, rotate, translate, transform, box-shadow, background-color, color, border-color, outline-color;
     transition-duration: var(--ff-duration, 400ms);
     transition-delay: var(--ff-delay, 0ms);
     transition-timing-function: var(--ff-easing, ease-out);
   }
-  [data-freeflow-motion][data-ff-enter] {
+  :where([data-freeflow-motion][data-ff-enter]) {
     animation: var(--ff-entrance, none) var(--ff-duration, 400ms) var(--ff-easing, ease-out) var(--ff-delay, 0ms) both;
   }
 }

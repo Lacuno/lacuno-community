@@ -12,7 +12,7 @@ exports[`render > renders a collection page for an entry with the entry path in 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Post">
 <meta property="og:site_name" content="Fixture Co">
-<meta property="og:locale" content="en-GB">
+<meta property="og:locale" content="en_GB">
 <meta property="og:url" content="https://example.com/blog/hello-world">
 <meta name="twitter:card" content="summary">
 <link rel="preload" as="font" type="font/woff2" href="/assets/abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789.woff2" crossorigin>
@@ -34,7 +34,6 @@ exports[`render > renders the fixture home page 1`] = `
 <meta property="og:type" content="website">
 <meta property="og:title" content="Fixture Co">
 <meta property="og:site_name" content="Fixture Co">
-<meta property="og:locale" content="en">
 <meta property="og:description" content="A fixture site.">
 <meta name="twitter:card" content="summary">
 <link rel="preload" as="font" type="font/woff2" href="/assets/abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789.woff2" crossorigin>

@@ -1,4 +1,4 @@
-import { type ClassNames, classAttr } from '@freeflow/css'
+import { type ClassNames, classAttr, isMotionStyle } from '@freeflow/css'
 import type {
   AssetRef,
   Binding,
@@ -7,7 +7,6 @@ import type {
   Node,
   NodeId,
   RichText,
-  State,
 } from '@freeflow/schema'
 import { isImage } from './assets.js'
 import { RenderError } from './errors.js'
@@ -33,18 +32,11 @@ export type RenderState = {
   editingComponent?: string
 }
 
-const INTERACTIVE_STATES: readonly State[] = ['hover', 'focus', 'focus-visible', 'active']
-
-/**
- * The classes a `--ff-` declaration or an interactive state targets, gathered once so marking a
- * node is a set lookup. A state a visitor triggers should ease in, a structural one should not.
- */
+/** The classes that carry a Motion field, gathered once so marking a node is a set lookup. */
 export function motionClasses(doc: Document): ReadonlySet<string> {
   return new Set(
     Object.values(doc.styles)
-      .filter(
-        (style) => style.property.startsWith('--ff-') || INTERACTIVE_STATES.includes(style.state),
-      )
+      .filter(isMotionStyle)
       .map((style) => style.class),
   )
 }
@@ -268,12 +260,12 @@ export function renderNode(id: NodeId, scope: Scope, state: RenderState): string
     case 'collection-list':
       return renderList(node, scope, state)
     case 'embed': {
-      // A styled embed publishes in a wrapper that carries its classes; the canvas always wraps
-      // it so it can be selected and sized. Otherwise the owner's markup goes out as it is.
-      if (!node.classes.length && !state.annotateNodes) return node.html
-      const { attrs } = resolveAttrs(undefined, scope, state, node.id)
+      // An embed with classes or attributes publishes in a wrapper that carries them; the canvas
+      // always wraps it so it can be selected and sized. Otherwise the markup goes out as it is.
+      const { attrs } = resolveAttrs(node.attrs, scope, state, node.id)
       if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
       if (state.annotateNodes) attrs['data-freeflow-embed'] = true
+      if (!Object.keys(attrs).length) return node.html
       return `<div${renderAttrs(attrs)}>${node.html}</div>`
     }
     case 'code-component':

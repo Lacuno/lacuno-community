@@ -20,7 +20,16 @@ describe('renderHead', () => {
     expect(head).not.toMatch(/https?:\/\//)
     expect(head).not.toContain('canonical')
     expect(head).not.toContain('og:url')
-    expect(head).toContain('<meta property="og:locale" content="en">')
+    // A bare language has no Open Graph locale; one with a territory does.
+    expect(head).not.toContain('og:locale')
+    for (const [lang, locale] of [
+      ['de-AT', 'de_AT'],
+      ['sr-Latn-rs', 'sr_RS'],
+    ]) {
+      const input = base()
+      input.page.lang = lang
+      expect(renderHead(input)).toContain(`<meta property="og:locale" content="${locale}">`)
+    }
     expect(head).toContain('<meta name="twitter:card" content="summary">')
   })
 

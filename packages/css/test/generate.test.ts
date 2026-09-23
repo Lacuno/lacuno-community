@@ -135,14 +135,51 @@ describe('generateStylesheet', () => {
     expect(css.indexOf('.button:hover {')).toBeLessThan(css.indexOf('.button.primary {'))
   })
 
+  it('orders state rules so interaction beats visited and structural states', () => {
+    const doc = createEmptyDocument()
+    doc.classes.x = { id: 'x', kind: 'class', name: 'x' }
+    for (const state of ['hover', 'odd', 'visited', 'even'] as const) {
+      const d = {
+        class: 'x',
+        breakpoint: 'base',
+        state,
+        property: 'color',
+        value: color('#000'),
+      }
+      doc.styles[styleKey(d)] = d
+    }
+    const { css } = generateStylesheet(doc, { reset: false })
+    const hover = css.indexOf('.x:hover {')
+    expect(hover).toBeGreaterThan(css.indexOf('.x:visited {'))
+    expect(hover).toBeGreaterThan(css.indexOf('.x:nth-child(odd) {'))
+    expect(hover).toBeGreaterThan(css.indexOf('.x:nth-child(even) {'))
+  })
+
+  it('emits the motion rules for a Motion field or an interactive state, never over an authored transition', () => {
+    const doc = createEmptyDocument()
+    doc.classes.x = { id: 'x', kind: 'class', name: 'x' }
+    const add = (state: 'odd' | 'hover', property: string) => {
+      const d = { class: 'x', breakpoint: 'base', state, property, value: color('#000') }
+      doc.styles[styleKey(d)] = d
+    }
+    add('odd', 'color')
+    expect(generateStylesheet(doc).css).not.toContain('data-freeflow-motion')
+    add('hover', 'color')
+    const { css } = generateStylesheet(doc)
+    expect(css).toContain(':where([data-freeflow-motion]) {')
+    expect(css).toContain(':where([data-freeflow-motion][data-ff-enter]) {')
+    expect(css).toContain('[data-freeflow-motion] { animation: none !important')
+  })
+
   it('drives states through the forced attribute when previewing states', () => {
     const doc = fixtureDocument()
     const forced = generateStylesheet(doc, { reset: false, previewStates: true }).css
     // Interaction states emit only the attribute form, so the live pointer cannot trigger them.
-    expect(forced).toContain('.button[data-ff-state~="hover"] {')
+    expect(forced).toContain('.button[data-ff-state="hover"] {')
     expect(forced).not.toContain('.button:hover')
-    // Non-interaction states keep their real pseudo form as well, matching the published site.
-    expect(forced).toContain('.card::before, .card[data-ff-state~="before"] {')
+    // Pseudo-elements keep only their real form: forcing one would style the element itself.
+    expect(forced).toContain('.card::before {')
+    expect(forced).not.toContain('[data-ff-state="before"]')
     expect(forced).toContain('.button {\n')
     expect(generateStylesheet(doc, { reset: false }).css).toContain('.button:hover {')
     expect(generateStylesheet(doc, { reset: false }).css).not.toContain('data-ff-state')

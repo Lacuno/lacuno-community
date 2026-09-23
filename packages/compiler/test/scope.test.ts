@@ -23,9 +23,8 @@ describe('resolveBinding', () => {
     )
   })
 
-  it('resolves a page binding to the page path, params included', () => {
+  it('resolves a page binding to the page path', () => {
     expect(resolveBinding(doc, { type: 'page', page: 'p-home' }, empty, 'n')).toBe('/')
-    expect(resolveBinding(doc, { type: 'page', page: 'p-post' }, empty, 'n')).toBe('/blog/[slug]')
     expect(() => resolveBinding(doc, { type: 'page', page: 'p-nope' }, empty, 'n')).toThrow(
       'unknown page p-nope',
     )
