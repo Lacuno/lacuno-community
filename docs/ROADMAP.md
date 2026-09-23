@@ -118,11 +118,19 @@ areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.
   inverse patches.
 - Editor: canvas iframe, layer tree, element palette, style panel, classes, breakpoints,
   states (implemented: hover, focus, focus-visible, active, visited, first, last, odd, even),
-  design tokens, pages, page settings and SEO, assets, fonts, undo and redo, version history.
-- Components with props and slots.
-- Publish to staging and production from the instance, build history, rollback.
+  design tokens, pages, page settings and SEO, assets, fonts, undo and redo (all implemented).
+- Components with props (implemented). Slots and visible instance overrides move to Phase 2,
+  where they are built together with the CMS (decided 2026-09-23).
+- Publish to staging and production from the instance, build history, rollback (build history and
+  rollback implemented; staging is the last Phase 1 build).
 - Docker image and operator-written configuration via the self-hosting guide; `npx freeflow` remains planned.
 - Preview, screenshot and diff tools in MCP (implemented).
+- Remaining after staging: clicking a style field's source line to jump to the class, token or
+  ancestor it names, and the Layout ribbon fitting a 1500px window. That closes Phase 1.
+
+**Deferred out of Phase 1 (2026-09-23):** version history with restore, fluid typography and spacing
+with `clamp` scales, and restyling the default template to reference its own tokens. They are kept
+under Future ideas below.
 
 **Community exit:** a five-page site with components, design tokens and dark mode, built in the editor,
 published and rolled back from the container. An operator can deploy it with their own domain and
@@ -133,6 +141,8 @@ TLS using the self-hosting guide; automated domain/TLS management is not a Commu
 Goal: the reasons people pay for Webflow.
 
 - Native collections, fields, references, collection templates and lists.
+- Components with slots and visible instance overrides in the layer tree, built with the
+  collections work so page templates and layouts share one model.
 - Content editor mode and roles.
 - Forms with submissions, notifications, webhooks.
 - Import from Webflow clipboard, Webstudio JSON, HTML plus CSS, Tailwind HTML, CSV.
@@ -161,6 +171,17 @@ components, passes the linter, and is accepted from the review UI with one secti
 - Localization.
 - Code components and the plugin API.
 - Template marketplace.
+
+## Future ideas
+
+Not scheduled; recorded so they are not lost.
+
+- Version history and restore: browsable draft snapshots distinct from releases, restorable
+  without a publish.
+- Fluid typography and spacing: a design token that is a scale (`clamp` between two sizes) rather
+  than one value.
+- Default template bound to its own tokens, so a new site shows tokens working from the first edit.
+- Staging protection: a password or a private link for the staging origin.
 
 ## Not planned
 

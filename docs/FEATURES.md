@@ -15,8 +15,8 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Breakpoint cascade | MVP | Desktop-first base with tablet, mobile landscape, mobile portrait. Custom breakpoints. Container queries as a per-element option |
 | States: hover, focus, focus-visible, active, visited, disabled, checked, first, last, nth, placeholder, before, after | MVP | The picker offers hover, focus, focus-visible, active, visited, first, last, odd and even; the rest wait for form controls in the palette and a content field |
 | Design tokens: color, spacing, typography, radius, shadow, with modes such as light and dark | MVP | Compiled to CSS custom properties. In: color, spacing, size, typography, radius and shadow in the Design tokens dialog, a token button on every matching style field, and canvas spacing and size handles that snap to tokens. Border and motion groups, and per-mode values for non-colour tokens in the dialog, wait |
-| Fluid typography and spacing with clamp | MVP | A design token can be a scale, not just a value |
-| Components with props, slots and variants | MVP | Instance overrides are explicit and visible in the tree |
+| Fluid typography and spacing with clamp | Later | A design token can be a scale, not just a value. Deferred out of Phase 1 |
+| Components with props, slots and variants | Phase 2 | Props are in. Slots and visible instance overrides are built with the CMS |
 | Rich text editing on canvas | MVP | Tiptap. Same editor used in CMS rich fields |
 | Copy and paste of HTML plus CSS, Tailwind HTML, Webflow clipboard, Webstudio JSON, SVG, images | Next | Import is how people switch. Tailwind paste is how AI output gets in |
 | Scroll-driven and view-timeline animations, transitions | Next | Native CSS. No engine of our own |
@@ -82,7 +82,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Realtime multiplayer with presence | Next | Same Yjs document over WebSocket |
 | Comments pinned to elements | Next | Also how humans talk to the agent about a specific element |
 | Branches and proposals with visual diff | Next | Git-backed. Agent proposals use the same mechanism |
-| Version history and restore | MVP | Every publish and every accepted proposal is a commit |
+| Version history and restore | Later | Every publish and every accepted proposal is a commit. Deferred out of Phase 1 |
 
 ## Extensibility
 
