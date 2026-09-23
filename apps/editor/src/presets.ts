@@ -1,8 +1,17 @@
 import { classNames, compareSelectors } from '@freeflow/css'
 import type { Operation } from '@freeflow/document'
-import { type CssValue, type Document, type Node, type State, styleKey } from '@freeflow/schema'
+import {
+  type CssValue,
+  type Document,
+  type Node,
+  type State,
+  type StyleDecl,
+  styleKey,
+} from '@freeflow/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
 import { formattingGroups, formattingOperations, localClass } from './formatting.js'
+import { nodeLabel, pageOf } from './structure.js'
+import { tokenLabel } from './tokens.js'
 
 const properties = new Set<string>(
   formattingGroups.flatMap((group) => group.fields.map((field) => field.property)),
@@ -13,13 +22,13 @@ export function activePreset(doc: Document, node: Node) {
 }
 
 /**
- * Capture effective formatting at this breakpoint and state, retaining typed values and color
- * references. A state rule outranks every base-state rule, as its extra specificity does in CSS.
+ * The declaration that wins each property on this element at this breakpoint and state. Classes
+ * apply in selector order and, within one, wider scopes first; a state rule outranks every
+ * base-state rule, as its extra specificity does in CSS, and !important outranks both.
  */
-export function presetValues(
+export function winningStyles(
   doc: Document,
   node: Node,
-  computed: Record<string, string>,
   breakpoint = 'base',
   state: State = 'none',
 ) {
@@ -27,33 +36,122 @@ export function presetValues(
   const classes = node.classes
     .filter((id) => (doc.classes[id]?.combo ?? []).every((parent) => node.classes.includes(parent)))
     .sort(compareSelectors(doc, names))
+  const scopes = inheritedBreakpoints(doc, breakpoint)
+  const states: State[] = state === 'none' ? ['none'] : ['none', state]
+  const styles = Object.values(doc.styles)
+    .filter((style) => scopes.includes(style.breakpoint) && states.includes(style.state))
+    .sort(
+      (a, b) =>
+        states.indexOf(a.state) - states.indexOf(b.state) ||
+        scopes.indexOf(a.breakpoint) - scopes.indexOf(b.breakpoint),
+    )
+  const winners: Record<string, StyleDecl> = {}
+  for (const id of classes) {
+    for (const style of styles) {
+      if (style.class !== id || (winners[style.property]?.important && !style.important)) continue
+      winners[style.property] = style
+    }
+  }
+  return winners
+}
+
+/** Capture effective formatting at this breakpoint and state, retaining typed values and color references. */
+export function presetValues(
+  doc: Document,
+  node: Node,
+  computed: Record<string, string>,
+  breakpoint = 'base',
+  state: State = 'none',
+) {
   const values: Record<string, CssValue> = {}
-  const important = new Set<string>()
   for (const property of properties) {
     if (!property.startsWith('--ff-') && computed[property])
       values[property] = { type: 'raw', value: computed[property]! }
   }
-  const scopes = inheritedBreakpoints(doc, breakpoint)
-  const states: State[] = state === 'none' ? ['none'] : ['none', state]
-  for (const id of classes) {
-    for (const style of Object.values(doc.styles).sort(
-      (a, b) =>
-        states.indexOf(a.state) - states.indexOf(b.state) ||
-        scopes.indexOf(a.breakpoint) - scopes.indexOf(b.breakpoint),
-    )) {
-      if (
-        style.class !== id ||
-        !scopes.includes(style.breakpoint) ||
-        !states.includes(style.state) ||
-        !properties.has(style.property)
-      )
-        continue
-      if (important.has(style.property) && !style.important) continue
-      values[style.property] = structuredClone(style.value)
-      if (style.important) important.add(style.property)
-    }
+  for (const [property, style] of Object.entries(winningStyles(doc, node, breakpoint, state))) {
+    if (properties.has(property)) values[property] = structuredClone(style.value)
   }
   return values
+}
+
+const INHERITED = new Set([
+  'font-family',
+  'font-size',
+  'font-weight',
+  'font-style',
+  'line-height',
+  'letter-spacing',
+  'text-align',
+  'color',
+])
+// The template sets sides through shorthands; a longhand field falls back to them.
+const shorthands = (property: string) => {
+  const [, box, side] = property.match(/^(padding|margin)-(top|right|bottom|left)$/) ?? []
+  if (box) return [`${box}-${side === 'top' || side === 'bottom' ? 'block' : 'inline'}`, box]
+  return /^border-(color|width|style)$/.test(property) ? ['border'] : []
+}
+
+export type StyleSource =
+  | ({ kind: 'local' | 'class' | 'preset' } & Pick<
+      StyleDecl,
+      'class' | 'breakpoint' | 'state' | 'value'
+    >)
+  | { kind: 'inherited'; from: string; source: StyleSource }
+  | { kind: 'default' }
+
+/**
+ * Where the value of one property comes from: a draft or the winning declaration on this element,
+ * else, for an inheritable property, the nearest ancestor that sets it, else the default.
+ */
+export function styleSource(
+  doc: Document,
+  node: Node,
+  property: string,
+  breakpoint = 'base',
+  state: State = 'none',
+  changes: Record<string, CssValue | null> = {},
+): StyleSource {
+  const draft = changes[property]
+  if (draft) return { kind: 'local', class: '', breakpoint, state, value: draft }
+  const winners = winningStyles(doc, node, breakpoint, state)
+  const style = [property, ...shorthands(property)].map((name) => winners[name]).find(Boolean)
+  if (style) {
+    const cls = doc.classes[style.class]
+    const kind = cls?.kind === 'local' ? 'local' : cls?.preset ? 'preset' : 'class'
+    return { kind, ...style }
+  }
+  const parent = node.parent && doc.nodes[node.parent]
+  if (!parent || !INHERITED.has(property)) return { kind: 'default' }
+  const source = styleSource(doc, parent, property, breakpoint, state)
+  return source.kind === 'default' || source.kind === 'inherited'
+    ? source
+    : { kind: 'inherited', from: parent.id, source }
+}
+
+/** The one-line wording of a source, with the scope it was set at when that is wider than this one. */
+export function sourceLabel(
+  doc: Document,
+  source: StyleSource,
+  breakpoint = 'base',
+  state: State = 'none',
+): string {
+  if (source.kind === 'default') return 'Default'
+  if (source.kind === 'inherited') {
+    // The page root reads "Body", as in the layers panel.
+    const root = doc.pages[pageOf(doc, source.from)]?.root === source.from
+    return `From ${root ? 'Body' : nodeLabel(doc.nodes[source.from]!)} · ${sourceLabel(doc, source.source, breakpoint, state)}`
+  }
+  const name = doc.classes[source.class]?.name
+  const token = source.value.type === 'designToken' && doc.designTokens[source.value.ref]
+  return [
+    source.kind === 'local' ? 'Local' : `${source.kind === 'preset' ? 'Preset' : 'Class'} ${name}`,
+    source.breakpoint !== breakpoint &&
+      (doc.breakpoints[source.breakpoint]?.label ?? source.breakpoint),
+    source.state !== state && 'base state',
+    token && tokenLabel(token.name),
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 export function presetOverrides(doc: Document, node: Node, breakpoint = 'base') {

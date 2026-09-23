@@ -8,7 +8,7 @@ import {
   localValue,
   normalizeFormatting,
 } from '../src/formatting.js'
-import { presetValues } from '../src/presets.js'
+import { presetValues, sourceLabel, styleSource } from '../src/presets.js'
 import { tokenValue } from '../src/tokens.js'
 import { commit } from './helpers.js'
 
@@ -178,4 +178,41 @@ it('writes, reads and clears declarations at a state and falls back in specifici
   expect(
     localValue(get(), get().nodes[node.id]!, 'background-color', 'base', 'hover'),
   ).toBeUndefined()
+})
+
+it('names the source of each style: local by scope, class, preset, token, ancestor or default', () => {
+  const doc = fixtureDocument()
+  const title = doc.nodes['n-hero-title']!
+  const cta = doc.nodes['n-hero-cta']!
+  const label = (
+    node = title,
+    property: string,
+    breakpoint = 'base',
+    state: 'none' | 'hover' = 'none',
+    changes = {},
+  ) =>
+    sourceLabel(
+      doc,
+      styleSource(doc, node, property, breakpoint, state, changes),
+      breakpoint,
+      state,
+    )
+  expect(label(title, 'letter-spacing')).toBe('Local')
+  expect(label(title, 'letter-spacing', 'tablet')).toBe('Local · Desktop')
+  expect(label(title, 'letter-spacing', 'base', 'hover')).toBe('Local · base state')
+  expect(label(title, 'font-size')).toBe('Class heading')
+  expect(label(cta, 'background-color', 'base', 'hover')).toBe('Class primary · brand.hover')
+  expect(label(cta, 'background-color', 'tablet')).toBe('Class primary · Desktop · brand')
+  expect(label(cta, 'padding-top')).toBe('Class button')
+  expect(styleSource(doc, title, 'font-family')).toMatchObject({
+    kind: 'inherited',
+    from: 'n-home',
+  })
+  expect(label(title, 'font-family')).toBe('From Body · Class page · body')
+  expect(label(title, 'width')).toBe('Default')
+  expect(label(title, 'text-align', 'tablet')).toBe('Default')
+  expect(label(title, 'font-family', 'base', 'none', { 'font-family': rem(1) })).toBe('Local')
+  expect(label(title, 'letter-spacing', 'base', 'none', { 'letter-spacing': null })).toBe('Local')
+  doc.classes['c-heading']!.preset = true
+  expect(label(title, 'font-size')).toBe('Preset heading')
 })

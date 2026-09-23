@@ -93,6 +93,10 @@ family has a fallback. Both font fields list the site's families before three bu
 The published site self-hosts every face with a font-face rule and preloads each family's regular
 face; nothing is requested from a third party (D013)
 ([spec](superpowers/specs/2026-09-22-fonts-design.md)).
+**Style source implemented:** every style field in the panel and the text toolbar names where its
+value comes from under the input: Local (with the wider breakpoint or base state it was set at), the
+shared class or preset, the token it resolves through, the ancestor it inherits from, or Default
+([spec](superpowers/specs/2026-09-23-style-source-design.md)).
 Managed custom domains/TLS are Cloud work. Staging environments, Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
 The planned direction for editing on the canvas itself, an action bar under the selection with

@@ -17,6 +17,7 @@ import { ImageLibrary } from './ImageLibrary.js'
 import { LinkTarget } from './LinkTarget.js'
 import { PresetManager } from './PresetManager.js'
 import { placePopover } from './popover.js'
+import { SourceLine } from './SourceLine.js'
 import { stateInfo } from './states.js'
 import { hasAnchorParent, isLocked, isShared, nodeLabel, toggleAttr } from './structure.js'
 import { TextToolbar } from './TextToolbar.js'
@@ -347,6 +348,7 @@ export function Inspector({
                       : localValue(doc, node, property, breakpoint, state),
                   set: changeFormatting,
                 }}
+                source={(property) => <SourceLine {...controls} property={property} />}
                 linkDisabled={
                   !settled ||
                   (node.text.type !== 'doc' && node.text.type !== 'static') ||

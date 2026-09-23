@@ -1,6 +1,8 @@
 import { contextFromDocument, serializeValue } from '@freeflow/css'
 import { useState } from 'react'
 import { localValue } from './formatting.js'
+import { sourceLabel, styleSource } from './presets.js'
+import { SourceLine } from './SourceLine.js'
 import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 import { TokenField } from './TokenField.js'
 
@@ -40,6 +42,18 @@ function SpacingCluster({
     return value ? serializeValue(value, contextFromDocument(doc)) : ''
   }
   const effective = (side: string) => local(side) || (computed[`${kind}-${side}`] ?? '')
+  // One source line for the group when the four sides agree, else one under each side.
+  const agree =
+    new Set(
+      sides.map((side) =>
+        sourceLabel(
+          doc,
+          styleSource(doc, node, `${kind}-${side}`, breakpoint, state, changes),
+          breakpoint,
+          state,
+        ),
+      ),
+    ).size === 1
   const [linked, setLinked] = useState(sides.every((side) => effective(side) === effective('top')))
   return (
     <div className="spacing-cluster">
@@ -58,35 +72,38 @@ function SpacingCluster({
       </div>
       <div className="spacing-sides">
         {sides.map((side) => (
-          <TokenField
-            key={side}
-            doc={doc}
-            property={`${kind}-${side}`}
-            label={sideLabel[side]}
-            name={`${label} ${side}`}
-            value={localCss(side)}
-            disabled={disabled}
-            set={(next) => {
-              for (const target of linked ? sides : [side]) change(`${kind}-${target}`, next)
-            }}
-          >
-            <NumberField
+          <div key={side}>
+            <TokenField
+              doc={doc}
+              property={`${kind}-${side}`}
               label={sideLabel[side]}
               name={`${label} ${side}`}
-              value={local(side)}
-              min={min}
-              placeholder={computed[`${kind}-${side}`]}
+              value={localCss(side)}
               disabled={disabled}
-              overridden={overridden(`${kind}-${side}`)}
-              onFocus={() => focusSide({ kind, side })}
-              onBlur={() => focusSide(null)}
               set={(next) => {
-                for (const target of linked ? sides : [side]) set(`${kind}-${target}`, next)
+                for (const target of linked ? sides : [side]) change(`${kind}-${target}`, next)
               }}
-            />
-          </TokenField>
+            >
+              <NumberField
+                label={sideLabel[side]}
+                name={`${label} ${side}`}
+                value={local(side)}
+                min={min}
+                placeholder={computed[`${kind}-${side}`]}
+                disabled={disabled}
+                overridden={overridden(`${kind}-${side}`)}
+                onFocus={() => focusSide({ kind, side })}
+                onBlur={() => focusSide(null)}
+                set={(next) => {
+                  for (const target of linked ? sides : [side]) set(`${kind}-${target}`, next)
+                }}
+              />
+            </TokenField>
+            {!agree && <SourceLine {...props} property={`${kind}-${side}`} />}
+          </div>
         ))}
       </div>
+      {agree && <SourceLine {...props} property={`${kind}-top`} />}
     </div>
   )
 }

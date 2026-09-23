@@ -5,6 +5,7 @@ import { EffectsControls } from './EffectsControls.js'
 import { fontChoices } from './fonts.js'
 import { formattingGroups, localValue } from './formatting.js'
 import { MotionControls } from './MotionControls.js'
+import { SourceLine } from './SourceLine.js'
 import { SpacingControls } from './SpacingControls.js'
 import { TokenField } from './TokenField.js'
 
@@ -113,13 +114,6 @@ export function FormattingControls({
                         key={property}
                         data-property={property}
                         data-overridden={(breakpoint !== 'base' || state !== 'none') && !!value}
-                        title={
-                          value
-                            ? breakpoint === 'base' && state === 'none'
-                              ? 'Local base style'
-                              : 'Local override at this breakpoint and state'
-                            : 'Inherited from wider styles or the preset'
-                        }
                         className={color || property === 'font-family' ? 'formatting-wide' : ''}
                       >
                         {color && (
@@ -213,6 +207,7 @@ export function FormattingControls({
                             </label>
                           </TokenField>
                         )}
+                        <SourceLine {...controls} property={property} />
                       </div>
                     )
                   })}

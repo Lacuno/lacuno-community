@@ -344,6 +344,17 @@
 .formatting-wide {
   grid-column: 1 / -1;
 }
+/* Where a style field's value comes from: one muted line under the input. */
+.source {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .formatting-grid input,
 .formatting-grid select {
@@ -879,7 +890,8 @@
 .ribbon-body {
   display: flex;
   align-items: stretch;
-  min-height: 112px;
+  /* Tall enough for the text toolbar with its source lines, so selecting text keeps the height. */
+  min-height: 119px;
   overflow-x: auto;
   padding: 12px 24px;
   gap: 20px;

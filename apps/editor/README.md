@@ -89,6 +89,9 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflo
   editing state, so changing categories preserves pending edits.
   No class setup is required. A private local style is created automatically; shared styles stay
   unchanged. Empty fields show the computed canvas value as a hint and retain the existing style.
+  A muted line under each field names its source: **Local** (with the wider breakpoint or base state
+  it comes from), **Class** or **Preset** and its name, the token's name, **From** an ancestor for
+  inherited typography and text color, or **Default**.
   Bare numeric sizes use pixels. Choose **Reset formatting** to clear local adjustments at the active breakpoint;
   resetting and formatting both support undo/redo. Project colors remain linked references.
   Local rules take precedence over shared rules in both canvas and published CSS. Component
