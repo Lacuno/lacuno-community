@@ -8,6 +8,7 @@ import {
   tokenLabel,
   tokenName,
   tokenPx,
+  tokensForProperty,
   tokensOfGroup,
   tokenValue,
 } from '../src/tokens.js'
@@ -94,4 +95,24 @@ it('resolves token pixels and snaps to the nearest token within 4px', () => {
   expect(snapTo(28, snaps)?.name).toBe('space.md')
   expect(snapTo(29, snaps)).toBeUndefined()
   expect(snapTo(20, [])).toBeUndefined()
+})
+
+it('offers typography tokens by kind: stacks to font-family, lengths to size and line height', () => {
+  const doc = fixtureDocument()
+  const mode = Object.keys(doc.designTokens['t-radius']!.values)[0]!
+  const token = (id: string, name: string, value: object) => {
+    doc.designTokens[id] = { id, name, group: 'typography', values: { [mode]: value } } as never
+  }
+  token('t-x-stack', 'font.x-stack', { type: 'raw', value: 'Inter, sans-serif' })
+  token('t-x-size', 'font.x-size', px(18))
+  token('t-x-line', 'font.x-line', { type: 'raw', value: '1.5' })
+  const names = (property: string) =>
+    tokensForProperty(doc, property)
+      .map((t) => t.name)
+      .filter((name) => name.startsWith('font.x-'))
+  expect(names('font-family')).toEqual(['font.x-stack'])
+  expect(names('font-size')).toEqual(['font.x-line', 'font.x-size'])
+  expect(names('line-height')).toEqual(['font.x-line', 'font.x-size'])
+  expect(tokensForProperty(doc, 'padding-top')).toEqual(tokensOfGroup(doc, 'spacing'))
+  expect(tokensForProperty(doc, 'color')).toEqual([])
 })

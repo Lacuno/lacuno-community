@@ -61,6 +61,20 @@ export const tokensOfGroup = (doc: Document, group: TokenGroup) =>
     .filter((token) => token.group === group)
     .sort((a, b) => a.name.localeCompare(b.name))
 
+const numeric = (value: CssValue | undefined) =>
+  value?.type === 'unit' || (value?.type === 'raw' && /^\d*\.?\d+$/.test(value.value.trim()))
+
+/** The tokens a field may bind to: its group's, and for typography only those of the right kind. */
+export const tokensForProperty = (doc: Document, property: string) => {
+  const group = groupOfProperty(property)
+  if (!group) return []
+  const tokens = tokensOfGroup(doc, group)
+  if (group !== 'typography') return tokens
+  // A font stack belongs to font-family; a length or number to font-size and line-height.
+  const wantNumeric = property !== 'font-family'
+  return tokens.filter((token) => numeric(tokenValue(doc, token)) === wantNumeric)
+}
+
 /** The prefixed dot-path name for what the designer typed after the prefix. */
 export function tokenName(doc: Document, group: TokenGroup, name: string, except?: string) {
   const slug = name.trim().toLowerCase().replace(/\s+/g, '-')

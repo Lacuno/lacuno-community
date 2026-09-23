@@ -3,7 +3,7 @@ import type { CssValue, DesignToken, Document } from '@freeflow/schema'
 import { type ReactNode, useId, useRef } from 'react'
 import { EditorIcon } from './EditorIcon.js'
 import { placePopover } from './popover.js'
-import { groupOfProperty, tokenLabel, tokensOfGroup, tokenValue } from './tokens.js'
+import { groupOfProperty, tokenLabel, tokensForProperty, tokenValue } from './tokens.js'
 
 /** A style input with a token button: pick a token of the property's group, or detach from it. */
 export function TokenField({
@@ -30,7 +30,7 @@ export function TokenField({
   const id = useId()
   const panel = useRef<HTMLDivElement>(null)
   const group = groupOfProperty(property)
-  const tokens = group ? tokensOfGroup(doc, group) : []
+  const tokens = tokensForProperty(doc, property)
   const bound = value?.type === 'designToken' ? doc.designTokens[value.ref] : undefined
   if (!group || (!tokens.length && !bound)) return children
   const resolved = (token: DesignToken) =>
