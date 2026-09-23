@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { ApiError, api, message } from './api.js'
 import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
+import { catchUp, type SiteEvent, touchedNodes } from './liveEvents.js'
 
 export type Snapshot = { document: Document; revision: number }
 export type DocumentSession = ReturnType<typeof useDocumentSession>
@@ -76,6 +77,56 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
   useEffect(() => {
     load().catch((e) => setError(e.message))
   }, [load])
+  // Every batch on the site as the server streams it, newest first, for the activity list.
+  const [activity, setActivity] = useState<SiteEvent[]>([])
+  // Batches the snapshot has yet to take in: they wait while the designer's own edit settles.
+  const queue = useRef<SiteEvent[]>([])
+  const stream = useRef<EventSource | undefined>(undefined)
+  const reading = useRef(false)
+  const loaded = !!snapshot
+  useEffect(() => {
+    if (!loaded) return
+    const source = new EventSource(`/api/sites/${siteId}/events`)
+    stream.current = source
+    source.addEventListener('batch', (message) => {
+      const event = JSON.parse(message.data) as SiteEvent
+      queue.current.push(event)
+      setActivity((list) => [event, ...list].slice(0, 50))
+    })
+    return () => {
+      source.close()
+      stream.current = undefined
+    }
+  }, [siteId, loaded])
+  // Apply queued batches once nothing of the designer's is pending: straight into the snapshot
+  // and not into the undo history, since they are not the designer's steps. The panels start over
+  // from the new document (they hold no draft now), or their stale values would be saved back.
+  // A missing revision means a missed batch, so the document is read again instead.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new batch in `activity` is queued too.
+  useEffect(() => {
+    if (!snapshot || frozen || inFlight.current || reading.current || !queue.current.length) return
+    const { run, gap } = catchUp(queue.current, snapshot.revision)
+    queue.current = []
+    if (gap) {
+      reading.current = true
+      api<Snapshot>(`/api/sites/${siteId}/document`)
+        .then((next) => acceptSnapshot({ ...next, document: parseDocument(next.document) }))
+        .catch((e) => setError(e.message))
+        .finally(() => {
+          reading.current = false
+        })
+      return
+    }
+    const last = run.at(-1)
+    if (!last) return
+    let document = snapshot.document
+    for (const event of run) document = applyPatches(document, event.patches)
+    acceptSnapshot({ document: { ...document, revision: last.revision }, revision: last.revision })
+    const flash = run.flatMap((event) =>
+      event.actor.kind === 'agent' ? touchedNodes(event.patches) : [],
+    )
+    if (flash.length) window.dispatchEvent(new CustomEvent('freeflow:flash', { detail: flash }))
+  }, [snapshot, frozen, activity, siteId, acceptSnapshot])
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (dirty || busy) event.preventDefault()
@@ -83,9 +134,12 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty, busy])
-  /** A read came back for another revision: the site moved on unless we moved it ourselves. */
+  /**
+   * A read came back for another revision: the site moved on unless we moved it ourselves or the
+   * open stream is about to deliver the batch that moved it.
+   */
   const onStale = useCallback(() => {
-    if (inFlight.current) return
+    if (inFlight.current || stream.current?.readyState === EventSource.OPEN) return
     setConflict(true)
     setError('This site changed in another session. Reload the latest version to continue.')
   }, [])
@@ -187,6 +241,7 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
     })
   return {
     snapshot,
+    activity,
     doc,
     revision,
     error,
