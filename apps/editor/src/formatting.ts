@@ -192,15 +192,11 @@ export function formattingOperations(
   for (const [property, value] of Object.entries(changes)) {
     const coordinates = { class: id, breakpoint, state, property }
     if (value) {
-      const important = Object.values(doc.styles).some(
-        (style) =>
-          node.classes.includes(style.class) && style.property === property && style.important,
-      )
       operations.push({
         type: 'style.set',
         ...coordinates,
         value,
-        ...(important ? { important: true } : {}),
+        ...(important(doc, node, property) ? { important: true } : {}),
       })
     } else if (doc.styles[styleKey(coordinates)])
       operations.push({ type: 'style.clear', ...coordinates })
@@ -208,40 +204,44 @@ export function formattingOperations(
   return operations
 }
 
+/** Whether any of the element's classes sets this property !important. */
+export const important = (doc: Document, node: Node, property: string) =>
+  Object.values(doc.styles).some(
+    (style) => node.classes.includes(style.class) && style.property === property && style.important,
+  )
+
+/** Operations that clear these local declarations, restoring what they override. */
+export const clearStyles = (
+  doc: Document,
+  node: Node,
+  styles: StyleDecl[],
+  breakpoint = 'base',
+  state: State = 'none',
+) =>
+  formattingOperations(
+    doc,
+    node,
+    Object.fromEntries(styles.map((style) => [style.property, null])),
+    undefined,
+    breakpoint,
+    state,
+  )
+
+/** A plain number, such as 24, -8 or .5. */
+export const isNumber = (text: string) => /^-?\d*\.?\d+$/.test(text.trim())
+
+const lengths =
+  /^(font-size|(min-|max-)?width|height|(padding|margin)-(top|right|bottom|left)|gap|border-(radius|width))$/
+
 /** Plain numeric sizes use pixels; unitless typography values retain their meaning. */
 export function normalizeFormatting(
   changes: Record<string, CssValue | null>,
 ): Record<string, CssValue | null> {
-  const lengths = new Set([
-    'font-size',
-    'width',
-    'height',
-    'min-width',
-    'max-width',
-    'padding',
-    'padding-top',
-    'padding-right',
-    'padding-bottom',
-    'padding-left',
-    'margin',
-    'margin-top',
-    'margin-right',
-    'margin-bottom',
-    'margin-left',
-    'gap',
-    'border-radius',
-    'border-width',
-  ])
   return Object.fromEntries(
-    Object.entries(changes).map(([property, value]) => {
-      if (
-        lengths.has(property) &&
-        value?.type === 'raw' &&
-        /^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value.value.trim())
-      ) {
-        return [property, { type: 'unit', value: Number(value.value), unit: 'px' }]
-      }
-      return [property, value]
-    }),
+    Object.entries(changes).map(([property, value]) =>
+      lengths.test(property) && value?.type === 'raw' && isNumber(value.value)
+        ? [property, { type: 'unit', value: Number(value.value), unit: 'px' }]
+        : [property, value],
+    ),
   )
 }

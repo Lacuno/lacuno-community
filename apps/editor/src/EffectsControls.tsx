@@ -1,14 +1,13 @@
 import { useId, useRef } from 'react'
 import { pickerHex } from './colors.js'
 import { defaultShadow, readShadow, readTilt, writeShadow, writeTilt } from './effects.js'
-import { localValue } from './formatting.js'
 import { placePopover } from './popover.js'
 import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 import { TokenField } from './TokenField.js'
 
 export function EffectsControls(props: StyleControls) {
-  const { doc, node, changes, change, breakpoint = 'base', state = 'none', disabled } = props
-  const { overridden, value, set } = useStyleField(props)
+  const { doc, change, disabled } = props
+  const { local, overridden, value, set } = useStyleField(props)
   const tiltText = value('transform', 'none')
   const tilt = readTilt(tiltText)
   const shadowText = value('box-shadow', 'none')
@@ -100,11 +99,7 @@ export function EffectsControls(props: StyleControls) {
         doc={doc}
         property="box-shadow"
         label="Box shadow"
-        value={
-          'box-shadow' in changes
-            ? changes['box-shadow']
-            : localValue(doc, node, 'box-shadow', breakpoint, state)
-        }
+        value={local('box-shadow')}
         disabled={disabled}
         set={(next) => change('box-shadow', next)}
       >

@@ -1,10 +1,11 @@
 import type { Operation } from '@freeflow/document'
 import type { Document, Page } from '@freeflow/schema'
 import { useState } from 'react'
+import { CodeField } from './CodeField.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { canonicalError, duplicatePage, langError, pagePathError, pageSeo } from './pages.js'
-import { CodeField, codeInfo, ImageChoice, SiteSettings } from './SiteSettings.js'
+import { codeInfo, ImageChoice, SiteSettings } from './SiteSettings.js'
 
 export function PagesPanel({
   doc,

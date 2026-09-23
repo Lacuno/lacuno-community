@@ -1,7 +1,6 @@
 import { contextFromDocument, serializeValue } from '@freeflow/css'
 import { useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
-import { localValue } from './formatting.js'
 import { sourceLabel, styleSource } from './presets.js'
 import { SourceLine } from './SourceLine.js'
 import { type StyleControls, useStyleField } from './styleField.js'
@@ -40,16 +39,10 @@ function SpacingPair({
     state = 'none',
     disabled,
   } = props
-  const { overridden, set } = useStyleField(props)
+  const { local: localCss, overridden, set } = useStyleField(props)
   // The explicit local value only, so an inherited side stays empty and shows its computed placeholder.
-  const localCss = (side: string) => {
-    const property = `${kind}-${side}`
-    return property in changes
-      ? changes[property]
-      : localValue(doc, node, property, breakpoint, state)
-  }
   const local = (side: string) => {
-    const value = localCss(side)
+    const value = localCss(`${kind}-${side}`)
     return value ? serializeValue(value, contextFromDocument(doc)) : ''
   }
   const effective = (side: string) => local(side) || (computed[`${kind}-${side}`] ?? '')
@@ -67,7 +60,7 @@ function SpacingPair({
       property={`${kind}-${side}`}
       label={`${prefix} ${side}`}
       name={`${prefix} spacing ${side}`}
-      value={localCss(side)}
+      value={localCss(`${kind}-${side}`)}
       disabled={disabled}
       set={(next) => {
         for (const target of targets(side)) change(`${kind}-${target}`, next)

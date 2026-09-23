@@ -29,12 +29,13 @@ export function useStyleField({
   change,
 }: StyleControls) {
   const inherited = presetValues(doc, node, computed, breakpoint, state)
+  /** The draft value, else the one set locally at this breakpoint and state. */
+  const local = (property: string) =>
+    property in changes ? changes[property] : localValue(doc, node, property, breakpoint, state)
   return {
+    local,
     overridden: (property: string) =>
-      (breakpoint !== 'base' || state !== 'none') &&
-      !!(property in changes
-        ? changes[property]
-        : localValue(doc, node, property, breakpoint, state)),
+      (breakpoint !== 'base' || state !== 'none') && !!local(property),
     value: (property: string, fallback = '') => {
       const item = property in changes ? changes[property] : inherited[property]
       return item ? serializeValue(item, contextFromDocument(doc)) : fallback
