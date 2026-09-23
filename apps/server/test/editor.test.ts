@@ -143,12 +143,9 @@ it('edits a real template in the browser, persists changes, and protects drafts 
       })
     ).status(),
   ).toBe(200)
-  await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await page.getByRole('button', { name: 'Reload latest', exact: true }).click()
+  // The outside edit streams in and lands live; no conflict, and the designer's undo stays theirs.
   await expect.poll(() => heading.textContent()).toBe('Other session wins')
-  await expect
-    .poll(() => page.getByRole('button', { name: 'Undo', exact: true }).isDisabled())
-    .toBe(true)
+  expect(await page.getByText('changed in another session').count()).toBe(0)
   // Links select elements rather than leaving the canvas.
   await canvas.locator('a').first().click()
   await heading.waitFor()

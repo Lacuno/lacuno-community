@@ -22,7 +22,7 @@ it('builds each app registration for the site MCP URL', () => {
     'vscode:mcp/install?%7B%22name%22%3A%22freeflow%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22http%3A%2F%2Flocalhost%3A3000%2Fmcp%2Fsite-1%22%7D',
   )
   expect(JSON.parse(claudeDesktopBridge(url))).toEqual({
-    mcpServers: { freeflow: { command: 'npx', args: ['-y', 'mcp-remote', url] } },
+    mcpServers: { freeflow: { command: 'npx', args: ['-y', 'mcp-remote', url, '--allow-http'] } },
   })
   expect(codexCommand(url)).toBe('codex mcp add freeflow --url http://localhost:3000/mcp/site-1')
   expect(geminiCommand(url)).toBe(

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, message } from './api.js'
 import { type ConnectApp, connectApps } from './connectApps.js'
 import { Dialog, ErrorNote } from './Dialog.js'
+import type { SiteEvent } from './liveEvents.js'
 import './publishing.css'
 
 export type Connection = {
@@ -11,12 +12,6 @@ export type Connection = {
   lastActiveAt: number | null
   /** An MCP session is open. */
   active: boolean
-}
-export type Activity = {
-  revision: number
-  actor: { kind: 'editor' } | { kind: 'agent'; app: string }
-  at: number
-  summary: string
 }
 
 const action = {
@@ -61,7 +56,7 @@ export function ConnectPanel({
   siteId: string
   connections: Connection[]
   refresh: () => Promise<void>
-  activity: Activity[]
+  activity: SiteEvent[]
   close: () => void
 }) {
   const [config, setConfig] = useState<{ origin: string; local: boolean }>()

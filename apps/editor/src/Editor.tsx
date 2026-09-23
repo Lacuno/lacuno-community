@@ -4,7 +4,7 @@ import { message } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
 import { ComponentDialogs } from './ComponentDialogs.js'
-import { type Activity, ConnectPanel, useConnections } from './ConnectPanel.js'
+import { ConnectPanel, useConnections } from './ConnectPanel.js'
 import { EditorHeader } from './EditorHeader.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { InspectorColumn } from './InspectorColumn.js'
@@ -138,8 +138,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           siteId={siteId}
           connections={connections}
           refresh={refreshConnections}
-          // Until the session streams site events it has no activity.
-          activity={(session as { activity?: Activity[] }).activity ?? []}
+          activity={session.activity}
           close={() => setConnectOpen(false)}
         />
       )}

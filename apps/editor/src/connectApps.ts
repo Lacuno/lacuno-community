@@ -23,7 +23,14 @@ export const vscodeLink = (url: string) =>
   `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: 'freeflow', type: 'http', url }))}`
 export const claudeDesktopBridge = (url: string) =>
   JSON.stringify(
-    { mcpServers: { freeflow: { command: 'npx', args: ['-y', 'mcp-remote', url] } } },
+    {
+      mcpServers: {
+        freeflow: {
+          command: 'npx',
+          args: ['-y', 'mcp-remote', url, ...(url.startsWith('http:') ? ['--allow-http'] : [])],
+        },
+      },
+    },
     null,
     2,
   )
