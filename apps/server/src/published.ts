@@ -56,7 +56,12 @@ export function publishedApp(reader: PublicationReader) {
           throw error
       }
     }
-    return c.notFound()
+    const page = await readFile(
+      path.join(reader.directory(site, current), 'dist', '404.html'),
+    ).catch(() => undefined)
+    if (!page) return c.notFound()
+    c.header('Content-Type', 'text/html; charset=utf-8')
+    return c.body(c.req.method === 'HEAD' ? null : new Uint8Array(page), 404)
   })
   return app
 }

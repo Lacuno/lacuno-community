@@ -1,5 +1,5 @@
 import type { Operation } from '@freeflow/document'
-import type { Document, Font, Redirect } from '@freeflow/schema'
+import type { Document, Font } from '@freeflow/schema'
 import { type ReactNode, useId, useRef, useState } from 'react'
 import { uploadAsset } from './AssetsPanel.js'
 import { message } from './api.js'
@@ -7,7 +7,7 @@ import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { faceFromFileName, faceLabel, setFallback, WEIGHT_NAMES } from './fonts.js'
 import { ImageLibrary } from './ImageLibrary.js'
-import { redirectError, siteUrlError } from './pages.js'
+import { langError, redirectError, siteUrlError } from './pages.js'
 import { placePopover } from './popover.js'
 
 /** A monospace code field with the embed field's info popover. */
@@ -371,7 +371,7 @@ export function SiteSettings({
     bodyCode: site.bodyCode ?? '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [redirect, setRedirect] = useState<Redirect>({ from: '', to: '', status: 301 })
+  const [redirect, setRedirect] = useState({ from: '', to: '' })
   const failed = 'Could not save. Check the editor message and try again.'
   const write = async (key: string, operations: Operation[]) => {
     const ok = await autoSave(operations)
@@ -410,7 +410,10 @@ export function SiteSettings({
       {field(
         'locale',
         'Language',
-        () => (form.locale.trim() ? '' : 'Enter a language code such as en or de.'),
+        () =>
+          form.locale.trim()
+            ? langError(form.locale.trim())
+            : 'Enter a language code such as en or de-AT.',
         'en',
       )}
       <ImageChoice
@@ -440,7 +443,7 @@ export function SiteSettings({
         {doc.redirects.map((r) => (
           <li key={r.from}>
             <span>
-              {r.from} → {r.to} · {r.status}
+              {r.from} → {r.to}
             </span>
             <button
               type="button"
@@ -460,7 +463,7 @@ export function SiteSettings({
           const issue = redirectError(doc, next.from, next.to)
           setErrors({ ...errors, redirect: issue })
           if (!issue && (await write('redirect', [{ type: 'redirect.add', ...next }])))
-            setRedirect({ from: '', to: '', status: 301 })
+            setRedirect({ from: '', to: '' })
         }}
       >
         <input
@@ -475,17 +478,6 @@ export function SiteSettings({
           value={redirect.to}
           onChange={(event) => setRedirect({ ...redirect, to: event.target.value })}
         />
-        <select
-          aria-label="Redirect status"
-          value={redirect.status}
-          onChange={(event) =>
-            setRedirect({ ...redirect, status: Number(event.target.value) as Redirect['status'] })
-          }
-        >
-          {[301, 302, 307, 308].map((status) => (
-            <option key={status}>{status}</option>
-          ))}
-        </select>
         <button type="submit">Add</button>
       </form>
       <ErrorNote message={errors.redirect ?? ''} />

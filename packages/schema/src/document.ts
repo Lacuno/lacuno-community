@@ -23,7 +23,7 @@ export const DOCUMENT_VERSION = 1
 
 export const SiteSettings = z.object({
   name: z.string().min(1),
-  locale: z.string().default('en'),
+  locale: Page.shape.lang.unwrap().default('en'),
   modes: z.array(Mode).min(1),
   fonts: z.array(Font).default([]),
   favicon: AssetId.optional(),

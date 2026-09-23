@@ -325,6 +325,10 @@ it('stages MP4 and WebM uploads as videos', async () => {
   const webm = await upload('clip.webm', [0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x86, 0x81])
   expect(await webm.json()).toMatchObject({ kind: 'video', mime: 'video/webm' })
   expect((await upload('fake.mp4', [...Buffer.from('<video>clip</video>')])).status).toBe(415)
+  // AVIF, HEIC and MOV share the ftyp box but are not MP4.
+  expect(
+    (await upload('photo.avif', [0, 0, 0, 24, ...Buffer.from('ftypavif'), 0, 0, 0, 0])).status,
+  ).toBe(415)
 })
 
 it('stages WOFF2, WOFF, TTF and OTF uploads as fonts, typed by their bytes', async () => {

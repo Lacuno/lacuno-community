@@ -71,6 +71,12 @@ it('sets site and page SEO in the editor and publishes it with a not-found page 
     await headCode.fill('<meta name="site-marker" content="site">')
     await headCode.press('Tab')
     await saved()
+    const siteLang = site.getByLabel('Language', { exact: true })
+    await siteLang.fill('English')
+    await siteLang.press('Tab')
+    await site.getByText('Enter a language code such as en or de-AT.').waitFor()
+    await siteLang.fill('en-US')
+    await siteLang.press('Tab')
     await site.getByLabel('Redirect from', { exact: true }).fill('/old')
     await site.getByLabel('Redirect to', { exact: true }).fill('/old')
     await site.getByRole('button', { name: 'Add', exact: true }).click()
@@ -78,7 +84,7 @@ it('sets site and page SEO in the editor and publishes it with a not-found page 
     await site.getByLabel('Redirect to', { exact: true }).fill('/about')
     await site.getByRole('button', { name: 'Add', exact: true }).click()
     await saved()
-    await site.getByText('/old → /about · 301').waitFor()
+    await site.getByText('/old → /about').waitFor()
     await site.getByRole('button', { name: 'Close', exact: true }).click()
 
     // Page settings carry the rest of the page's SEO and its code.
@@ -146,7 +152,8 @@ it('sets site and page SEO in the editor and publishes it with a not-found page 
     expect(about).toMatch(new RegExp(`<meta property="og:image" content="${publicUrl}/[^"]+">`))
     expect(about).toContain('<meta name="twitter:card" content="summary_large_image">')
     expect(about).toContain('<html lang="en">')
-    expect(about).toContain('<meta property="og:locale" content="en">')
+    // A language without a territory has no og:locale.
+    expect(about).not.toContain('og:locale')
     expect(about).toContain('<link rel="icon" type="image/png"')
     expect(about).toContain('<meta name="site-marker" content="site">')
     expect(about).toContain('<meta name="page-marker" content="about">')
@@ -154,9 +161,12 @@ it('sets site and page SEO in the editor and publishes it with a not-found page 
     expect(home).toContain('<meta name="twitter:card" content="summary">')
     // The home page keeps the site language.
     expect(home).toContain('<html lang="en-US">')
-    expect(home).toContain('<meta property="og:locale" content="en-US">')
+    expect(home).toContain('<meta property="og:locale" content="en_US">')
 
     expect(await text('/404.html')).toContain('<title>Not found</title>')
+    const missing = await fetch('/missing')
+    expect(missing.status).toBe(404)
+    expect(await missing.text()).toContain('<title>Not found</title>')
     const sitemap = await text('/sitemap-0.xml')
     expect(sitemap).toContain(`<loc>${publicUrl}/</loc>`)
     expect(sitemap).not.toContain('/about')

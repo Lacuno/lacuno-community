@@ -71,7 +71,7 @@ const UPLOAD_SIGNATURES: [RegExp, string][] = [
   [/^ffd8ff/, 'image/jpeg'],
   [/^4749463[79]61/, 'image/gif'], // GIF87a, GIF89a
   [/^52494646.{8}57454250/, 'image/webp'], // RIFF....WEBP
-  [/^.{8}66747970/, 'video/mp4'], // ....ftyp
+  [/^.{8}66747970(69736f(6d|32)|6d70343[12]|61766331)/, 'video/mp4'], // ....ftyp isom|iso2|mp41|mp42|avc1
   [/^1a45dfa3/, 'video/webm'],
   [/^774f4632/, 'font/woff2'], // wOF2
   [/^774f4646/, 'font/woff'], // wOFF
