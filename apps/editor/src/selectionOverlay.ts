@@ -85,7 +85,7 @@ export function selectionOverlay(
     .state.active, .bar .spacing[aria-pressed="true"] { background:white;color:#6434d9; }
     .swatch i { display:block;width:14px;height:14px;border-radius:50%;border:1px solid #ffffffaa;box-shadow:inset 0 0 0 1px #0002; }
     .menu { pointer-events:auto;position:absolute;box-sizing:border-box;padding:4px;border-radius:8px;background:white;color:#1f1533;box-shadow:0 6px 24px #0004;font-weight:400; }
-    .menu[hidden], .menu button[hidden] { display:none; }
+    .menu[hidden], .menu [hidden] { display:none; }
     .state-menu { min-width:220px; }
     .state-menu button { display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer; }
     .state-menu button:hover, .state-menu button:focus-visible { background:#f1ecfd;outline:none; }
@@ -95,7 +95,6 @@ export function selectionOverlay(
     .state-menu small { display:block;color:#655484;font-size:10px; }
     .color-menu { display:grid;grid-template-columns:minmax(0, 1fr);gap:8px;padding:12px;width:${WHEEL_SIZE + 24}px; }
     .color-menu > * { min-width:0; }
-    .color-menu[hidden] { display:none; }
     .wheel { position:relative;width:${WHEEL_SIZE}px;height:${WHEEL_SIZE}px;border-radius:50%;cursor:crosshair;touch-action:none;box-shadow:inset 0 0 0 1px #0002; }
     .wheel-thumb { position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;border:2px solid white;box-shadow:0 0 0 1px #0006;pointer-events:none; }
     .color-menu label { display:grid;gap:2px;font-size:10px;color:#655484; }
@@ -106,7 +105,6 @@ export function selectionOverlay(
     .swatches:empty { display:none; }
     .swatches button { width:22px;height:22px;padding:0;border:1px solid #0002;border-radius:50%;cursor:pointer; }
     .swatches button[aria-pressed="true"] { box-shadow:0 0 0 2px #6434d9; }
-    .swatches-label:empty, .swatches-label.hidden { display:none; }
     .save { display:flex;gap:4px;min-width:0; }
     .save input { flex:1;min-width:0;padding:4px 6px;border:1px solid #d9d2ea;border-radius:4px;font:inherit;font-weight:400; }
     .save button { flex-shrink:0;padding:4px 8px;border:0;border-radius:4px;background:#6434d9;color:white;font:inherit;cursor:pointer; }
@@ -118,7 +116,7 @@ export function selectionOverlay(
     .handle.left, .handle.right { width:6px;height:24px;margin:-12px 0 0 -3px;cursor:ew-resize; }
     .handle.size { width:7px;height:7px;margin:-5px 0 0 -5px;border:1.5px solid #6434d9;border-radius:1px;background:white; }
     .handle.corner { cursor:nwse-resize; }
-    .handles[hidden], .handles:not(.spacing-mode) .handle:not(.size), .handles:not(.strips) .strip { display:none; }
+    .handles:not(.spacing-mode) .handle:not(.size), .handles:not(.strips) .strip { display:none; }
     .strip { position:absolute;display:flex;align-items:center;justify-content:center;pointer-events:none;background:#6434d926;color:#6434d9; }
     .strip.margin { background:#e8873b26;color:#e8873b; }
     .strip.padding.focus { background:#6434d94d; }
@@ -132,7 +130,6 @@ export function selectionOverlay(
     .strip.thin.left span { right:100%;padding-right:2px; }
     .strip.thin.right span { left:100%;padding-left:2px; }
     .tag { position:absolute;padding:2px 6px;border-radius:4px;background:#1f1533;color:white;box-shadow:0 2px 8px #0004;pointer-events:none;white-space:nowrap; }
-    .tag[hidden] { display:none; }
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
   </style><svg class="frame"><rect class="selection-base"/><rect class="selection-dashes"/></svg>
@@ -238,7 +235,7 @@ export function selectionOverlay(
   // Build the project-colour dots for the current document; clicking one binds the element to it.
   const renderSwatches = () => {
     const list = latest().swatches
-    swatchLabel.classList.toggle('hidden', list.length === 0)
+    swatchLabel.hidden = list.length === 0
     swatchList.replaceChildren(
       ...list.map((item) => {
         const button = doc.createElement('button')

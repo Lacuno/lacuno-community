@@ -9,14 +9,20 @@ export type StyleEdit =
   | { changes: Record<string, CssValue>; phase: 'drag' | 'commit' }
   | { property: string; token: { name: string; value: string } }
 
-export function parseColor(text: string): Hsl | undefined {
+/** The red, green and blue (0-255) of a `#rrggbb` or `rgb()` colour. */
+export function parseRgb(text: string): number[] | undefined {
   const hex = text.match(/^#([\da-f]{6})/i)
   const rgb = text.match(/^rgba?\(\s*(\d+)[, ]+\s*(\d+)[, ]+\s*(\d+)/)
-  const parts = hex
+  return hex
     ? [0, 2, 4].map((i) => Number.parseInt(hex[1]!.slice(i, i + 2), 16))
-    : rgb
-      ? rgb.slice(1, 4).map(Number)
-      : undefined
+    : rgb?.slice(1, 4).map(Number)
+}
+
+export const rgbHex = (parts: number[]) =>
+  `#${parts.map((part) => part.toString(16).padStart(2, '0')).join('')}`
+
+export function parseColor(text: string): Hsl | undefined {
+  const parts = parseRgb(text)
   if (!parts) return undefined
   const [r, g, b] = parts.map((part) => part / 255) as [number, number, number]
   const max = Math.max(r, g, b)
@@ -34,7 +40,7 @@ export function parseColor(text: string): Hsl | undefined {
   return { h, s, l }
 }
 
-export function toRgb({ h, s, l }: Hsl): [number, number, number] {
+function toRgb({ h, s, l }: Hsl): [number, number, number] {
   const c = (1 - Math.abs(2 * l - 1)) * s
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
   const m = l - c / 2
@@ -53,10 +59,7 @@ export function toRgb({ h, s, l }: Hsl): [number, number, number] {
   return [r, g, b].map((part) => Math.round((part + m) * 255)) as [number, number, number]
 }
 
-export const toHex = (hsl: Hsl) =>
-  `#${toRgb(hsl)
-    .map((part) => part.toString(16).padStart(2, '0'))
-    .join('')}`
+export const toHex = (hsl: Hsl) => rgbHex(toRgb(hsl))
 
 /** The project colour within a short distance of `hsl`, so a drag can settle on the design system. */
 export function nearestSwatch(hsl: Hsl, swatches: Swatch[]): Swatch | undefined {

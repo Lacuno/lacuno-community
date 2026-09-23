@@ -4,7 +4,7 @@ import { ComponentsPanel } from './ComponentsPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import { LayersPanel } from './LayersPanel.js'
 import { PagesPanel } from './PagesPanel.js'
-import { StructurePanel } from './StructurePanel.js'
+import { InsertPanel } from './StructurePanel.js'
 import type { DocumentSession } from './session.js'
 import { insertionTarget, structureInsertion, subtreeRestriction } from './structure.js'
 import type { ComponentEditing } from './useComponentEditing.js'
@@ -137,7 +137,7 @@ export function Sidebar({
           <>
             <div className="panel-title">Add elements</div>
             {editableDoc && editingRoot && (
-              <StructurePanel
+              <InsertPanel
                 doc={editableDoc}
                 root={editingRoot}
                 selected={selected}

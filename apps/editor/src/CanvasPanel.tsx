@@ -181,7 +181,7 @@ export function CanvasPanel({
             selectedName={doc?.nodes[selected] ? nodeLabel(doc.nodes[selected]!) : ''}
             select={(id) => {
               reveal()
-              if (id !== selected) leave(() => setSelected(id))
+              if (id !== selected) void leave(() => setSelected(id))
             }}
           />
         ) : (

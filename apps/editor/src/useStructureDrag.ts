@@ -241,16 +241,12 @@ function createController(getOptions: () => Options) {
     const leave = (event: DragEvent) => {
       if (!event.relatedTarget) reset()
     }
-    const key = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') end()
-    }
     surface.addEventListener('dragstart', start, true)
     surface.addEventListener('dragenter', over, true)
     surface.addEventListener('dragover', over, true)
     surface.addEventListener('drop', drop, true)
     surface.addEventListener('dragend', end, true)
     surface.addEventListener('dragleave', leave, true)
-    surface.addEventListener('keydown', key, true)
     return () => {
       surface.removeEventListener('dragstart', start, true)
       surface.removeEventListener('dragenter', over, true)
@@ -258,7 +254,6 @@ function createController(getOptions: () => Options) {
       surface.removeEventListener('drop', drop, true)
       surface.removeEventListener('dragend', end, true)
       surface.removeEventListener('dragleave', leave, true)
-      surface.removeEventListener('keydown', key, true)
       clearers.delete(reset)
       preview?.dispose()
       indicator.remove()

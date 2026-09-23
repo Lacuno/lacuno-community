@@ -5,6 +5,15 @@ import { EditorIcon } from './EditorIcon.js'
 import { presetValues } from './presets.js'
 import { nodeLabel, structureRestriction } from './structure.js'
 
+/** The layer icon for an element's tag; other elements show their layout. */
+const tagKinds: Record<string, 'image' | 'video' | 'list' | 'section'> = {
+  img: 'image',
+  video: 'video',
+  ul: 'list',
+  ol: 'list',
+  section: 'section',
+}
+
 type Props = {
   doc: Document
   root: string
@@ -118,27 +127,16 @@ export function Navigator({
     const direction = values['flex-direction']
     const layout = display?.type === 'raw' ? display.value : ''
     const kind =
-      node.type === 'element' && node.tag === 'img'
-        ? 'image'
-        : node.type === 'element' && node.tag === 'video'
-          ? 'video'
-          : node.type === 'element' && (node.tag === 'ul' || node.tag === 'ol')
-            ? 'list'
-            : node.type === 'embed'
-              ? 'embed'
-              : node.type === 'component'
-                ? 'component'
-                : node.type === 'text'
-                  ? 'text'
-                  : node.type === 'element' && node.tag === 'section'
-                    ? 'section'
-                    : layout === 'grid'
-                      ? 'grid'
-                      : layout === 'flex'
-                        ? direction?.type === 'raw' && direction.value.startsWith('column')
-                          ? 'stack'
-                          : 'row'
-                        : 'layer'
+      node.type === 'embed' || node.type === 'component' || node.type === 'text'
+        ? node.type
+        : (node.type === 'element' && tagKinds[node.tag]) ||
+          (layout === 'grid'
+            ? 'grid'
+            : layout === 'flex'
+              ? direction?.type === 'raw' && direction.value.startsWith('column')
+                ? 'stack'
+                : 'row'
+              : 'layer')
     return (
       <div key={id}>
         <div

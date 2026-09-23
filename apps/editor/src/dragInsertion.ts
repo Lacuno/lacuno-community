@@ -1,7 +1,6 @@
 import { classNames, generateStylesheet } from '@freeflow/css'
 import { type AssetRef, type Document as SiteDocument, styleKey } from '@freeflow/schema'
-import type { InsertNode } from './history.js'
-import { type DragItem, structureInsertion } from './structure.js'
+import { type DragItem, type InsertNode, structureInsertion } from './structure.js'
 
 /** Use the same preset nodes and styles as the eventual insertion, without editing the document. */
 export function dragInsertion(

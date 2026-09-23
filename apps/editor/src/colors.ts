@@ -1,5 +1,6 @@
 import type { Document } from '@freeflow/schema'
 import { designTokenCssName } from '@freeflow/schema'
+import { parseRgb, rgbHex } from './colorWheel.js'
 
 export const colorProperties = new Set(['color', 'background-color', 'border-color'])
 export const projectColors = (doc: Document) =>
@@ -46,12 +47,6 @@ export function colorPreview(
 
 /** `<input type="color">` only accepts #rrggbb, so coerce what the user typed. */
 export function pickerHex(value: string, fallback: string): string {
-  if (/^#[\da-f]{6}(?:[\da-f]{2})?$/i.test(value)) return value.slice(0, 7)
-  const rgb = value.match(/^rgb\(\s*(\d+)[, ]+\s*(\d+)[, ]+\s*(\d+)/)
-  return rgb
-    ? `#${rgb
-        .slice(1, 4)
-        .map((part) => Number(part).toString(16).padStart(2, '0'))
-        .join('')}`
-    : fallback
+  const parts = parseRgb(value)
+  return parts ? rgbHex(parts) : fallback
 }

@@ -36,15 +36,15 @@ function highlight(frame: HTMLIFrameElement | null, selected: string, state: Sta
   if (state !== 'none') element?.setAttribute('data-ff-state', state)
 }
 
+/** The text of every style in a rendered head, in order. */
+const headStyles = (doc: Document) =>
+  [...doc.head.querySelectorAll('style')].map((style) => style.textContent).join('\n')
+
 /**
  * A server `<img>` or `<video>` with no source is an empty slot, shown as a placeholder instead.
  * An embed whose markup shows nothing here (scripts and frames never run on the canvas) gets a
  * labelled placeholder so it can still be selected and sized.
  */
-/** The text of every style in a rendered head, in order. */
-const headStyles = (doc: Document) =>
-  [...doc.head.querySelectorAll('style')].map((style) => style.textContent).join('\n')
-
 function swapPlaceholders(doc: Document) {
   for (const media of doc.querySelectorAll(
     ':is(img, video)[data-freeflow-node]:not([src]), :is(img, video)[data-freeflow-node][src=""]',
@@ -114,9 +114,14 @@ export function Canvas({
   const selectionCleanup = useRef<(() => void) | undefined>(undefined)
   // The sidebar spacing input with focus, forwarded to the overlay so it shows the boxes.
   const spacingFocus = useRef<Selection['spacingFocus']>(null)
-  useEffect(() => () => selectionCleanup.current?.(), [])
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
-  useEffect(() => () => dragCleanup.current?.(), [])
+  useEffect(
+    () => () => {
+      selectionCleanup.current?.()
+      dragCleanup.current?.()
+    },
+    [],
+  )
   const frame = useRef<HTMLIFrameElement>(null)
   // The generated stylesheet element, swapped by text on every morph.
   const generatedStyle = useRef<HTMLStyleElement | null>(null)
@@ -266,6 +271,14 @@ export function Canvas({
   }
   const latest = useRef(current)
   latest.current = current
+  const refresh = (doc: Document) => {
+    swapPlaceholders(doc)
+    for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
+      element.draggable = true
+    highlight(frame.current, latest.current.selected, latest.current.state)
+    latest.current.paint()
+    latest.current.reportStyles()
+  }
   // Reconcile the live document to a new server render without reloading the iframe: swap the
   // generated stylesheet's text, morph the body to the new markup (keyed on tag/position, editor
   // chrome kept), then re-derive the placeholders, selection and draft the way a reload used to.
@@ -287,12 +300,7 @@ export function Canvas({
           ),
       },
     })
-    swapPlaceholders(doc)
-    for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
-      element.draggable = true
-    highlight(frame.current, latest.current.selected, latest.current.state)
-    latest.current.paint()
-    latest.current.reportStyles()
+    refresh(doc)
   }
   // biome-ignore lint/correctness/useExhaustiveDependencies: morph the new render in place; an open text editor freezes it.
   useEffect(() => {
@@ -385,7 +393,6 @@ export function Canvas({
           generatedStyle.current = styles.pop() ?? null
           if (generatedStyle.current) generatedStyle.current.textContent = headStyles(doc)
           for (const style of styles) style.remove()
-          swapPlaceholders(doc)
           selectionCleanup.current?.()
           selectionCleanup.current = selectionOverlay(
             doc,
@@ -408,8 +415,6 @@ export function Canvas({
               ),
           )
           dragCleanup.current?.()
-          for (const element of doc.querySelectorAll<HTMLElement>('[data-freeflow-node]'))
-            element.draggable = true
           dragCleanup.current = bindDragSurface(doc)
           const style = doc.createElement('style')
           style.textContent =
@@ -475,10 +480,8 @@ export function Canvas({
             },
             true,
           )
-          highlight(frame.current, latest.current.selected, latest.current.state)
           restore.current = undefined
-          latest.current.paint()
-          latest.current.reportStyles()
+          refresh(doc)
           loaded.current = true
         }}
       />

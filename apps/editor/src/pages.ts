@@ -1,7 +1,7 @@
 import type { Operation } from '@freeflow/document'
 import { type Document, Page, type Seo } from '@freeflow/schema'
 import { localClassCopier } from './copyLocalClasses.js'
-import { type PageTree, pageTree } from './history.js'
+import { type PageTree, pageTree } from './structure.js'
 
 export function pagePathError(doc: Document, path: string, except?: string) {
   if (!Page.shape.path.safeParse(path).success)
