@@ -54,12 +54,9 @@ export function NumberField({
   unit = '',
   min,
   max,
-  placeholder,
   disabled,
   overridden,
   set,
-  onFocus,
-  onBlur,
 }: {
   label: string
   name?: string | undefined
@@ -69,12 +66,9 @@ export function NumberField({
   unit?: string
   min?: number | undefined
   max?: number | undefined
-  placeholder?: string | undefined
   disabled: boolean
   overridden: boolean
   set: (value: string) => void
-  onFocus?: () => void
-  onBlur?: () => void
 }) {
   return (
     <label htmlFor={id}>
@@ -87,10 +81,7 @@ export function NumberField({
         min={min}
         max={max}
         step="any"
-        placeholder={placeholder}
         disabled={disabled}
-        onFocus={onFocus}
-        onBlur={onBlur}
         value={value ? Math.round(Number.parseFloat(value) * factor * 1000) / 1000 : ''}
         onChange={(event) =>
           set(

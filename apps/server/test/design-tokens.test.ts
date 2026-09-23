@@ -217,7 +217,7 @@ it('creates a spacing token, binds a field to it, snaps a handle to it, detaches
 
     // Detach writes the token's value to the linked pair as plain pixels; the other pair stays bound.
     await pickToken('top', 'Detach')
-    await expect.poll(() => top.inputValue()).toBe('32')
+    await expect.poll(() => top.inputValue()).toBe('32px')
     await expect.poll(() => ctaPadding('top')).toEqual({ type: 'unit', value: 32, unit: 'px' })
     await saved()
     expect(await ctaPadding('bottom')).toEqual({ type: 'unit', value: 32, unit: 'px' })

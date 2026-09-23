@@ -9,6 +9,7 @@ import {
   presetOverrides,
   presetValues,
   updatePreset,
+  winningStyles,
 } from '../src/presets.js'
 import { commit } from './helpers.js'
 
@@ -116,4 +117,52 @@ it('isolates shared local styles when applying a preset', async () => {
   expect(after.nodes[node.id]?.classes).not.toContain(local)
   for (const [key, style] of Object.entries(styles).filter(([, style]) => style.class === local))
     expect(after.styles[key]).toEqual(style)
+})
+
+it('ranks a state or a narrower breakpoint on an earlier class above a base rule on a later one', () => {
+  const doc = fixtureDocument()
+  const node = doc.nodes['n-hero-cta']!
+  node.classes = ['c-button', 'c-late']
+  doc.classes['c-late'] = { id: 'c-late', kind: 'class', name: 'zz-late' }
+  const set = (cls: string, breakpoint: string, state: 'none' | 'hover', ref: string) => {
+    const style = {
+      class: cls,
+      breakpoint,
+      state,
+      property: 'color',
+      value: { type: 'designToken' as const, ref },
+    }
+    doc.styles[styleKey(style)] = style
+  }
+  set('c-late', 'base', 'none', 't-brand')
+  set('c-button', 'base', 'hover', 't-brand-hover')
+  set('c-button', 'tablet', 'none', 't-border')
+  expect(winningStyles(doc, node).color?.class).toBe('c-late')
+  expect(winningStyles(doc, node, 'base', 'hover').color?.state).toBe('hover')
+  expect(winningStyles(doc, node, 'tablet').color?.breakpoint).toBe('tablet')
+})
+
+it('captures spacing set through a shorthand as the shorthand with its token', () => {
+  const doc = fixtureDocument()
+  const node = doc.nodes['n-hero-cta']!
+  const padding =
+    doc.styles[
+      styleKey({ class: 'c-button', breakpoint: 'base', state: 'none', property: 'padding' })
+    ]!.value
+  const values = presetValues(doc, node, { 'padding-top': '16px', 'margin-top': '0px' })
+  expect(values.padding).toEqual(padding)
+  expect(values['padding-top']).toBeUndefined()
+  expect(values['margin-top']).toEqual({ type: 'raw', value: '0px' })
+  expect(presetValues(doc, node, {}, 'tablet').padding).toEqual(padding)
+  const local = {
+    class: 'l-hero-title',
+    breakpoint: 'base',
+    state: 'none' as const,
+    property: 'margin',
+    value: { type: 'raw' as const, value: '8px' },
+  }
+  doc.styles[styleKey(local)] = local
+  expect(presetOverrides(doc, doc.nodes['n-hero-title']!).map((style) => style.property)).toContain(
+    'margin',
+  )
 })

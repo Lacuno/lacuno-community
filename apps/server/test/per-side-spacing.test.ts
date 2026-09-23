@@ -91,6 +91,13 @@ it('binds per-side spacing inputs to the longhands and the handles, with a chain
     await expect.poll(padding).toEqual([initial[0], initial[1], initial[2], 40])
     await saved()
 
+    // Any length keeps its unit: a rem side reads back as rem, not as a bare pixel count.
+    const topInput = ribbon.getByLabel('Inside spacing top', { exact: true })
+    await topInput.fill('1.5rem')
+    await expect.poll(padding).toEqual([24, initial[1], 24, 40])
+    await saved()
+    await expect.poll(() => topInput.inputValue()).toBe('1.5rem')
+
     await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
     await ribbon.locator('.spacing-controls').screenshot({
       path: path.join(root, '.freeflow/editor-preview/spacing-ribbon.png'),
@@ -104,7 +111,6 @@ it('binds per-side spacing inputs to the longhands and the handles, with a chain
     const spacingChip = canvas.getByRole('button', { name: 'Spacing', exact: true })
     await spacingChip.click()
     await expect.poll(() => spacingChip.getAttribute('aria-pressed')).toBe('true')
-    const topInput = ribbon.getByLabel('Inside spacing top', { exact: true })
     const nub = canvas.locator('.handle.padding.top')
     await nub.waitFor()
     const box = (await nub.boundingBox())!
@@ -129,7 +135,9 @@ it('binds per-side spacing inputs to the longhands and the handles, with a chain
         modifiers: 2,
       })
     // The input tracks the draft while the pointer is still down (autosave paused).
-    await expect.poll(() => topInput.inputValue().then(Number)).toBeGreaterThan((50 / zoom) * 0.6)
+    await expect
+      .poll(() => topInput.inputValue().then(Number.parseFloat))
+      .toBeGreaterThan((50 / zoom) * 0.6)
     await cdp.send('Input.dispatchMouseEvent', {
       type: 'mouseReleased',
       x: from.x,
