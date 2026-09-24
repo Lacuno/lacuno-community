@@ -1,14 +1,12 @@
-import { mkdir } from 'node:fs/promises'
-import path from 'node:path'
 import type { AssetRef, Document } from '@freeflow/schema'
-import { createEmptyDocument, DocumentError, hashAsset, parseDocument } from '@freeflow/schema'
+import { DocumentError, hashAsset, parseDocument } from '@freeflow/schema'
 import type { Warning } from './context.js'
 import { planBatch } from './engine.js'
 import { StaleRevisionError } from './errors.js'
 import { deepFreeze } from './freeze.js'
 import { OPERATIONS_BY_TYPE, type Operation } from './operations/index.js'
 import { applyPatches, type Patch } from './patch.js'
-import { FolderPersistence, MemoryPersistence, type Persistence } from './persistence.js'
+import { MemoryPersistence, type Persistence } from './persistence.js'
 
 /** Either named operations to plan, or the patches of an earlier commit to replay: never both. */
 export type Batch = {
@@ -55,26 +53,6 @@ export class DocumentStore {
     if (raw === undefined)
       throw new DocumentError([{ path: 'freeflow.json', message: 'no document found' }])
     return new DocumentStore(persistence, parseDocument(raw))
-  }
-
-  /** A missing folder holds no freeflow.json, so load() reports it as no document found. */
-  static async open(siteDir: string): Promise<DocumentStore> {
-    return DocumentStore.withPersistence(new FolderPersistence(path.resolve(siteDir)))
-  }
-
-  static async create(siteDir: string, name: string): Promise<DocumentStore> {
-    const dir = path.resolve(siteDir)
-    await mkdir(dir, { recursive: true })
-    const persistence = new FolderPersistence(dir)
-    // A file that fails to parse is still a file the user may want to recover by hand; let
-    // load()'s DocumentError propagate rather than silently overwriting it.
-    const existing = await persistence.load()
-    if (existing !== undefined)
-      throw new DocumentError([
-        { path: 'freeflow.json', message: 'a document already exists in this folder' },
-      ])
-    await persistence.save(createEmptyDocument(name))
-    return DocumentStore.withPersistence(persistence)
   }
 
   static inMemory(document: Document): DocumentStore {

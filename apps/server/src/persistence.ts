@@ -1,5 +1,6 @@
 import path from 'node:path'
-import { FolderPersistence, type Persistence, StaleRevisionError } from '@freeflow/document'
+import { type Persistence, StaleRevisionError } from '@freeflow/document'
+import { FolderPersistence } from '@freeflow/document/folder'
 import type { Document } from '@freeflow/schema'
 import { and, eq } from 'drizzle-orm'
 import { type SiteDatabase, sites } from './database.js'

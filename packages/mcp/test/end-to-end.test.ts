@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { build, fixtureAssetBytes, writeFixtureSite } from '@freeflow/compiler/build'
-import { DocumentStore } from '@freeflow/document'
+import { createFolder } from '@freeflow/document/folder'
 import { afterEach, describe, expect, it } from 'vitest'
 import { fixtureOperations } from '../../document/test/fixture-operations.js'
 import { connect, jsonOf, textOf } from './helpers.js'
@@ -20,7 +20,7 @@ describe('building the fixture site through MCP', () => {
     dirs.push(a)
     const b = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-b-'))
     dirs.push(b)
-    const store = await DocumentStore.create(a, 'Fixture Co')
+    const store = await createFolder(a, 'Fixture Co')
     const c = await connect(store, { siteDir: a })
     close = c.close
     const initialPage = Object.keys(store.read().document.pages)[0] as string

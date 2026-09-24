@@ -213,6 +213,16 @@ the apps. Agent batches stream into the open editor and land on the canvas witho
 touched elements flash, your pending edits are never overwritten, and your undo history stays
 yours. Freeflow never calls a model itself.
 
+## Try build
+
+The build also writes `try.html`, `try-worker.js` and the default template's asset bytes under
+`template/<hash>`. `try.html` registers `try-worker.js` as a service worker for the whole origin
+and then starts the same editor on the site `try`. The worker answers the editor's API in the
+browser: the site starts as the default template and is kept in IndexedDB, previews and uploads
+use the server's own helpers, and publishing and Connect your AI show a **Sign up** link to
+`/signup` instead. Freeflow Cloud serves these files on its try host; the Community server does
+not serve them.
+
 ## Verification
 
 ```sh

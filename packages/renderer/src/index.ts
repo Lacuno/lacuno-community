@@ -64,3 +64,26 @@ export function renderCanvas(
   result.head = `<meta http-equiv="Content-Security-Policy" content="${policy}">\n${result.head}\n${styleElement(css)}`
   return { html: assembleDocument(result), warnings: result.warnings }
 }
+
+/** The editor's preview route: a page, entry or component the document lacks is an error. */
+export function renderPreview(
+  doc: Document,
+  siteId: string,
+  query: { page?: string; entry?: string; component?: string },
+):
+  | { status: 200; body: CanvasResult & { revision: number } }
+  | { status: 400 | 404; body: { error: string } } {
+  const page = doc.pages[query.page ?? '']
+  if (!page) return { status: 404, body: { error: 'Page not found' } }
+  const entry = page.collection
+    ? doc.entries[page.collection]?.find((item) => item.id === query.entry)
+    : undefined
+  if (page.collection && !entry)
+    return { status: 400, body: { error: 'Choose a collection entry to preview' } }
+  if (query.component && !doc.components[query.component])
+    return { status: 404, body: { error: 'Component not found' } }
+  return {
+    status: 200,
+    body: { ...renderCanvas(doc, page, entry, siteId, query.component), revision: doc.revision },
+  }
+}

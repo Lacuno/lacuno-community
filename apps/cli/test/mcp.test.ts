@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { DocumentStore } from '@freeflow/document'
+import { createFolder } from '@freeflow/document/folder'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -18,7 +18,7 @@ describe('freeflow mcp', () => {
   it('exits cleanly when its client closes stdin', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-eof-'))
     dirs.push(dir)
-    await DocumentStore.create(dir, 'EOF')
+    await createFolder(dir, 'EOF')
     const child = spawn(process.execPath, ['--import', 'tsx', 'apps/cli/src/main.ts', 'mcp', dir], {
       cwd: path.resolve(import.meta.dirname, '../../..'),
       stdio: 'pipe',
@@ -42,7 +42,7 @@ describe('freeflow mcp', () => {
   it('serves MCP over stdio', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-cli-'))
     dirs.push(dir)
-    await DocumentStore.create(dir, 'Site')
+    await createFolder(dir, 'Site')
     const root = path.resolve(import.meta.dirname, '../../..')
     const transport = new StdioClientTransport({
       command: 'pnpm',

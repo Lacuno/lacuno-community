@@ -3,15 +3,14 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
   DocumentStore,
-  kindForMime,
+  documentErrorResponse,
   type Operation,
-  OperationError,
   Patch,
-  PatchError,
-  StaleRevisionError,
+  stageUpload,
+  UploadInput,
 } from '@freeflow/document'
-import { renderCanvas } from '@freeflow/renderer'
-import { DocumentError, hashAsset, parseDocument } from '@freeflow/schema'
+import { renderPreview } from '@freeflow/renderer'
+import { hashAsset, parseDocument } from '@freeflow/schema'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db/migration'
@@ -68,19 +67,6 @@ const BatchInput = z.strictObject({
   patches: z.array(Patch).min(1).max(5000).optional(),
   dryRun: z.boolean().optional(),
 })
-/** Uploads are typed by their first bytes, as hex, never by name or declared type. */
-const UPLOAD_SIGNATURES: [RegExp, string][] = [
-  [/^89504e470d0a1a0a/, 'image/png'],
-  [/^ffd8ff/, 'image/jpeg'],
-  [/^4749463[79]61/, 'image/gif'], // GIF87a, GIF89a
-  [/^52494646.{8}57454250/, 'image/webp'], // RIFF....WEBP
-  [/^.{8}66747970(69736f(6d|32)|6d70343[12]|61766331)/, 'video/mp4'], // ....ftyp isom|iso2|mp41|mp42|avc1
-  [/^1a45dfa3/, 'video/webm'],
-  [/^774f4632/, 'font/woff2'], // wOF2
-  [/^774f4646/, 'font/woff'], // wOFF
-  [/^(00010000|74727565)/, 'font/ttf'], // 00 01 00 00, true
-  [/^4f54544f/, 'font/otf'], // OTTO
-]
 
 export async function createServer(options: ServerOptions) {
   if (options.secret.length < 32) throw new Error('Auth secret must contain at least 32 characters')
@@ -138,14 +124,8 @@ export async function createServer(options: ServerOptions) {
     )
     app.onError((error, c) => {
       if (error instanceof HTTPException) return c.json({ error: error.message }, error.status)
-      if (error instanceof StaleRevisionError)
-        return c.json({ error: error.message, currentRevision: error.current }, 409)
-      if (
-        error instanceof OperationError ||
-        error instanceof DocumentError ||
-        error instanceof PatchError
-      )
-        return c.json({ error: error.message }, 400)
+      const failure = documentErrorResponse(error)
+      if (failure) return c.json(failure.body, failure.status)
       console.error(error)
       return c.json({ error: 'Internal server error' }, 500)
     })
@@ -409,60 +389,21 @@ export async function createServer(options: ServerOptions) {
       return response
     })
     app.get('/api/sites/:id/preview', async (c) => {
-      const { document, revision } = (await store(c.req.param('id'))).read()
-      const page = document.pages[c.req.query('page') ?? '']
-      if (!page) return c.json({ error: 'Page not found' }, 404)
-      const entry = page.collection
-        ? document.entries[page.collection]?.find((item) => item.id === c.req.query('entry'))
-        : undefined
-      if (page.collection && !entry)
-        return c.json({ error: 'Choose a collection entry to preview' }, 400)
-      const component = c.req.query('component')
-      if (component && !document.components[component])
-        return c.json({ error: 'Component not found' }, 404)
-      return c.json({
-        ...renderCanvas(document, page, entry, c.req.param('id'), component),
-        revision,
-      })
+      const { document } = (await store(c.req.param('id'))).read()
+      const { status, body } = renderPreview(document, c.req.param('id'), c.req.query())
+      return c.json(body, status)
     })
     app.post('/api/sites/:id/assets/upload', async (c) => {
-      const input = z
-        .object({
-          name: z.string().trim().min(1).max(255),
-          data: z
-            .string()
-            .max(14 * 1024 * 1024)
-            .regex(/^[A-Za-z0-9+/]+={0,2}$/),
-        })
-        .safeParse(await c.req.json().catch(() => null))
+      const input = UploadInput.safeParse(await c.req.json().catch(() => null))
       if (!input.success) return c.json({ error: 'Invalid upload' }, 400)
-      const bytes = Buffer.from(input.data.data, 'base64')
-      if (!bytes.length || bytes.length > 10 * 1024 * 1024)
-        return c.json({ error: 'Files must be 10 MB or smaller.' }, 413)
-      const head = bytes.toString('hex', 0, 12)
-      const mime = UPLOAD_SIGNATURES.find(([pattern]) => pattern.test(head))?.[1]
-      if (!mime)
-        return c.json(
-          {
-            error:
-              'Choose a PNG, JPEG, WebP or GIF image, an MP4 or WebM video, or a WOFF2, WOFF, TTF or OTF font.',
-          },
-          415,
-        )
-      const hash = await hashAsset(bytes)
       const { document } = (await store(c.req.param('id'))).read()
-      const existing = Object.values(document.assets).find((asset) => asset.hash === hash)
-      if (existing) return c.json(existing)
-      // Stage immutable bytes; registration goes through the editor's revision-checked undoable batch.
-      await new SqlitePersistence(db, c.req.param('id'), options.dataDir).putAsset(bytes, hash)
-      return c.json({
-        id: `a-${randomUUID()}`,
-        name: input.data.name,
-        kind: kindForMime(mime),
-        hash,
-        mime,
-        size: bytes.length,
-      })
+      const { status, body } = await stageUpload(
+        document,
+        new SqlitePersistence(db, c.req.param('id'), options.dataDir),
+        input.data.name,
+        Buffer.from(input.data.data, 'base64'),
+      )
+      return c.json(body, status)
     })
     app.get('/api/sites/:id/assets/:hash', async (c) => {
       const hash = c.req.param('hash')

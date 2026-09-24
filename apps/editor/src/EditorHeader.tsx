@@ -1,5 +1,6 @@
 import type { Page } from '@freeflow/schema'
-import { Brand } from './App.js'
+import { Brand, SignUpLink } from './App.js'
+import { useConfig } from './api.js'
 import { type Connection, connectionLabel } from './ConnectPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import type { DocumentSession } from './session.js'
@@ -23,6 +24,7 @@ export function EditorHeader({
 }) {
   const { doc, snapshot, error, busy, dirty, conflict, saved } = session
   const connection = connectionLabel(connections)
+  const { config } = useConfig()
   return (
     <header className="editor-header">
       <button
@@ -98,6 +100,7 @@ export function EditorHeader({
         <EditorIcon name="sparkle" />
         {connection.label}
       </button>
+      {config?.try && <SignUpLink />}
       <button
         type="button"
         className="publish-trigger publish-action"

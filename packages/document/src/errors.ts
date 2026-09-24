@@ -1,3 +1,4 @@
+import { DocumentError } from '@freeflow/schema'
 import type { Patch } from './patch.js'
 
 /** The batch named a revision that is no longer current. Re-read and retry. */
@@ -37,4 +38,18 @@ export class PatchError extends Error {
     super(`invalid patch (planner bug): ${message}`)
     this.name = 'PatchError'
   }
+}
+
+/** The status and body an API answers a rejected batch with, or undefined for any other error. */
+export function documentErrorResponse(
+  error: unknown,
+): { status: 400 | 409; body: { error: string; currentRevision?: number } } | undefined {
+  if (error instanceof StaleRevisionError)
+    return { status: 409, body: { error: error.message, currentRevision: error.current } }
+  if (
+    error instanceof OperationError ||
+    error instanceof DocumentError ||
+    error instanceof PatchError
+  )
+    return { status: 400, body: { error: error.message } }
 }

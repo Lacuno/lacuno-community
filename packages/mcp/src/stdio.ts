@@ -1,4 +1,4 @@
-import { DocumentStore } from '@freeflow/document'
+import { openFolder } from '@freeflow/document/folder'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { createServer } from './server.js'
@@ -11,7 +11,7 @@ import { createServer } from './server.js'
 export async function serveStdio(siteDir: string, transport?: Transport): Promise<void> {
   const input = transport ? undefined : process.stdin
   const connection = transport ?? new StdioServerTransport()
-  const store = await DocumentStore.open(siteDir)
+  const store = await openFolder(siteDir)
   const server = createServer(store, { siteDir })
   await server.connect(connection)
   const prevClose = connection.onclose

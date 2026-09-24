@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, message } from './api.js'
+import { SignUpLink } from './App.js'
+import { api, message, useConfig } from './api.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import './publishing.css'
 
@@ -62,6 +63,7 @@ export function PublishPanel({
   const [confirm, setConfirm] = useState<{ id: string; action: keyof typeof actions }>()
   const [name, setName] = useState('')
   const [renaming, setRenaming] = useState<{ id: string; name: string }>()
+  const { config } = useConfig()
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       const result = await api<History>(`/api/sites/${siteId}/releases`, undefined, signal)
@@ -253,7 +255,11 @@ export function PublishPanel({
       {!history && <p role="status">Loading releases…</p>}
       {history && (
         <>
-          {!history.enabled ? (
+          {config?.try ? (
+            <p className="note">
+              Sign up to publish your site. <SignUpLink />
+            </p>
+          ) : !history.enabled ? (
             <p className="note">
               Publishing is not configured. Set a separate publishing origin on the server.
             </p>

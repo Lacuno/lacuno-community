@@ -90,6 +90,9 @@ importers:
       '@freeflow/document':
         specifier: workspace:*
         version: link:../../packages/document
+      '@freeflow/renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderer
       '@freeflow/schema':
         specifier: workspace:*
         version: link:../../packages/schema

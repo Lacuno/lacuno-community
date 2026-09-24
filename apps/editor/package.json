@@ -12,6 +12,7 @@
   "dependencies": {
     "@freeflow/css": "workspace:*",
     "@freeflow/document": "workspace:*",
+    "@freeflow/renderer": "workspace:*",
     "@freeflow/schema": "workspace:*",
     "@tiptap/core": "^3.31.3",
     "@tiptap/extension-text-style": "^3.31.3",

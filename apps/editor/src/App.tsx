@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react'
-import { ApiError, api, message } from './api.js'
+import { ApiError, api, message, useConfig } from './api.js'
 import { Consent } from './Consent.js'
 import { Editor } from './Editor.js'
 
 type User = { name: string; email: string }
 type Site = { id: string; name: string; revision: number }
+
+/** Where the try editor sends a visitor for what needs an account. */
+export function SignUpLink() {
+  return (
+    <a className="signup-link" href="/signup">
+      Sign up
+    </a>
+  )
+}
 
 export function Brand() {
   return (
@@ -16,20 +25,12 @@ export function Brand() {
 
 function Auth({ onLogin }: { onLogin: (user: User) => void }) {
   const [signup, setSignup] = useState(false)
-  const [allowed, setAllowed] = useState(false)
-  const [setup, setSetup] = useState(false)
-  const [configured, setConfigured] = useState(false)
+  const { config, error: configError } = useConfig()
+  const [setupDone, setSetupDone] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    api<{ allowSignup: boolean; setupRequired: boolean }>('/api/config')
-      .then((data) => {
-        setAllowed(data.allowSignup)
-        setSetup(data.setupRequired)
-        setConfigured(true)
-      })
-      .catch((e) => setError(message(e)))
-  }, [])
+  const setup = !!config?.setupRequired && !setupDone
+  const configured = !!config
   return (
     <main className="auth-layout">
       <div className="auth-intro">
@@ -69,7 +70,7 @@ function Auth({ onLogin }: { onLogin: (user: User) => void }) {
               onLogin(result.user)
             } catch (e) {
               setError(message(e))
-              if (setup && e instanceof ApiError && e.status === 409) setSetup(false)
+              if (setup && e instanceof ApiError && e.status === 409) setSetupDone(true)
             } finally {
               setBusy(false)
             }
@@ -125,9 +126,9 @@ function Auth({ onLogin }: { onLogin: (user: User) => void }) {
               </p>
             </>
           )}
-          {error && (
+          {(error || configError) && (
             <p role="alert" className="error">
-              {error}
+              {error || configError}
             </p>
           )}
           <button className="primary" disabled={busy || !configured} type="submit">
@@ -142,7 +143,7 @@ function Auth({ onLogin }: { onLogin: (user: User) => void }) {
                     : 'Sign in'}
             <span aria-hidden="true">→</span>
           </button>
-          {allowed && (
+          {config?.allowSignup && (
             <button
               className="text-button"
               type="button"
@@ -173,6 +174,8 @@ function Sites({
   const [sites, setSites] = useState<Site[]>([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // The try editor has its one site and no account to sign out of.
+  const trying = useConfig().config?.try
   useEffect(() => {
     api<{ sites: Site[] }>('/api/sites')
       .then((data) => setSites(data.sites))
@@ -184,9 +187,11 @@ function Sites({
         <Brand />
         <div className="row">
           <span className="muted">{user.name}</span>
-          <button type="button" onClick={logout}>
-            Sign out
-          </button>
+          {!trying && (
+            <button type="button" onClick={logout}>
+              Sign out
+            </button>
+          )}
         </div>
       </header>
       <main className="sites-main">
@@ -213,35 +218,37 @@ function Sites({
               </div>
             </button>
           ))}
-          <form
-            className="create-card"
-            onSubmit={async (event) => {
-              event.preventDefault()
-              setBusy(true)
-              setError('')
-              try {
-                const site = await api<Site>('/api/sites', {
-                  name: new FormData(event.currentTarget).get('name'),
-                })
-                open(site.id)
-              } catch (e) {
-                setError(message(e))
-                setBusy(false)
-              }
-            }}
-          >
-            <span className="create-icon">+</span>
-            <h2>Start a new site</h2>
-            <p className="muted">A complete starter, ready to make your own.</p>
-            <label>
-              Site name
-              <input name="name" required maxLength={200} placeholder="My new site" />
-            </label>
-            <button type="submit" className="primary" disabled={busy}>
-              {busy ? 'Creating…' : 'Create site'}
-              <span aria-hidden="true">→</span>
-            </button>
-          </form>
+          {!trying && (
+            <form
+              className="create-card"
+              onSubmit={async (event) => {
+                event.preventDefault()
+                setBusy(true)
+                setError('')
+                try {
+                  const site = await api<Site>('/api/sites', {
+                    name: new FormData(event.currentTarget).get('name'),
+                  })
+                  open(site.id)
+                } catch (e) {
+                  setError(message(e))
+                  setBusy(false)
+                }
+              }}
+            >
+              <span className="create-icon">+</span>
+              <h2>Start a new site</h2>
+              <p className="muted">A complete starter, ready to make your own.</p>
+              <label>
+                Site name
+                <input name="name" required maxLength={200} placeholder="My new site" />
+              </label>
+              <button type="submit" className="primary" disabled={busy}>
+                {busy ? 'Creating…' : 'Create site'}
+                <span aria-hidden="true">→</span>
+              </button>
+            </form>
+          )}
         </div>
       </main>
     </div>

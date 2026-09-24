@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { DocumentStore } from '@freeflow/document'
+import { createFolder } from '@freeflow/document/folder'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { afterEach, describe, expect, it } from 'vitest'
 import { serveStdio } from '../src/stdio.js'
@@ -27,7 +27,7 @@ async function waitUntil(fn: () => boolean): Promise<void> {
 async function siteDir(): Promise<string> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-stdio-'))
   dirs.push(dir)
-  await DocumentStore.create(dir, 'Site')
+  await createFolder(dir, 'Site')
   return dir
 }
 

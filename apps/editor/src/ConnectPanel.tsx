@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, message } from './api.js'
+import { SignUpLink } from './App.js'
+import { api, message, useConfig } from './api.js'
 import { ConnectIcon } from './ConnectIcon.js'
 import { type ConnectApp, connectApps } from './connectApps.js'
 import { Dialog, ErrorNote } from './Dialog.js'
@@ -60,7 +61,7 @@ export function ConnectPanel({
   activity: SiteEvent[]
   close: () => void
 }) {
-  const [config, setConfig] = useState<{ origin: string; local: boolean }>()
+  const { config, error: configError } = useConfig()
   const [chosen, setChosen] = useState<ConnectApp>()
   // The app the designer started registering, and the connections that existed then.
   const [waiting, setWaiting] = useState<{ app: string; known: string[] }>()
@@ -68,11 +69,6 @@ export function ConnectPanel({
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  useEffect(() => {
-    api<{ origin: string; local: boolean }>('/api/config').then(setConfig, (error) =>
-      setError(message(error, 'Could not load the server address')),
-    )
-  }, [])
   const url = config ? `${config.origin || window.location.origin}/mcp/${siteId}` : ''
   const copy = async (text: string, done: string) => {
     try {
@@ -116,8 +112,13 @@ export function ConnectPanel({
       closeName="Close connect your AI"
       close={close}
     >
-      {!config && !error && <p role="status">Loading…</p>}
-      {config && (
+      {!config && !configError && <p role="status">Loading…</p>}
+      {config?.try && (
+        <p className="note">
+          Sign up to connect your AI. <SignUpLink />
+        </p>
+      )}
+      {config && !config.try && (
         <>
           <p role="status" className="connect-status">
             {waiting && !arrived
@@ -200,7 +201,7 @@ export function ConnectPanel({
           </li>
         ))}
       </ol>
-      <ErrorNote message={error} />
+      <ErrorNote message={error || configError} />
     </Dialog>
   )
 }

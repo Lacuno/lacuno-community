@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -38,4 +40,23 @@ export async function api<T>(path: string, body?: unknown, signal?: AbortSignal)
     )
   }
   return data as T
+}
+
+export type Config = {
+  allowSignup: boolean
+  setupRequired: boolean
+  origin: string
+  local: boolean
+  /** The try editor: one site in the browser, and sign-up instead of publishing or AI apps. */
+  try?: boolean
+}
+
+/** The server's config, read when a component that needs it mounts. */
+export function useConfig() {
+  const [config, setConfig] = useState<Config>()
+  const [error, setError] = useState('')
+  useEffect(() => {
+    api<Config>('/api/config').then(setConfig, (error) => setError(message(error)))
+  }, [])
+  return { config, error }
 }

@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./folder": "./src/folder.ts",
     "./patch": "./src/patch.ts",
     "./references": "./src/references.ts"
   },

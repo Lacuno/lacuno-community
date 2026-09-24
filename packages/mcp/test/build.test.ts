@@ -3,6 +3,7 @@ import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { DocumentStore } from '@freeflow/document'
+import { createFolder } from '@freeflow/document/folder'
 import { afterEach, describe, expect, it } from 'vitest'
 import { connect, jsonOf } from './helpers.js'
 
@@ -22,7 +23,7 @@ describe('asset.import and site.build', () => {
     await symlink(path.join(outside, 'private.txt'), path.join(dir, 'escape.txt'))
     await writeFile(path.join(dir, 'inside.txt'), 'public')
     await symlink(path.join(dir, 'inside.txt'), path.join(dir, 'alias.txt'))
-    const store = await DocumentStore.create(dir, 'Links')
+    const store = await createFolder(dir, 'Links')
     const c = await connect(store, { siteDir: dir })
     close = c.close
     const blocked = await c.client.callTool({
@@ -41,7 +42,7 @@ describe('asset.import and site.build', () => {
   it('imports from a path and from data, then builds', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-'))
     dirs.push(dir)
-    const store = await DocumentStore.create(dir, 'Site')
+    const store = await createFolder(dir, 'Site')
     const c = await connect(store, { siteDir: dir })
     close = c.close
     const file = path.join(dir, 'note.txt')
@@ -95,7 +96,7 @@ describe('asset.import and site.build', () => {
   it('serializes overlapping site.build calls so they never run concurrently', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-'))
     dirs.push(dir)
-    const store = await DocumentStore.create(dir, 'Site')
+    const store = await createFolder(dir, 'Site')
     const c = await connect(store, { siteDir: dir })
     close = c.close
     const [first, second] = await Promise.all([

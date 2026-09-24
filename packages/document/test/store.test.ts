@@ -5,6 +5,7 @@ import path from 'node:path'
 import { type Document, DocumentError, fixtureDocument } from '@freeflow/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { OperationError, StaleRevisionError } from '../src/errors.js'
+import { createFolder, openFolder } from '../src/folder.js'
 import type { Patch } from '../src/patch.js'
 import { MemoryPersistence } from '../src/persistence.js'
 import { type Batch, DocumentStore } from '../src/store.js'
@@ -190,7 +191,7 @@ describe('DocumentStore in memory', () => {
 describe('DocumentStore on a folder', () => {
   it('creates, persists deterministically, reopens, and imports assets', async () => {
     const dir = await tmp()
-    const store = await DocumentStore.create(dir, 'Site')
+    const store = await createFolder(dir, 'Site')
     expect(existsSync(path.join(dir, 'freeflow.json'))).toBe(true)
     await store.apply({
       expectedRevision: 0,
@@ -210,7 +211,7 @@ describe('DocumentStore on a folder', () => {
     expect(existsSync(path.join(dir, 'assets', asset.hash))).toBe(true)
     expect(store.revision).toBe(2)
 
-    const again = await DocumentStore.open(dir)
+    const again = await openFolder(dir)
     expect(again.revision).toBe(2)
     expect(again.read().document.site.name).toBe('Renamed')
     expect(again.read().document.assets[asset.id]).toEqual(asset)
@@ -218,23 +219,21 @@ describe('DocumentStore on a folder', () => {
 
   it('refuses a missing or invalid document', async () => {
     const dir = await tmp()
-    await expect(DocumentStore.open(dir)).rejects.toBeInstanceOf(DocumentError)
+    await expect(openFolder(dir)).rejects.toBeInstanceOf(DocumentError)
     await writeFile(path.join(dir, 'freeflow.json'), '{')
-    await expect(DocumentStore.open(dir)).rejects.toBeInstanceOf(DocumentError)
+    await expect(openFolder(dir)).rejects.toBeInstanceOf(DocumentError)
   })
 
   it('refuses a site directory that does not exist with a DocumentError, not a raw ENOENT', async () => {
     const dir = await tmp()
-    await expect(DocumentStore.open(path.join(dir, 'does-not-exist'))).rejects.toBeInstanceOf(
-      DocumentError,
-    )
+    await expect(openFolder(path.join(dir, 'does-not-exist'))).rejects.toBeInstanceOf(DocumentError)
   })
 
   it('refuses to create over a folder that already holds a document', async () => {
     const dir = await tmp()
-    await DocumentStore.create(dir, 'Site')
+    await createFolder(dir, 'Site')
     const before = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
-    await expect(DocumentStore.create(dir, 'Other')).rejects.toBeInstanceOf(DocumentError)
+    await expect(createFolder(dir, 'Other')).rejects.toBeInstanceOf(DocumentError)
     const after = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
     expect(after).toBe(before)
   })

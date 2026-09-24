@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { hashAsset } from '@freeflow/schema'
 import { expect, it } from 'vitest'
-import { FolderPersistence } from '../src/persistence.js'
+import { FolderPersistence } from '../src/folder.js'
 
 it('concurrent writes of identical assets leave exactly one file with the right bytes', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-assets-race-'))

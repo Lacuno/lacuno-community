@@ -68,8 +68,9 @@ was authored.
 
 ## Authoring and verification evidence
 
-The initial empty document was created once with `DocumentStore.create`; this bootstrap exception
-was necessary before the MCP server could open a site. Every later content, style and asset mutation
+The initial empty document was created once with `DocumentStore.create` (now `createFolder` from
+`@freeflow/document/folder`); this bootstrap exception was necessary before the MCP server could
+open a site. Every later content, style and asset mutation
 used an SDK MCP client connected to the real stdio command shown above. The client did not import the
 document engine, call `store.apply`, or hand-write the completed JSON. The source reached revision
 12 through version-pinned MCP operations.

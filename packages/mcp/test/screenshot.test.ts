@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { writeFixtureSite } from '@freeflow/compiler/build'
 import { DocumentStore } from '@freeflow/document'
+import { openFolder } from '@freeflow/document/folder'
 import sharp from 'sharp'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { pngSize } from '../src/screenshot.js'
@@ -49,7 +50,7 @@ describe('page.screenshot', () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-shot-'))
     dirs.push(dir)
     await writeFixtureSite(dir)
-    const c = await connect(await DocumentStore.open(dir), { siteDir: dir })
+    const c = await connect(await openFolder(dir), { siteDir: dir })
     close = c.close
     const page = png(
       await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/', width: 800 } }),
@@ -123,7 +124,7 @@ describe('page.screenshot', () => {
       },
     }
     await writeFile(path.join(dir, 'freeflow.json'), JSON.stringify(doc))
-    const c = await connect(await DocumentStore.open(dir), { siteDir: dir })
+    const c = await connect(await openFolder(dir), { siteDir: dir })
     close = c.close
     const { bytes } = png(
       await c.client.callTool({
@@ -158,7 +159,7 @@ describe('page.screenshot', () => {
       html: `<img src="http://127.0.0.1:${port}/pixel.png"><script>fetch('http://127.0.0.1:${port}/beacon')</script>`,
     }
     await writeFile(path.join(dir, 'freeflow.json'), JSON.stringify(doc))
-    const c = await connect(await DocumentStore.open(dir), { siteDir: dir })
+    const c = await connect(await openFolder(dir), { siteDir: dir })
     close = c.close
     try {
       png(await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/' } }))
