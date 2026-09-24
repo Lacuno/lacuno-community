@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
+    "@better-auth/cimd": "1.7.5",
+    "@better-auth/oauth-provider": "1.7.5",
     "@freeflow/compiler": "workspace:*",
     "@freeflow/document": "workspace:*",
     "@freeflow/mcp": "workspace:*",
