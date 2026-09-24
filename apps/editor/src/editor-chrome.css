@@ -166,11 +166,6 @@
   gap: 6px;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
-  transition: background-color 0.3s;
-}
-/* A source line pointed here. */
-.assigned-classes > li[data-highlight] {
-  background: #f2edff;
 }
 .assigned-classes details {
   flex: 1;
@@ -347,30 +342,6 @@
 .formatting-wide {
   grid-column: 1 / -1;
 }
-/* Where a style field's value comes from: one muted line under the input. */
-.source {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  line-height: 13px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* A line naming a class, preset, token or ancestor goes there when clicked. */
-button.source {
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  text-align: left;
-}
-button.source:hover {
-  background: none;
-  text-decoration: underline;
-}
 
 .formatting-grid input,
 .formatting-grid select {
@@ -479,7 +450,7 @@ button.source:hover {
   display: grid;
   gap: 10px;
 }
-/* Two opposite sides with the chain between them; source lines on the row below. */
+/* Two opposite sides with the chain between them. */
 .spacing-pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -496,12 +467,6 @@ button.source:hover {
 .spacing-pair input {
   min-width: 0;
   width: 100%;
-}
-.spacing-pair > .source:last-child:not(.source + .source) {
-  grid-column: 1 / -1;
-}
-.spacing-pair > .source + .source {
-  grid-column: 3;
 }
 .spacing-chain {
   display: grid;
@@ -920,8 +885,8 @@ button.source:hover {
   display: flex;
   align-items: stretch;
   /* One height for every tab and state, so the canvas never moves: the Layout tab's two rows of
-     fields with their source lines. Wider content scrolls sideways. */
-  height: 183px;
+     fields. Wider content scrolls sideways. */
+  height: 153px;
   overflow-x: auto;
   padding: 12px 24px;
   gap: 20px;

@@ -23,8 +23,6 @@ export function PresetManager({
   disabled,
   save,
   draftChanged,
-  initial,
-  closed,
 }: {
   breakpoint?: string
   doc: Document
@@ -33,9 +31,6 @@ export function PresetManager({
   disabled: boolean
   save: (operations: Operation[]) => Promise<boolean>
   draftChanged: (dirty: boolean) => void
-  /** A preset to open the actions on, as a source line asks; `closed` reports they closed. */
-  initial?: string
-  closed?: () => void
 }) {
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -51,9 +46,6 @@ export function PresetManager({
   }, [creating])
   useDirtyChanged(!!name, draftChanged)
   const current = activePreset(doc, node)
-  useEffect(() => {
-    if (initial && initial === current?.id) popover.current?.showPopover()
-  }, [initial, current?.id])
   const presets = Object.values(doc.classes)
     .filter((cls) => cls.preset && cls.kind === 'class' && !cls.combo?.length)
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
@@ -121,7 +113,6 @@ export function PresetManager({
           setCreating(false)
           setName('')
           setError('')
-          closed?.()
         }}
       >
         {creating ? (

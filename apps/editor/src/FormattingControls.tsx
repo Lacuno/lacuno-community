@@ -4,7 +4,6 @@ import { EffectsControls } from './EffectsControls.js'
 import { fontChoices, weightName } from './fonts.js'
 import { formattingGroups } from './formatting.js'
 import { MotionControls } from './MotionControls.js'
-import { SourceLine } from './SourceLine.js'
 import { SpacingControls } from './SpacingControls.js'
 import { type StyleControls, useStyleField } from './styleField.js'
 import { TokenField } from './TokenField.js'
@@ -183,7 +182,6 @@ export function FormattingControls({
                             </label>
                           </TokenField>
                         )}
-                        <SourceLine {...controls} property={property} />
                       </div>
                     )
                   })}

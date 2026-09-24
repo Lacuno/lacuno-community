@@ -23,7 +23,6 @@ import {
 import { LinkTarget } from './LinkTarget.js'
 import { MediaControls } from './MediaControls.js'
 import { PresetManager } from './PresetManager.js'
-import { SourceLine } from './SourceLine.js'
 import { stateInfo } from './states.js'
 import { hasAnchorParent, isLocked, isShared, nodeLabel } from './structure.js'
 import { useStyleField } from './styleField.js'
@@ -66,9 +65,6 @@ export function Inspector({
   registerFlush,
   ribbonHost,
   ribbonGroup,
-  showPresets,
-  openToken,
-  select,
 }: {
   siteId: string
   breakpoint: string
@@ -85,10 +81,6 @@ export function Inspector({
   save: (ops: Operation[]) => Promise<boolean>
   autoSave: (ops: Operation[]) => Promise<boolean>
   dirtyChanged: (dirty: boolean) => void
-  /** Shows the ribbon tab with the preset manager. */
-  showPresets: () => void
-  openToken: (id: string) => void
-  select: (id: string) => void
 }) {
   const isImage = node.type === 'element' && node.tag === 'img'
   const isVideo = node.type === 'element' && node.tag === 'video'
@@ -115,7 +107,6 @@ export function Inspector({
   const [changes, setChanges] = useState<Record<string, CssValue | null>>({})
   const [classDraft, setClassDraft] = useState(false)
   const [presetDraft, setPresetDraft] = useState(false)
-  const [presetOpen, setPresetOpen] = useState('')
   const classId = useRef(`c-${crypto.randomUUID()}`)
   const normalized = normalizeFormatting(changes)
   const context = contextFromDocument(doc)
@@ -297,12 +288,6 @@ export function Inspector({
     change: changeFormatting,
     breakpoint,
     state,
-    openPreset: (id: string) => {
-      setPresetOpen(id)
-      showPresets()
-    },
-    openToken,
-    select,
   }
   const { local: current } = useStyleField(controls)
   return (
@@ -319,8 +304,6 @@ export function Inspector({
                 disabled={!settled || classDraft}
                 save={save}
                 draftChanged={setPresetDraft}
-                initial={presetOpen}
-                closed={() => setPresetOpen('')}
               />
             )}
             {ribbonGroup === 'Typography' && node.type === 'text' ? (
@@ -349,7 +332,6 @@ export function Inspector({
                   changeFormatting(property, value ? { type: 'raw', value } : null)
                 }
                 tokens={{ value: current, set: changeFormatting }}
-                source={(property) => <SourceLine {...controls} property={property} compact />}
                 linkDisabled={
                   !settled ||
                   (node.text.type !== 'doc' && node.text.type !== 'static') ||

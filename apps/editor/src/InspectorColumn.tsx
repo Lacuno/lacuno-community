@@ -19,9 +19,6 @@ export function InspectorColumn({
   ribbonGroup,
   computed,
   setLivePreview,
-  showPresets,
-  openToken,
-  select,
 }: {
   session: DocumentSession
   editing: ComponentEditing
@@ -34,9 +31,6 @@ export function InspectorColumn({
   ribbonGroup: string
   computed: { id: string; values: Record<string, string> }
   setLivePreview: (preview: LivePreview) => void
-  showPresets: () => void
-  openToken: (id: string) => void
-  select: (id: string) => void
 }) {
   const { doc, busy, conflict, generation, save, registerFlush, setDirty } = session
   if (editingText)
@@ -84,9 +78,6 @@ export function InspectorColumn({
         save={save}
         autoSave={(operations) => save(operations, 'auto')}
         dirtyChanged={setDirty}
-        showPresets={showPresets}
-        openToken={openToken}
-        select={select}
       />
     )
   return (

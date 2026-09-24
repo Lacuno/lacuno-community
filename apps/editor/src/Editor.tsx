@@ -41,8 +41,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   const [revealSelection, setRevealSelection] = useState(0)
   const [width, setWidth] = useState(1100)
   const [picked, setState] = useState<State>('none')
-  // Open with a token to show, or '' for none; undefined while closed.
-  const [colorsOpen, setColorsOpen] = useState<string>()
+  const [colorsOpen, setColorsOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [connectOpen, setConnectOpen] = useState(false)
   const { connections, refresh: refreshConnections } = useConnections(siteId, connectOpen)
@@ -159,7 +158,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
         selected={selected}
         width={width}
         setSidebar={setSidebar}
-        openColors={() => setColorsOpen('')}
+        openColors={() => setColorsOpen(true)}
       />
       {error && (
         <div className="error-banner" role="alert">
@@ -171,7 +170,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           )}
         </div>
       )}
-      {colorsOpen !== undefined && doc && (
+      {colorsOpen && doc && (
         <ProjectColors
           doc={doc}
           busy={busy}
@@ -179,12 +178,11 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           error={error}
           dirtyChanged={session.setDirty}
           save={save}
-          close={() => setColorsOpen(undefined)}
+          close={() => setColorsOpen(false)}
           leave={leave}
           autoSave={(operations) => save(operations, 'auto')}
           previewChanged={setColorPreview}
           registerFlush={session.registerFlush}
-          initial={colorsOpen}
         />
       )}
       <ComponentDialogs
@@ -247,9 +245,6 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           ribbonGroup={ribbonGroup}
           computed={computed}
           setLivePreview={setLivePreview}
-          showPresets={() => setRibbonTab('Home')}
-          openToken={setColorsOpen}
-          select={(id) => void leave(() => setSelected(id))}
         />
       </div>
     </div>

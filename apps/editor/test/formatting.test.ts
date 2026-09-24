@@ -8,7 +8,7 @@ import {
   localValue,
   normalizeFormatting,
 } from '../src/formatting.js'
-import { presetValues, sourceLabel, sourceTarget, styleSource } from '../src/presets.js'
+import { presetValues } from '../src/presets.js'
 import { tokenValue } from '../src/tokens.js'
 import { commit } from './helpers.js'
 
@@ -182,79 +182,4 @@ it('writes, reads and clears declarations at a state and falls back in specifici
   expect(
     localValue(get(), get().nodes[node.id]!, 'background-color', 'base', 'hover'),
   ).toBeUndefined()
-})
-
-it('names the source of each style: local by scope, class, preset, token, ancestor or default', () => {
-  const doc = fixtureDocument()
-  const title = doc.nodes['n-hero-title']!
-  const cta = doc.nodes['n-hero-cta']!
-  const full = (
-    node = title,
-    property: string,
-    breakpoint = 'base',
-    state: 'none' | 'hover' = 'none',
-    changes = {},
-    computed?: string,
-  ) =>
-    sourceLabel(
-      doc,
-      styleSource(doc, node, property, breakpoint, state, changes),
-      breakpoint,
-      state,
-      computed,
-      property,
-    )
-  const label = (...args: Parameters<typeof full>) => full(...args).text
-  expect(label(title, 'letter-spacing')).toBe('-0.02em · local')
-  expect(label(title, 'letter-spacing', 'tablet')).toBe('-0.02em · local, Desktop')
-  expect(label(title, 'letter-spacing', 'base', 'hover')).toBe('-0.02em · local, base state')
-  expect(label(title, 'font-size')).toBe('clamp(2rem, 5vw, 4rem) · class heading')
-  expect(label(cta, 'background-color', 'base', 'hover')).toBe('brand.hover · class primary')
-  expect(label(cta, 'background-color', 'tablet')).toBe('brand · class primary, Desktop')
-  expect(label(cta, 'padding-top')).toBe('var(--space-sm) var(--space-md) · class button')
-  expect(label(cta, 'padding-top', 'base', 'none', {}, '8px')).toBe('8px · class button')
-  expect(styleSource(doc, title, 'font-family')).toMatchObject({
-    kind: 'inherited',
-    from: 'n-home',
-  })
-  expect(label(title, 'font-family')).toBe('body · inherited')
-  expect(full(title, 'font-family').title).toBe('body · inherited from Body (class page)')
-  expect(label(title, 'width')).toBe('default')
-  expect(label(title, 'font-weight', 'base', 'none', {}, '700')).toBe('Bold · default')
-  expect(label(title, 'text-align', 'tablet')).toBe('default')
-  expect(label(title, 'font-family', 'base', 'none', { 'font-family': rem(1) })).toBe(
-    '1rem · local',
-  )
-  expect(label(title, 'letter-spacing', 'base', 'none', { 'letter-spacing': null })).toBe(
-    '-0.02em · local',
-  )
-  doc.classes['c-heading']!.preset = true
-  expect(label(title, 'font-size')).toBe('clamp(2rem, 5vw, 4rem) · preset heading')
-})
-
-it('makes a source line lead to the ancestor, class, preset or token it names', () => {
-  const doc = fixtureDocument()
-  const title = doc.nodes['n-hero-title']!
-  const cta = doc.nodes['n-hero-cta']!
-  const target = (node = title, property: string, changes = {}) =>
-    sourceTarget(doc, styleSource(doc, node, property, 'base', 'none', changes))
-  expect(target(title, 'font-family')).toEqual({ to: 'element', id: 'n-home', label: 'Go to Body' })
-  expect(target(cta, 'padding-top')).toEqual({
-    to: 'class',
-    id: 'c-button',
-    label: 'Go to class button',
-  })
-  expect(target(title, 'letter-spacing')).toBeUndefined()
-  expect(target(title, 'width')).toBeUndefined()
-  expect(target(title, 'color', { color: { type: 'designToken', ref: 't-fg' } })).toEqual({
-    to: 'token',
-    id: 't-fg',
-    label: 'Go to token fg',
-  })
-  doc.classes['c-heading']!.preset = true
-  expect(target(title, 'font-size')).toEqual({
-    to: 'preset',
-    id: 'c-heading',
-    label: 'Go to preset heading',
-  })
 })

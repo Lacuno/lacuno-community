@@ -4,12 +4,10 @@
   gap: 8px;
   padding: 0 16px;
 }
-/* Source lines hang in space every toolbar reserves, so the fields sit alike with or without them. */
 .text-toolbar-fields {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding-bottom: 15px;
 }
 .text-toolbar-fields label,
 .text-link-popover label {
@@ -21,8 +19,8 @@
   color: #62677c;
 }
 /* Direct children only: the shared link popover sits in this row but keeps its own sizing. */
-:is(.text-toolbar-fields, .text-field) > label :is(input, select),
-:is(.text-toolbar-fields, .text-field) > .token-field > label :is(input, select),
+.text-toolbar-fields > label :is(input, select),
+.text-toolbar-fields > .token-field > label :is(input, select),
 .text-toolbar-fields > button {
   padding: 4px 8px;
   line-height: normal;
@@ -30,26 +28,6 @@
   min-height: 30px;
   margin: 0;
   font-size: 12px;
-}
-.text-field {
-  position: relative;
-}
-.text-field > .source {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-}
-/* Size and colour are narrow; their lines run on under the buttons beside them, which have none.
- * A truncated line reads in full over its neighbours while its field is hovered or focused. */
-.text-field-wide > .source,
-.text-field:is(:hover, :focus-within) > .source {
-  right: auto;
-  overflow: visible;
-}
-.text-field:is(:hover, :focus-within) > .source {
-  z-index: 1;
-  background: #fff;
 }
 .text-toolbar-fields .text-font select {
   width: 136px;
@@ -63,7 +41,7 @@
 .text-toolbar-fields .text-alignment select {
   width: 90px;
 }
-:is(.text-toolbar-fields, .text-field) > label > input[type="color"] {
+.text-toolbar-fields > label > input[type="color"] {
   width: 32px;
   padding: 3px;
 }

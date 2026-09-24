@@ -39,6 +39,14 @@ it('keeps the ribbon one height and the canvas in place in every state and width
     await everyTab('element')
 
     await node('n-home-cta').click()
+    if (width === 1500) {
+      // The Layout tab fits a 1500px window with the design tokens in view.
+      await tab('Layout')
+      const body = page.locator('.ribbon-body')
+      expect(await body.evaluate((body) => body.scrollWidth - body.clientWidth)).toBe(0)
+      const swatches = (await page.locator('.ribbon-swatches').boundingBox())!
+      expect(swatches.x + swatches.width).toBeLessThanOrEqual(1500)
+    }
     await canvas.getByRole('button', { name: /^State: / }).click()
     await canvas.getByRole('menuitemradio', { name: 'Hover' }).click()
     await everyTab('hover state')

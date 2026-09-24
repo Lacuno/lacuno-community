@@ -40,20 +40,14 @@ export function ProjectColors({
   error,
   close,
   leave,
-  initial = '',
   ...form
 }: FormProps & {
   error: string
   close: () => void
   leave: (action: () => void) => Promise<void>
-  /** A token to open on, in its group. */
-  initial?: string
 }) {
   const { doc, busy, conflict } = form
-  const groups = ['color', ...(Object.keys(tokenGroups) as TokenGroup[])] as const
-  // The dialog opens on the initial token's group, when it has one here.
-  const opening = groups.find((item) => item === doc.designTokens[initial]?.group)
-  const [selected, setSelected] = useState(opening ? initial : '')
+  const [selected, setSelected] = useState('')
   const [family, setFamily] = useState('')
   const [reset, setReset] = useState(0)
   // Leaving saves or discards the draft; the counter starts the next form from the saved color.
@@ -62,7 +56,8 @@ export function ProjectColors({
       setReset((value) => value + 1)
       action()
     })
-  const [group, setGroup] = useState<'color' | TokenGroup>(opening ?? 'color')
+  const [group, setGroup] = useState<'color' | TokenGroup>('color')
+  const groups = ['color', ...(Object.keys(tokenGroups) as TokenGroup[])] as const
   const context = contextFromDocument(doc)
   return (
     <Dialog

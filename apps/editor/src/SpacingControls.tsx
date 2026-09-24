@@ -1,8 +1,6 @@
 import { contextFromDocument, serializeValue } from '@miralo/css'
 import { useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
-import { sourceLabel, styleSource } from './presets.js'
-import { SourceLine } from './SourceLine.js'
 import { type StyleControls, useStyleField } from './styleField.js'
 import { TokenField } from './TokenField.js'
 
@@ -29,16 +27,7 @@ function SpacingPair({
   pair,
   ...props
 }: ClusterProps & { pair: (typeof pairs)[number] }) {
-  const {
-    doc,
-    node,
-    computed,
-    changes,
-    change,
-    breakpoint = 'base',
-    state = 'none',
-    disabled,
-  } = props
+  const { doc, computed, change, disabled } = props
   const { local: localCss, overridden, set } = useStyleField(props)
   // The explicit local value only, so an inherited side stays empty and shows its computed placeholder.
   const local = (side: string) => {
@@ -46,12 +35,6 @@ function SpacingPair({
     return value ? serializeValue(value, contextFromDocument(doc)) : ''
   }
   const effective = (side: string) => local(side) || (computed[`${kind}-${side}`] ?? '')
-  // The text the side's source line shows.
-  const source = (side: string) => {
-    const property = `${kind}-${side}`
-    const origin = styleSource(doc, node, property, breakpoint, state, changes)
-    return sourceLabel(doc, origin, breakpoint, state, computed[property], property).text
-  }
   const [linked, setLinked] = useState(effective(pair[0]) === effective(pair[1]))
   const targets = (side: Side) => (linked ? pair : [side])
   const field = (side: Side) => (
@@ -98,11 +81,6 @@ function SpacingPair({
         <EditorIcon name="link" />
       </button>
       {field(pair[1])}
-      {/* One source line for the pair when both sides agree, else one under each side. */}
-      <SourceLine {...props} property={`${kind}-${pair[0]}`} />
-      {source(pair[0]) !== source(pair[1]) && (
-        <SourceLine {...props} property={`${kind}-${pair[1]}`} />
-      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { classNames, compareSelectors, contextFromDocument, serializeValue } from '@miralo/css'
+import { classNames, compareSelectors } from '@miralo/css'
 import type { Operation } from '@miralo/document'
 import {
   type CssValue,
@@ -9,7 +9,6 @@ import {
   styleKey,
 } from '@miralo/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
-import { weightName } from './fonts.js'
 import {
   clearStyles,
   formattingGroups,
@@ -17,8 +16,6 @@ import {
   important,
   localClass,
 } from './formatting.js'
-import { nodeLabel, pageOf } from './structure.js'
-import { tokenLabel, tokenValue } from './tokens.js'
 
 // The spacing shorthands too, so presets keep a class's token and see legacy local shorthands.
 const properties = new Set<string>([
@@ -92,127 +89,12 @@ export function presetValues(
   return values
 }
 
-const INHERITED = new Set([
-  'font-family',
-  'font-size',
-  'font-weight',
-  'font-style',
-  'line-height',
-  'letter-spacing',
-  'text-align',
-  'color',
-])
 // The template sets sides through shorthands; a longhand field falls back to them.
 const shorthands = (property: string) => {
   const [, box, side] = property.match(/^(padding|margin)-(top|right|bottom|left)$/) ?? []
   if (box) return [`${box}-${side === 'top' || side === 'bottom' ? 'block' : 'inline'}`, box]
   return /^border-(color|width|style)$/.test(property) ? ['border'] : []
 }
-
-export type StyleSource =
-  | ({ kind: 'local' | 'class' | 'preset' } & Pick<
-      StyleDecl,
-      'class' | 'breakpoint' | 'state' | 'value' | 'property'
-    >)
-  | { kind: 'inherited'; from: string; source: StyleSource }
-  | { kind: 'default' }
-
-/**
- * Where the value of one property comes from: a draft or the winning declaration on this element,
- * else, for an inheritable property, the nearest ancestor that sets it, else the default.
- */
-export function styleSource(
-  doc: Document,
-  node: Node,
-  property: string,
-  breakpoint = 'base',
-  state: State = 'none',
-  changes: Record<string, CssValue | null> = {},
-): StyleSource {
-  const draft = changes[property]
-  if (draft) return { kind: 'local', class: '', breakpoint, state, value: draft, property }
-  const winners = winningStyles(doc, node, breakpoint, state)
-  const style = [property, ...shorthands(property)].map((name) => winners[name]).find(Boolean)
-  if (style) {
-    const cls = doc.classes[style.class]
-    const kind = cls?.kind === 'local' ? 'local' : cls?.preset ? 'preset' : 'class'
-    return { kind, ...style }
-  }
-  const parent = node.parent && doc.nodes[node.parent]
-  if (!parent || !INHERITED.has(property)) return { kind: 'default' }
-  const source = styleSource(doc, parent, property, breakpoint, state)
-  return source.kind === 'default' || source.kind === 'inherited'
-    ? source
-    : { kind: 'inherited', from: parent.id, source }
-}
-
-/** The line under a field: the effective value, then where it comes from, with the scope it was
- * set at when that is wider than this one. */
-export function sourceLabel(
-  doc: Document,
-  source: StyleSource,
-  breakpoint = 'base',
-  state: State = 'none',
-  computed?: string,
-  property?: string,
-): { value: string; text: string; title: string; origin: string } {
-  const shown = (value?: string) => (value ? weightName(value) : '')
-  if (source.kind === 'default') {
-    const text = [shown(computed), 'default'].filter(Boolean).join(' · ')
-    return { value: shown(computed), text, title: text, origin: 'default' }
-  }
-  if (source.kind === 'inherited') {
-    const from = elementName(doc, source.from)
-    const { value, origin } = sourceLabel(doc, source.source, breakpoint, state, computed, property)
-    return {
-      value,
-      text: `${value} · inherited`,
-      title: `${value} · inherited from ${from} (${origin})`,
-      origin: 'inherited',
-    }
-  }
-  const name = doc.classes[source.class]?.name
-  const token = source.value.type === 'designToken' && doc.designTokens[source.value.ref]
-  const resolved = token
-    ? serializeValue(tokenValue(doc, token), contextFromDocument(doc))
-    : serializeValue(source.value, contextFromDocument(doc))
-  // A longhand set through its shorthand shows this side's computed value, not the whole shorthand.
-  const shorthand = computed !== undefined && source.property !== property
-  const value = token ? tokenLabel(token.name) : shown(shorthand ? computed : resolved)
-  const origin = [
-    source.kind === 'local' ? 'local' : `${source.kind} ${name}`,
-    source.breakpoint !== breakpoint &&
-      (doc.breakpoints[source.breakpoint]?.label ?? source.breakpoint),
-    source.state !== state && 'base state',
-  ]
-    .filter(Boolean)
-    .join(', ')
-  const text = `${value} · ${origin}`
-  return { value, text, title: token ? `${value} = ${resolved} · ${origin}` : text, origin }
-}
-
-/** Where a source line leads: the ancestor, class, preset or token it names, with its spoken
- * intent. Local and default values lead nowhere. */
-export function sourceTarget(
-  doc: Document,
-  source: StyleSource,
-): { to: 'element' | 'class' | 'preset' | 'token'; id: string; label: string } | undefined {
-  if (source.kind === 'inherited')
-    return { to: 'element', id: source.from, label: `Go to ${elementName(doc, source.from)}` }
-  if (source.kind === 'default') return undefined
-  if (source.kind !== 'local') {
-    const name = doc.classes[source.class]?.name
-    return { to: source.kind, id: source.class, label: `Go to ${source.kind} ${name}` }
-  }
-  const token = source.value.type === 'designToken' && doc.designTokens[source.value.ref]
-  return token
-    ? { to: 'token', id: token.id, label: `Go to token ${tokenLabel(token.name)}` }
-    : undefined
-}
-
-// The page root reads "Body", as in the layers panel.
-const elementName = (doc: Document, id: string) =>
-  doc.pages[pageOf(doc, id)]?.root === id ? 'Body' : nodeLabel(doc.nodes[id]!)
 
 export function presetOverrides(doc: Document, node: Node, breakpoint = 'base') {
   const local = localClass(doc, node)
