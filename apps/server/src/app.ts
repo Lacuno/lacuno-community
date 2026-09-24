@@ -145,6 +145,7 @@ export async function createServer(options: ServerOptions) {
       return c.json({ error: 'Internal server error' }, 500)
     })
     app.get('/health', (c) => c.json({ status: 'ok' }))
+    app.route('/.well-known', oauth.routes)
     app.get('/api/config', (c) =>
       c.json({
         allowSignup: !gateway && !setup?.singleOwner && (options.allowSignup ?? false),
@@ -166,6 +167,10 @@ export async function createServer(options: ServerOptions) {
         c.json({ error: 'Authentication is managed by the gateway' }, 403),
       )
     }
+    // OAuth clients post forms from other apps; these endpoints authenticate the client instead.
+    app.post('/api/auth/oauth2/:endpoint{token|register|revoke|introspect}', (c) =>
+      auth.handler(c.req.raw),
+    )
     // Require same-origin JSON writes even for endpoints outside Better Auth's CSRF checks.
     app.use('/api/*', async (c, next) => {
       if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) {
@@ -455,10 +460,12 @@ export async function createServer(options: ServerOptions) {
     })
     if (options.editorDir) {
       app.get('/assets/*', serveStatic({ root: options.editorDir }))
-      app.get('/', serveStatic({ path: path.join(options.editorDir, 'index.html') }))
+      for (const route of ['/', '/consent'])
+        app.get(route, serveStatic({ path: path.join(options.editorDir, 'index.html') }))
     }
     return {
       app,
+      oauth,
       published: releases ? publishedApp(releases) : undefined,
       close: () => {
         releases?.close()

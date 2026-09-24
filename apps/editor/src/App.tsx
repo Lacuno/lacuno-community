@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ApiError, api, message } from './api.js'
+import { Consent } from './Consent.js'
 import { Editor } from './Editor.js'
 
 type User = { name: string; email: string }
@@ -273,6 +274,7 @@ export function App() {
       </div>
     )
   if (!user) return <Auth onLogin={setUser} />
+  if (location.pathname === '/consent') return <Consent />
   if (site) return <Editor siteId={site} back={() => open('')} />
   return (
     <Sites
