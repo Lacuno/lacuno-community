@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -127,6 +127,41 @@ describe('server foundation', () => {
     expect((await request(route, cookie)).status).toBe(401)
   })
 
+  it('creates a site from a document with its asset bytes', async () => {
+    const cookie = await register()
+    const template = JSON.parse(
+      await readFile(path.join(options.templateDir, 'freeflow.json'), 'utf8'),
+    )
+    const document = { ...template, revision: 7, site: { ...template.site, locale: 'de-AT' } }
+    const [asset] = Object.values(template.assets) as { id: string; hash: string }[]
+    const png = await readFile(path.join(options.templateDir, 'assets', asset!.hash))
+    const assets = { [asset!.hash]: png.toString('base64') }
+    const create = (body: object) => request('/api/sites', cookie, { name: 'Moved', ...body })
+
+    const other = Buffer.from('not the image').toString('base64')
+    const failures = [
+      { document, assets: {} },
+      { document, assets: { [asset!.hash]: other } },
+      { document: { ...document, pages: 'none' }, assets },
+      { document },
+    ]
+    for (const body of failures) expect((await create(body)).status).toBe(400)
+    expect(await (await create({ document, assets: {} })).json()).toEqual({
+      error: `Asset ${asset!.id} is missing or does not match its hash`,
+    })
+    expect(await (await request('/api/sites', cookie)).json()).toEqual({ sites: [] })
+    expect(await readdir(path.join(options.dataDir, 'sites'))).toEqual([])
+
+    const response = await create({ document, assets })
+    expect(response.status).toBe(201)
+    const { id } = await response.json()
+    const created = await readDocument(`/api/sites/${id}/document`, cookie)
+    expect(created.revision).toBe(0)
+    expect(created.document.site).toEqual({ ...document.site, name: 'Moved' })
+    const bytes = await request(`/api/sites/${id}/assets/${asset!.hash}`, cookie)
+    expect(Buffer.from(await bytes.arrayBuffer())).toEqual(png)
+  })
+
   it('rejects anonymous access and hides other users sites', async () => {
     expect((await request('/health')).status).toBe(200)
     expect((await request('/api/sites')).status).toBe(401)
@@ -225,7 +260,14 @@ describe('server foundation', () => {
       ).status,
     ).toBe(400)
     expect(
-      (await request('/api/sites', cookie, { name: 'x'.repeat(2 * 1024 * 1024) })).status,
+      (
+        await request(`/api/sites/${id}/document/apply`, cookie, {
+          name: 'x'.repeat(2 * 1024 * 1024),
+        })
+      ).status,
+    ).toBe(413)
+    expect(
+      (await request('/api/sites', cookie, { name: 'x'.repeat(90 * 1024 * 1024) })).status,
     ).toBe(413)
   })
 

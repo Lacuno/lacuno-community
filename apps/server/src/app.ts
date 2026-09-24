@@ -10,7 +10,7 @@ import {
   UploadInput,
 } from '@freeflow/document'
 import { renderPreview } from '@freeflow/renderer'
-import { hashAsset, parseDocument } from '@freeflow/schema'
+import { AssetHash, hashAsset, parseDocument } from '@freeflow/schema'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db/migration'
@@ -43,7 +43,14 @@ export type ServerOptions = {
   oauth?: OAuth
 }
 
-const SiteInput = z.strictObject({ name: z.string().trim().min(1).max(200) })
+/** A new site from the template, or from a document with its asset bytes as base64 by hash. */
+const SiteInput = z
+  .strictObject({
+    name: z.string().trim().min(1).max(200),
+    document: z.unknown().optional(),
+    assets: z.record(AssetHash, z.base64()).optional(),
+  })
+  .refine((input) => (input.document === undefined) === (input.assets === undefined))
 /** An empty release name clears it. */
 const ReleaseName = z
   .string()
@@ -119,7 +126,12 @@ export async function createServer(options: ServerOptions) {
     })
     app.use('/api/*', (c, next) =>
       bodyLimit({
-        maxSize: c.req.path.endsWith('/assets/upload') ? 15 * 1024 * 1024 : 2 * 1024 * 1024,
+        maxSize:
+          c.req.path === '/api/sites'
+            ? 90 * 1024 * 1024
+            : c.req.path.endsWith('/assets/upload')
+              ? 15 * 1024 * 1024
+              : 2 * 1024 * 1024,
       })(c, next),
     )
     app.onError((error, c) => {
@@ -253,23 +265,32 @@ export async function createServer(options: ServerOptions) {
     )
     app.post('/api/sites', async (c) => {
       const input = SiteInput.safeParse(await c.req.json().catch(() => null))
-      if (!input.success) return c.json({ error: 'Invalid site name' }, 400)
-      const template = parseDocument(
-        JSON.parse(await readFile(path.join(options.templateDir, 'freeflow.json'), 'utf8')),
+      if (!input.success) return c.json({ error: 'Invalid site' }, 400)
+      const { name, document: imported, assets } = input.data
+      const source = parseDocument(
+        assets
+          ? imported
+          : JSON.parse(await readFile(path.join(options.templateDir, 'freeflow.json'), 'utf8')),
       )
       const document = parseDocument({
-        ...template,
+        ...source,
         revision: 0,
-        site: { ...template.site, name: input.data.name },
+        site: { ...source.site, name },
       })
       const id = randomUUID()
       const dir = path.join(options.dataDir, 'sites', id)
       try {
         await mkdir(path.join(dir, 'assets'), { recursive: true })
         for (const asset of Object.values(document.assets)) {
-          const bytes = await readFile(path.join(options.templateDir, 'assets', asset.hash))
+          const bytes = assets
+            ? Buffer.from(assets[asset.hash] ?? '', 'base64')
+            : await readFile(path.join(options.templateDir, 'assets', asset.hash))
           if ((await hashAsset(bytes)) !== asset.hash)
-            throw new Error(`Template asset checksum mismatch: ${asset.id}`)
+            throw assets
+              ? new HTTPException(400, {
+                  message: `Asset ${asset.id} is missing or does not match its hash`,
+                })
+              : new Error(`Template asset checksum mismatch: ${asset.id}`)
           await writeFile(path.join(dir, 'assets', asset.hash), bytes)
         }
         db.insert(sites)

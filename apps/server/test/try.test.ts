@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { once } from 'node:events'
 import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -17,9 +18,17 @@ it('edits the template in the browser with a service worker as its server', asyn
   // The editor dist as a static host serves it: files only, so every API request stays in the page.
   const dist = path.join(root, 'apps/editor/dist')
   const requested: string[] = []
+  let imported: { ticket: unknown; body: string } | undefined
   const server = createServer(async (request, response) => {
     const pathname = new URL(request.url!, 'http://host').pathname
     requested.push(pathname)
+    if (request.method === 'POST' && pathname === '/_freeflow/import') {
+      imported = { ticket: request.headers['x-freeflow-import'], body: '' }
+      for await (const chunk of request) imported.body += chunk
+      response.writeHead(200, { 'Content-Type': 'application/json' })
+      response.end(JSON.stringify({ redirect: '/done' }))
+      return
+    }
     try {
       const file = pathname === '/' ? 'try.html' : pathname.slice(1)
       const body = await readFile(path.join(dist, file))
@@ -41,7 +50,8 @@ it('edits the template in the browser with a service worker as its server', asyn
     await browser.newContext({ viewport: { width: 1500, height: 1000 } })
   ).newPage()
   page.context().setDefaultTimeout(8000)
-  await page.goto(`http://127.0.0.1:${(server.address() as AddressInfo).port}/`)
+  const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  await page.goto(`${origin}/`)
   const canvas = page.frameLocator('iframe[title="Site canvas"]')
   const heading = canvas.locator('[data-freeflow-node="n-home-title"]')
   expect(await heading.textContent()).toBe('Your website. Your rules.')
@@ -109,4 +119,19 @@ it('edits the template in the browser with a service worker as its server', asyn
   )
 
   expect(requested.filter((pathname) => pathname.startsWith('/api/'))).toEqual([])
+
+  // An import ticket sends the site to the account and clears it from the browser.
+  await page.goto(`${origin}/#import=abc`)
+  await page.waitForURL(`${origin}/done`)
+  expect(imported!.ticket).toBe('abc')
+  const body = JSON.parse(imported!.body)
+  expect(body.name).toBe(body.document.site.name)
+  expect(JSON.stringify(body.document)).toContain('Made in the browser.')
+  const hash = createHash('sha256').update(Buffer.from(png, 'base64')).digest('hex')
+  expect(body.assets[hash]).toBe(png)
+  expect(Object.keys(body.assets)).toEqual(
+    Object.values(body.document.assets).map((asset) => (asset as { hash: string }).hash),
+  )
+  await page.goto(`${origin}/`)
+  await expect.poll(() => heading.textContent()).toBe('Your website. Your rules.')
 })

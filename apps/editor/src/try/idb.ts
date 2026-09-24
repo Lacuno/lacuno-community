@@ -21,7 +21,11 @@ export class IdbPersistence implements AssetPersistence {
       request.result.createObjectStore('document')
       request.result.createObjectStore('assets')
     }
-    this.db = done(request)
+    // Closes when the site is deleted, so a deletion from another page or the worker is not blocked.
+    this.db = done(request).then((db) => {
+      db.onversionchange = () => db.close()
+      return db
+    })
   }
   private async store(name: 'document' | 'assets', mode: IDBTransactionMode = 'readonly') {
     return (await this.db).transaction(name, mode).objectStore(name)
@@ -34,6 +38,9 @@ export class IdbPersistence implements AssetPersistence {
   }
   async putAsset(bytes: Uint8Array, hash: string): Promise<void> {
     await done((await this.store('assets', 'readwrite')).put(bytes, hash))
+  }
+  async delete(): Promise<void> {
+    await done(indexedDB.deleteDatabase('freeflow-try'))
   }
   async getAsset(hash: string): Promise<Uint8Array<ArrayBuffer> | undefined> {
     const stored = await done((await this.store('assets')).get(hash))
