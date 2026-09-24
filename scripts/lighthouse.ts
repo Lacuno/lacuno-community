@@ -2,8 +2,8 @@ import { cp, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
-import { enumerateRoutes } from '@freeflow/compiler'
-import { build, writeFixtureSite } from '@freeflow/compiler/build'
+import { enumerateRoutes } from '@miralo/compiler'
+import { build, writeFixtureSite } from '@miralo/compiler/build'
 import { launch } from 'chrome-launcher'
 import lighthouse from 'lighthouse'
 import { chromium } from 'playwright'
@@ -60,17 +60,17 @@ async function main(): Promise<number> {
     return 1
   }
   const source = process.argv[2] ? path.resolve(process.argv[2]) : undefined
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-lighthouse-'))
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-lighthouse-'))
   try {
     let doc: Document
     if (source) {
-      await cp(path.join(source, 'freeflow.json'), path.join(dir, 'freeflow.json'))
+      await cp(path.join(source, 'miralo.json'), path.join(dir, 'miralo.json'))
       try {
         await cp(path.join(source, 'assets'), path.join(dir, 'assets'), { recursive: true })
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       }
-      doc = parseDocument(JSON.parse(await readFile(path.join(dir, 'freeflow.json'), 'utf8')))
+      doc = parseDocument(JSON.parse(await readFile(path.join(dir, 'miralo.json'), 'utf8')))
     } else {
       doc = await writeFixtureSite(dir)
     }

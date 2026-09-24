@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { hashAsset, parseDocument } from '@freeflow/schema'
+import { hashAsset, parseDocument } from '@miralo/schema'
 import type Database from 'better-sqlite3'
 import { HTTPException } from 'hono/http-exception'
 import { PublicationReader, type Target } from './publication-reader.js'
@@ -218,7 +218,7 @@ export class Releases extends PublicationReader {
     const doc = parseDocument(JSON.parse(job.document))
     const directory = this.directory(job.site_id, job.id)
     await mkdir(path.join(directory, 'assets'), { recursive: true })
-    await writeFile(path.join(directory, 'freeflow.json'), JSON.stringify(doc))
+    await writeFile(path.join(directory, 'miralo.json'), JSON.stringify(doc))
     for (const asset of Object.values(doc.assets)) {
       if (this.stopped) throw new Error('Server stopped')
       const bytes = await readFile(

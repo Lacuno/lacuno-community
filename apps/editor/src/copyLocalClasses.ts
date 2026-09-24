@@ -1,5 +1,5 @@
-import type { Operation } from '@freeflow/document'
-import type { Document } from '@freeflow/schema'
+import type { Operation } from '@miralo/document'
+import type { Document } from '@miralo/schema'
 
 /** Copy editable local styles once per duplicated subtree; shared/locked/combo classes retain identity. */
 export function localClassCopier(doc: Document, operations: Operation[]) {

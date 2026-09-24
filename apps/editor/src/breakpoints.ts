@@ -1,4 +1,4 @@
-import type { Document } from '@freeflow/schema'
+import type { Document } from '@miralo/schema'
 
 export function editingBreakpoint(doc: Document, width: number): string {
   return (

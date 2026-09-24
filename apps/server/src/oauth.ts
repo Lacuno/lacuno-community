@@ -85,7 +85,7 @@ export function oauthPlugins(): NonNullable<BetterAuthOptions['plugins']> {
       },
     }) as BetterAuthPlugin,
     {
-      id: 'freeflow-oauth',
+      id: 'miralo-oauth',
       hooks: {
         before: [
           {

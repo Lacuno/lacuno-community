@@ -2,14 +2,14 @@ import { existsSync } from 'node:fs'
 import { lstat, mkdtemp, readFile, readlink, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { styleKey } from '@freeflow/schema'
+import { styleKey } from '@miralo/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { writeFixtureSite } from '../src/fixture-site.js'
 import { cssImageAssets, ROUTE_SOURCE, writeScaffold } from '../src/scaffold.js'
 
 const dirs: string[] = []
 async function tmp(): Promise<string> {
-  const d = await mkdtemp(path.join(os.tmpdir(), 'freeflow-scaffold-'))
+  const d = await mkdtemp(path.join(os.tmpdir(), 'miralo-scaffold-'))
   dirs.push(d)
   return d
 }
@@ -24,7 +24,7 @@ describe('writeFixtureSite', () => {
     const hero = doc.assets['a-hero']!
     expect(hero.hash).toMatch(/^[a-f0-9]{64}$/)
     expect(existsSync(path.join(dir, 'assets', hero.hash))).toBe(true)
-    const onDisk = JSON.parse(await readFile(path.join(dir, 'freeflow.json'), 'utf8'))
+    const onDisk = JSON.parse(await readFile(path.join(dir, 'miralo.json'), 'utf8'))
     expect(onDisk.assets['a-hero'].hash).toBe(hero.hash)
   })
 })
@@ -34,7 +34,7 @@ describe('writeScaffold', () => {
     const siteDir = await tmp()
     const doc = await writeFixtureSite(siteDir)
     const fake = await tmp()
-    const root = path.join(siteDir, '.freeflow', 'astro')
+    const root = path.join(siteDir, '.miralo', 'astro')
     await writeScaffold({ root, siteDir, doc, css: 'body{}', astroDir: fake, compilerDir: fake })
     const hero = doc.assets['a-hero']!
     expect(await readFile(path.join(root, 'src/pages/[...path].astro'), 'utf8')).toBe(ROUTE_SOURCE)
@@ -48,7 +48,7 @@ describe('writeScaffold', () => {
       'User-agent: *\nAllow: /\n',
     )
     expect((await lstat(path.join(root, 'node_modules/astro'))).isSymbolicLink()).toBe(true)
-    expect(await readlink(path.join(root, 'node_modules/@freeflow/compiler'))).toBe(fake)
+    expect(await readlink(path.join(root, 'node_modules/@miralo/compiler'))).toBe(fake)
   })
 
   it('clears a previous scaffold and points robots at the sitemap when the url is set', async () => {
@@ -56,7 +56,7 @@ describe('writeScaffold', () => {
     const doc = await writeFixtureSite(siteDir)
     doc.site.url = 'https://example.com'
     const fake = await tmp()
-    const root = path.join(siteDir, '.freeflow', 'astro')
+    const root = path.join(siteDir, '.miralo', 'astro')
     await writeScaffold({ root, siteDir, doc, css: '', astroDir: fake, compilerDir: fake })
     const stale = path.join(root, 'src/stale.txt')
     await writeFile(stale, 'x')
@@ -88,7 +88,7 @@ describe('writeScaffold', () => {
       size: 1,
     }
     const fake = await tmp()
-    const root = path.join(siteDir, '.freeflow', 'astro')
+    const root = path.join(siteDir, '.miralo', 'astro')
     await expect(
       writeScaffold({ root, siteDir, doc, css: '', astroDir: fake, compilerDir: fake }),
     ).rejects.toMatchObject({ kind: 'render', message: expect.stringContaining('a-pdf') })

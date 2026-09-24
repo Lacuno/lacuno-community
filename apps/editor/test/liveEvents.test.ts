@@ -1,5 +1,5 @@
-import { applyPatches } from '@freeflow/document/patch'
-import { fixtureDocument } from '@freeflow/schema'
+import { applyPatches } from '@miralo/document/patch'
+import { fixtureDocument } from '@miralo/schema'
 import { describe, expect, it } from 'vitest'
 import { emptyHistory } from '../src/history.js'
 import { catchUp, land, type SiteEvent, touchedNodes } from '../src/liveEvents.js'

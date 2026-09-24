@@ -1,5 +1,5 @@
-import { classNames, generateStylesheet } from '@freeflow/css'
-import { type AssetRef, type Document as SiteDocument, styleKey } from '@freeflow/schema'
+import { classNames, generateStylesheet } from '@miralo/css'
+import { type AssetRef, type Document as SiteDocument, styleKey } from '@miralo/schema'
 import { type DragItem, type InsertNode, structureInsertion } from './structure.js'
 
 /** Use the same preset nodes and styles as the eventual insertion, without editing the document. */
@@ -32,12 +32,12 @@ export function dragInsertion(
     const tag = 'tag' in node ? node.tag : 'div'
     const placeholder = tag === 'img' && !node.attrs?.src
     const element = surface.createElement(placeholder ? 'div' : tag)
-    element.dataset.freeflowNode = node.id
+    element.dataset.miraloNode = node.id
     element.className = node.classes
       .map((id) => names.get(id))
       .filter(Boolean)
       .join(' ')
-    if (placeholder) element.setAttribute('data-freeflow-image-placeholder', '')
+    if (placeholder) element.setAttribute('data-miralo-image-placeholder', '')
     if (node.type === 'text' && node.text.type === 'static')
       element.textContent = String(node.text.value)
     for (const [name, value] of Object.entries(node.attrs ?? {})) {

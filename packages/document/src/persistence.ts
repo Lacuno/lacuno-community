@@ -1,4 +1,4 @@
-import type { Document } from '@freeflow/schema'
+import type { Document } from '@miralo/schema'
 
 /** Where a document and its asset bytes live. Phase 1's server supplies SQLite and git here. */
 export interface Persistence {

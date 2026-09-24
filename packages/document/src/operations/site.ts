@@ -1,5 +1,5 @@
-import type { Mode } from '@freeflow/schema'
-import { AssetId, Font, ModeId, Redirect } from '@freeflow/schema'
+import type { Mode } from '@miralo/schema'
+import { AssetId, Font, ModeId, Redirect } from '@miralo/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'

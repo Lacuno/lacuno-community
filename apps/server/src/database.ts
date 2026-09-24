@@ -25,7 +25,7 @@ export function openDatabase(dataDir: string): {
   db: BetterSQLite3Database
 } {
   mkdirSync(dataDir, { recursive: true })
-  const sqlite = new Database(path.join(dataDir, 'freeflow.sqlite'))
+  const sqlite = new Database(path.join(dataDir, 'miralo.sqlite'))
   sqlite.pragma('journal_mode = WAL')
   sqlite.pragma('foreign_keys = ON')
   sqlite.pragma('busy_timeout = 5000')
@@ -34,12 +34,12 @@ export function openDatabase(dataDir: string): {
 
 export type SiteDatabase = ReturnType<typeof openDatabase>['db']
 
-/** Auth owns its migrations; this ledger versions Freeflow's application tables separately. */
+/** Auth owns its migrations; this ledger versions Miralo's application tables separately. */
 export function migrateApplication(sqlite: Database.Database) {
-  sqlite.exec('CREATE TABLE IF NOT EXISTS freeflow_migrations (version INTEGER PRIMARY KEY)')
+  sqlite.exec('CREATE TABLE IF NOT EXISTS miralo_migrations (version INTEGER PRIMARY KEY)')
   sqlite
     .transaction(() => {
-      if (sqlite.prepare('SELECT version FROM freeflow_migrations WHERE version = 1').get()) return
+      if (sqlite.prepare('SELECT version FROM miralo_migrations WHERE version = 1').get()) return
       sqlite.exec(`
       CREATE TABLE workspaces (
         id TEXT PRIMARY KEY NOT NULL,
@@ -83,7 +83,7 @@ export function migrateApplication(sqlite: Database.Database) {
       CREATE TABLE gateway_mode (id INTEGER PRIMARY KEY CHECK(id = 1), issuer TEXT NOT NULL, audience TEXT NOT NULL);
       CREATE TABLE gateway_nonce (id TEXT PRIMARY KEY, expires_at INTEGER NOT NULL);
       CREATE INDEX gateway_nonce_expiry ON gateway_nonce(expires_at);
-      INSERT INTO freeflow_migrations (version) VALUES (1);
+      INSERT INTO miralo_migrations (version) VALUES (1);
     `)
     })
     .immediate()

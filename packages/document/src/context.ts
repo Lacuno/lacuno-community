@@ -1,5 +1,5 @@
-import type { Document } from '@freeflow/schema'
-import { ID_PATTERN, isReservedId, newId } from '@freeflow/schema'
+import type { Document } from '@miralo/schema'
+import { ID_PATTERN, isReservedId, newId } from '@miralo/schema'
 import { OperationError } from './errors.js'
 
 export type Warning = { operation: number; message: string }

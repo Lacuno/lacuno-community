@@ -1,5 +1,5 @@
-import { DocumentStore } from '@freeflow/document'
-import { fixtureDocument, styleKey } from '@freeflow/schema'
+import { DocumentStore } from '@miralo/document'
+import { fixtureDocument, styleKey } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import { breakpointMedia, editingBreakpoint } from '../src/breakpoints.js'
 import { formattingOperations, localValue } from '../src/formatting.js'

@@ -12,7 +12,7 @@ const exec = promisify(execFile)
 const settings = (dataDir: string, baseURL: string) => ({
   dataDir,
   baseURL,
-  templateDir: path.join(root, 'templates/freeflow'),
+  templateDir: path.join(root, 'templates/miralo'),
   editorDir: path.join(root, 'apps/editor/dist'),
   secret: 'owner-setup-test-secret-82934698234698234',
 })
@@ -24,14 +24,14 @@ async function token(dir: string) {
       process.execPath,
       ['--import', 'tsx', path.join(root, 'apps/server/src/setup-token.ts')],
       {
-        env: { ...process.env, FREEFLOW_DATA_DIR: dir },
+        env: { ...process.env, MIRALO_DATA_DIR: dir },
       },
     )
   ).stdout.trim()
 }
 
 it('protects first-owner setup, serializes claims across instances, and never reopens registration', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-owner-'))
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-owner-'))
   const origin = 'http://localhost:3000'
   let server = await createServer(settings(dir, origin))
   const peer = await createServer({ ...settings(dir, origin), allowSignup: true })
@@ -137,7 +137,7 @@ it('creates the owner through the browser and returns to sign-in after setup', a
   await page.getByRole('button', { name: 'Create owner account' }).click()
   await expect.poll(() => page.getByRole('alert').textContent()).toBe('Invalid setup token.')
   await page.getByLabel('Setup token', { exact: true }).fill(await token(dir))
-  await page.screenshot({ path: path.join(root, '.freeflow/editor-preview/owner-setup.png') })
+  await page.screenshot({ path: path.join(root, '.miralo/editor-preview/owner-setup.png') })
   await page.getByRole('button', { name: 'Create owner account' }).click()
   await page.getByLabel('Site name').waitFor()
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()

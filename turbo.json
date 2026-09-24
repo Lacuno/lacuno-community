@@ -1,28 +1,28 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalPassThroughEnv": ["CHROME_PATH", "FREEFLOW_FAST_TESTS"],
+  "globalPassThroughEnv": ["CHROME_PATH", "MIRALO_FAST_TESTS"],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "test": { "dependsOn": ["^build"] },
-    "@freeflow/compiler#test": {
+    "@miralo/compiler#test": {
       "dependsOn": ["^build"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/templates/freeflow/freeflow.json",
-        "$TURBO_ROOT$/templates/freeflow/assets/**"
+        "$TURBO_ROOT$/templates/miralo/miralo.json",
+        "$TURBO_ROOT$/templates/miralo/assets/**"
       ]
     },
-    "@freeflow/server#test": {
+    "@miralo/server#test": {
       "dependsOn": ["^build"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/templates/freeflow/freeflow.json",
-        "$TURBO_ROOT$/templates/freeflow/assets/**"
+        "$TURBO_ROOT$/templates/miralo/miralo.json",
+        "$TURBO_ROOT$/templates/miralo/assets/**"
       ]
     },
-    "@freeflow/renderer#test": {
+    "@miralo/renderer#test": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/templates/freeflow/freeflow.json"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/templates/miralo/miralo.json"]
     },
     "typecheck": { "dependsOn": ["^build"] }
   }

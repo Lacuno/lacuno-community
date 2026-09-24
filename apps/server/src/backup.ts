@@ -11,7 +11,7 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import path from 'node:path'
-import { parseDocument } from '@freeflow/schema'
+import { parseDocument } from '@miralo/schema'
 import Database from 'better-sqlite3'
 import { z } from 'zod'
 
@@ -92,12 +92,12 @@ export async function backupWorkspace(source: string, destination: string) {
   await emptyDestination(destination)
   destination = await realpath(destination)
   return fill(destination, async () => {
-    const live = new Database(path.join(source, 'freeflow.sqlite'), {
+    const live = new Database(path.join(source, 'miralo.sqlite'), {
       readonly: true,
       fileMustExist: true,
     })
     try {
-      await live.backup(path.join(destination, 'freeflow.sqlite'))
+      await live.backup(path.join(destination, 'miralo.sqlite'))
     } finally {
       live.close()
     }
@@ -114,7 +114,7 @@ export async function backupWorkspace(source: string, destination: string) {
 
 /** Marks unfinished builds failed in the snapshot, copies what it references and returns the inventory. */
 async function snapshotFiles(source: string, destination: string) {
-  const snapshot = new Database(path.join(destination, 'freeflow.sqlite'))
+  const snapshot = new Database(path.join(destination, 'miralo.sqlite'))
   const required = new Set<string>()
   try {
     if (snapshot.pragma('integrity_check', { simple: true }) !== 'ok')
@@ -174,7 +174,7 @@ export async function verifyBackup(source: string) {
   const names = manifest.files.map((file) => file.name)
   if (
     new Set(names).size !== names.length ||
-    !names.includes('freeflow.sqlite') ||
+    !names.includes('miralo.sqlite') ||
     JSON.stringify([...names, 'backup.json'].sort()) !== JSON.stringify(inventory)
   )
     throw new Error('Backup file inventory mismatch')
@@ -184,7 +184,7 @@ export async function verifyBackup(source: string) {
     if (actual.sha256 !== file.sha256 || actual.size !== file.size)
       throw new Error('Backup checksum mismatch')
   }
-  const sqlite = new Database(path.join(source, 'freeflow.sqlite'), {
+  const sqlite = new Database(path.join(source, 'miralo.sqlite'), {
     readonly: true,
     fileMustExist: true,
   })

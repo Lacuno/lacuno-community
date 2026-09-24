@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
-import { DocumentStore } from '@freeflow/document'
-import template from '../../../../templates/freeflow/freeflow.json'
+import { DocumentStore } from '@miralo/document'
+import template from '../../../../templates/miralo/miralo.json'
 import { IdbPersistence } from './idb.js'
 import { handle } from './routes.js'
 

@@ -1,4 +1,4 @@
-import type { CollectionSchema, Document, Entry, EntryId, PageId } from '@freeflow/schema'
+import type { CollectionSchema, Document, Entry, EntryId, PageId } from '@miralo/schema'
 import { RenderError } from './errors.js'
 
 export type Route = { path: string; page: PageId; entry?: EntryId }

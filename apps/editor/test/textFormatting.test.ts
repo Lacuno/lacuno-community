@@ -1,4 +1,4 @@
-import { fixtureDocument, type TextNode } from '@freeflow/schema'
+import { fixtureDocument, type TextNode } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import { textDocument, wholeText } from '../src/textFormatting.js'
 

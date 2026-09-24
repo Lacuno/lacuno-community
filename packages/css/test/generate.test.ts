@@ -9,7 +9,7 @@ import {
   px,
   rem,
   styleKey,
-} from '@freeflow/schema'
+} from '@miralo/schema'
 import { describe, expect, it } from 'vitest'
 import {
   classAttr,
@@ -81,8 +81,8 @@ describe('class names and selectors', () => {
     const names = classNames(doc)
     expect(names.get('a')).toBe('card')
     expect(names.get('b')).toBe('card-2')
-    expect(names.get('z')).toBe('ff-z')
-    expect(classAttr(names, ['b', 'z', 'missing'])).toBe('card-2 ff-z')
+    expect(names.get('z')).toBe('mi-z')
+    expect(classAttr(names, ['b', 'z', 'missing'])).toBe('card-2 mi-z')
   })
   it('builds combo and state selectors', () => {
     const doc = fixtureDocument()
@@ -163,26 +163,26 @@ describe('generateStylesheet', () => {
       doc.styles[styleKey(d)] = d
     }
     add('odd', 'color')
-    expect(generateStylesheet(doc).css).not.toContain('data-freeflow-motion')
+    expect(generateStylesheet(doc).css).not.toContain('data-miralo-motion')
     add('hover', 'color')
     const { css } = generateStylesheet(doc)
-    expect(css).toContain(':where([data-freeflow-motion]) {')
-    expect(css).toContain(':where([data-freeflow-motion][data-ff-enter]) {')
-    expect(css).toContain('[data-freeflow-motion] { animation: none !important')
+    expect(css).toContain(':where([data-miralo-motion]) {')
+    expect(css).toContain(':where([data-miralo-motion][data-mi-enter]) {')
+    expect(css).toContain('[data-miralo-motion] { animation: none !important')
   })
 
   it('drives states through the forced attribute when previewing states', () => {
     const doc = fixtureDocument()
     const forced = generateStylesheet(doc, { reset: false, previewStates: true }).css
     // Interaction states emit only the attribute form, so the live pointer cannot trigger them.
-    expect(forced).toContain('.button[data-ff-state="hover"] {')
+    expect(forced).toContain('.button[data-mi-state="hover"] {')
     expect(forced).not.toContain('.button:hover')
     // Pseudo-elements keep only their real form: forcing one would style the element itself.
     expect(forced).toContain('.card::before {')
-    expect(forced).not.toContain('[data-ff-state="before"]')
+    expect(forced).not.toContain('[data-mi-state="before"]')
     expect(forced).toContain('.button {\n')
     expect(generateStylesheet(doc, { reset: false }).css).toContain('.button:hover {')
-    expect(generateStylesheet(doc, { reset: false }).css).not.toContain('data-ff-state')
+    expect(generateStylesheet(doc, { reset: false }).css).not.toContain('data-mi-state')
   })
 
   it('emits nothing for an empty document beyond the reset', () => {

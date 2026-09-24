@@ -1,7 +1,7 @@
-import { contextFromDocument, serializeValue } from '@freeflow/css'
-import type { Operation } from '@freeflow/document'
-import { referencesToDesignToken } from '@freeflow/document/references'
-import { type Document, designTokenCssName } from '@freeflow/schema'
+import { contextFromDocument, serializeValue } from '@miralo/css'
+import type { Operation } from '@miralo/document'
+import { referencesToDesignToken } from '@miralo/document/references'
+import { type Document, designTokenCssName } from '@miralo/schema'
 import { useEffect, useState } from 'react'
 import type { LivePreview } from './Canvas.js'
 import {

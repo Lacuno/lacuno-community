@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { hashAsset, parseDocument } from '@freeflow/schema'
+import { hashAsset, parseDocument } from '@miralo/schema'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createServer, type ServerOptions } from '../src/app.js'
 
@@ -45,8 +45,8 @@ async function createSite(cookie: string) {
 
 beforeEach(async () => {
   options = {
-    dataDir: await mkdtemp(path.join(os.tmpdir(), 'freeflow-server-')),
-    templateDir: fileURLToPath(new URL('../../../templates/freeflow', import.meta.url)),
+    dataDir: await mkdtemp(path.join(os.tmpdir(), 'miralo-server-')),
+    templateDir: fileURLToPath(new URL('../../../templates/miralo', import.meta.url)),
     baseURL: origin,
     secret: 'test-only-secret-6ea8114c2a7b4e68ba29c69b',
     allowSignup: true,
@@ -69,7 +69,7 @@ describe('server foundation', () => {
     expect(preview.status).toBe(200)
     expect(await preview.json()).toMatchObject({
       revision,
-      html: expect.stringContaining('data-freeflow-node="n-home-title"'),
+      html: expect.stringContaining('data-miralo-node="n-home-title"'),
     })
     expect((await request(`/api/sites/${id}/preview?page=missing`, owner)).status).toBe(404)
     expect((await request(`/api/sites/${id}/preview?page=p-article`, owner)).status).toBe(400)
@@ -130,7 +130,7 @@ describe('server foundation', () => {
   it('creates a site from a document with its asset bytes', async () => {
     const cookie = await register()
     const template = JSON.parse(
-      await readFile(path.join(options.templateDir, 'freeflow.json'), 'utf8'),
+      await readFile(path.join(options.templateDir, 'miralo.json'), 'utf8'),
     )
     const document = { ...template, revision: 7, site: { ...template.site, locale: 'de-AT' } }
     const [asset] = Object.values(template.assets) as { id: string; hash: string }[]

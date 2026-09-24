@@ -1,5 +1,5 @@
-import { DocumentStore } from '@freeflow/document'
-import { fixtureDocument } from '@freeflow/schema'
+import { DocumentStore } from '@miralo/document'
+import { fixtureDocument } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import {
   committedHistory,

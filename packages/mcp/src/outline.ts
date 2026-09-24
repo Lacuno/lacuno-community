@@ -1,4 +1,4 @@
-import type { Document, Node, NodeId } from '@freeflow/schema'
+import type { Document, Node, NodeId } from '@miralo/schema'
 
 function snippet(node: Node): string {
   if (node.type !== 'text') return ''

@@ -1,4 +1,4 @@
-import { contextFromDocument, serializeValue } from '@freeflow/css'
+import { contextFromDocument, serializeValue } from '@miralo/css'
 import { colorLabel, colorProperties, projectColors } from './colors.js'
 import { EffectsControls } from './EffectsControls.js'
 import { fontChoices, weightName } from './fonts.js'

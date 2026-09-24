@@ -1,4 +1,4 @@
-import { fixtureDocument } from '@freeflow/schema'
+import { fixtureDocument } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import { renderPreview } from '../src/index.js'
 

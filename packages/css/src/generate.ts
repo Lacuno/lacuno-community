@@ -1,5 +1,5 @@
-import type { AssetRef, Breakpoint, Document, State, StyleDecl } from '@freeflow/schema'
-import { BASE_BREAKPOINT_ID, designTokenCssName, State as StateSchema } from '@freeflow/schema'
+import type { AssetRef, Breakpoint, Document, State, StyleDecl } from '@miralo/schema'
+import { BASE_BREAKPOINT_ID, designTokenCssName, State as StateSchema } from '@miralo/schema'
 import { isMotionStyle, MOTION_CSS } from './motion.js'
 import { compareProperties } from './order.js'
 import { type ClassNames, classNames, compareSelectors, selectorFor } from './selector.js'

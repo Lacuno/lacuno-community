@@ -1,4 +1,4 @@
-import { openFolder } from '@freeflow/document/folder'
+import { openFolder } from '@miralo/document/folder'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { createServer } from './server.js'

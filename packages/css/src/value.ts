@@ -1,5 +1,5 @@
-import type { AssetRef, CssValue, Document } from '@freeflow/schema'
-import { designTokenCssName } from '@freeflow/schema'
+import type { AssetRef, CssValue, Document } from '@miralo/schema'
+import { designTokenCssName } from '@miralo/schema'
 
 export type ValueContext = {
   designTokenName: (id: string) => string | undefined

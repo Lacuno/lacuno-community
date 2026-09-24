@@ -1,5 +1,5 @@
-import type { AssetRef, Document } from '@freeflow/schema'
-import { DocumentError, hashAsset, parseDocument } from '@freeflow/schema'
+import type { AssetRef, Document } from '@miralo/schema'
+import { DocumentError, hashAsset, parseDocument } from '@miralo/schema'
 import type { Warning } from './context.js'
 import { planBatch } from './engine.js'
 import { StaleRevisionError } from './errors.js'
@@ -51,7 +51,7 @@ export class DocumentStore {
   static async withPersistence(persistence: Persistence): Promise<DocumentStore> {
     const raw = await persistence.load()
     if (raw === undefined)
-      throw new DocumentError([{ path: 'freeflow.json', message: 'no document found' }])
+      throw new DocumentError([{ path: 'miralo.json', message: 'no document found' }])
     return new DocumentStore(persistence, parseDocument(raw))
   }
 

@@ -1,4 +1,4 @@
-import type { Operation } from '@freeflow/document'
+import type { Operation } from '@miralo/document'
 import { useState } from 'react'
 import { ImageLibrary } from './ImageLibrary.js'
 import { toggleAttr } from './structure.js'

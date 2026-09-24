@@ -14,7 +14,7 @@ export class OwnerSetup {
             .prepare('INSERT OR IGNORE INTO owner_setup(id,token) VALUES(1,?)')
             .run(randomBytes(32).toString('hex'))
           // The database, not a process-local check, arbitrates simultaneous owner submissions.
-          sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS freeflow_single_owner ON user ((1))')
+          sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS miralo_single_owner ON user ((1))')
         }
         if (this.hasUser()) this.complete()
       })
@@ -23,7 +23,7 @@ export class OwnerSetup {
 
   /** Gateway mode replaces local owner setup; the caller must have verified there are no accounts. */
   static disable(sqlite: Database.Database) {
-    sqlite.exec('DROP INDEX IF EXISTS freeflow_single_owner; DELETE FROM owner_setup;')
+    sqlite.exec('DROP INDEX IF EXISTS miralo_single_owner; DELETE FROM owner_setup;')
   }
 
   private hasUser() {

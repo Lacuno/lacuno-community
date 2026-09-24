@@ -7,7 +7,7 @@ export default defineConfig({
   target: 'node22',
   // Workspace packages are TypeScript source, so they must be inlined. Everything else stays
   // external and resolves from node_modules at runtime.
-  noExternal: [/^@freeflow\//],
+  noExternal: [/^@miralo\//],
   dts: false,
   clean: true,
   // tsdown defaults to a fixed .mjs extension on the node platform regardless of the package's

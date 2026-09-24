@@ -15,7 +15,7 @@
 **/dist
 **/test
 **/.turbo
-**/.freeflow
+**/.miralo
 **/.env*
 **/*.log
 **/.DS_Store

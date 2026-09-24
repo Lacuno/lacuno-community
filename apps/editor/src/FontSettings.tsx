@@ -1,5 +1,5 @@
-import type { Operation } from '@freeflow/document'
-import type { Document, Font } from '@freeflow/schema'
+import type { Operation } from '@miralo/document'
+import type { Document, Font } from '@miralo/schema'
 import { useState } from 'react'
 import { FONT_ACCEPT, FONT_FORMATS, uploadAsset } from './AssetsPanel.js'
 import { message } from './api.js'

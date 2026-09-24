@@ -1,6 +1,6 @@
-import { BuildError } from '@freeflow/compiler'
-import { OperationError, PatchError, StaleRevisionError } from '@freeflow/document'
-import { DocumentError } from '@freeflow/schema'
+import { BuildError } from '@miralo/compiler'
+import { OperationError, PatchError, StaleRevisionError } from '@miralo/document'
+import { DocumentError } from '@miralo/schema'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 export type ToolError = {

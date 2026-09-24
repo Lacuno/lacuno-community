@@ -1,5 +1,5 @@
-import type { Operation } from '@freeflow/document'
-import type { AssetRef, Document } from '@freeflow/schema'
+import type { Operation } from '@miralo/document'
+import type { AssetRef, Document } from '@miralo/schema'
 import { useState } from 'react'
 import { api, message } from './api.js'
 import { ErrorNote } from './Dialog.js'

@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs'
-import { DocumentStore, MemoryPersistence } from '@freeflow/document'
+import { DocumentStore, MemoryPersistence } from '@miralo/document'
 import { expect, it } from 'vitest'
 import { handle } from '../src/try/routes.js'
 
 const template = JSON.parse(
-  readFileSync(new URL('../../../templates/freeflow/freeflow.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('../../../templates/miralo/miralo.json', import.meta.url), 'utf8'),
 )
 const pixel =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
@@ -42,7 +42,7 @@ it('answers config, session and the one site, and refuses a second', async () =>
     user: { name: 'Visitor' },
   })
   expect(await (await request('/api/sites'))!.json()).toEqual({
-    sites: [{ id: 'try', name: 'Freeflow', revision: template.revision }],
+    sites: [{ id: 'try', name: 'Miralo', revision: template.revision }],
   })
   const create = (await request('/api/sites', { name: 'Another' }))!
   expect(create.status).toBe(403)

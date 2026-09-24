@@ -1,4 +1,4 @@
-import type { AssetRef, Document } from '@freeflow/schema'
+import type { AssetRef, Document } from '@miralo/schema'
 import { assetFileName, isImage, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 

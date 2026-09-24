@@ -1,4 +1,4 @@
-import { type AssetRef, type Document, hashAsset } from '@freeflow/schema'
+import { type AssetRef, type Document, hashAsset } from '@miralo/schema'
 import { z } from 'zod'
 import type { Persistence } from './persistence.js'
 import { kindForMime } from './store.js'

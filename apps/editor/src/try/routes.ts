@@ -4,8 +4,8 @@ import {
   type Persistence,
   stageUpload,
   UploadInput,
-} from '@freeflow/document'
-import { renderPreview } from '@freeflow/renderer'
+} from '@miralo/document'
+import { renderPreview } from '@miralo/renderer'
 
 /** The one site a visitor edits in the browser. */
 export const TRY_SITE = 'try'

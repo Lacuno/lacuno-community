@@ -1,4 +1,4 @@
-import type { CollectionListNode, Entry } from '@freeflow/schema'
+import type { CollectionListNode, Entry } from '@miralo/schema'
 
 type Query = CollectionListNode['query']
 type Filter = NonNullable<NonNullable<Query>['filter']>[number]

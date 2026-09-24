@@ -8,7 +8,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   const { page, canvas, saved } = await editor()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  const heading = canvas.locator('[data-freeflow-node="n-home-title"]')
+  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
   await heading.click()
   const toolbarPosition = await page.getByLabel('Font', { exact: true }).boundingBox()
   let releasePreview!: () => void
@@ -21,7 +21,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   }
   await page.route('**/preview?*', holdPreview)
   const requestedPreview = page.waitForRequest((request) => request.url().includes('/preview?'))
-  await page.getByLabel('Text', { exact: true }).fill('Made with Freeflow.')
+  await page.getByLabel('Text', { exact: true }).fill('Made with Miralo.')
   await saved()
   await requestedPreview
   await heading.dblclick()
@@ -60,7 +60,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   const editingPosition = await page.getByLabel('Font', { exact: true }).boundingBox()
   expect(editingPosition?.x).toBe(toolbarPosition?.x)
   expect(editingPosition?.y).toBe(toolbarPosition?.y)
-  await selectText(editable, 'Freeflow')
+  await selectText(editable, 'Miralo')
   await expect.poll(() => page.locator('.text-scope').textContent()).toBe('Selected text')
   if (
     (await page.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed')) ===
@@ -68,7 +68,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   )
     await page.getByRole('button', { name: 'Bold', exact: true }).click()
   await page.getByRole('button', { name: 'Bold', exact: true }).click()
-  await expect.poll(() => editable.locator('strong').textContent()).toBe('Freeflow')
+  await expect.poll(() => editable.locator('strong').textContent()).toBe('Miralo')
   await page.getByRole('button', { name: 'Italic', exact: true }).click()
   await page.getByLabel('Size', { exact: true }).fill('')
   await page.getByLabel('Size', { exact: true }).pressSequentially('48px')
@@ -93,16 +93,16 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   await page.getByRole('button', { name: 'Link', exact: true }).click()
   await page.getByLabel('Link to page', { exact: true }).selectOption({ label: 'About' })
   await page.getByRole('button', { name: 'Apply link', exact: true }).click()
-  await expect.poll(() => editable.locator('a').textContent()).toBe('Freeflow')
+  await expect.poll(() => editable.locator('a').textContent()).toBe('Miralo')
   expect(await editable.locator('a').getAttribute('href')).toBe('/about')
-  await mkdir(path.join(root, '.freeflow/editor-preview'), { recursive: true })
+  await mkdir(path.join(root, '.miralo/editor-preview'), { recursive: true })
   await page.screenshot({
-    path: path.join(root, '.freeflow/editor-preview/editor-inline-text.png'),
+    path: path.join(root, '.miralo/editor-preview/editor-inline-text.png'),
   })
   await page.getByRole('button', { name: 'Done editing text', exact: true }).click()
-  await expect.poll(() => heading.locator('strong').textContent()).toBe('Freeflow')
+  await expect.poll(() => heading.locator('strong').textContent()).toBe('Miralo')
   expect(await heading.locator('a').getAttribute('href')).toBe('/about')
-  expect(await heading.textContent()).toBe('Made with Freeflow.')
+  expect(await heading.textContent()).toBe('Made with Miralo.')
   expect(
     await heading
       .locator('span[style]')
@@ -112,7 +112,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect.poll(() => heading.locator('strong').count()).toBe(0)
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
-  await expect.poll(() => heading.locator('strong').textContent()).toBe('Freeflow')
+  await expect.poll(() => heading.locator('strong').textContent()).toBe('Miralo')
   await page.getByRole('button', { name: 'Pages', exact: true }).click()
   await page.getByRole('button', { name: 'Settings for About', exact: true }).click()
   await page.getByLabel('URL path', { exact: true }).fill('/our-story')
@@ -124,9 +124,9 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   await editable.waitFor()
   await editable.pressSequentially(' Extra words')
   await page.getByRole('button', { name: 'Cancel text edit', exact: true }).click()
-  expect(await heading.textContent()).toBe('Made with Freeflow.')
+  expect(await heading.textContent()).toBe('Made with Miralo.')
   await page.screenshot({
-    path: path.join(root, '.freeflow/editor-preview/editor-inline-cancel.png'),
+    path: path.join(root, '.miralo/editor-preview/editor-inline-cancel.png'),
   })
   await heading.dblclick()
   await editable.waitFor()

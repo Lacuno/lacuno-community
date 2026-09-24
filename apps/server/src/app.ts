@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { serveStatic } from '@hono/node-server/serve-static'
 import {
   DocumentStore,
   documentErrorResponse,
@@ -8,10 +9,9 @@ import {
   Patch,
   stageUpload,
   UploadInput,
-} from '@freeflow/document'
-import { renderPreview } from '@freeflow/renderer'
-import { AssetHash, hashAsset, parseDocument } from '@freeflow/schema'
-import { serveStatic } from '@hono/node-server/serve-static'
+} from '@miralo/document'
+import { renderPreview } from '@miralo/renderer'
+import { AssetHash, hashAsset, parseDocument } from '@miralo/schema'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db/migration'
 import { and, eq } from 'drizzle-orm'
@@ -270,7 +270,7 @@ export async function createServer(options: ServerOptions) {
       const source = parseDocument(
         assets
           ? imported
-          : JSON.parse(await readFile(path.join(options.templateDir, 'freeflow.json'), 'utf8')),
+          : JSON.parse(await readFile(path.join(options.templateDir, 'miralo.json'), 'utf8')),
       )
       const document = parseDocument({
         ...source,

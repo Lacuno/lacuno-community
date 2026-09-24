@@ -5,7 +5,7 @@ it('keeps the inspector scroll position across a spacing edit', async () => {
   const { page, canvas, saved } = await editor({ width: 1200, height: 700 })
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  const cta = canvas.locator('[data-freeflow-node="n-home-cta"]')
+  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
 

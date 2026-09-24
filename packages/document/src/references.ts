@@ -1,5 +1,5 @@
-import type { CssValue, Document, Node, NodeId } from '@freeflow/schema'
-import { nodeBindings } from '@freeflow/schema'
+import type { CssValue, Document, Node, NodeId } from '@miralo/schema'
+import { nodeBindings } from '@miralo/schema'
 
 export function subtreeIds(doc: Document, rootId: NodeId): NodeId[] {
   const out: NodeId[] = []

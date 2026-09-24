@@ -1,4 +1,4 @@
-import type { DocumentStore } from '@freeflow/document'
+import type { DocumentStore } from '@miralo/document'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { createServer, type ServerOptions } from '../src/index.js'

@@ -9,8 +9,8 @@ COPY . .
 
 FROM dependencies AS build
 RUN pnpm install --frozen-lockfile \
-    && pnpm --filter @freeflow/editor build \
-    && pnpm --filter @freeflow/server build
+    && pnpm --filter @miralo/editor build \
+    && pnpm --filter @miralo/server build
 
 FROM dependencies AS production-dependencies
 RUN pnpm install --prod --frozen-lockfile
@@ -20,9 +20,9 @@ WORKDIR /app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
-    FREEFLOW_PUBLISH_PORT=3001 \
-    FREEFLOW_DATA_DIR=/data \
-    FREEFLOW_ALLOW_SIGNUP=false \
+    MIRALO_PUBLISH_PORT=3001 \
+    MIRALO_DATA_DIR=/data \
+    MIRALO_ALLOW_SIGNUP=false \
     ASTRO_TELEMETRY_DISABLED=1
 # Keep workspace source: Astro imports the compiler's TypeScript renderer at build time.
 COPY --from=production-dependencies /app /app

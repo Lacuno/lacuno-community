@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { writeFixtureSite } from '@freeflow/compiler/build'
+import { writeFixtureSite } from '@miralo/compiler/build'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parseBuildArgs, runBuild } from '../src/build.js'
 import { main } from '../src/cli.js'
@@ -47,18 +47,18 @@ describe('main', () => {
   })
 
   it('reports a document error for a folder without a document', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-cli-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-cli-'))
     dirs.push(dir)
     const a = io()
     expect(await runBuild([dir], a.io)).toBe(1)
-    expect(a.err.join('\n')).toContain('no freeflow.json')
+    expect(a.err.join('\n')).toContain('no miralo.json')
     const b = io()
     expect(await runBuild([dir, '--json'], b.io)).toBe(1)
     expect(JSON.parse(b.out.join(''))).toMatchObject({ error: { kind: 'document' } })
   })
 
   it('rejects an --out equal to the site directory', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-cli-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-cli-'))
     dirs.push(dir)
     const a = io()
     expect(await runBuild([dir, '--out', dir, '--json'], a.io)).toBe(1)
@@ -66,9 +66,9 @@ describe('main', () => {
   })
 })
 
-describe.skipIf(process.env.FREEFLOW_FAST_TESTS)('build command (runs Astro, slow)', () => {
+describe.skipIf(process.env.MIRALO_FAST_TESTS)('build command (runs Astro, slow)', () => {
   it('builds a site and prints a summary or json', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-cli-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-cli-'))
     dirs.push(dir)
     await writeFixtureSite(dir)
     const a = io()

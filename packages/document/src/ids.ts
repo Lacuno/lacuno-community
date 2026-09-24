@@ -1,4 +1,4 @@
-import type { Document } from '@freeflow/schema'
+import type { Document } from '@miralo/schema'
 
 /** Every id currently in use, across every map, so new ids never collide. */
 export function allIds(doc: Document): Set<string> {

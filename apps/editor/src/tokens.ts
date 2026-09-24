@@ -1,5 +1,5 @@
-import type { CssValue, DesignToken, Document } from '@freeflow/schema'
-import { designTokenCssName, safeTextStyleValue } from '@freeflow/schema'
+import type { CssValue, DesignToken, Document } from '@miralo/schema'
+import { designTokenCssName, safeTextStyleValue } from '@miralo/schema'
 import { defaultMode } from './colors.js'
 import { isNumber } from './formatting.js'
 

@@ -1,4 +1,4 @@
-import { fixtureDocument } from '@freeflow/schema'
+import { fixtureDocument } from '@miralo/schema'
 import { describe, expect, it } from 'vitest'
 import { RenderError } from '../src/errors.js'
 import { resolveBinding, type Scope } from '../src/scope.js'

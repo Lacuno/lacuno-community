@@ -1,12 +1,12 @@
-import { publicAssetPath } from '@freeflow/compiler'
-import type { Document } from '@freeflow/schema'
+import { publicAssetPath } from '@miralo/compiler'
+import type { Document } from '@miralo/schema'
 import { InputError } from './errors.js'
 
 export type ScreenshotOptions = { width: number; height?: number; node?: string }
 /** The bytes of the asset stored under `hash`, or nothing when it is missing. */
 export type ReadAsset = (hash: string) => Promise<Buffer | undefined>
 
-const ORIGIN = 'http://preview.freeflow'
+const ORIGIN = 'http://preview.miralo'
 
 /**
  * A PNG of `html` in headless Chromium. The page and its `/assets/*` requests are served from
@@ -59,7 +59,7 @@ export async function screenshot(
       }))),
     ]).then(() => {})`)
     if (node === undefined) return await page.screenshot({ fullPage: height === undefined })
-    const element = page.locator(`[data-freeflow-node="${node}"]`).first()
+    const element = page.locator(`[data-miralo-node="${node}"]`).first()
     if (!(await element.count())) throw new InputError(`node ${node} is not rendered on this page`)
     return await element.screenshot()
   } finally {

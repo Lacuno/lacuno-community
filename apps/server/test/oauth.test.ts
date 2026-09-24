@@ -110,7 +110,7 @@ it('connects an app to one site through registration, consent and a PKCE token e
   expect(await server.oauth.verify(undefined, siteId)).toBeNull()
   expect(await server.oauth.verify('Bearer nonsense', siteId)).toBeNull()
 
-  const sqlite = new Database(path.join(dir, 'freeflow.sqlite'))
+  const sqlite = new Database(path.join(dir, 'miralo.sqlite'))
   const workspace = sqlite
     .prepare('SELECT workspace_id FROM sites WHERE id = ?')
     .pluck()

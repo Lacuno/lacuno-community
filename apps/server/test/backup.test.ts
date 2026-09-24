@@ -9,14 +9,14 @@ import { createServer } from '../src/app.js'
 import { backupWorkspace, restoreWorkspace, verifyBackup } from '../src/backup.js'
 
 it('backs up pending releases without mutating live state and rejects incomplete or unsafe restores', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'freeflow-backup-test-'))
+  const root = await mkdtemp(path.join(os.tmpdir(), 'miralo-backup-test-'))
   const dataDir = path.join(root, 'live')
   const server = await createServer({
     dataDir,
     baseURL: 'http://localhost:3000',
     secret: 'backup-test-secret-at-least-32-characters',
     allowSignup: true,
-    templateDir: fileURLToPath(new URL('../../../templates/freeflow', import.meta.url)),
+    templateDir: fileURLToPath(new URL('../../../templates/miralo', import.meta.url)),
   })
   try {
     const account = await server.app.request('http://localhost:3000/api/auth/sign-up/email', {
@@ -38,7 +38,7 @@ it('backs up pending releases without mutating live state and rejects incomplete
       body: JSON.stringify({ name: 'Backup fixture' }),
     })
     expect(created.status).toBe(201)
-    const sqlite = new Database(path.join(dataDir, 'freeflow.sqlite'))
+    const sqlite = new Database(path.join(dataDir, 'miralo.sqlite'))
     try {
       const releaseId = randomUUID()
       sqlite
@@ -57,13 +57,13 @@ it('backs up pending releases without mutating live state and rejects incomplete
       expect(
         (sqlite.prepare('SELECT status FROM releases').get() as { status: string }).status,
       ).toBe('queued')
-      const snapshot = new Database(path.join(backup, 'freeflow.sqlite'), { readonly: true })
+      const snapshot = new Database(path.join(backup, 'miralo.sqlite'), { readonly: true })
       expect(
         (snapshot.prepare('SELECT status FROM releases').get() as { status: string }).status,
       ).toBe('failed')
       snapshot.close()
       await restoreWorkspace(backup, path.join(root, 'restored'))
-      const restored = new Database(path.join(root, 'restored', 'freeflow.sqlite'), {
+      const restored = new Database(path.join(root, 'restored', 'miralo.sqlite'), {
         readonly: true,
       })
       expect(
@@ -74,13 +74,13 @@ it('backs up pending releases without mutating live state and rejects incomplete
         'outside',
       )
       await expect(restoreWorkspace(backup, dataDir)).rejects.toThrow('empty')
-      await symlink(path.join(backup, 'freeflow.sqlite'), path.join(backup, 'link'))
+      await symlink(path.join(backup, 'miralo.sqlite'), path.join(backup, 'link'))
       await expect(verifyBackup(backup)).rejects.toThrow('symlinks')
       await rm(path.join(backup, 'link'))
-      const database = await readFile(path.join(backup, 'freeflow.sqlite'))
-      await writeFile(path.join(backup, 'freeflow.sqlite'), 'corrupted')
+      const database = await readFile(path.join(backup, 'miralo.sqlite'))
+      await writeFile(path.join(backup, 'miralo.sqlite'), 'corrupted')
       await expect(verifyBackup(backup)).rejects.toThrow('checksum')
-      await writeFile(path.join(backup, 'freeflow.sqlite'), database)
+      await writeFile(path.join(backup, 'miralo.sqlite'), database)
       await verifyBackup(backup)
       const original = await readFile(path.join(backup, 'backup.json'), 'utf8')
       const manifest = JSON.parse(original)

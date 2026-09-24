@@ -61,10 +61,10 @@ const json = <T>(result: Awaited<ReturnType<Client['callTool']>>) =>
 beforeEach(async () => {
   revoked = false
   touched = []
-  dataDir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-endpoint-'))
+  dataDir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-endpoint-'))
   server = await createServer({
     dataDir,
-    templateDir: fileURLToPath(new URL('../../../templates/freeflow', import.meta.url)),
+    templateDir: fileURLToPath(new URL('../../../templates/miralo', import.meta.url)),
     baseURL: origin,
     publishBaseURL: 'http://localhost:4000',
     secret: 'test-only-secret-6ea8114c2a7b4e68ba29c69b',

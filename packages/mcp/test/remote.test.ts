@@ -1,6 +1,6 @@
-import type { ApplyResult, Batch } from '@freeflow/document'
-import { DocumentStore } from '@freeflow/document'
-import { fixtureDocument } from '@freeflow/schema'
+import type { ApplyResult, Batch } from '@miralo/document'
+import { DocumentStore } from '@miralo/document'
+import { fixtureDocument } from '@miralo/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { connect, jsonOf } from './helpers.js'
 

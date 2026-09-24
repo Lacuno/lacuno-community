@@ -2,8 +2,8 @@ import { lstat, readFile, realpath, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import sitemap from '@astrojs/sitemap'
-import { generateStylesheet } from '@freeflow/css'
-import { type Document, DocumentError, parseDocument } from '@freeflow/schema'
+import { generateStylesheet } from '@miralo/css'
+import { type Document, DocumentError, parseDocument } from '@miralo/schema'
 import { build as astroBuild } from 'astro'
 import { publicAssetPath } from './assets.js'
 import { BuildError, RenderError } from './errors.js'
@@ -38,20 +38,20 @@ function packageDir(name: string): string {
 }
 
 async function loadDocument(siteDir: string): Promise<Document> {
-  const file = path.join(siteDir, 'freeflow.json')
+  const file = path.join(siteDir, 'miralo.json')
   let text: string
   try {
     text = await readFile(file, 'utf8')
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT')
-      throw new BuildError('document', `no freeflow.json in ${siteDir}`)
+      throw new BuildError('document', `no miralo.json in ${siteDir}`)
     throw e
   }
   let json: unknown
   try {
     json = JSON.parse(text)
   } catch (e) {
-    throw new BuildError('document', `freeflow.json is not valid JSON: ${(e as Error).message}`)
+    throw new BuildError('document', `miralo.json is not valid JSON: ${(e as Error).message}`)
   }
   try {
     return parseDocument(json)
@@ -95,7 +95,7 @@ async function sharpDir(): Promise<string> {
 
 /**
  * Astro's bundled image-generation step imports `sharp` as a bare specifier from a chunk file
- * written under `outDir/.prerender/`, a sibling of the scaffold root (`site/.freeflow/astro`),
+ * written under `outDir/.prerender/`, a sibling of the scaffold root (`site/.miralo/astro`),
  * not a descendant of it. Node resolves that bare specifier by walking up from the chunk's own
  * location, so the symlink has to sit where both `outDir` and the scaffold root can reach it:
  * directly under the site directory itself.
@@ -128,8 +128,8 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
   const started = Date.now()
   const site = path.resolve(siteDir)
   const outDir = path.resolve(options.outDir ?? path.join(site, 'dist'))
-  const root = path.join(site, '.freeflow', 'astro')
-  const cacheDir = path.join(site, '.freeflow', 'cache')
+  const root = path.join(site, '.miralo', 'astro')
+  const cacheDir = path.join(site, '.miralo', 'cache')
 
   // Reject before any filesystem write: astroBuild's outDir must live inside the site directory
   // (see the comment further down on canonicalizing paths for the Astro call), otherwise nothing
@@ -142,11 +142,11 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
   const firstSegment = outDirRel.split(path.sep)[0]
   if (
     firstSegment &&
-    ['assets', '.freeflow', '.git', 'node_modules', 'skills'].includes(firstSegment.toLowerCase())
+    ['assets', '.miralo', '.git', 'node_modules', 'skills'].includes(firstSegment.toLowerCase())
   )
     throw new BuildError(
       'options',
-      'outDir must not be assets, .freeflow, .git, node_modules or skills',
+      'outDir must not be assets, .miralo, .git, node_modules or skills',
     )
 
   // A lexical descendant can still point outside the site through a symlinked parent.
@@ -199,7 +199,7 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
     doc,
     css,
     astroDir: packageDir('astro'),
-    compilerDir: packageDir('@freeflow/compiler'),
+    compilerDir: packageDir('@miralo/compiler'),
   })
   await linkSharp(site)
 

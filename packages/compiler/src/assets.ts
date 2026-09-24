@@ -1,4 +1,4 @@
-import type { AssetRef } from '@freeflow/schema'
+import type { AssetRef } from '@miralo/schema'
 
 const EXT: Record<string, string> = {
   'image/png': 'png',

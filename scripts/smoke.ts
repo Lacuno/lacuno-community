@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { writeFixtureSite } from '@freeflow/compiler/build'
+import { writeFixtureSite } from '@miralo/compiler/build'
 
 /**
  * Exercises the actual tsdown bundle at `apps/cli/dist/main.js`, not the TypeScript source: unit
@@ -13,7 +13,7 @@ import { writeFixtureSite } from '@freeflow/compiler/build'
 async function main(): Promise<number> {
   const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
   const cli = path.join(repoRoot, 'apps/cli/dist/main.js')
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-smoke-'))
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-smoke-'))
   try {
     await writeFixtureSite(dir)
     const result = spawnSync('node', [cli, 'build', dir, '--json'], {

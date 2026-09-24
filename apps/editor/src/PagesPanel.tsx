@@ -1,5 +1,5 @@
-import type { Operation } from '@freeflow/document'
-import type { Document, Page } from '@freeflow/schema'
+import type { Operation } from '@miralo/document'
+import type { Document, Page } from '@miralo/schema'
 import { useState } from 'react'
 import { CodeField } from './CodeField.js'
 import { Dialog, ErrorNote } from './Dialog.js'

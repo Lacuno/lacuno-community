@@ -1,4 +1,4 @@
-import { fixtureDocument, type RichText } from '@freeflow/schema'
+import { fixtureDocument, type RichText } from '@miralo/schema'
 import { describe, expect, it } from 'vitest'
 import { richTextInlineHtml, richTextToHtml } from '../src/richtext.js'
 

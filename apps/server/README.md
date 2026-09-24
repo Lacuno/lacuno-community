@@ -1,8 +1,8 @@
-# Freeflow server foundation
+# Miralo server foundation
 
 An authenticated HTTP API for the first Phase 1 milestone. Each account gets a private default
-workspace. Sites start from `templates/freeflow`, including its content-addressed assets.
-Document operations reuse `@freeflow/document` validation and revision checks.
+workspace. Sites start from `templates/miralo`, including its content-addressed assets.
+Document operations reuse `@miralo/document` validation and revision checks.
 
 For container deployment and operator-managed infrastructure, see the
 [self-hosting guide](../../docs/SELF_HOSTING.md). Managed domain/TLS setup is planned for Cloud,
@@ -36,13 +36,13 @@ and site creation. `pnpm dev` builds the editor before starting the server.
 | --- | --- | --- |
 | `BETTER_AUTH_SECRET` | Required, at least 32 characters | Session signing secret |
 | `BETTER_AUTH_URL` | `http://localhost:3000` (uses `PORT`) | Canonical origin for authentication and write requests |
-| `FREEFLOW_ALLOW_SIGNUP` | `false` | Legacy opt-in public registration; cannot reopen a single-owner instance |
-| `FREEFLOW_DATA_DIR` | Repository `data/` | SQLite database and per-site assets |
-| `FREEFLOW_TEMPLATE_DIR` | Repository `templates/freeflow/` | Source template document and assets |
+| `MIRALO_ALLOW_SIGNUP` | `false` | Legacy opt-in public registration; cannot reopen a single-owner instance |
+| `MIRALO_DATA_DIR` | Repository `data/` | SQLite database and per-site assets |
+| `MIRALO_TEMPLATE_DIR` | Repository `templates/miralo/` | Source template document and assets |
 | `HOST` | `127.0.0.1` | Listen address |
 | `PORT` | `3000` | Listen port |
-| `FREEFLOW_PUBLISH_PORT` | `PORT + 1` | Separate static publishing listener |
-| `FREEFLOW_PUBLISH_BASE_URL` | `http://localhost:<publish port>` when auth uses `localhost`; otherwise disabled | Base origin for `<site-id>.<hostname>` published sites |
+| `MIRALO_PUBLISH_PORT` | `PORT + 1` | Separate static publishing listener |
+| `MIRALO_PUBLISH_BASE_URL` | `http://localhost:<publish port>` when auth uses `localhost`; otherwise disabled | Base origin for `<site-id>.<hostname>` published sites |
 
 Relative directory settings resolve from the repository root. Both source and bundled servers
 automatically load the root `.env`; exported environment variables take precedence. Without `.env`,
@@ -53,7 +53,7 @@ To run the bundled entry point:
 
 ```sh
 pnpm build
-pnpm --filter @freeflow/server start
+pnpm --filter @miralo/server start
 ```
 
 ## Try the milestone
@@ -68,11 +68,11 @@ curl -sS http://localhost:3000/api/auth/sign-up/email \
   -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' \
   -d '{"name":"Local owner","email":"owner@example.test","password":"replace-with-your-password"}'
 
-curl -sS -c /tmp/freeflow-cookies http://localhost:3000/api/auth/sign-in/email \
+curl -sS -c /tmp/miralo-cookies http://localhost:3000/api/auth/sign-in/email \
   -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' \
   -d '{"email":"owner@example.test","password":"replace-with-your-password"}'
 
-curl -sS -b /tmp/freeflow-cookies http://localhost:3000/api/sites \
+curl -sS -b /tmp/miralo-cookies http://localhost:3000/api/sites \
   -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' \
   -d '{"name":"My first site"}'
 ```
@@ -81,7 +81,7 @@ Copy the returned `id` into `SITE_ID`. A new site starts at revision zero.
 
 ```sh
 SITE_ID=replace-with-returned-id
-curl -sS -b /tmp/freeflow-cookies "http://localhost:3000/api/sites/$SITE_ID/document/apply" \
+curl -sS -b /tmp/miralo-cookies "http://localhost:3000/api/sites/$SITE_ID/document/apply" \
   -H 'Content-Type: application/json' -H 'Origin: http://localhost:3000' \
   -d '{"expectedRevision":0,"operations":[{"type":"site.update","name":"Saved after restart"}]}'
 ```
@@ -89,7 +89,7 @@ curl -sS -b /tmp/freeflow-cookies "http://localhost:3000/api/sites/$SITE_ID/docu
 Stop the server and restart it with the same data directory and secret. Then read the document:
 
 ```sh
-curl -sS -b /tmp/freeflow-cookies "http://localhost:3000/api/sites/$SITE_ID/document"
+curl -sS -b /tmp/miralo-cookies "http://localhost:3000/api/sites/$SITE_ID/document"
 ```
 
 The name is `Saved after restart` and the revision is `1`. The test suite performs this flow over
@@ -137,9 +137,9 @@ even across simultaneous setup requests. Owner passwords and sessions still use 
 
 ## Persistence and scope
 
-`data/freeflow.sqlite` uses WAL mode. SQLite stores auth data, workspaces, site documents and
+`data/miralo.sqlite` uses WAL mode. SQLite stores auth data, workspaces, site documents and
 revisions. Drizzle handles application queries; Better Auth's built-in SQLite adapter owns auth
-migrations, run before auth starts. Freeflow's separate migration ledger versions application tables.
+migrations, run before auth starts. Miralo's separate migration ledger versions application tables.
 Assets live under `data/sites/<id>/assets/`; their hashes are checked when copying the template.
 
 ## Publishing
@@ -195,6 +195,6 @@ Yjs sync, git snapshots, custom-domain management, shared workspace membership, 
 password recovery are later work. The existing CLI/MCP site-folder workflow remains separate.
 
 ```sh
-pnpm --filter @freeflow/server test
-pnpm --filter @freeflow/server typecheck
+pnpm --filter @miralo/server test
+pnpm --filter @miralo/server typecheck
 ```

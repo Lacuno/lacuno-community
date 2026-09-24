@@ -1,5 +1,5 @@
-import { classNames, compareSelectors, contextFromDocument, serializeValue } from '@freeflow/css'
-import type { Operation } from '@freeflow/document'
+import { classNames, compareSelectors, contextFromDocument, serializeValue } from '@miralo/css'
+import type { Operation } from '@miralo/document'
 import {
   type CssValue,
   type Document,
@@ -7,7 +7,7 @@ import {
   type State,
   type StyleDecl,
   styleKey,
-} from '@freeflow/schema'
+} from '@miralo/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
 import { weightName } from './fonts.js'
 import {
@@ -86,7 +86,7 @@ export function presetValues(
   for (const property of properties) {
     const style = [property, ...shorthands(property)].map((name) => winners[name]).find(Boolean)
     if (style) values[style.property] = structuredClone(style.value)
-    else if (!property.startsWith('--ff-') && computed[property])
+    else if (!property.startsWith('--mi-') && computed[property])
       values[property] = { type: 'raw', value: computed[property]! }
   }
   return values

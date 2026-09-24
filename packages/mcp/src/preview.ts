@@ -6,9 +6,9 @@ import {
   type Resolved,
   render,
   routePath,
-} from '@freeflow/compiler'
-import { generateStylesheet, styleElement } from '@freeflow/css'
-import type { Document, Entry, NodeId, Page, RichText } from '@freeflow/schema'
+} from '@miralo/compiler'
+import { generateStylesheet, styleElement } from '@miralo/css'
+import type { Document, Entry, NodeId, Page, RichText } from '@miralo/schema'
 import { InputError } from './errors.js'
 
 export type PreviewRoute = { page: Page; entry?: Entry }

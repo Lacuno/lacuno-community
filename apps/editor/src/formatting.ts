@@ -1,8 +1,8 @@
-import { classNames, compareSelectors } from '@freeflow/css'
-import type { Operation } from '@freeflow/document'
-import { nodesUsingClass } from '@freeflow/document/references'
-import type { CssValue, Document, Node, State, StyleDecl } from '@freeflow/schema'
-import { styleKey } from '@freeflow/schema'
+import { classNames, compareSelectors } from '@miralo/css'
+import type { Operation } from '@miralo/document'
+import { nodesUsingClass } from '@miralo/document/references'
+import type { CssValue, Document, Node, State, StyleDecl } from '@miralo/schema'
+import { styleKey } from '@miralo/schema'
 import { FONT_STACKS } from './fonts.js'
 
 export const formattingGroups = [
@@ -104,10 +104,10 @@ export const formattingGroups = [
   {
     name: 'Motion',
     fields: [
-      { property: '--ff-duration', label: 'Duration' },
-      { property: '--ff-delay', label: 'Delay' },
-      { property: '--ff-easing', label: 'Easing' },
-      { property: '--ff-entrance', label: 'Entrance' },
+      { property: '--mi-duration', label: 'Duration' },
+      { property: '--mi-delay', label: 'Delay' },
+      { property: '--mi-easing', label: 'Easing' },
+      { property: '--mi-entrance', label: 'Entrance' },
     ],
   },
 ] as const

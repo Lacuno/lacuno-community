@@ -1,4 +1,4 @@
-import { fixtureDocument } from '@freeflow/schema'
+import { fixtureDocument } from '@miralo/schema'
 import { describe, expect, it } from 'vitest'
 import { PatchError } from '../src/errors.js'
 import type { Operation } from '../src/operations/index.js'

@@ -1,5 +1,5 @@
-import type { CollectionSchema, Entry, FieldDef } from '@freeflow/schema'
-import { CollectionId, EntryId, FieldId, OptionChoice } from '@freeflow/schema'
+import type { CollectionSchema, Entry, FieldDef } from '@miralo/schema'
+import { CollectionId, EntryId, FieldId, OptionChoice } from '@miralo/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'

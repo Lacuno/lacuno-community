@@ -49,7 +49,7 @@ export function publishedApp(reader: PublicationReader) {
         c.header('X-Content-Type-Options', 'nosniff')
         c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
         c.header('Origin-Agent-Cluster', '?1')
-        c.header('X-Freeflow-Release', id)
+        c.header('X-Miralo-Release', id)
         return c.req.method === 'HEAD' ? c.body(null) : c.body(new Uint8Array(bytes))
       } catch (error) {
         if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? ''))

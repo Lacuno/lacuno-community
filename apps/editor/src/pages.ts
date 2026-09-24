@@ -1,5 +1,5 @@
-import type { Operation } from '@freeflow/document'
-import { type Document, Page, type Seo } from '@freeflow/schema'
+import type { Operation } from '@miralo/document'
+import { type Document, Page, type Seo } from '@miralo/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type PageTree, pageTree } from './structure.js'
 

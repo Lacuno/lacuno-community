@@ -1,4 +1,4 @@
-import { AssetId, AssetRef } from '@freeflow/schema'
+import { AssetId, AssetRef } from '@miralo/schema'
 import { z } from 'zod'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'

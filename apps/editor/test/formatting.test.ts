@@ -1,5 +1,5 @@
-import { DocumentStore } from '@freeflow/document'
-import { type CssValue, fixtureDocument, rem, styleKey } from '@freeflow/schema'
+import { DocumentStore } from '@miralo/document'
+import { type CssValue, fixtureDocument, rem, styleKey } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import { editingBreakpoint } from '../src/breakpoints.js'
 import {

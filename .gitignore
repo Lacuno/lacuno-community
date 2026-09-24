@@ -2,7 +2,7 @@ node_modules/
 dist/
 build/
 .turbo/
-.freeflow/
+.miralo/
 .worktrees/
 *.log
 .env

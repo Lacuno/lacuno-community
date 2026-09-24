@@ -90,7 +90,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | HTML embed element | MVP | In: the palette's Embed with a code field in the inspector; the canvas shows a placeholder where scripts and iframes would run |
 | Code components: register real Astro components with a props schema so they appear in the palette | Next | Plasmic-style. Islands for interactivity |
 | Plugin API for panels, elements and commands | Later | After the internal API stops moving |
-| Template and section marketplace | Later | Templates are just Freeflow documents |
+| Template and section marketplace | Later | Templates are just Miralo documents |
 
 ## Agent
 
@@ -111,7 +111,7 @@ See [AGENTS.md](AGENTS.md). Summary of what ships when:
 | Feature | When | Notes |
 | --- | --- | --- |
 | Single Docker image, SQLite, filesystem assets | MVP | Community; see the self-hosting guide |
-| `npx freeflow` for local use | MVP | Same binary, no Docker |
+| `npx miralo` for local use | MVP | Same binary, no Docker |
 | Postgres and S3 as optional backends | Next | |
 | Backup and restore documentation | MVP | Operator-managed offline volume backups; managed backups are Cloud scope |
 | Health endpoint, structured logs, metrics | MVP | |

@@ -1,4 +1,4 @@
-import { ComponentId, NodeId, nodeBindings, PropDef } from '@freeflow/schema'
+import { ComponentId, NodeId, nodeBindings, PropDef } from '@miralo/schema'
 import { z } from 'zod'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'

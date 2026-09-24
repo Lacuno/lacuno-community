@@ -9,7 +9,7 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
   page.on('request', (request) => {
     if (request.url().endsWith('/document/apply')) writes++
   })
-  const cta = canvas.locator('[data-freeflow-node="n-home-cta"]')
+  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
 
@@ -69,7 +69,7 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
   const inject = async (css: string) => {
     await cta.evaluate((element, text) => {
       const style = element.ownerDocument.createElement('style')
-      style.textContent = text.replace('PARENT', element.parentElement!.dataset.freeflowNode!)
+      style.textContent = text.replace('PARENT', element.parentElement!.dataset.miraloNode!)
       element.ownerDocument.head.append(style)
     }, css)
     await page.evaluate(
@@ -79,7 +79,7 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
 
   // Under content-box the written width leaves out padding and border, so the rendered box
   // still follows the pointer 1:1.
-  await inject('[data-freeflow-node="n-home-cta"] { box-sizing: content-box !important }')
+  await inject('[data-miralo-node="n-home-cta"] { box-sizing: content-box !important }')
   const content = await size()
   await drag(page, '.handle.size.right', { dx: 60 })
   await saved()
@@ -96,7 +96,7 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
   // one Undo restores both. The cap has no specificity, like any site rule the local class beats.
   const uncapped = await size()
   await inject(
-    `:where([data-freeflow-node="n-home-cta"]) { max-width: ${Math.round(uncapped.w) + 20}px }`,
+    `:where([data-miralo-node="n-home-cta"]) { max-width: ${Math.round(uncapped.w) + 20}px }`,
   )
   const capped = await size()
   expect(capped.w).toBeCloseTo(uncapped.w, 0)
@@ -118,7 +118,7 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
   // In a flex row the element would shrink back into the free space, so a width drag also stops
   // it shrinking: the rendered width follows the pointer and the commit carries flex-shrink: 0.
   await inject(
-    '[data-freeflow-node="PARENT"] { display: flex !important; flex-direction: row !important }',
+    '[data-miralo-node="PARENT"] { display: flex !important; flex-direction: row !important }',
   )
   const row = await cta.evaluate((element) => ({
     shrink: getComputedStyle(element).flexShrink,
@@ -151,12 +151,12 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
   await applied
 
   // A percentage cap, like the image preset's max-width: 100%, is not a px cap to clear.
-  const image = canvas.locator('[data-freeflow-node="n-home-preview-image"]')
+  const image = canvas.locator('[data-miralo-node="n-home-preview-image"]')
   await image.click()
   await expect
     .poll(() => image.evaluate((element: HTMLImageElement) => element.complete))
     .toBe(true)
-  await inject(':where([data-freeflow-node="n-home-preview-image"]) { max-width: 100% }')
+  await inject(':where([data-miralo-node="n-home-preview-image"]) { max-width: 100% }')
   await drag(page, '.handle.size.right', { dx: -60 })
   await expect
     .poll(async () => (await committed('n-home-preview-image')).map((style) => style.property))

@@ -1,6 +1,6 @@
-import { classNames, contextFromDocument, selectorFor, serializeValue } from '@freeflow/css'
-import type { Operation } from '@freeflow/document'
-import type { CssValue, Document, Node, State } from '@freeflow/schema'
+import { classNames, contextFromDocument, selectorFor, serializeValue } from '@miralo/css'
+import type { Operation } from '@miralo/document'
+import type { CssValue, Document, Node, State } from '@miralo/schema'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { assetUrl } from './AssetsPanel.js'
@@ -246,8 +246,8 @@ export function Inspector({
   }
   useEffect(() => {
     const listen = (event: Event) => canvasStyle.current((event as CustomEvent).detail)
-    window.addEventListener('freeflow:canvas-style', listen)
-    return () => window.removeEventListener('freeflow:canvas-style', listen)
+    window.addEventListener('miralo:canvas-style', listen)
+    return () => window.removeEventListener('miralo:canvas-style', listen)
   }, [])
   const previewKey = JSON.stringify({
     node: {

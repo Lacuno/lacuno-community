@@ -2,7 +2,7 @@
   "version": 1,
   "revision": 12,
   "site": {
-    "name": "Freeflow",
+    "name": "Miralo",
     "locale": "en-US",
     "modes": [
       {
@@ -26,8 +26,8 @@
       "path": "/about",
       "root": "n-about-root",
       "seo": {
-        "title": "About Freeflow — Own the site you make",
-        "description": "Why Freeflow is building an AGPL, self-hostable visual website workflow with editable source and static output."
+        "title": "About Miralo — Own the site you make",
+        "description": "Why Miralo is building an AGPL, self-hostable visual website workflow with editable source and static output."
       }
     },
     "p-article": {
@@ -37,8 +37,8 @@
       "root": "n-article-root",
       "collection": "col-posts",
       "seo": {
-        "title": "Freeflow Journal — Sample article",
-        "description": "A sample article from the editable Freeflow starter template."
+        "title": "Miralo Journal — Sample article",
+        "description": "A sample article from the editable Miralo starter template."
       }
     },
     "p-blog": {
@@ -47,7 +47,7 @@
       "path": "/blog",
       "root": "n-blog-root",
       "seo": {
-        "title": "Freeflow Journal — Sample articles",
+        "title": "Miralo Journal — Sample articles",
         "description": "Sample editorial notes about open-source ownership, document-to-site workflows and planned hosted or self-hosted paths."
       }
     },
@@ -57,7 +57,7 @@
       "path": "/",
       "root": "n-home-root",
       "seo": {
-        "title": "Freeflow — Your website. Your rules.",
+        "title": "Miralo — Your website. Your rules.",
         "description": "An open-source visual website builder in progress, designed for editable templates, static output and self-hosting."
       }
     }
@@ -129,7 +129,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "About Freeflow"
+        "value": "About Miralo"
       }
     },
     "n-about-lead": {
@@ -141,7 +141,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "Freeflow is an open-source website builder in progress for people who care about the craft of the page and the freedom to keep it."
+        "value": "Miralo is an open-source website builder in progress for people who care about the craft of the page and the freedom to keep it."
       }
     },
     "n-about-main": {
@@ -259,7 +259,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "The planned Freeflow-operated service is intended to let people open the browser builder, start from an editable template and publish to a free subdomain with a limited page-visit allowance."
+        "value": "The planned Miralo-operated service is intended to let people open the browser builder, start from an editable template and publish to a free subdomain with a limited page-visit allowance."
       }
     },
     "n-about-planned-p2": {
@@ -323,7 +323,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "Pages, styles, components and content stay in the Freeflow document where visual tools and agents can work with them directly."
+        "value": "Pages, styles, components and content stay in the Miralo document where visual tools and agents can work with them directly."
       }
     },
     "n-about-principle-editable-num": {
@@ -547,7 +547,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "Freeflow is intended for designers, developers, writers and small teams who want visual composition without giving up a transparent project. The document stays structured, and the compiler produces a static website that can travel with the rest of your work."
+        "value": "Miralo is intended for designers, developers, writers and small teams who want visual composition without giving up a transparent project. The document stays structured, and the compiler produces a static website that can travel with the rest of your work."
       }
     },
     "n-about-why-p2": {
@@ -571,7 +571,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "A browser-based builder and a Freeflow-operated hosting service are planned. They are not available capabilities today, and this template does not invent pricing, limits or a launch date."
+        "value": "A browser-based builder and a Miralo-operated hosting service are planned. They are not available capabilities today, and this template does not invent pricing, limits or a launch date."
       }
     },
     "n-about-why-title": {
@@ -997,7 +997,7 @@
       "tag": "a",
       "text": {
         "type": "static",
-        "value": "Freeflow"
+        "value": "Miralo"
       }
     },
     "n-footer-brand-block": {
@@ -1023,7 +1023,7 @@
       "tag": "a",
       "text": {
         "type": "static",
-        "value": "Explore Freeflow →"
+        "value": "Explore Miralo →"
       }
     },
     "n-footer-home-item": {
@@ -1097,7 +1097,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "Freeflow is AGPL software. The builder and the websites it produces are intended to remain self-hostable."
+        "value": "Miralo is AGPL software. The builder and the websites it produces are intended to remain self-hostable."
       }
     },
     "n-footer-note-block": {
@@ -1207,7 +1207,7 @@
       "tag": "a",
       "text": {
         "type": "static",
-        "value": "Freeflow"
+        "value": "Miralo"
       }
     },
     "n-header-explore-item": {
@@ -1233,7 +1233,7 @@
       "tag": "a",
       "text": {
         "type": "static",
-        "value": "Explore Freeflow ↗"
+        "value": "Explore Miralo ↗"
       }
     },
     "n-header-home-item": {
@@ -1406,7 +1406,7 @@
       "tag": "h2",
       "text": {
         "type": "static",
-        "value": "Hosted by Freeflow"
+        "value": "Hosted by Miralo"
       }
     },
     "n-home-choice-hosted-top": {
@@ -1480,7 +1480,7 @@
       "tag": "a",
       "text": {
         "type": "static",
-        "value": "Explore Freeflow →"
+        "value": "Explore Miralo →"
       }
     },
     "n-home-choice-self-title": {
@@ -1522,7 +1522,7 @@
       "tag": "a",
       "text": {
         "type": "static",
-        "value": "Explore Freeflow →"
+        "value": "Explore Miralo →"
       }
     },
     "n-home-feature-list": {
@@ -1602,7 +1602,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "Templates are ordinary Freeflow documents. Change their words, tokens, sections and collections instead of working around a sealed theme."
+        "value": "Templates are ordinary Miralo documents. Change their words, tokens, sections and collections instead of working around a sealed theme."
       }
     },
     "n-home-feature-template-num": {
@@ -1686,7 +1686,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "Freeflow keeps layout, content, styles, reusable components and collections in a structured document. That gives a future visual builder and today’s MCP workflow the same editable source of truth."
+        "value": "Miralo keeps layout, content, styles, reusable components and collections in a structured document. That gives a future visual builder and today’s MCP workflow the same editable source of truth."
       }
     },
     "n-home-features-intro": {
@@ -1794,7 +1794,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "Freeflow is building a visual workflow for expressive websites with editable source, static output and a clear path to self-hosting."
+        "value": "Miralo is building a visual workflow for expressive websites with editable source, static output and a clear path to self-hosting."
       }
     },
     "n-home-main": {
@@ -1858,7 +1858,7 @@
       "tag": "p",
       "text": {
         "type": "static",
-        "value": "A working example, built from the same editable Freeflow document. Explore the typography, layout and reusable sections, then make them your own."
+        "value": "A working example, built from the same editable Miralo document. Explore the typography, layout and reusable sections, then make them your own."
       }
     },
     "n-home-preview-dots": {
@@ -6381,7 +6381,7 @@
                 "content": [
                   {
                     "type": "text",
-                    "text": "Freeflow is open source under the AGPL. That commitment keeps the builder inspectable and gives teams a path to run it themselves. The same principle extends to the websites it produces: the source remains ordinary project data rather than a format held behind one service."
+                    "text": "Miralo is open source under the AGPL. That commitment keeps the builder inspectable and gives teams a path to run it themselves. The same principle extends to the websites it produces: the source remains ordinary project data rather than a format held behind one service."
                   }
                 ]
               },
@@ -6412,7 +6412,7 @@
         "fields": {
           "f-title": "From document to website",
           "f-slug": "from-document-to-website",
-          "f-summary": "A look at the editable document, MCP authoring and static compilation that shape Freeflow’s workflow.",
+          "f-summary": "A look at the editable document, MCP authoring and static compilation that shape Miralo’s workflow.",
           "f-url": "/blog/from-document-to-website",
           "f-body": {
             "type": "doc",
@@ -6422,7 +6422,7 @@
                 "content": [
                   {
                     "type": "text",
-                    "text": "Freeflow starts with a structured document. Pages, nodes, styles, components and collections stay explicit, so a visual interface and an automated collaborator can work with the same material instead of translating between private formats."
+                    "text": "Miralo starts with a structured document. Pages, nodes, styles, components and collections stay explicit, so a visual interface and an automated collaborator can work with the same material instead of translating between private formats."
                   }
                 ]
               },
@@ -6449,7 +6449,7 @@
                 "content": [
                   {
                     "type": "text",
-                    "text": "The browser builder is planned and is not presented here as an available service. Today, this sample article demonstrates the content model and the path from a native Freeflow document to a working website."
+                    "text": "The browser builder is planned and is not presented here as an available service. Today, this sample article demonstrates the content model and the path from a native Miralo document to a working website."
                   }
                 ]
               }
@@ -6472,7 +6472,7 @@
                 "content": [
                   {
                     "type": "text",
-                    "text": "Some people want a direct path from opening a tool to publishing a site. Others need the builder and output inside infrastructure they already operate. Freeflow’s direction makes room for both without splitting the underlying document model."
+                    "text": "Some people want a direct path from opening a tool to publishing a site. Others need the builder and output inside infrastructure they already operate. Miralo’s direction makes room for both without splitting the underlying document model."
                   }
                 ]
               },
@@ -6481,7 +6481,7 @@
                 "content": [
                   {
                     "type": "text",
-                    "text": "A Freeflow-operated builder and hosting service are planned. The intention is to offer a convenient path to begin visually and publish to a free subdomain with a limited page-visit allowance. Exact limits, pricing and availability are not defined in this starter because the service is not implemented yet."
+                    "text": "A Miralo-operated builder and hosting service are planned. The intention is to offer a convenient path to begin visually and publish to a free subdomain with a limited page-visit allowance. Exact limits, pricing and availability are not defined in this starter because the service is not implemented yet."
                   }
                 ]
               },
@@ -6512,14 +6512,14 @@
   "assets": {
     "An41fLkGaH61": {
       "id": "An41fLkGaH61",
-      "name": "freeflow-about-page-preview.png",
+      "name": "miralo-about-page-preview.png",
       "kind": "image",
       "hash": "7f5df1a1670e25d7ccb063a6a80f1d8c40e32ecec6c85fafbd79dc516feecd2f",
       "mime": "image/png",
       "size": 87934,
       "width": 1440,
       "height": 900,
-      "alt": "The Freeflow About page with an editorial headline, black typography and a bold page number on a warm paper background"
+      "alt": "The Miralo About page with an editorial headline, black typography and a bold page number on a warm paper background"
     }
   },
   "redirects": []

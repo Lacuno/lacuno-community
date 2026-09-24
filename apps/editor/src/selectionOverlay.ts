@@ -1,4 +1,4 @@
-import { type CssValue, kw, num, px, type State } from '@freeflow/schema'
+import { type CssValue, kw, num, px, type State } from '@miralo/schema'
 import {
   type Hsl,
   nearestSwatch,
@@ -64,9 +64,9 @@ export function selectionOverlay(
   const view = doc.defaultView
   if (!view) return () => {}
   const host = doc.createElement('div')
-  host.setAttribute('data-freeflow-selection-overlay', '')
+  host.setAttribute('data-miralo-selection-overlay', '')
   // A unique id keeps the morph from ever matching a server node against this host.
-  host.id = 'freeflow-selection-overlay'
+  host.id = 'miralo-selection-overlay'
   host.style.cssText =
     'position:fixed;inset:0;pointer-events:none;z-index:2147483646;overflow:hidden;'
   const shadow = host.attachShadow({ mode: 'open' })
@@ -203,7 +203,7 @@ export function selectionOverlay(
   let open: { el: HTMLElement; anchor: HTMLElement } | undefined
   let shown = ''
   // Start from the current selection so the first paint is not mistaken for a selection change.
-  let element: Element | null = doc.querySelector('[data-freeflow-selected]')
+  let element: Element | null = doc.querySelector('[data-miralo-selected]')
   let current: Hsl = { h: 0, s: 1, l: 0.5 }
   let snapped: Swatch | undefined
   // Which colour the open menu edits, and the swatch button it hangs off.
@@ -631,7 +631,7 @@ export function selectionOverlay(
     ids.forEach((id, index) => {
       const outline = flashLayer.children[index] as HTMLElement
       const bounds = doc
-        .querySelector(`[data-freeflow-node="${CSS.escape(id)}"]`)
+        .querySelector(`[data-miralo-node="${CSS.escape(id)}"]`)
         ?.getBoundingClientRect()
       outline.hidden = !bounds
       if (bounds)
@@ -639,7 +639,7 @@ export function selectionOverlay(
     })
   }
   const paint = () => {
-    const selected = doc.querySelector('[data-freeflow-selected]')
+    const selected = doc.querySelector('[data-miralo-selected]')
     // Close only when the selection moves to a different element, not while it is briefly
     // absent between a morph clearing the marker and highlight() re-applying it.
     if (selected && selected !== element) {
@@ -648,7 +648,7 @@ export function selectionOverlay(
     }
     const bounds = selected?.getBoundingClientRect()
     const visible =
-      !doc.querySelector('[data-freeflow-sort-gap]') &&
+      !doc.querySelector('[data-miralo-sort-gap]') &&
       bounds &&
       bounds.width > 0 &&
       bounds.height > 0 &&
@@ -712,7 +712,7 @@ export function selectionOverlay(
       // Handles ride the edges every frame, but not while the element's text is being edited.
       // Spacing nubs show in spacing mode; the boxes also while a sidebar spacing input has focus
       // or Alt is held over the element.
-      const editing = !!doc.querySelector('[data-freeflow-editing]')
+      const editing = !!doc.querySelector('[data-miralo-editing]')
       handlesLayer.hidden = editing
       spacingChip.hidden = editing
       if (!editing) {

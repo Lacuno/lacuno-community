@@ -23,8 +23,8 @@ Goal: the document, the compiler and an agent can produce a real site before the
 - `packages/document`: named operations over the document, primitive patches, a store with a
   revision counter, dry runs and atomic persistence to a site folder.
 - `packages/compiler` and `apps/cli`: document to static output through Astro as an internal
-  engine. `freeflow build <dir>` builds a site folder; a Lighthouse script guards the score.
-- `packages/mcp` and `freeflow mcp`: stdio server with `guide`, `document.read`, `page.outline`,
+  engine. `miralo build <dir>` builds a site folder; a Lighthouse script guards the score.
+- `packages/mcp` and `miralo mcp`: stdio server with `guide`, `document.read`, `page.outline`,
   `node.get`, `styles.get`, `entries.list`, atomic `document.apply` with dry run and version
   pinning, `asset.import`, `site.build`, and JSON Schema resources, operating on a site folder.
 - Default template documents written through the provider-independent MCP stdio server.
@@ -35,7 +35,7 @@ created the design tokens, shared components, three static pages, collection tem
 and preview asset; no model-provider integration was required. The CLI then generated six static
 routes with no warnings. Browser checks covered the routes at desktop, mobile and 320px widths,
 including navigation, headings, keyboard focus, contrast and horizontal overflow. All six routes
-scored 100 in Lighthouse's performance category. `freeflow build` writes portable files to `dist/`;
+scored 100 in Lighthouse's performance category. `miralo build` writes portable files to `dist/`;
 it does not publish them online.
 
 ## Phase 1. Editor MVP
@@ -102,7 +102,7 @@ preset, token or ancestor goes there, and the Layout ribbon fits a 1500px window
 **MCP preview, screenshot and diff implemented:** `page.preview` returns a route's published HTML
 without a build, or its text one line per node id; `page.screenshot` returns a PNG of a route or one
 node through Playwright's Chromium, an optional dependency; `document.diff` summarises a dry-run
-batch or the changes since another `freeflow.json`
+batch or the changes since another `miralo.json`
 ([spec](superpowers/specs/2026-09-23-mcp-preview-tools.md)).
 **Testing implemented:** **Publish vN to testing** builds the draft for
 `<site-id>-testing.<publishing base>`, which sends `X-Robots-Tag: noindex, nofollow`. The panel
@@ -130,7 +130,7 @@ areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.
 - Components with props (implemented). Slots and visible instance overrides move to the content
   phase, where they are built together with the CMS (decided 2026-09-23).
 - Publish to testing and production from the instance, build history, rollback (implemented).
-- Docker image and operator-written configuration via the self-hosting guide; `npx freeflow` remains planned.
+- Docker image and operator-written configuration via the self-hosting guide; `npx miralo` remains planned.
 - Preview, screenshot and diff tools in MCP (implemented).
 - Clicking a style field's source line to jump to the class, token or ancestor it names, and the
   Layout ribbon fitting a 1500px window (implemented). That closes Phase 1.
@@ -146,8 +146,8 @@ TLS using the self-hosting guide; automated domain/TLS management is not a Commu
 ## Phase 2. Connect your AI
 
 Goal: the differentiator. A designer connects the AI app they already pay for to a site in one
-click, and watches it work on the canvas. Freeflow never calls a model and never holds an API key;
-the user's own subscription does the thinking, Freeflow gives it hands
+click, and watches it work on the canvas. Miralo never calls a model and never holds an API key;
+the user's own subscription does the thinking, Miralo gives it hands
 ([spec](superpowers/specs/2026-09-23-connect-your-ai-design.md)).
 
 **First milestone implemented (2026-09-24):** `/mcp/:id` serves the existing tools over Streamable
@@ -231,6 +231,6 @@ Not scheduled; recorded so they are not lost.
 
 - Interactions timeline engine. Native CSS animation support instead, revisited on demand.
 - Web app features: authentication for visitors, per-user state, dashboards.
-- Model calls of any kind: no Freeflow-operated inference, no bring-your-own key, no provider
+- Model calls of any kind: no Miralo-operated inference, no bring-your-own key, no provider
   settings. The user's own AI app connects through MCP.
 - Proposals as branches with a rendered diff; the live canvas is the review.

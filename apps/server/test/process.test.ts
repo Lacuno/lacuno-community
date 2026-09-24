@@ -12,7 +12,7 @@ import { expect, it } from 'vitest'
 it.each(['source', 'bundle'])(
   'persists a signed-in HTTP edit across a %s server process restart',
   async (entry) => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-process-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-process-'))
     const reservation = createTcpServer().listen(0, '127.0.0.1')
     await once(reservation, 'listening')
     const address = reservation.address()
@@ -40,12 +40,12 @@ it.each(['source', 'bundle'])(
             ...process.env,
             PORT: String(port),
             HOST: '127.0.0.1',
-            FREEFLOW_DATA_DIR: dir,
+            MIRALO_DATA_DIR: dir,
             BETTER_AUTH_URL: origin,
             BETTER_AUTH_SECRET: 'process-test-secret-4c70d141a6994fc4a842',
-            FREEFLOW_ALLOW_SIGNUP: 'true',
-            FREEFLOW_PUBLISH_BASE_URL: `http://localhost:${publicPort}`,
-            FREEFLOW_PUBLISH_PORT: String(publicPort),
+            MIRALO_ALLOW_SIGNUP: 'true',
+            MIRALO_PUBLISH_BASE_URL: `http://localhost:${publicPort}`,
+            MIRALO_PUBLISH_PORT: String(publicPort),
           },
           stdio: ['ignore', 'pipe', 'pipe'],
         },
@@ -66,7 +66,7 @@ it.each(['source', 'bundle'])(
         })
         processChild.stdout?.on('data', (chunk) => {
           output += String(chunk)
-          if (output.includes('Freeflow API listening')) {
+          if (output.includes('Miralo API listening')) {
             clearTimeout(timeout)
             resolve()
           }
@@ -151,13 +151,13 @@ it.each(['source', 'bundle'])(
           expect(href).toBe(`http://${id}.localhost:${publicPort}`)
           await page.screenshot({
             path: fileURLToPath(
-              new URL('../../../.freeflow/editor-preview/publishing.png', import.meta.url),
+              new URL('../../../.miralo/editor-preview/publishing.png', import.meta.url),
             ),
           })
           await page.setViewportSize({ width: 1100, height: 800 })
           await page.screenshot({
             path: fileURLToPath(
-              new URL('../../../.freeflow/editor-preview/publishing-narrow.png', import.meta.url),
+              new URL('../../../.miralo/editor-preview/publishing-narrow.png', import.meta.url),
             ),
           })
           const live = await browser.newPage()
@@ -166,7 +166,7 @@ it.each(['source', 'bundle'])(
           await page.getByRole('button', { name: 'Close publishing' }).click()
           const heading = page
             .frameLocator('iframe[title="Site canvas"]')
-            .locator('[data-freeflow-node="n-home-title"]')
+            .locator('[data-miralo-node="n-home-title"]')
           await heading.click()
           await page.getByLabel('Text', { exact: true }).fill('Ready for publishing')
           await page.getByRole('button', { name: 'Publish', exact: true }).click()
@@ -214,7 +214,7 @@ it.each(['source', 'bundle'])(
           (response) => {
             try {
               expect(response.statusCode).toBe(200)
-              expect(response.headers['x-freeflow-release']).toBe(publishedId)
+              expect(response.headers['x-miralo-release']).toBe(publishedId)
               response.resume()
               response.on('end', resolve)
             } catch (error) {

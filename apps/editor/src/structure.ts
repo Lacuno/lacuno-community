@@ -1,6 +1,6 @@
-import type { Operation } from '@freeflow/document'
-import { isDescendant, subtreeIds } from '@freeflow/document/references'
-import type { Document, ElementNode, Node, TextNode } from '@freeflow/schema'
+import type { Operation } from '@miralo/document'
+import { isDescendant, subtreeIds } from '@miralo/document/references'
+import type { Document, ElementNode, Node, TextNode } from '@miralo/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 
 type DefinedFields<T> = { [K in keyof T]: Exclude<T[K], undefined> }

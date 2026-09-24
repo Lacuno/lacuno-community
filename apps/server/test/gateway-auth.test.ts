@@ -15,7 +15,7 @@ const settings = (dataDir: string) => ({
   dataDir,
   baseURL: origin,
   secret: 'local-test-secret-at-least-32-characters',
-  templateDir: path.join(root, 'templates/freeflow'),
+  templateDir: path.join(root, 'templates/miralo'),
   gateway: { issuer, secret },
 })
 async function assertion(
@@ -53,12 +53,12 @@ describe('gateway mode', () => {
       headers: {
         origin,
         'content-type': 'application/json',
-        ...(assertion ? { 'x-freeflow-assertion': assertion } : {}),
+        ...(assertion ? { 'x-miralo-assertion': assertion } : {}),
       },
       ...(method === 'POST' ? { body } : {}),
     })
   beforeAll(async () => {
-    dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-gateway-'))
+    dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-gateway-'))
     server = await createServer(settings(dir))
     signed = await assertion()
   })
@@ -129,7 +129,7 @@ describe('gateway mode', () => {
 })
 
 it('will not silently replace existing local accounts with gateway authentication', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-local-owner-'))
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-local-owner-'))
   const { gateway: _, ...local } = settings(dir)
   const server = await createServer({ ...local, allowSignup: true })
   try {

@@ -7,8 +7,8 @@ import type {
   Entry,
   NodeId,
   RichText,
-} from '@freeflow/schema'
-import { designTokenCssName } from '@freeflow/schema'
+} from '@miralo/schema'
+import { designTokenCssName } from '@miralo/schema'
 import { RenderError } from './errors.js'
 
 /** One component instance being rendered. Slot children render in the outer scope. */

@@ -1,4 +1,4 @@
-import type { CssValue } from '@freeflow/schema'
+import type { CssValue } from '@miralo/schema'
 
 export type Swatch = { id: string; name: string; value: string }
 export type Hsl = { h: number; s: number; l: number }

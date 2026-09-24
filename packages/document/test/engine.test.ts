@@ -1,4 +1,4 @@
-import { fixtureDocument } from '@freeflow/schema'
+import { fixtureDocument } from '@miralo/schema'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { defineOperation, type OperationDef } from '../src/define.js'

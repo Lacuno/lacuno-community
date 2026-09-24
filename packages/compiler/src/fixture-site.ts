@@ -1,10 +1,10 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { type Document, fixtureDocument, hashAsset } from '@freeflow/schema'
+import { type Document, fixtureDocument, hashAsset } from '@miralo/schema'
 import sharp from 'sharp'
 
 /**
- * The fixture document as a site folder: `freeflow.json` plus a generated hero PNG, a stub MP4
+ * The fixture document as a site folder: `miralo.json` plus a generated hero PNG, a stub MP4
  * and two stub WOFF2 files under `assets/<sha256>`. Used by the build integration test, the
  * Lighthouse script and, later, as the seed for template work.
  */
@@ -19,7 +19,7 @@ export async function writeFixtureSite(dir: string): Promise<Document> {
     asset.size = data.length
     await writeFile(path.join(dir, 'assets', asset.hash), data)
   }
-  await writeFile(path.join(dir, 'freeflow.json'), `${JSON.stringify(doc, null, 2)}\n`)
+  await writeFile(path.join(dir, 'miralo.json'), `${JSON.stringify(doc, null, 2)}\n`)
   return doc
 }
 

@@ -1,4 +1,4 @@
-import type { Operation } from '@freeflow/document'
+import type { Operation } from '@miralo/document'
 import { useEffect, useRef, useState } from 'react'
 import { createAutosave } from './autosave.js'
 

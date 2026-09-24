@@ -1,5 +1,5 @@
 {
-  "name": "@freeflow/document",
+  "name": "@miralo/document",
   "version": "0.0.0",
   "type": "module",
   "exports": {
@@ -13,12 +13,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@freeflow/schema": "workspace:*",
+    "@miralo/schema": "workspace:*",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@freeflow/compiler": "workspace:*",
-    "@freeflow/css": "workspace:*",
+    "@miralo/compiler": "workspace:*",
+    "@miralo/css": "workspace:*",
     "typescript": "^5.9.3",
     "vitest": "^5.0.0"
   }

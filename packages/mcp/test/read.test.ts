@@ -1,5 +1,5 @@
-import { DocumentStore } from '@freeflow/document'
-import { fixtureDocument } from '@freeflow/schema'
+import { DocumentStore } from '@miralo/document'
+import { fixtureDocument } from '@miralo/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { connect, jsonOf, textOf } from './helpers.js'
 

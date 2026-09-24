@@ -1,5 +1,5 @@
 {
-  "name": "@freeflow/renderer",
+  "name": "@miralo/renderer",
   "version": "0.0.0",
   "type": "module",
   "exports": {
@@ -10,9 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@freeflow/compiler": "workspace:*",
-    "@freeflow/css": "workspace:*",
-    "@freeflow/schema": "workspace:*"
+    "@miralo/compiler": "workspace:*",
+    "@miralo/css": "workspace:*",
+    "@miralo/schema": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -1,4 +1,4 @@
-import { CollectionId, FolderId, Page, PageId, Seo } from '@freeflow/schema'
+import { CollectionId, FolderId, Page, PageId, Seo } from '@miralo/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'

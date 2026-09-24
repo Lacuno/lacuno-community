@@ -1,4 +1,4 @@
-import type { Document, Node, State } from '@freeflow/schema'
+import type { Document, Node, State } from '@miralo/schema'
 
 export type StateInfo = { label: string; hint: string; icon: string }
 

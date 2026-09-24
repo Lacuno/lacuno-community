@@ -3,7 +3,7 @@ import { editor } from './harness.js'
 
 it('sets site and page SEO in the editor and publishes it with a not-found page and a redirect', async () => {
   const { server, page, publish, saved } = await editor()
-  const image = 'freeflow-about-page-preview.png'
+  const image = 'miralo-about-page-preview.png'
 
   // Site settings save each field as it is left.
   await page.getByRole('button', { name: 'Pages', exact: true }).click()

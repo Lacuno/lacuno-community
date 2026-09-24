@@ -1,4 +1,4 @@
-import type { Document } from '@freeflow/schema'
+import type { Document } from '@miralo/schema'
 import { createContext, type Warning } from './context.js'
 import type { OperationDef } from './define.js'
 import { OperationError } from './errors.js'

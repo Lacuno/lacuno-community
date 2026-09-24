@@ -1,4 +1,4 @@
-import { fixtureDocument, px, rem } from '@freeflow/schema'
+import { fixtureDocument, px, rem } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import {
   groupOfProperty,

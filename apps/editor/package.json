@@ -1,5 +1,5 @@
 {
-  "name": "@freeflow/editor",
+  "name": "@miralo/editor",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,10 +10,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@freeflow/css": "workspace:*",
-    "@freeflow/document": "workspace:*",
-    "@freeflow/renderer": "workspace:*",
-    "@freeflow/schema": "workspace:*",
+    "@miralo/css": "workspace:*",
+    "@miralo/document": "workspace:*",
+    "@miralo/renderer": "workspace:*",
+    "@miralo/schema": "workspace:*",
     "@tiptap/core": "^3.31.3",
     "@tiptap/extension-text-style": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",

@@ -19,16 +19,16 @@ export type ConnectApp = {
   fallback: string
 }
 
-export const claudeCodeCommand = (url: string) => `claude mcp add --transport http freeflow ${url}`
+export const claudeCodeCommand = (url: string) => `claude mcp add --transport http miralo ${url}`
 export const cursorLink = (url: string) =>
-  `cursor://anysphere.cursor-deeplink/mcp/install?name=freeflow&config=${btoa(JSON.stringify({ url }))}`
+  `cursor://anysphere.cursor-deeplink/mcp/install?name=miralo&config=${btoa(JSON.stringify({ url }))}`
 export const vscodeLink = (url: string) =>
-  `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: 'freeflow', type: 'http', url }))}`
+  `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: 'miralo', type: 'http', url }))}`
 export const claudeDesktopBridge = (url: string) =>
   JSON.stringify(
     {
       mcpServers: {
-        freeflow: {
+        miralo: {
           command: 'npx',
           args: ['-y', 'mcp-remote', url, ...(url.startsWith('http:') ? ['--allow-http'] : [])],
         },
@@ -37,8 +37,8 @@ export const claudeDesktopBridge = (url: string) =>
     null,
     2,
   )
-export const codexCommand = (url: string) => `codex mcp add freeflow --url ${url}`
-export const geminiCommand = (url: string) => `gemini mcp add --transport http freeflow ${url}`
+export const codexCommand = (url: string) => `codex mcp add miralo --url ${url}`
+export const geminiCommand = (url: string) => `gemini mcp add --transport http miralo ${url}`
 const pasted = (url: string) => url
 
 export const connectApps: ConnectApp[] = [
@@ -111,7 +111,7 @@ export const connectApps: ConnectApp[] = [
     registration: 'command',
     build: codexCommand,
     needsPublicAddress: false,
-    fallback: 'Then run "codex mcp login freeflow" to sign in.',
+    fallback: 'Then run "codex mcp login miralo" to sign in.',
   },
   {
     id: 'gemini',

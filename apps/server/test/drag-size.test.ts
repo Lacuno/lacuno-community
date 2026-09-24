@@ -5,9 +5,9 @@ it('drags an element at its size on the zoomed canvas', async () => {
   const { context, page, canvas } = await editor({ width: 1200, height: 1000 })
   const ghost = page
     .frameLocator('iframe[title="Drag preview"]')
-    .locator('[data-freeflow-drag-ghost]')
-  const heading = canvas.locator('[data-freeflow-node="n-home-title"]')
-  const lead = canvas.locator('[data-freeflow-node="n-home-lead"]')
+    .locator('[data-miralo-drag-ghost]')
+  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  const lead = canvas.locator('[data-miralo-node="n-home-lead"]')
   const cdp = await context.newCDPSession(page)
   const mouse = (type: 'mouseMoved' | 'mousePressed' | 'mouseReleased', x: number, y: number) =>
     cdp.send('Input.dispatchMouseEvent', {

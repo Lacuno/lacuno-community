@@ -1,4 +1,4 @@
-import type { Document } from '@freeflow/schema'
+import type { Document } from '@miralo/schema'
 import { AssetPreview, assetsOfKind } from './AssetsPanel.js'
 import { Dialog } from './Dialog.js'
 

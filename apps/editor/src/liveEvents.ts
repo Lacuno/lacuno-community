@@ -1,5 +1,5 @@
-import { applyPatches, invertPatches, type Patch } from '@freeflow/document/patch'
-import type { Document } from '@freeflow/schema'
+import { applyPatches, invertPatches, type Patch } from '@miralo/document/patch'
+import type { Document } from '@miralo/schema'
 import { committedHistory, type EditHistory } from './history.js'
 
 /** One committed batch on the site, as the server's event stream sends it. */

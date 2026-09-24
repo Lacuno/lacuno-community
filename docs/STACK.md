@@ -39,7 +39,7 @@ a time, with the test suite green.
 | Build queue | Child process per build | The compiler changes the working directory for Astro, so builds cannot share a process. A separate build worker service is a config option later |
 | Email | Nodemailer with SMTP, Resend as an adapter | Form notifications, magic links |
 | TLS and domains | Operator's reverse proxy (for example Caddy or nginx) | Community documents manual setup; managed provisioning is future Cloud scope |
-| Container | Distroless-style Node image, single process, one volume | `docker run -v data:/data -p 80:80 freeflow` |
+| Container | Distroless-style Node image, single process, one volume | `docker run -v data:/data -p 80:80 miralo` |
 
 ## Editor
 

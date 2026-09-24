@@ -1,4 +1,4 @@
-import type { Entry } from '@freeflow/schema'
+import type { Entry } from '@miralo/schema'
 import { describe, expect, it } from 'vitest'
 import { applyQuery } from '../src/query.js'
 

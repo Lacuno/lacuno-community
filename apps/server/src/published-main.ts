@@ -5,11 +5,11 @@ import { readPort } from './environment.js'
 import { PublicationReader } from './publication-reader.js'
 import { publishedApp } from './published.js'
 
-const base = process.env.FREEFLOW_PUBLISH_BASE_URL
-if (!base) throw new Error('FREEFLOW_PUBLISH_BASE_URL is required')
-const port = readPort(process.env.FREEFLOW_PUBLISH_PORT, 3001)
-const directory = path.resolve(process.env.FREEFLOW_DATA_DIR ?? 'data')
-const sqlite = new Database(path.join(directory, 'freeflow.sqlite'), {
+const base = process.env.MIRALO_PUBLISH_BASE_URL
+if (!base) throw new Error('MIRALO_PUBLISH_BASE_URL is required')
+const port = readPort(process.env.MIRALO_PUBLISH_PORT, 3001)
+const directory = path.resolve(process.env.MIRALO_DATA_DIR ?? 'data')
+const sqlite = new Database(path.join(directory, 'miralo.sqlite'), {
   readonly: true,
   fileMustExist: true,
 })

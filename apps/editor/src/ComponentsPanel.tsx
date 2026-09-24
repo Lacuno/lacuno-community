@@ -1,5 +1,5 @@
-import type { Operation } from '@freeflow/document'
-import type { Binding, Component, ComponentInstanceNode, Document } from '@freeflow/schema'
+import type { Operation } from '@miralo/document'
+import type { Binding, Component, ComponentInstanceNode, Document } from '@miralo/schema'
 import { useId, useState } from 'react'
 import {
   componentDeletionReason,

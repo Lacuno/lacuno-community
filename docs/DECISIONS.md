@@ -34,7 +34,7 @@ Tailwind is supported as an import format, not as the internal model.
 **Alternatives.** SSR app output.
 
 **Why.** Marketing sites, blogs and docs are the target. Static HTML on a CDN is faster, cheaper
-and safer. Form submissions are the one runtime endpoint and live on the Freeflow instance. Islands
+and safer. Form submissions are the one runtime endpoint and live on the Miralo instance. Islands
 cover interactivity. Dynamic per-request rendering is out of scope.
 
 ## D005. Sites are git repositories
@@ -42,7 +42,7 @@ cover interactivity. Dynamic per-request rendering is out of scope.
 **Alternatives.** Document rows in a database with a homegrown history table.
 
 **Why.** Versioning, branches, proposals, previews and rollback come for free and are already
-trusted. Agent proposals become branches. Leaving Freeflow is a clone. The database holds
+trusted. Agent proposals become branches. Leaving Miralo is a clone. The database holds
 accounts, CMS content and form submissions; the design document lives in git. CMS content is
 also exported to the repository on publish so the repository is always a complete site.
 
@@ -149,11 +149,11 @@ security ourselves. A setup token prevents the first visitor from claiming an un
 
 Supersedes D009.
 
-**Alternatives.** Freeflow calls a model with the instance's key (bring your own key, Ollama).
+**Alternatives.** Miralo calls a model with the instance's key (bring your own key, Ollama).
 Agent work lands as proposals reviewed in a diff.
 
 **Why.** Everyone already pays for Claude, ChatGPT or an AI editor, and those apps speak MCP.
-Freeflow therefore never calls a model and never holds a key: the editor's Connect your AI
+Miralo therefore never calls a model and never holds a key: the editor's Connect your AI
 button registers a per-site MCP endpoint in the user's app, protected by OAuth issued by the
 same server. Agent batches stream into the open editor and land on the canvas as they happen,
 which is the review; the designer's own draft is never overwritten and their undo history stays

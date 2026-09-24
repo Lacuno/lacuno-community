@@ -1,4 +1,4 @@
-import { color, designToken, fn, kw, list, px, rem } from '@freeflow/schema'
+import { color, designToken, fn, kw, list, px, rem } from '@miralo/schema'
 import type { Operation } from '../src/operations/index.js'
 
 const text = (s: string) => ({

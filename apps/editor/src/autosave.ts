@@ -1,4 +1,4 @@
-import type { Operation } from '@freeflow/document'
+import type { Operation } from '@miralo/document'
 
 export type AutosaveState = {
   operations: Operation[]

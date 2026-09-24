@@ -1,4 +1,4 @@
-import type { CssValue, Document, Node, State } from '@freeflow/schema'
+import type { CssValue, Document, Node, State } from '@miralo/schema'
 import { highlightClass } from './ClassManager.js'
 import { sourceLabel, sourceTarget, styleSource } from './presets.js'
 import type { StyleControls } from './styleField.js'

@@ -1,4 +1,4 @@
-import type { State } from '@freeflow/schema'
+import type { State } from '@miralo/schema'
 import { editingBreakpoint } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { ComponentInstancePanel } from './ComponentsPanel.js'

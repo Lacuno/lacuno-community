@@ -1,5 +1,5 @@
-import { DocumentStore, type Operation } from '@freeflow/document'
-import { fixtureDocument, styleKey } from '@freeflow/schema'
+import { DocumentStore, type Operation } from '@miralo/document'
+import { fixtureDocument, styleKey } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import { colorLabel, colorPreview, colorTokenName, defaultMode, pickerHex } from '../src/colors.js'
 import { commit } from './helpers.js'

@@ -6,8 +6,8 @@ import { promisify } from 'node:util'
 
 const exec = promisify(execFile)
 const docker = async (...args) => (await exec('docker', args)).stdout.trim()
-const image = process.argv[2] ?? 'freeflow-community:local'
-const name = `freeflow-smoke-${randomUUID()}`
+const image = process.argv[2] ?? 'miralo-community:local'
+const name = `miralo-smoke-${randomUUID()}`
 const volume = `${name}-data`
 const restoredVolume = `${name}-restored`
 const secret = randomBytes(32).toString('hex')
@@ -53,9 +53,9 @@ try {
       '--env',
       `BETTER_AUTH_URL=${origin}`,
       '--env',
-      'FREEFLOW_PUBLISH_BASE_URL=http://localhost:3001',
+      'MIRALO_PUBLISH_BASE_URL=http://localhost:3001',
       '--env',
-      'FREEFLOW_ALLOW_SIGNUP=false',
+      'MIRALO_ALLOW_SIGNUP=false',
       image,
     )
   await launch(volume)
@@ -191,7 +191,7 @@ try {
       response.on('end', () => {
         try {
           assert(response.statusCode === 200, 'Published page is unavailable')
-          assert(response.headers['x-freeflow-release'] === releaseId, 'Wrong live release')
+          assert(response.headers['x-miralo-release'] === releaseId, 'Wrong live release')
           assert(html.includes('Your website. Your rules.'), 'Published page content is missing')
           resolve()
         } catch (error) {

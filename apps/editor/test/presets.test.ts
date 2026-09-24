@@ -1,5 +1,5 @@
-import { DocumentStore } from '@freeflow/document'
-import { fixtureDocument, styleKey } from '@freeflow/schema'
+import { DocumentStore } from '@miralo/document'
+import { fixtureDocument, styleKey } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import { formattingOperations } from '../src/formatting.js'
 import {

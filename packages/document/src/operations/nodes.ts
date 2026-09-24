@@ -1,4 +1,4 @@
-import type { Document, Node, NodeId } from '@freeflow/schema'
+import type { Document, Node, NodeId } from '@miralo/schema'
 import {
   Binding,
   ClassId,
@@ -10,7 +10,7 @@ import {
   RichText,
   Semantic,
   Tag,
-} from '@freeflow/schema'
+} from '@miralo/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'

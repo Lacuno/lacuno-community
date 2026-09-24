@@ -1,6 +1,6 @@
-import type { Operation } from '@freeflow/document'
-import { instancesOfComponent, subtreeIds } from '@freeflow/document/references'
-import type { Binding, Component, Document, Node } from '@freeflow/schema'
+import type { Operation } from '@miralo/document'
+import { instancesOfComponent, subtreeIds } from '@miralo/document/references'
+import type { Binding, Component, Document, Node } from '@miralo/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import {
   copySubtree,

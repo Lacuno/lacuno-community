@@ -1,4 +1,4 @@
-import { color, designToken, fixtureDocument, px } from '@freeflow/schema'
+import { color, designToken, fixtureDocument, px } from '@miralo/schema'
 import { describe, expect, it } from 'vitest'
 import { planBatch } from '../src/engine.js'
 import { OperationError } from '../src/errors.js'

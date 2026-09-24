@@ -11,7 +11,7 @@ it('names where each style field gets its value', async () => {
   const tab = (name: string) => page.getByRole('button', { name, exact: true }).click()
 
   // The hero heading inherits its font from the page root's site class, through a token.
-  const heading = canvas.locator('[data-freeflow-node="n-home-title"]')
+  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
   await heading.waitFor()
   await heading.click()
   await expect.poll(() => source('font-family')).toBe('body · inherited')
@@ -27,7 +27,7 @@ it('names where each style field gets its value', async () => {
   await saved()
 
   // The CTA's padding comes from the shared button class until it is set here.
-  const cta = canvas.locator('[data-freeflow-node="n-home-cta"]')
+  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
   await cta.click()
   await tab('Layout')
   await expect.poll(() => source('padding-top')).toMatch(/^[\d.]+px · class button$/)

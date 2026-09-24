@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { type Document, DocumentError, fixtureDocument } from '@freeflow/schema'
+import { type Document, DocumentError, fixtureDocument } from '@miralo/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { OperationError, StaleRevisionError } from '../src/errors.js'
 import { createFolder, openFolder } from '../src/folder.js'
@@ -12,7 +12,7 @@ import { type Batch, DocumentStore } from '../src/store.js'
 
 const dirs: string[] = []
 async function tmp(): Promise<string> {
-  const d = await mkdtemp(path.join(os.tmpdir(), 'freeflow-store-'))
+  const d = await mkdtemp(path.join(os.tmpdir(), 'miralo-store-'))
   dirs.push(d)
   return d
 }
@@ -192,15 +192,15 @@ describe('DocumentStore on a folder', () => {
   it('creates, persists deterministically, reopens, and imports assets', async () => {
     const dir = await tmp()
     const store = await createFolder(dir, 'Site')
-    expect(existsSync(path.join(dir, 'freeflow.json'))).toBe(true)
+    expect(existsSync(path.join(dir, 'miralo.json'))).toBe(true)
     await store.apply({
       expectedRevision: 0,
       operations: [{ type: 'site.update', name: 'Renamed' }],
     })
-    const text = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
+    const text = await readFile(path.join(dir, 'miralo.json'), 'utf8')
     expect(text).toContain('"name": "Renamed"')
     expect(text).toContain('"revision": 1')
-    expect(await readdir(dir)).toEqual(['freeflow.json'])
+    expect(await readdir(dir)).toEqual(['miralo.json'])
 
     const asset = await store.importAsset({
       name: 'note.txt',
@@ -220,7 +220,7 @@ describe('DocumentStore on a folder', () => {
   it('refuses a missing or invalid document', async () => {
     const dir = await tmp()
     await expect(openFolder(dir)).rejects.toBeInstanceOf(DocumentError)
-    await writeFile(path.join(dir, 'freeflow.json'), '{')
+    await writeFile(path.join(dir, 'miralo.json'), '{')
     await expect(openFolder(dir)).rejects.toBeInstanceOf(DocumentError)
   })
 
@@ -232,9 +232,9 @@ describe('DocumentStore on a folder', () => {
   it('refuses to create over a folder that already holds a document', async () => {
     const dir = await tmp()
     await createFolder(dir, 'Site')
-    const before = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
+    const before = await readFile(path.join(dir, 'miralo.json'), 'utf8')
     await expect(createFolder(dir, 'Other')).rejects.toBeInstanceOf(DocumentError)
-    const after = await readFile(path.join(dir, 'freeflow.json'), 'utf8')
+    const after = await readFile(path.join(dir, 'miralo.json'), 'utf8')
     expect(after).toBe(before)
   })
 })

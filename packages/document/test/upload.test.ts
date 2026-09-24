@@ -1,4 +1,4 @@
-import { fixtureDocument, hashAsset } from '@freeflow/schema'
+import { fixtureDocument, hashAsset } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import { MemoryPersistence } from '../src/persistence.js'
 import { stageUpload } from '../src/upload.js'

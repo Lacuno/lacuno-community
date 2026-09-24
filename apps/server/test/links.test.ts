@@ -3,7 +3,7 @@ import { editor } from './harness.js'
 
 it('inserts a button, points it at a page and follows the page through a path change', async () => {
   const { server, page, canvas, publish, saved } = await editor()
-  await canvas.locator('[data-freeflow-node="n-home-cta"]').waitFor()
+  await canvas.locator('[data-miralo-node="n-home-cta"]').waitFor()
 
   // A button from the palette is an `a` pointing at the page it was added to.
   await page.getByRole('button', { name: 'Add', exact: true }).click()

@@ -4,7 +4,7 @@ import {
   safeLinkHref,
   safeTextStyleValue,
   textStyleProperties,
-} from '@freeflow/schema'
+} from '@miralo/schema'
 import { escapeAttr, escapeHtml, type OnWarn } from './html.js'
 
 type PmNode = {

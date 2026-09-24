@@ -4,7 +4,7 @@ Ordinary self-hosting uses local-owner setup and needs none of this configuratio
 explicit integration for operators whose trusted reverse proxy authenticates users and authorizes
 every request. It does not add managed domains, billing or a hosted control plane to Community.
 
-Set both `FREEFLOW_GATEWAY_ISSUER` (the gateway's exact origin) and `FREEFLOW_GATEWAY_SECRET` (at least
+Set both `MIRALO_GATEWAY_ISSUER` (the gateway's exact origin) and `MIRALO_GATEWAY_SECRET` (at least
 32 characters of independently generated secret material), with `BETTER_AUTH_URL` set to the exact
 public editor origin. Keep the runtime private behind the proxy and use HTTPS outside local development.
 The gateway and runtime must agree on that origin as the assertion audience.
@@ -17,7 +17,7 @@ instances require a separately designed migration; no automatic conversion or da
 
 ## Request protocol (version 1)
 
-For every request, the proxy strips browser cookies and any supplied `X-Freeflow-Assertion`, then
+For every request, the proxy strips browser cookies and any supplied `X-Miralo-Assertion`, then
 sets that header to an HS256 JWT signed using the UTF-8 gateway secret. Required claims:
 
 | Claim | Value |

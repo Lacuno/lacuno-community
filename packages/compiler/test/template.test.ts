@@ -2,20 +2,20 @@ import { cp, mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseDocument } from '@freeflow/schema'
+import { parseDocument } from '@miralo/schema'
 import { expect, it } from 'vitest'
 import { build } from '../src/build.js'
 import { enumerateRoutes } from '../src/routes.js'
 
-it.skipIf(Boolean(process.env.FREEFLOW_FAST_TESTS))(
+it.skipIf(Boolean(process.env.MIRALO_FAST_TESTS))(
   'builds the copied default template',
   async () => {
-    const source = fileURLToPath(new URL('../../../templates/freeflow/', import.meta.url))
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-template-'))
+    const source = fileURLToPath(new URL('../../../templates/miralo/', import.meta.url))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-template-'))
     try {
-      await cp(path.join(source, 'freeflow.json'), path.join(dir, 'freeflow.json'))
+      await cp(path.join(source, 'miralo.json'), path.join(dir, 'miralo.json'))
       await cp(path.join(source, 'assets'), path.join(dir, 'assets'), { recursive: true })
-      const doc = parseDocument(JSON.parse(await readFile(path.join(dir, 'freeflow.json'), 'utf8')))
+      const doc = parseDocument(JSON.parse(await readFile(path.join(dir, 'miralo.json'), 'utf8')))
       const routes = enumerateRoutes(doc).map((route) => route.path)
       expect(routes).toEqual([
         '/',

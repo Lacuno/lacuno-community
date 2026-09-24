@@ -1,5 +1,5 @@
-import type { Document } from '@freeflow/schema'
-import { designTokenCssName } from '@freeflow/schema'
+import type { Document } from '@miralo/schema'
+import { designTokenCssName } from '@miralo/schema'
 import { parseRgb, rgbHex } from './colorWheel.js'
 
 export const colorProperties = new Set(['color', 'background-color', 'border-color'])

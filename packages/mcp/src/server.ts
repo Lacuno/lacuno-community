@@ -1,14 +1,14 @@
 import { readFile, realpath } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
-import { build } from '@freeflow/compiler/build'
+import { build } from '@miralo/compiler/build'
 import {
   type ApplyResult,
   applyPatches,
   type Batch,
   type DocumentStore,
   type Operation,
-} from '@freeflow/document'
-import { Document, type Node, parseDocument } from '@freeflow/schema'
+} from '@miralo/document'
+import { Document, type Node, parseDocument } from '@miralo/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { diffDocuments, formatDiff } from './diff.js'
@@ -55,13 +55,13 @@ async function insideSite(siteDir: string | undefined, file: string): Promise<st
 }
 
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
-  const server = new McpServer({ name: 'freeflow', version: '0.0.0' })
+  const server = new McpServer({ name: 'miralo', version: '0.0.0' })
   let buildQueue: Promise<unknown> = Promise.resolve()
 
   server.registerTool(
     'guide',
     {
-      description: `How the Freeflow document works and the operation catalog. Groups: ${operationGroups().join(', ')}.`,
+      description: `How the Miralo document works and the operation catalog. Groups: ${operationGroups().join(', ')}.`,
       inputSchema: { group: z.string().optional() },
     },
     async ({ group }) => {
@@ -111,7 +111,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'document.diff',
     {
       description:
-        'Summary of what operations would change (dry run) or of what changed since the freeflow.json at path against, inside the site folder. json: structured output.',
+        'Summary of what operations would change (dry run) or of what changed since the miralo.json at path against, inside the site folder. json: structured output.',
       inputSchema: {
         operations: z.array(z.looseObject({ type: z.string() })).optional(),
         against: z.string().optional(),
@@ -403,7 +403,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
 
   server.registerResource(
     'document-schema',
-    'freeflow://schema/document',
+    'miralo://schema/document',
     { description: 'JSON Schema of the site document', mimeType: 'application/json' },
     async (uri) => ({
       contents: [
@@ -417,7 +417,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   )
   server.registerResource(
     'operations-schema',
-    'freeflow://schema/operations',
+    'miralo://schema/operations',
     { description: 'JSON Schema of document.apply operations', mimeType: 'application/json' },
     async (uri) => ({
       contents: [

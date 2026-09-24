@@ -5,7 +5,7 @@ it('uploads a font in site settings, picks it in the Font control and publishes 
   const { server, page, canvas, document, publish, saved } = await editor()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  const heading = canvas.locator('[data-freeflow-node="n-home-title"]')
+  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
   await heading.waitFor()
 
   // A stub WOFF2: the server types it by its signature; browsers cannot parse it, so the

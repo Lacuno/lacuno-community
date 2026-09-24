@@ -1,4 +1,4 @@
-import type { CssValue } from '@freeflow/schema'
+import type { CssValue } from '@miralo/schema'
 import {
   BASE_BREAKPOINT_ID,
   BreakpointId,
@@ -7,7 +7,7 @@ import {
   State,
   StyleDecl,
   styleKey,
-} from '@freeflow/schema'
+} from '@miralo/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'

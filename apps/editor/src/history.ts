@@ -1,4 +1,4 @@
-import type { Patch } from '@freeflow/document/patch'
+import type { Patch } from '@miralo/document/patch'
 
 /** One saved batch, as the patches that reverse it and the patches that replay it. */
 export type HistoryEntry = { undo: Patch[]; redo: Patch[] }

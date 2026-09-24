@@ -1,8 +1,8 @@
 import { parseArgs } from 'node:util'
-import { describeError, serveStdio } from '@freeflow/mcp'
+import { describeError, serveStdio } from '@miralo/mcp'
 import type { Io } from './build.js'
 
-export const MCP_USAGE = 'Usage: freeflow mcp [dir]'
+export const MCP_USAGE = 'Usage: miralo mcp [dir]'
 
 export function parseMcpArgs(args: string[]): { dir: string } {
   const parsed = parseArgs({ args, options: {}, allowPositionals: true })

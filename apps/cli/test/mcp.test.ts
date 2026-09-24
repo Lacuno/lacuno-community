@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { createFolder } from '@freeflow/document/folder'
+import { createFolder } from '@miralo/document/folder'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -14,9 +14,9 @@ afterEach(async () => {
   for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true })
 })
 
-describe('freeflow mcp', () => {
+describe('miralo mcp', () => {
   it('exits cleanly when its client closes stdin', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-eof-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-eof-'))
     dirs.push(dir)
     await createFolder(dir, 'EOF')
     const child = spawn(process.execPath, ['--import', 'tsx', 'apps/cli/src/main.ts', 'mcp', dir], {
@@ -40,7 +40,7 @@ describe('freeflow mcp', () => {
   })
 
   it('serves MCP over stdio', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-cli-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-cli-'))
     dirs.push(dir)
     await createFolder(dir, 'Site')
     const root = path.resolve(import.meta.dirname, '../../..')

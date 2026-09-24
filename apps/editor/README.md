@@ -1,4 +1,4 @@
-# Freeflow editor
+# Miralo editor
 
 The first visual editing milestone: sign in, create a site, open a page, select an element, edit its
 plain text or class styles, and save. Reloading retrieves the persisted document from the server.
@@ -17,9 +17,9 @@ Registration closes automatically after setup. Existing users sign in as usual. 
 from the default template. `pnpm dev` builds the editor and starts the
 server at the same origin, so sessions and API requests require no development CORS exception.
 
-For frontend development, run `pnpm --filter @freeflow/editor dev` in a second terminal. It watches
+For frontend development, run `pnpm --filter @miralo/editor dev` in a second terminal. It watches
 and rebuilds the editor; refresh the browser to see changes. The server's watcher handles backend
-changes. Production builds use `pnpm build`, followed by `pnpm --filter @freeflow/server start`.
+changes. Production builds use `pnpm build`, followed by `pnpm --filter @miralo/server start`.
 
 ## Editing
 
@@ -175,7 +175,7 @@ on the canvas so its formatting is preserved.
 
 ## Canvas rendering
 
-`@freeflow/renderer` calls the compiler's pure HTML renderer and the existing CSS generator.
+`@miralo/renderer` calls the compiler's pure HTML renderer and the existing CSS generator.
 Canvas-only node attributes support selection; they are absent from published output. Assets use
 authenticated site URLs and their original bytes, while published builds still use Astro image
 optimization. Component definitions and collection lists use the same rendering logic in both paths.
@@ -211,7 +211,7 @@ Acme?", and the header shows "Claude Code connected" once its first session open
 every approved app with Disconnect, and an activity list of the last fifty batches by you and by
 the apps. Agent batches stream into the open editor and land on the canvas without a reload: the
 touched elements flash, your pending edits are never overwritten, and your undo history stays
-yours. Freeflow never calls a model itself.
+yours. Miralo never calls a model itself.
 
 ## Try build
 
@@ -220,16 +220,16 @@ The build also writes `try.html`, `try-worker.js` and the default template's ass
 and then starts the same editor on the site `try`. The worker answers the editor's API in the
 browser: the site starts as the default template and is kept in IndexedDB, previews and uploads
 use the server's own helpers, and publishing and Connect your AI show a **Sign up** link to
-`/signup` instead. Freeflow Cloud serves these files on its try host; the Community server does
+`/signup` instead. Miralo Cloud serves these files on its try host; the Community server does
 not serve them.
 
 ## Verification
 
 ```sh
-pnpm --filter @freeflow/renderer test
-pnpm --filter @freeflow/server test
-pnpm --filter @freeflow/editor typecheck
-pnpm --filter @freeflow/editor test
+pnpm --filter @miralo/renderer test
+pnpm --filter @miralo/server test
+pnpm --filter @miralo/editor typecheck
+pnpm --filter @miralo/editor test
 ```
 
 Renderer tests compare all fixture and default-template pages and entries with compiler markup and

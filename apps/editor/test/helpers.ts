@@ -1,4 +1,4 @@
-import { type DocumentStore, invertPatches, type Operation } from '@freeflow/document'
+import { type DocumentStore, invertPatches, type Operation } from '@miralo/document'
 import type { HistoryEntry } from '../src/history.js'
 
 /** Saves one batch the way the editor does and keeps the patches that undo and redo it. */

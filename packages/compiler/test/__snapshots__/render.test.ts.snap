@@ -16,7 +16,7 @@ exports[`render > renders the fixture home page 1`] = `
 <meta property="og:description" content="A fixture site.">
 <meta name="twitter:card" content="summary">
 </head>
-<body><main class="page"><section class="container hero"><div><h1 class="heading ff-l-hero-title">Design it. Publish it. Own it.</h1><img alt="A blue rectangle standing in for a hero image" decoding="async" height="800" loading="eager" sizes="100vw" src="/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.png" width="1200"><a class="button primary" data-freeflow-motion="" href="/blog">Read the blog</a></div></section><div class="container post-grid"><article class="card"><h3>Third post</h3></article><article class="card"><h3>Second post</h3></article><article class="card"><h3>Hello world</h3></article></div></main></body>
+<body><main class="page"><section class="container hero"><div><h1 class="heading mi-l-hero-title">Design it. Publish it. Own it.</h1><img alt="A blue rectangle standing in for a hero image" decoding="async" height="800" loading="eager" sizes="100vw" src="/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.png" width="1200"><a class="button primary" data-miralo-motion="" href="/blog">Read the blog</a></div></section><div class="container post-grid"><article class="card"><h3>Third post</h3></article><article class="card"><h3>Second post</h3></article><article class="card"><h3>Hello world</h3></article></div></main></body>
 </html>
 "
 `;
