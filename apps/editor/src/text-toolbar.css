@@ -1,7 +1,6 @@
 .text-toolbar {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 8px;
   padding: 0 16px;
 }

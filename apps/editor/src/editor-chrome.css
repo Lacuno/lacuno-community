@@ -919,8 +919,9 @@ button.source:hover {
 .ribbon-body {
   display: flex;
   align-items: stretch;
-  /* Tall enough for the text toolbar with its source lines, so selecting text keeps the height. */
-  min-height: 119px;
+  /* One height for every tab and state, so the canvas never moves: the Layout tab's two rows of
+     fields with their source lines. Wider content scrolls sideways. */
+  height: 183px;
   overflow-x: auto;
   padding: 12px 24px;
   gap: 20px;
