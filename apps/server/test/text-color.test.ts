@@ -122,3 +122,61 @@ it('keeps range colours and the words when the whole text changes', async () => 
   expect(await heading.textContent()).toBe(text)
   expect(JSON.stringify((await document()).nodes['n-home-title'])).toContain('#cc2244')
 }, 60000)
+
+it('starts the wheel on the selected words and saves project colours while editing text', async () => {
+  const { page, canvas, document } = await editor()
+  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  const text = (await heading.textContent())!
+  const [, first, , last] = text.split(' ') as [string, string, string, string]
+  await heading.dblclick()
+  const editable = canvas.getByLabel('Canvas text editor')
+  await editable.waitFor()
+  await editable.evaluate(select, first)
+  await page.getByLabel('Text color', { exact: true }).fill('#cc2244')
+  const tokenNamed = async (name: string) =>
+    Object.values((await document()).designTokens).find((token) => token.name === name)
+
+  // The text wheel opens on the selected words' colour, not the element's.
+  await canvas.getByRole('button', { name: /^Text color: / }).click()
+  await expect.poll(() => canvas.locator('.color-name').textContent()).toBe('#cc2244')
+
+  // Saving it as a project colour with other words selected colours those words.
+  await editable.evaluate(select, last)
+  await canvas.getByLabel('Project color name').fill('Berry')
+  await canvas.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect.poll(() => tokenNamed('color.berry')).toBeTruthy()
+  await expect.poll(() => colorOf(canvas, last)).toBe('rgb(204, 34, 68)')
+
+  // With only a caret, the element binds to the new project colour, saved with the text on Done.
+  await editable.click()
+  await canvas.getByRole('button', { name: /^Text color: / }).click()
+  await canvas.locator('.saturation').evaluate((input: HTMLInputElement) => {
+    input.value = '100'
+    input.dispatchEvent(new Event('input'))
+  })
+  const wine = (await canvas.locator('.color-name').textContent())!
+  const wineRgb = await canvas
+    .locator('.readout i')
+    .evaluate((dot) => getComputedStyle(dot).backgroundColor)
+  await canvas.getByLabel('Project color name').fill('Wine')
+  await canvas.getByLabel('Project color name').press('Enter')
+  await expect.poll(() => tokenNamed('color.wine')).toBeTruthy()
+  expect(await heading.evaluate((el) => getComputedStyle(el).color)).toBe(wineRgb)
+  const token = (await tokenNamed('color.wine'))!
+  expect(token.values).toMatchObject({ light: { value: wine } })
+  expect((await tokenNamed('color.berry'))?.values).toMatchObject({ light: { value: '#cc2244' } })
+  await page.getByRole('button', { name: 'Done editing text', exact: true }).click()
+  const bound = async () => {
+    const saves = await document()
+    return Object.values(saves.styles).some(
+      (style) =>
+        saves.nodes['n-home-title']!.classes.includes(style.class) &&
+        style.property === 'color' &&
+        JSON.stringify(style.value) === JSON.stringify({ type: 'designToken', ref: token.id }),
+    )
+  }
+  await expect.poll(bound).toBe(true)
+  expect(JSON.stringify((await document()).nodes['n-home-title'])).toContain('#cc2244')
+  expect(await heading.textContent()).toBe(text)
+  await expect.poll(() => heading.evaluate((el) => getComputedStyle(el).color)).toBe(wineRgb)
+}, 60000)

@@ -1,4 +1,5 @@
 import { type CssValue, kw, num, px, type State } from '@miralo/schema'
+import type { TiptapEditorHTMLElement } from '@tiptap/core'
 import {
   type Hsl,
   nearestSwatch,
@@ -154,7 +155,7 @@ export function selectionOverlay(
     <div class="readout"><i></i><span class="color-name"></span></div>
     <label class="swatches-label">Project colors</label>
     <div class="swatches" role="listbox" aria-label="Project colors"></div>
-    <form class="save"><input type="text" placeholder="Save as project color…" aria-label="Project color name" maxlength="40"><button type="submit" disabled>Save</button></form>
+    <div class="save"><input type="text" placeholder="Save as project color…" aria-label="Project color name" maxlength="40"><button type="button" disabled>Save</button></div>
   </div>
   <div class="handles" hidden>${SIDES.flatMap((side) =>
     ['padding', 'margin'].map(
@@ -189,9 +190,9 @@ export function selectionOverlay(
   const readoutName = shadow.querySelector<HTMLElement>('.color-name')!
   const swatchList = shadow.querySelector<HTMLElement>('.swatches')!
   const swatchLabel = shadow.querySelector<HTMLElement>('.swatches-label')!
-  const saveForm = shadow.querySelector<HTMLFormElement>('.save')!
-  const saveName = saveForm.querySelector<HTMLInputElement>('input')!
-  const saveButton = saveForm.querySelector<HTMLButtonElement>('button')!
+  const saveRow = shadow.querySelector<HTMLElement>('.save')!
+  const saveName = saveRow.querySelector<HTMLInputElement>('input')!
+  const saveButton = saveRow.querySelector<HTMLButtonElement>('button')!
   const handlesLayer = shadow.querySelector<HTMLElement>('.handles')!
   const handles = shadow.querySelectorAll<HTMLElement>('.handle')
   const strips = shadow.querySelectorAll<HTMLElement>('.strip')
@@ -299,8 +300,16 @@ export function selectionOverlay(
     setState(item.dataset.state as State)
   })
 
-  const currentColor = () =>
-    element ? view.getComputedStyle(element).getPropertyValue(property) : ''
+  // Words selected in the text being edited start the text wheel from their own colour. The
+  // editor's selection, not the page's: it survives formatting from the toolbar.
+  const currentColor = () => {
+    const text = element?.querySelector<TiptapEditorHTMLElement>('.tiptap')?.editor?.view
+    const from =
+      property === 'color' && text && !text.state.selection.empty
+        ? text.domAtPos(text.state.selection.from + 1).node.parentElement
+        : element
+    return from ? view.getComputedStyle(from).getPropertyValue(property) : ''
+  }
   const edit = (phase: 'drag' | 'commit') =>
     onStyle({
       property,
@@ -361,14 +370,18 @@ export function selectionOverlay(
   saveName.addEventListener('input', () => {
     saveButton.disabled = !!snapped || !saveName.value.trim()
   })
-  saveForm.addEventListener('submit', (event) => {
-    event.preventDefault()
+  // The sandboxed canvas never submits a form, so the button and Enter save directly.
+  const saveColor = () => {
     if (snapped || !saveName.value.trim()) return
     onStyle({
       property,
       token: { name: saveName.value.trim(), value: toHex(current) },
     })
     closeMenus()
+  }
+  saveButton.addEventListener('click', saveColor)
+  saveName.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') saveColor()
   })
 
   // Handles: drag an edge to set padding (inside) or margin (outside), or the border box's right,

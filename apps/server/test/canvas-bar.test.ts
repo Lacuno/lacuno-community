@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import { editor } from './harness.js'
 
 it('shows the state chip and colour wheel on the canvas selection bar', async () => {
-  const { context, page, canvas } = await editor()
+  const { context, page, canvas, document } = await editor()
   const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
@@ -62,4 +62,21 @@ it('shows the state chip and colour wheel on the canvas selection bar', async ()
   await canvas.getByRole('button', { name: /^State: / }).dispatchEvent('click')
   await canvas.getByRole('menuitemradio', { name: /^Hover/ }).click()
   await expect.poll(() => page.locator('.save-state').textContent()).toBe('All changes saved')
+  // A picked colour saves as a project colour that the element binds to.
+  await canvas.getByRole('button', { name: /^Background color: / }).click()
+  await mouse('mousePressed', 0.7, 0.3)
+  await mouse('mouseReleased', 0.7, 0.3, 0)
+  await canvas.getByLabel('Project color name').fill('Sky')
+  await canvas.getByRole('button', { name: 'Save', exact: true }).click()
+  const bound = async () => {
+    const saved = await document()
+    const token = Object.values(saved.designTokens).find((item) => item.name === 'color.sky')
+    return Object.values(saved.styles).some(
+      (style) =>
+        saved.nodes['n-home-cta']!.classes.includes(style.class) &&
+        style.property === 'background-color' &&
+        JSON.stringify(style.value) === JSON.stringify({ type: 'designToken', ref: token?.id }),
+    )
+  }
+  await expect.poll(bound).toBe(true)
 }, 60000)

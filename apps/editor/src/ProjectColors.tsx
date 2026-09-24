@@ -7,7 +7,7 @@ import type { LivePreview } from './Canvas.js'
 import {
   colorLabel,
   colorPreview,
-  colorTokenName,
+  colorToken,
   defaultMode,
   pickerHex,
   projectColors,
@@ -296,20 +296,8 @@ function ColorForm({
           return
         }
         try {
-          const id = `dt-${crypto.randomUUID()}`
-          const tokenName = colorTokenName(doc, name, family || undefined)
-          if (
-            await save([
-              {
-                type: 'designToken.create',
-                id,
-                name: tokenName,
-                group: 'color',
-                values: { [defaultMode(doc)]: { type: 'color', value: value.trim() } },
-              },
-            ])
-          )
-            created(id)
+          const create = colorToken(doc, name, value.trim(), family || undefined)
+          if (await save([create])) created(create.id)
         } catch (error) {
           setValidation((error as Error).message)
         }

@@ -1,3 +1,4 @@
+import type { Operation } from '@miralo/document'
 import type { Document } from '@miralo/schema'
 import { designTokenCssName } from '@miralo/schema'
 import { parseRgb, rgbHex } from './colorWheel.js'
@@ -28,6 +29,22 @@ export function colorTokenName(doc: Document, name: string, family?: string): st
   )
     throw new Error('A color with this name already exists.')
   return result
+}
+
+/** The operation that creates a project colour; its id is the new token's. */
+export function colorToken(
+  doc: Document,
+  name: string,
+  value: string,
+  family?: string,
+): Extract<Operation, { type: 'designToken.create' }> & { id: string } {
+  return {
+    type: 'designToken.create',
+    id: `dt-${crypto.randomUUID()}`,
+    name: colorTokenName(doc, name, family),
+    group: 'color',
+    values: { [defaultMode(doc)]: { type: 'color', value } },
+  }
 }
 
 /** Resolve aliases for swatches without copying them into saved styles. */

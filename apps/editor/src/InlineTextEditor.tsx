@@ -12,7 +12,7 @@ import { Editor, getSchema, type JSONContent, Mark } from '@tiptap/core'
 import { Color, FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useRef, useState } from 'react'
-import { colorPreview } from './colors.js'
+import { colorPreview, colorToken } from './colors.js'
 import type { StyleEdit } from './colorWheel.js'
 import { formattingOperations, normalizeFormatting } from './formatting.js'
 import { PresetManager } from './PresetManager.js'
@@ -267,9 +267,9 @@ export function InlineTextEditor({
     return { normalized, value, accepted }
   }
   /** An element style, previewed on the canvas and saved with the text. */
-  const block = (property: string, value: CssValue | null) => {
+  const block = (property: string, value: CssValue | null, preview: string) => {
     blockChanges.current[property] = value
-    target.element.style.setProperty(property, value ? serializeValue(value, context) : '')
+    target.element.style.setProperty(property, preview)
     dirtyChanged(true)
     redraw((count) => count + 1)
   }
@@ -291,7 +291,7 @@ export function InlineTextEditor({
     }
     setError('')
     if (property === 'text-align' || property === 'line-height') {
-      block(property, normalized ?? null)
+      block(property, normalized ?? null, value)
       return
     }
     const attribute = textStyleAttributes[property]
@@ -314,21 +314,35 @@ export function InlineTextEditor({
       })
   }
   // The canvas bar's text colour colours the selected words like the Color field; without a
-  // selection it, like the background, colours the element.
-  const canvasStyle = useRef((_: StyleEdit & { id: string }) => {})
-  canvasStyle.current = (edit) => {
-    if (edit.id !== target.node.id || !('value' in edit) || !editor || disabled) return
-    if (edit.property === 'color' && !editor.state.selection.empty)
-      change(
-        'color',
-        edit.value.type === 'designToken'
-          ? colorPreview(doc, edit.value.ref)
-          : serializeValue(edit.value, context),
-      )
-    else block(edit.property, edit.value)
+  // selection it, like the background, colours the element. Words take the plain colour: marks
+  // cannot hold a token.
+  const canvasStyle = useRef(async (_: StyleEdit & { id: string }) => {})
+  canvasStyle.current = async (edit) => {
+    if (edit.id !== target.node.id || 'changes' in edit || !editor || disabled) return
+    let value: CssValue
+    let color: string
+    if ('token' in edit) {
+      try {
+        const create = colorToken(doc, edit.token.name, edit.token.value)
+        // The project colour commits now, so the element can bind to it; the canvas previews the
+        // plain colour, since it only restyles when editing ends.
+        if (!(await save([create]))) return
+        value = { type: 'designToken', ref: create.id }
+      } catch (error) {
+        setError((error as Error).message)
+        return
+      }
+      color = edit.token.value
+    } else {
+      value = edit.value
+      color =
+        value.type === 'designToken' ? colorPreview(doc, value.ref) : serializeValue(value, context)
+    }
+    if (edit.property === 'color' && !editor.state.selection.empty) change('color', color)
+    else block(edit.property, value, color)
   }
   useEffect(() => {
-    const listen = (event: Event) => canvasStyle.current((event as CustomEvent).detail)
+    const listen = (event: Event) => void canvasStyle.current((event as CustomEvent).detail)
     window.addEventListener('miralo:canvas-style', listen)
     return () => window.removeEventListener('miralo:canvas-style', listen)
   }, [])

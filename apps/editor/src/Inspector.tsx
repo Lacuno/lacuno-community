@@ -8,7 +8,7 @@ import { breakpointMedia } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { ClassManager } from './ClassManager.js'
 import { CodeField, InfoButton } from './CodeField.js'
-import { colorTokenName, defaultMode } from './colors.js'
+import { colorToken } from './colors.js'
 import type { StyleEdit } from './colorWheel.js'
 import { ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
@@ -211,19 +211,13 @@ export function Inspector({
     setDragging('phase' in edit && edit.phase === 'drag')
     if ('token' in edit) {
       try {
-        const id = `dt-${crypto.randomUUID()}`
+        const create = colorToken(doc, edit.token.name, edit.token.value)
         void autoSave([
-          {
-            type: 'designToken.create',
-            id,
-            name: colorTokenName(doc, edit.token.name),
-            group: 'color',
-            values: { [defaultMode(doc)]: { type: 'color', value: edit.token.value } },
-          },
+          create,
           ...formattingOperations(
             doc,
             node,
-            { [edit.property]: { type: 'designToken', ref: id } },
+            { [edit.property]: { type: 'designToken', ref: create.id } },
             () => classId.current,
             breakpoint,
             state,
