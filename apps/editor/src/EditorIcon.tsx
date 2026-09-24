@@ -10,6 +10,8 @@ const paths = {
   row: 'M3 4h18v16H3zM9 4v16M15 4v16',
   stack: 'M4 3h16v18H4zM4 9h16M4 15h16',
   back: 'm14 6-6 6 6 6M8 12h12',
+  sparkle:
+    'M10 4l1.9 5.1L17 11l-5.1 1.9L10 18l-1.9-5.1L3 11l5.1-1.9zM18 2l.9 2.6 2.6.9-2.6.9L18 9l-.9-2.6-2.6-.9 2.6-.9z',
   page: 'M6 3h8l4 4v14H6zM14 3v5h4',
   layer: 'M4 6h16v12H4z',
   video: 'M3 4h18v16H3zM10 9v6l5-3z',

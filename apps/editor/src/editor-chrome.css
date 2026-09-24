@@ -1500,6 +1500,10 @@ button.source:hover {
   width: 15px;
   height: 15px;
 }
+.editor .connect-trigger .editor-icon {
+  width: 15px;
+  height: 15px;
+}
 .editor .page-link.active > .editor-icon {
   color: var(--accent);
 }
@@ -1930,7 +1934,10 @@ button.source:hover {
 
 /* Connect your AI: a strong secondary action until an app is connected, then a status. */
 .editor-header .connect-trigger {
-  padding: 7px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px 7px 10px;
   font-size: 12px;
   white-space: nowrap;
 }

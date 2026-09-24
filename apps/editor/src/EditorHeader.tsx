@@ -95,6 +95,7 @@ export function EditorHeader({
         data-state={connection.state}
         onClick={connect}
       >
+        <EditorIcon name="sparkle" />
         {connection.label}
       </button>
       <button
