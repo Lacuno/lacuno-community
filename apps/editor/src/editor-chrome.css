@@ -894,6 +894,8 @@
 .ribbon-controls {
   display: flex;
   align-items: stretch;
+  /* Shorter tabs sit on the ribbon's centre line; Layout fills it. */
+  align-self: center;
   flex: 0 0 auto;
   min-width: 0;
 }
