@@ -1,5 +1,5 @@
 import { readFile, realpath } from 'node:fs/promises'
-import { resolve, sep } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { build } from '@freeflow/compiler/build'
 import {
   type ApplyResult,
@@ -24,10 +24,12 @@ import {
 import { outlineLines } from './outline.js'
 import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
-import { pngSize, screenshot } from './screenshot.js'
+import { pngSize, type ReadAsset, screenshot } from './screenshot.js'
 
 export type ServerOptions = {
   siteDir?: string
+  /** Reads an asset's bytes for screenshots when they are not in `siteDir`. */
+  assets?: ReadAsset
   /** Called after each committed `document.apply` batch. */
   onApply?: (batch: Batch, result: ApplyResult) => void
   /** Publishes the draft to the testing target; replaces `site.build` with `site.publish`. */
@@ -313,11 +315,16 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
     async ({ page, entry, width = 1280, height, node }) => {
       try {
-        if (!options.siteDir) throw new InputError('this server has no site folder')
+        const { siteDir } = options
+        const readAsset =
+          options.assets ??
+          (siteDir &&
+            ((hash: string) => readFile(join(siteDir, 'assets', hash)).catch(() => undefined)))
+        if (!readAsset) throw new InputError('this server has no site folder')
         const d = store.read().document
         if (node !== undefined && !d.nodes[node]) throw new InputError(`unknown node ${node}`)
         const html = previewHtml(d, resolveRoute(d, page, entry), node !== undefined)
-        const png = await screenshot(d, options.siteDir, html, {
+        const png = await screenshot(d, readAsset, html, {
           width,
           ...(height !== undefined ? { height } : {}),
           ...(node !== undefined ? { node } : {}),

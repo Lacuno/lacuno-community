@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import os from 'node:os'
@@ -63,6 +63,28 @@ describe('page.screenshot', () => {
     )
     expect(node.width * node.height).toBeLessThan(page.width * page.height)
   })
+
+  it.skipIf(!chromium)(
+    'reads assets through the assets option when there is no site folder',
+    async () => {
+      const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-shot-'))
+      dirs.push(dir)
+      const doc = await writeFixtureSite(dir)
+      const read: string[] = []
+      const c = await connect(DocumentStore.inMemory(doc), {
+        assets: (hash) => {
+          read.push(hash)
+          return readFile(path.join(dir, 'assets', hash)).catch(() => undefined)
+        },
+      })
+      close = c.close
+      const page = png(
+        await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/', width: 800 } }),
+      )
+      expect(page.width).toBe(800)
+      expect(read).toContain(Object.values(doc.assets)[0]?.hash)
+    },
+  )
 
   it.skipIf(!chromium)('captures lazy images far below the fold', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'freeflow-mcp-shot-'))

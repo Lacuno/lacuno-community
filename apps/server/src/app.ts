@@ -321,7 +321,10 @@ export async function createServer(options: ServerOptions) {
     })
     const store = (id: string) =>
       DocumentStore.withPersistence(new SqlitePersistence(db, id, options.dataDir))
-    app.route('/mcp', mcpRoutes({ store, oauth, events: siteEvents, releases }))
+    app.route(
+      '/mcp',
+      mcpRoutes({ store, dataDir: options.dataDir, oauth, events: siteEvents, releases }),
+    )
     app.get('/api/sites/:id/connections', (c) => {
       const active = activeConnections(c.req.param('id'))
       return c.json(

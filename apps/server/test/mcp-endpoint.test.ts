@@ -172,6 +172,19 @@ describe('the remote MCP endpoint', () => {
     await client.close()
   })
 
+  it("screenshots a page from the site's stored assets", async () => {
+    const client = await connect()
+    const result = await client.callTool({
+      name: 'page.screenshot',
+      arguments: { page: '/', width: 600, height: 400 },
+    })
+    expect(result.isError).not.toBe(true)
+    const [image, size] = result.content as { type: string; mimeType?: string; text?: string }[]
+    expect(image).toMatchObject({ type: 'image', mimeType: 'image/png' })
+    expect(size?.text).toBe('600×400')
+    await client.close()
+  })
+
   it('lists the connection as active and revoking it closes the session', async () => {
     const client = await connect()
     const list = async () => (await request(`/api/sites/${siteId}/connections`)).json()

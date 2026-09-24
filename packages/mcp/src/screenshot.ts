@@ -1,22 +1,22 @@
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
 import { publicAssetPath } from '@freeflow/compiler'
 import type { Document } from '@freeflow/schema'
 import { InputError } from './errors.js'
 
 export type ScreenshotOptions = { width: number; height?: number; node?: string }
+/** The bytes of the asset stored under `hash`, or nothing when it is missing. */
+export type ReadAsset = (hash: string) => Promise<Buffer | undefined>
 
 const ORIGIN = 'http://preview.freeflow'
 
 /**
  * A PNG of `html` in headless Chromium. The page and its `/assets/*` requests are served from
- * memory and the site folder by request interception, so nothing is written to disk; every other
+ * memory and `readAsset` by request interception, so nothing is written to disk; every other
  * request is aborted, so embeds and custom code reach no third party. Without a
  * height the whole page is captured; with `node`, only that element, which needs annotated HTML.
  */
 export async function screenshot(
   doc: Document,
-  siteDir: string,
+  readAsset: ReadAsset,
   html: string,
   { width, height, node }: ScreenshotOptions,
 ): Promise<Buffer> {
@@ -42,8 +42,7 @@ export async function screenshot(
       const pathname = new URL(route.request().url()).pathname
       if (pathname === '/') return route.fulfill({ contentType: 'text/html', body: html })
       const asset = Object.values(doc.assets).find((a) => publicAssetPath(a) === pathname)
-      const body =
-        asset && (await readFile(path.join(siteDir, 'assets', asset.hash)).catch(() => undefined))
+      const body = asset && (await readAsset(asset.hash))
       return body
         ? route.fulfill({ contentType: asset.mime, body })
         : route.fulfill({ status: 404 })

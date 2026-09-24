@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import type { DocumentStore } from '@freeflow/document'
 import { createServer } from '@freeflow/mcp'
@@ -12,6 +14,7 @@ import type { Releases } from './releases.js'
 
 export type McpDeps = {
   store: (siteId: string) => Promise<DocumentStore>
+  dataDir: string
   oauth: OAuth
   events: typeof siteEvents
   /** Absent when publishing is not configured; `site.publish` is then not offered. */
@@ -112,6 +115,8 @@ export function mcpRoutes(deps: McpDeps): Hono {
         },
       })
       const server = createServer(live, {
+        assets: (hash) =>
+          readFile(path.join(deps.dataDir, 'sites', siteId, 'assets', hash)).catch(() => undefined),
         onApply: (batch, result) =>
           deps.events.emit(siteId, {
             revision: result.revision,
