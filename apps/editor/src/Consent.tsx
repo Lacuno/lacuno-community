@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Brand } from './App.js'
 import { api, message } from './api.js'
 
 /** The signed authorization request an AI app sent the user here with. */
@@ -38,31 +39,41 @@ export function Consent() {
   }
   return (
     <main className="loading">
-      {error ? (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      ) : !request ? (
-        <p>Loading…</p>
-      ) : (
-        <>
-          <h1>
-            {request.site
-              ? `Allow ${request.app} to edit ${request.site}?`
-              : `${request.app} asked for a site that is not in your workspace.`}
-          </h1>
-          <div className="row">
-            {request.site && (
-              <button type="button" className="primary" onClick={() => answer(true)}>
-                Allow
-              </button>
-            )}
-            <button type="button" onClick={() => answer(false)}>
+      <div className="consent">
+        <Brand />
+        {error ? (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        ) : !request ? (
+          <p className="muted">Loading…</p>
+        ) : request.site ? (
+          <>
+            <p className="eyebrow">CONNECT YOUR AI</p>
+            <h1>
+              Allow {request.app} to edit {request.site}?
+            </h1>
+            <p className="muted">
+              {request.app} will be able to read and change pages, styles and assets on this site
+              until you disconnect it.
+            </p>
+            <button type="button" className="primary" onClick={() => answer(true)}>
+              Allow <span aria-hidden="true">→</span>
+            </button>
+            <button type="button" className="text-button" onClick={() => answer(false)}>
               Deny
             </button>
-          </div>
-        </>
-      )}
+          </>
+        ) : (
+          <>
+            <p className="eyebrow">CONNECT YOUR AI</p>
+            <h1>{request.app} asked for a site that is not in your workspace.</h1>
+            <button type="button" onClick={() => answer(false)}>
+              Go back
+            </button>
+          </>
+        )}
+      </div>
     </main>
   )
 }
