@@ -53,6 +53,7 @@ it('whole-text edits remove only the corresponding overrides without mutating th
   })
   expect(JSON.stringify(updated)).not.toContain('fontSize')
   expect(node.text).toEqual(before)
+  expect(wholeText(node, ['color'])).toEqual(before)
   const linked = wholeText({ ...node, text: updated }, [], { pageId: null, href: '/about' })
   expect(JSON.stringify(linked)).not.toContain('p-home')
   expect(JSON.stringify(linked)).toContain('/about')

@@ -12,6 +12,8 @@ import { Editor, getSchema, type JSONContent, Mark } from '@tiptap/core'
 import { Color, FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useRef, useState } from 'react'
+import { colorPreview } from './colors.js'
+import type { StyleEdit } from './colorWheel.js'
 import { formattingOperations, normalizeFormatting } from './formatting.js'
 import { PresetManager } from './PresetManager.js'
 import { TextToolbar } from './TextToolbar.js'
@@ -215,23 +217,27 @@ export function InlineTextEditor({
   const context = contextFromDocument(doc)
   const hasSelection = !!editor && !editor.state.selection.empty
   const attrs = editor?.getAttributes('textStyle') ?? {}
-  const values = {
+  // The element's values, then the selected words' own marks over them.
+  const base = {
     ...baseline.current,
-    'font-family': attrs.fontFamily ?? baseline.current['font-family'] ?? '',
-    'font-size': attrs.fontSize ?? baseline.current['font-size'] ?? '',
-    color: attrs.color ?? baseline.current.color ?? '',
-    'font-weight': editor?.isActive('bold')
-      ? '700'
-      : (attrs.fontWeight ?? baseline.current['font-weight'] ?? ''),
-    'font-style': editor?.isActive('italic')
-      ? 'italic'
-      : (attrs.fontStyle ?? baseline.current['font-style'] ?? ''),
     ...Object.fromEntries(
       Object.entries(blockChanges.current).map(([property, value]) => [
         property,
         value ? serializeValue(value, context) : '',
       ]),
     ),
+  }
+  const values = {
+    ...base,
+    'font-family': attrs.fontFamily ?? base['font-family'] ?? '',
+    'font-size': attrs.fontSize ?? base['font-size'] ?? '',
+    color: attrs.color ?? base.color ?? '',
+    'font-weight': editor?.isActive('bold')
+      ? '700'
+      : (attrs.fontWeight ?? base['font-weight'] ?? ''),
+    'font-style': editor?.isActive('italic')
+      ? 'italic'
+      : (attrs.fontStyle ?? base['font-style'] ?? ''),
     ...drafts,
   }
   const act = (
@@ -260,6 +266,13 @@ export function InlineTextEditor({
           safeTextStyleValue(textStyleAttributes[property]!, value) !== undefined))
     return { normalized, value, accepted }
   }
+  /** An element style, previewed on the canvas and saved with the text. */
+  const block = (property: string, value: CssValue | null) => {
+    blockChanges.current[property] = value
+    target.element.style.setProperty(property, value ? serializeValue(value, context) : '')
+    dirtyChanged(true)
+    redraw((count) => count + 1)
+  }
   const change = (property: string, raw: string) => {
     const { normalized, value, accepted } = draftValue(property, raw)
     const nextDrafts = { ...drafts, [property]: raw }
@@ -278,9 +291,7 @@ export function InlineTextEditor({
     }
     setError('')
     if (property === 'text-align' || property === 'line-height') {
-      blockChanges.current[property] = normalized ?? null
-      target.element.style.setProperty(property, value)
-      dirtyChanged(true)
+      block(property, normalized ?? null)
       return
     }
     const attribute = textStyleAttributes[property]
@@ -302,6 +313,25 @@ export function InlineTextEditor({
         return next
       })
   }
+  // The canvas bar's text colour colours the selected words like the Color field; without a
+  // selection it, like the background, colours the element.
+  const canvasStyle = useRef((_: StyleEdit & { id: string }) => {})
+  canvasStyle.current = (edit) => {
+    if (edit.id !== target.node.id || !('value' in edit) || !editor || disabled) return
+    if (edit.property === 'color' && !editor.state.selection.empty)
+      change(
+        'color',
+        edit.value.type === 'designToken'
+          ? colorPreview(doc, edit.value.ref)
+          : serializeValue(edit.value, context),
+      )
+    else block(edit.property, edit.value)
+  }
+  useEffect(() => {
+    const listen = (event: Event) => canvasStyle.current((event as CustomEvent).detail)
+    window.addEventListener('miralo:canvas-style', listen)
+    return () => window.removeEventListener('miralo:canvas-style', listen)
+  }, [])
   return (
     <>
       <PresetManager

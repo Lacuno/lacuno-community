@@ -53,8 +53,9 @@ export function wholeText(
         if (properties.includes('font-style') && mark.type === 'italic') return false
         if (link !== undefined && mark.type === 'link') return false
         if (mark.type === 'textStyle') {
+          // A range keeps its own colour through a whole-text colour change.
           for (const property of properties)
-            if (mark.attrs && textStyleAttributes[property])
+            if (mark.attrs && property !== 'color' && textStyleAttributes[property])
               delete mark.attrs[textStyleAttributes[property]!]
           return Object.values(mark.attrs ?? {}).some((value) => value != null)
         }

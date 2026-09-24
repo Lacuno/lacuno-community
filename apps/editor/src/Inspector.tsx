@@ -108,7 +108,10 @@ export function Inspector({
     (isImage || isVideo) && (imageAlt !== originalAlt || imageAsset !== originalAsset)
   const [embedHtml, setEmbedHtml] = useState(node.type === 'embed' ? node.html : '')
   const originalText = editableText(node)
-  const [text, setText] = useState(originalText ?? '')
+  // A draft only once typed: the node may become plain text later, when a whole-text edit clears
+  // its last range mark.
+  const [draftText, setText] = useState<string>()
+  const text = draftText ?? originalText ?? ''
   const [changes, setChanges] = useState<Record<string, CssValue | null>>({})
   const [classDraft, setClassDraft] = useState(false)
   const [presetDraft, setPresetDraft] = useState(false)
