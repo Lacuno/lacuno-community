@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, message } from './api.js'
+import { ConnectIcon } from './ConnectIcon.js'
 import { type ConnectApp, connectApps } from './connectApps.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import type { SiteEvent } from './liveEvents.js'
@@ -60,6 +61,7 @@ export function ConnectPanel({
   close: () => void
 }) {
   const [config, setConfig] = useState<{ origin: string; local: boolean }>()
+  const [chosen, setChosen] = useState<ConnectApp>()
   // The app the designer started registering, and the connections that existed then.
   const [waiting, setWaiting] = useState<{ app: string; known: string[] }>()
   const [status, setStatus] = useState('')
@@ -117,57 +119,39 @@ export function ConnectPanel({
       {!config && !error && <p role="status">Loading…</p>}
       {config && (
         <>
-          <div className="publish-summary connect-url">
-            <div className="connect-address">
-              <strong>MCP URL</strong>
-              <code>{url}</code>
-            </div>
-            <button type="button" onClick={() => void copy(url, 'MCP URL copied.')}>
-              Copy MCP URL
-            </button>
-          </div>
           <p role="status" className="connect-status">
             {waiting && !arrived
               ? `Waiting for ${waiting.app}… Approve access when the app asks.`
               : status}
           </p>
-          <ul className="connect-apps">
-            {connectApps.map((app) => {
-              const disabled = app.needsPublicAddress && config.local
-              return (
-                <li key={app.id} className="connect-card" aria-disabled={disabled && !app.bridge}>
-                  <h3>{app.name}</h3>
-                  <p>{app.how}</p>
-                  {app.registration === 'command' && <code>{app.build(url)}</code>}
-                  {app.registration === 'link' ? (
-                    <a href={app.build(url)} onClick={() => start(app)}>
-                      {action.link}
-                    </a>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => start(app, app.build(url))}
-                    >
-                      {action[app.registration]}
-                    </button>
-                  )}
-                  {disabled && (
-                    <p className="hint">Needs a public address. Works on Freeflow Cloud.</p>
-                  )}
-                  <p className="hint">{app.fallback}</p>
-                  {app.bridge && (
-                    <>
-                      <pre>{app.bridge(url)}</pre>
-                      <button type="button" onClick={() => start(app, app.bridge?.(url))}>
-                        Copy bridge snippet
-                      </button>
-                    </>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
+          <div className="connect-picker">
+            {connectApps.map((app) => (
+              <button
+                type="button"
+                className="connect-app"
+                key={app.id}
+                aria-pressed={app === chosen}
+                onClick={() => setChosen(app === chosen ? undefined : app)}
+              >
+                <ConnectIcon name={app.icon} />
+                {app.name}
+              </button>
+            ))}
+          </div>
+          {chosen ? (
+            <ConnectSteps app={chosen} url={url} local={config.local} start={start} />
+          ) : (
+            <p className="hint connect-other">
+              Pick your app above. Any other MCP client takes the site's address: <code>{url}</code>
+              <button
+                type="button"
+                className="connect-copy"
+                onClick={() => void copy(url, 'MCP URL copied.')}
+              >
+                Copy MCP URL
+              </button>
+            </p>
+          )}
         </>
       )}
       <h3 className="connect-heading">Connections</h3>
@@ -218,5 +202,45 @@ export function ConnectPanel({
       </ol>
       <ErrorNote message={error} />
     </Dialog>
+  )
+}
+
+/** One app's instructions: what to do, the thing to copy or open, and what to try if it fails. */
+function ConnectSteps({
+  app,
+  url,
+  local,
+  start,
+}: {
+  app: ConnectApp
+  url: string
+  local: boolean
+  start: (app: ConnectApp, text?: string) => void
+}) {
+  const disabled = app.needsPublicAddress && local
+  return (
+    <div className="connect-card">
+      <p>{app.how}</p>
+      <code>{app.registration === 'link' ? url : app.build(url)}</code>
+      {app.registration === 'link' ? (
+        <a href={app.build(url)} onClick={() => start(app)}>
+          {action.link}
+        </a>
+      ) : (
+        <button type="button" disabled={disabled} onClick={() => start(app, app.build(url))}>
+          {action[app.registration]}
+        </button>
+      )}
+      {disabled && <p className="hint">Needs a public address. Works on Freeflow Cloud.</p>}
+      <p className="hint">{app.fallback}</p>
+      {app.bridge && (
+        <>
+          <pre>{app.bridge(url)}</pre>
+          <button type="button" onClick={() => start(app, app.bridge?.(url))}>
+            Copy bridge snippet
+          </button>
+        </>
+      )}
+    </div>
   )
 }

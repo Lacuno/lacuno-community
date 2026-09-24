@@ -27,28 +27,30 @@ it('connects an AI app from the header panel and disconnects it', async () => {
 
   await trigger.click()
   const panel = page.getByRole('dialog', { name: 'Connect your AI' })
+  // Nothing is chosen yet: the address is there for any other client, and no instructions show.
   await panel.getByText(`http://localhost:3000/mcp/${siteId}`, { exact: true }).waitFor()
-  const cards = panel.locator('.connect-card')
-  expect(await cards.count()).toBe(8)
-  const card = (name: string) =>
-    cards.filter({ has: page.getByRole('heading', { name, exact: true }) })
+  const apps = panel.locator('.connect-app')
+  expect(await apps.count()).toBe(8)
+  const card = panel.locator('.connect-card')
+  expect(await card.count()).toBe(0)
+  const choose = async (name: string) => {
+    await apps.filter({ hasText: name }).click()
+    await card.waitFor()
+  }
   for (const name of ['claude.ai', 'ChatGPT']) {
-    expect(await card(name).getByRole('button', { name: 'Copy URL' }).isDisabled()).toBe(true)
-    await card(name).getByText('Needs a public address. Works on Freeflow Cloud.').waitFor()
-    expect(await card(name).getAttribute('aria-disabled')).toBe('true')
+    await choose(name)
+    expect(await card.getByRole('button', { name: 'Copy URL' }).isDisabled()).toBe(true)
+    await card.getByText('Needs a public address. Works on Freeflow Cloud.').waitFor()
   }
   // Claude Desktop's connector runs from Anthropic's cloud; its local bridge works here.
-  const desktop = card('Claude Desktop')
-  expect(await desktop.getAttribute('aria-disabled')).toBe('false')
-  expect(await desktop.getByRole('button', { name: 'Copy URL' }).isDisabled()).toBe(true)
-  expect(await desktop.getByRole('button', { name: 'Copy bridge snippet' }).isDisabled()).toBe(
-    false,
-  )
-  expect(await card('Claude Code').getByRole('button', { name: 'Copy command' }).isDisabled()).toBe(
-    false,
-  )
+  await choose('Claude Desktop')
+  expect(await card.getByRole('button', { name: 'Copy URL' }).isDisabled()).toBe(true)
+  expect(await card.getByRole('button', { name: 'Copy bridge snippet' }).isDisabled()).toBe(false)
+  await choose('Claude Code')
+  expect(await card.count()).toBe(1)
+  expect(await card.getByRole('button', { name: 'Copy command' }).isDisabled()).toBe(false)
 
-  await card('Claude Code').getByRole('button', { name: 'Copy command' }).click()
+  await card.getByRole('button', { name: 'Copy command' }).click()
   await panel.getByText('Waiting for Claude Code…', { exact: false }).waitFor()
   connections = [
     { id: 'c1', app: 'Claude Code', approvedAt: Date.now(), lastActiveAt: null, active: true },

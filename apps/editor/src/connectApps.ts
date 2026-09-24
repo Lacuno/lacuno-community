@@ -1,9 +1,12 @@
 /** How an app takes the site's MCP URL: a link it opens, a terminal command or a pasted URL. */
 export type Registration = 'link' | 'command' | 'paste'
 
+import type { ConnectIconName } from './ConnectIcon.js'
+
 export type ConnectApp = {
   id: string
   name: string
+  icon: ConnectIconName
   /** One line on what to do with the action. */
   how: string
   registration: Registration
@@ -41,6 +44,7 @@ const pasted = (url: string) => url
 export const connectApps: ConnectApp[] = [
   {
     id: 'claude-code',
+    icon: 'claude',
     name: 'Claude Code',
     how: 'Run this command in your terminal.',
     registration: 'command',
@@ -50,6 +54,7 @@ export const connectApps: ConnectApp[] = [
   },
   {
     id: 'claude-ai',
+    icon: 'claude',
     name: 'claude.ai',
     how: 'In Customize → Connectors (claude.ai/customize/connectors), choose Add custom connector and paste the URL.',
     registration: 'paste',
@@ -59,6 +64,7 @@ export const connectApps: ConnectApp[] = [
   },
   {
     id: 'claude-desktop',
+    icon: 'claude',
     name: 'Claude Desktop',
     how: 'In Settings → Connectors, choose Add custom connector and paste the URL.',
     registration: 'paste',
@@ -69,6 +75,7 @@ export const connectApps: ConnectApp[] = [
   },
   {
     id: 'chatgpt',
+    icon: 'openai',
     name: 'ChatGPT',
     how: 'Turn on Settings → Security and login → Developer mode, then at chatgpt.com/plugins choose + and paste the URL.',
     registration: 'paste',
@@ -78,6 +85,7 @@ export const connectApps: ConnectApp[] = [
   },
   {
     id: 'cursor',
+    icon: 'cursor',
     name: 'Cursor',
     how: 'Open the link and confirm the install in Cursor.',
     registration: 'link',
@@ -87,6 +95,7 @@ export const connectApps: ConnectApp[] = [
   },
   {
     id: 'vscode',
+    icon: 'vscode',
     name: 'VS Code',
     how: 'Open the link and confirm the install in VS Code.',
     registration: 'link',
@@ -96,6 +105,7 @@ export const connectApps: ConnectApp[] = [
   },
   {
     id: 'codex',
+    icon: 'openai',
     name: 'Codex CLI',
     how: 'Run this command in your terminal.',
     registration: 'command',
@@ -105,6 +115,7 @@ export const connectApps: ConnectApp[] = [
   },
   {
     id: 'gemini',
+    icon: 'gemini',
     name: 'Gemini CLI',
     how: 'Run this command in your terminal.',
     registration: 'command',

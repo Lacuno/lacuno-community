@@ -1962,52 +1962,47 @@ button.source:hover {
 .editor-header .connect-trigger[data-state="active"]::before {
   background: #37a66b;
 }
-.connect-url code {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  word-break: break-all;
-}
-/* The URL takes the free width so the copy button keeps its one line. */
-.connect-address {
-  flex: 1;
-  min-width: 0;
-}
 .connect-status {
   min-height: 1em;
+  margin: 8px 0;
   color: var(--accent);
 }
-.connect-apps {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 24px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.connect-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.connect-dialog .connect-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 9px;
+}
+.connect-dialog .connect-app[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: #f5f2fc;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.connect-icon {
+  flex: none;
 }
 .connect-dialog .connect-card {
   display: grid;
-  align-content: start;
   justify-items: start;
-  gap: 8px;
-  padding: 14px;
+  gap: 10px;
+  padding: 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
-}
-.connect-dialog .connect-card[aria-disabled="true"] {
-  background: #f8f8fa;
-  color: #8a8d99;
 }
 .connect-dialog .connect-card > * {
   margin: 0;
 }
-.connect-dialog .connect-card h3 {
-  font-size: 14px;
-}
 .connect-dialog .connect-card code,
 .connect-dialog .connect-card pre {
-  font-size: 11px;
-  padding: 8px;
+  justify-self: stretch;
+  font-size: 12px;
+  padding: 10px;
   border-radius: 6px;
   background: #f5f2fc;
   word-break: break-all;
@@ -2025,6 +2020,14 @@ button.source:hover {
 .connect-dialog .connect-card > a:hover {
   border-color: #b8afde;
   background: #f8f6ff;
+}
+.connect-dialog .connect-other code {
+  word-break: break-all;
+}
+.connect-dialog .connect-other .connect-copy {
+  margin-left: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
 }
 .connect-heading {
   font-size: 14px;
