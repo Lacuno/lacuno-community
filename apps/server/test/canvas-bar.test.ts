@@ -61,7 +61,11 @@ it('shows the state chip and colour wheel on the canvas selection bar', async ()
   // The open wheel covers the chip here, so the click goes to the chip itself.
   await canvas.getByRole('button', { name: /^State: / }).dispatchEvent('click')
   await canvas.getByRole('menuitemradio', { name: /^Hover/ }).click()
-  await expect.poll(() => page.locator('.save-state').textContent()).toBe('All changes saved')
+  await expect.poll(() => canvas.getByRole('button', { name: 'State: Hover' }).count()).toBe(1)
+  // Switching resets the label to "Saved"; a save landing after the switch reads "All changes saved".
+  await expect
+    .poll(() => page.locator('.save-state').textContent())
+    .toMatch(/^(All changes saved|Saved)$/)
   // A picked colour saves as a project colour that the element binds to.
   await canvas.getByRole('button', { name: /^Background color: / }).click()
   await mouse('mousePressed', 0.7, 0.3)
