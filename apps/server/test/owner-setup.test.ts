@@ -108,6 +108,8 @@ it('protects first-owner setup, serializes claims across instances, and never re
     expect(await (await server.app.request(`${origin}/api/config`)).json()).toEqual({
       allowSignup: false,
       setupRequired: false,
+      origin,
+      local: true,
     })
     expect(
       (
