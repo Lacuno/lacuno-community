@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { ApiError, api, message } from './api.js'
 import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
-import { catchUp, type SiteEvent, touchedNodes } from './liveEvents.js'
+import { catchUp, land, type SiteEvent, touchedNodes } from './liveEvents.js'
 
 export type Snapshot = { document: Document; revision: number }
 export type DocumentSession = ReturnType<typeof useDocumentSession>
@@ -98,10 +98,11 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
       stream.current = undefined
     }
   }, [siteId, loaded])
-  // Apply queued batches once nothing of the designer's is pending: straight into the snapshot
-  // and not into the undo history, since they are not the designer's steps. The panels start over
-  // from the new document (they hold no draft now), or their stale values would be saved back.
-  // A missing revision means a missed batch, so the document is read again instead.
+  // Apply queued batches once nothing of the designer's is pending: straight into the snapshot,
+  // and an agent's batch onto the undo history too, so the designer can take back what their AI
+  // did. The panels start over from the new document (they hold no draft now), or their stale
+  // values would be saved back. A missing revision means a missed batch, so the document is read
+  // again instead.
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new batch in `activity` is queued too.
   useEffect(() => {
     if (!snapshot || frozen || inFlight.current || reading.current || !queue.current.length) return
@@ -119,14 +120,14 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
     }
     const last = run.at(-1)
     if (!last) return
-    let document = snapshot.document
-    for (const event of run) document = applyPatches(document, event.patches)
+    const { document, history } = land(snapshot.document, editHistory, run)
     acceptSnapshot({ document: { ...document, revision: last.revision }, revision: last.revision })
+    setEditHistory(history)
     const flash = run.flatMap((event) =>
       event.actor.kind === 'agent' ? touchedNodes(event.patches) : [],
     )
     if (flash.length) window.dispatchEvent(new CustomEvent('freeflow:flash', { detail: flash }))
-  }, [snapshot, frozen, activity, siteId, acceptSnapshot])
+  }, [snapshot, frozen, activity, siteId, acceptSnapshot, editHistory])
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (dirty || busy) event.preventDefault()

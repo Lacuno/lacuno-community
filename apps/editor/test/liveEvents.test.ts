@@ -1,5 +1,8 @@
+import { applyPatches } from '@freeflow/document/patch'
+import { fixtureDocument } from '@freeflow/schema'
 import { describe, expect, it } from 'vitest'
-import { catchUp, type SiteEvent, touchedNodes } from '../src/liveEvents.js'
+import { emptyHistory } from '../src/history.js'
+import { catchUp, land, type SiteEvent, touchedNodes } from '../src/liveEvents.js'
 
 const event = (revision: number): SiteEvent => ({
   revision,
@@ -46,5 +49,37 @@ describe('touchedNodes', () => {
         { op: 'set', path: ['styles', 's-1'], value: {} },
       ]),
     ).toEqual(['n-new', 'n-body'])
+  })
+})
+
+describe('land', () => {
+  const title = (value: string) => ({
+    op: 'set' as const,
+    path: ['nodes', 'n-hero-title', 'text'],
+    value: { type: 'static', value },
+  })
+  const before = fixtureDocument()
+  const original = before.nodes['n-hero-title']
+
+  it('puts an agent batch on the undo history so the designer can take it back', () => {
+    const { document, history } = land(before, emptyHistory(), [
+      { ...event(1), patches: [title('By the agent')] },
+    ])
+    expect(document.nodes['n-hero-title']).toMatchObject({
+      text: { type: 'static', value: 'By the agent' },
+    })
+    expect(history.undo).toHaveLength(1)
+    expect(history.redo).toEqual([])
+    expect(applyPatches(document, history.undo[0]!.undo).nodes['n-hero-title']).toEqual(original)
+  })
+
+  it("keeps another editor session's batch off the history", () => {
+    const { document, history } = land(before, emptyHistory(), [
+      { ...event(1), actor: { kind: 'editor' }, patches: [title('By another editor')] },
+    ])
+    expect(document.nodes['n-hero-title']).toMatchObject({
+      text: { type: 'static', value: 'By another editor' },
+    })
+    expect(history.undo).toEqual([])
   })
 })
