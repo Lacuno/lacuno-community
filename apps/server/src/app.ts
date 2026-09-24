@@ -106,7 +106,9 @@ export async function createServer(options: ServerOptions) {
     const setup = gateway ? undefined : new OwnerSetup(sqlite, options.allowSignup ?? false)
     if (gateway || setup?.singleOwner) authOptions.emailAndPassword.disableSignUp = true
     const auth = betterAuth(authOptions)
-    const oauth = options.oauth ?? createOAuth(auth, sqlite, origin)
+    const provider = createOAuth(auth, sqlite, origin)
+    // Tests may swap the verifier; the discovery routes stay the provider's.
+    const oauth: OAuth = options.oauth ?? provider
     // Only the token-protected setup endpoint can reach this registration-enabled handler.
     const setupAuth = betterAuth({
       ...authOptions,
@@ -148,7 +150,7 @@ export async function createServer(options: ServerOptions) {
       return c.json({ error: 'Internal server error' }, 500)
     })
     app.get('/health', (c) => c.json({ status: 'ok' }))
-    app.route('/.well-known', oauth.routes)
+    app.route('/.well-known', provider.routes)
     app.get('/api/config', (c) =>
       c.json({
         allowSignup: !gateway && !setup?.singleOwner && (options.allowSignup ?? false),
