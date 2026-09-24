@@ -10,8 +10,9 @@ const paths = {
   row: 'M3 4h18v16H3zM9 4v16M15 4v16',
   stack: 'M4 3h16v18H4zM4 9h16M4 15h16',
   back: 'm14 6-6 6 6 6M8 12h12',
+  // The large four-point star sits exactly in the middle; small ones accent two corners.
   sparkle:
-    'M10 4l1.9 5.1L17 11l-5.1 1.9L10 18l-1.9-5.1L3 11l5.1-1.9zM18 2l.9 2.6 2.6.9-2.6.9L18 9l-.9-2.6-2.6-.9 2.6-.9z',
+    'M12 4.5l2 5.5 5.5 2-5.5 2-2 5.5-2-5.5L4.5 12l5.5-2zM19.5 2l.75 1.75L22 4.5l-1.75.75L19.5 7l-.75-1.75L17 4.5l1.75-.75zM4.5 17.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z',
   page: 'M6 3h8l4 4v14H6zM14 3v5h4',
   layer: 'M4 6h16v12H4z',
   video: 'M3 4h18v16H3zM10 9v6l5-3z',
