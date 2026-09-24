@@ -150,6 +150,17 @@ click, and watches it work on the canvas. Freeflow never calls a model and never
 the user's own subscription does the thinking, Freeflow gives it hands
 ([spec](superpowers/specs/2026-09-23-connect-your-ai-design.md)).
 
+**First milestone implemented (2026-09-24):** `/mcp/:id` serves the existing tools over Streamable
+HTTP behind OAuth issued by the same server (consent page in the editor, dynamic registration and
+Client ID Metadata Documents, one site per token); the header's **Connect your AI** panel has cards
+for Claude Code, claude.ai, Claude Desktop, ChatGPT, Cursor, VS Code, Codex CLI and Gemini CLI with
+the registration each app documents, a connections list with Disconnect, and an activity list;
+committed batches stream to the open editor over server-sent events and land on the canvas live
+with a flash, queued behind the designer's own save; uploads take inline data and `site.publish`
+builds to testing. Open: the OAuth provider ties tokens to the approving browser session, so a
+connection stops when that editor session ends; custom-scheme redirect URIs are refused by the
+provider; gateway mode blocks the routes until Cloud milestone 12.
+
 - A remote MCP endpoint per site on the Community server, exposing the existing tools over
   Streamable HTTP with OAuth. The same server that runs the editor is the MCP server.
 - A prominent **Connect your AI** button in the editor: one card per app (Claude Code, Claude

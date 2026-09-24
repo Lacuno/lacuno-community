@@ -199,6 +199,20 @@ see [server configuration](../server/README.md#publishing) for deployment requir
 Realtime Yjs sync and git history remain subsequent milestones.
 The editing workspace currently targets desktop browsers; its mobile button previews the site.
 
+## Connect your AI
+
+The header's **Connect your AI** button opens a panel with the site's MCP address and one card per
+app: Claude Code, claude.ai, Claude Desktop, ChatGPT, Cursor, VS Code, Codex CLI and Gemini CLI.
+Cursor and VS Code install with one link, the command-line apps with one copied command, and the
+cloud-hosted apps by pasting the address into their connector settings; those need a public
+address, so their cards are disabled on a localhost instance, and Claude Desktop offers a local
+bridge snippet instead. The app then opens the editor's consent page, "Allow Claude Code to edit
+Acme?", and the header shows "Claude Code connected" once its first session opens. The panel lists
+every approved app with Disconnect, and an activity list of the last fifty batches by you and by
+the apps. Agent batches stream into the open editor and land on the canvas without a reload: the
+touched elements flash, your pending edits are never overwritten, and your undo history stays
+yours. Freeflow never calls a model itself.
+
 ## Verification
 
 ```sh

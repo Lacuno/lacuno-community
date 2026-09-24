@@ -119,8 +119,16 @@ and checks the persisted result.
 | `POST /api/sites/:id/releases` | `{expectedRevision,expectedId,name?,target?}` → `202 {id,target}`; enqueue an immutable snapshot that goes live on `target` (`production` by default) when it is built |
 | `POST /api/sites/:id/releases/:releaseId/activate` | `{expectedId,target?}` → `{id,target}`; point `target` (`production` by default) at a successful release without a build: rollback, promote or send to testing; draft unchanged |
 | `POST /api/sites/:id/releases/:releaseId/name` | `{name}` → rename a release; an empty name clears it |
+| `GET /api/sites/:id/events` | Server-sent events, one `batch` per committed apply: `{revision,patches,actor,at,summary}`; `?since=<revision>` or `Last-Event-ID` replays what was missed |
+| `GET /api/sites/:id/connections` | AI apps approved for the site: `[{id,app,approvedAt,lastActiveAt,active}]` |
+| `DELETE /api/sites/:id/connections/:id` | Revoke an app's tokens and close its sessions → `204` |
+| `POST/GET/DELETE /mcp/:id` | MCP over Streamable HTTP for one site; bearer token from the server's own OAuth, else `401` with `WWW-Authenticate … resource_metadata` |
+| `GET /.well-known/oauth-authorization-server`, `GET /.well-known/oauth-protected-resource/mcp/:id` | OAuth discovery for MCP clients; authorization, token, registration and revocation live under `/api/auth/oauth2/*`; consent is the editor's `/consent` page |
 
-Application routes require a session cookie. JSON writes reject cross-origin requests; API responses
+Application routes require a session cookie; `/mcp/:id` takes an OAuth bearer token instead
+(opaque, one hour, refreshable, bound to one site through its audience and revoked with the
+connection). Dynamic client registration and Client ID Metadata Documents are both accepted, loopback
+redirect URIs match without regard to port, and `iss` is returned in the authorization response. JSON writes reject cross-origin requests; API responses
 disable caching. Unknown or inaccessible sites return `404`, missing sessions `401`, invalid input
 `400`, and stale edits `409` with `currentRevision`. Request bodies are limited to 2 MiB and batches
 to 1,000 operations or 5,000 patches. Authentication endpoints use Better Auth's rate limiting and CSRF checks.
