@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { Document } from '@miralo/schema'
-import { createEmptyDocument, DocumentError } from '@miralo/schema'
+import type { Document } from '@lacuno/schema'
+import { createEmptyDocument, DocumentError } from '@lacuno/schema'
 import type { Persistence } from './persistence.js'
 import { serializeDocument } from './serialize.js'
 import { DocumentStore } from './store.js'
@@ -22,7 +22,7 @@ export class FolderPersistence implements Persistence {
   readonly file: string
   readonly assetsDir: string
   constructor(readonly siteDir: string) {
-    this.file = path.join(siteDir, 'miralo.json')
+    this.file = path.join(siteDir, 'lacuno.json')
     this.assetsDir = path.join(siteDir, 'assets')
   }
   async load(): Promise<unknown> {
@@ -37,7 +37,7 @@ export class FolderPersistence implements Persistence {
       return JSON.parse(text)
     } catch (e) {
       throw new DocumentError([
-        { path: 'miralo.json', message: `not valid JSON: ${(e as Error).message}` },
+        { path: 'lacuno.json', message: `not valid JSON: ${(e as Error).message}` },
       ])
     }
   }
@@ -58,7 +58,7 @@ export class FolderPersistence implements Persistence {
   }
 }
 
-/** A missing folder holds no miralo.json, so load() reports it as no document found. */
+/** A missing folder holds no lacuno.json, so load() reports it as no document found. */
 export function openFolder(siteDir: string): Promise<DocumentStore> {
   return DocumentStore.withPersistence(new FolderPersistence(path.resolve(siteDir)))
 }
@@ -72,7 +72,7 @@ export async function createFolder(siteDir: string, name: string): Promise<Docum
   const existing = await persistence.load()
   if (existing !== undefined)
     throw new DocumentError([
-      { path: 'miralo.json', message: 'a document already exists in this folder' },
+      { path: 'lacuno.json', message: 'a document already exists in this folder' },
     ])
   await persistence.save(createEmptyDocument(name))
   return DocumentStore.withPersistence(persistence)

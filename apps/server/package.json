@@ -1,5 +1,5 @@
 {
-  "name": "@miralo/server",
+  "name": "@lacuno/server",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,18 +7,18 @@
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
     "build": "tsdown",
-    "test": "pnpm --filter @miralo/editor build && pnpm build && vitest run",
+    "test": "pnpm --filter @lacuno/editor build && pnpm build && vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
     "@better-auth/cimd": "1.7.5",
     "@better-auth/oauth-provider": "1.7.5",
-    "@miralo/compiler": "workspace:*",
-    "@miralo/document": "workspace:*",
-    "@miralo/mcp": "workspace:*",
-    "@miralo/renderer": "workspace:*",
-    "@miralo/schema": "workspace:*",
+    "@lacuno/compiler": "workspace:*",
+    "@lacuno/document": "workspace:*",
+    "@lacuno/mcp": "workspace:*",
+    "@lacuno/renderer": "workspace:*",
+    "@lacuno/schema": "workspace:*",
     "@hono/node-server": "^2.1.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "astro": "^7.3.2",
@@ -31,7 +31,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@miralo/editor": "workspace:*",
+    "@lacuno/editor": "workspace:*",
     "@types/better-sqlite3": "^9.6.0",
     "playwright": "^1.63.0",
     "tsdown": "^0.23.0",

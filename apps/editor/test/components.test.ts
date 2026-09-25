@@ -1,5 +1,5 @@
-import { DocumentStore, type Operation } from '@miralo/document'
-import { fixtureDocument } from '@miralo/schema'
+import { DocumentStore, type Operation } from '@lacuno/document'
+import { fixtureDocument } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import {
   componentDeletionReason,

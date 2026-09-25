@@ -1,4 +1,4 @@
-import type { Document as SiteDocument } from '@miralo/schema'
+import type { Document as SiteDocument } from '@lacuno/schema'
 import { dragInsertion } from './dragInsertion.js'
 import type { DragItem } from './structure.js'
 
@@ -14,7 +14,7 @@ export function createDragPreview(
 ) {
   const view = surface.defaultView
   const canvas = view?.frameElement as HTMLIFrameElement | null
-  if (!view || !canvas || !surface.querySelector('[data-miralo-node]')) return
+  if (!view || !canvas || !surface.querySelector('[data-lacuno-node]')) return
   const owner = canvas.ownerDocument
   const frame = owner.createElement('iframe')
   frame.title = 'Drag preview'
@@ -43,13 +43,13 @@ export function createDragPreview(
   )
   // Never copy editor chrome or executable content into the visual-only layer.
   for (const element of projection.querySelectorAll(
-    'script, [data-miralo-selection-overlay], [data-miralo-drop-indicator], [data-miralo-sort-gap]',
+    'script, [data-lacuno-selection-overlay], [data-lacuno-drop-indicator], [data-lacuno-sort-gap]',
   ))
     element.remove()
-  for (const element of projection.querySelectorAll('[data-miralo-selected]'))
-    element.removeAttribute('data-miralo-selected')
+  for (const element of projection.querySelectorAll('[data-lacuno-selected]'))
+    element.removeAttribute('data-lacuno-selected')
   const find = (id: string) =>
-    projection.querySelector<HTMLElement>(`[data-miralo-node="${CSS.escape(id)}"]`)
+    projection.querySelector<HTMLElement>(`[data-lacuno-node="${CSS.escape(id)}"]`)
   const source = 'id' in item ? find(item.id) : dragInsertion(projection, doc, item, siteId)
   if (!source) {
     frame.remove()
@@ -60,11 +60,11 @@ export function createDragPreview(
   let ghost: HTMLElement | undefined
   if ('id' in item) {
     ghost = source.cloneNode(true) as HTMLElement
-    for (const element of [ghost, ...ghost.querySelectorAll('[data-miralo-node]')])
-      element.removeAttribute('data-miralo-node')
-    ghost.setAttribute('data-miralo-drag-ghost', '')
+    for (const element of [ghost, ...ghost.querySelectorAll('[data-lacuno-node]')])
+      element.removeAttribute('data-lacuno-node')
+    ghost.setAttribute('data-lacuno-drag-ghost', '')
     const { width, height } = surface
-      .querySelector(`[data-miralo-node="${CSS.escape(item.id)}"]`)!
+      .querySelector(`[data-lacuno-node="${CSS.escape(item.id)}"]`)!
       .getBoundingClientRect()
     ghost.style.cssText += `;position:fixed!important;width:${width}px!important;height:${height}px!important;margin:0!important;box-sizing:border-box!important;translate:none!important;opacity:.75!important;pointer-events:none;z-index:2147483647`
     source.before(ghost)
@@ -73,10 +73,10 @@ export function createDragPreview(
   const originalNext = source.nextSibling
   const originalStyle = surface.documentElement.getAttribute('style')
   const marker = surface.createElement('div')
-  marker.setAttribute('data-miralo-sort-gap', '')
+  marker.setAttribute('data-lacuno-sort-gap', '')
   marker.hidden = true
   const sourceStyle = source.getAttribute('style')
-  const elements = [...projection.querySelectorAll<HTMLElement>('[data-miralo-node]')]
+  const elements = [...projection.querySelectorAll<HTMLElement>('[data-lacuno-node]')]
   let animations: Animation[] = []
   let destination = ''
   let disposed = false
@@ -86,13 +86,13 @@ export function createDragPreview(
   }
   const syncScroll = () => {
     frame.contentWindow?.scrollTo(view.scrollX, view.scrollY)
-    for (const element of surface.querySelectorAll<HTMLElement>('[data-miralo-node]')) {
+    for (const element of surface.querySelectorAll<HTMLElement>('[data-lacuno-node]')) {
       if (
         element.scrollHeight <= element.clientHeight &&
         element.scrollWidth <= element.clientWidth
       )
         continue
-      const copy = find(element.dataset.miraloNode!)
+      const copy = find(element.dataset.lacunoNode!)
       if (copy) {
         copy.scrollTop = element.scrollTop
         copy.scrollLeft = element.scrollLeft
@@ -143,7 +143,7 @@ export function createDragPreview(
       stopAnimations()
       source.remove()
       const siblings = [...parent.children].filter((element) =>
-        element.hasAttribute('data-miralo-node'),
+        element.hasAttribute('data-lacuno-node'),
       )
       parent.insertBefore(source, siblings[target.index] ?? null)
       source.style.setProperty('opacity', '0', 'important')
@@ -154,7 +154,7 @@ export function createDragPreview(
           if (source.contains(element)) continue
           const first = before.get(element)!
           const last = after.get(element)!
-          const ancestor = element.parentElement?.closest<HTMLElement>('[data-miralo-node]')
+          const ancestor = element.parentElement?.closest<HTMLElement>('[data-lacuno-node]')
           const parentBefore = ancestor && before.get(ancestor)
           const parentAfter = ancestor && after.get(ancestor)
           const dx =
@@ -179,7 +179,7 @@ export function createDragPreview(
       marker.dataset.destination = target.id
       marker.dataset.parent = target.parent
       marker.dataset.index = String(target.index)
-      marker.dataset.source = source.dataset.miraloNode
+      marker.dataset.source = source.dataset.lacunoNode
       surface.body.append(marker)
       active = true
       destination = key

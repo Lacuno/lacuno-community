@@ -1,6 +1,6 @@
-import type { Operation } from '@miralo/document'
-import type { Document } from '@miralo/schema'
-import { designTokenCssName } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import type { Document } from '@lacuno/schema'
+import { designTokenCssName } from '@lacuno/schema'
 import { parseRgb, rgbHex } from './colorWheel.js'
 
 export const colorProperties = new Set(['color', 'background-color', 'border-color'])

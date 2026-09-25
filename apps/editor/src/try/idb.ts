@@ -1,4 +1,4 @@
-import type { Document } from '@miralo/schema'
+import type { Document } from '@lacuno/schema'
 import type { AssetPersistence } from './routes.js'
 
 /** Resolves an IndexedDB request with its result. */
@@ -16,7 +16,7 @@ const done = <T>(request: IDBRequest<T>) =>
 export class IdbPersistence implements AssetPersistence {
   private db: Promise<IDBDatabase>
   constructor(private template: unknown) {
-    const request = indexedDB.open('miralo-try', 1)
+    const request = indexedDB.open('lacuno-try', 1)
     request.onupgradeneeded = () => {
       request.result.createObjectStore('document')
       request.result.createObjectStore('assets')
@@ -40,7 +40,7 @@ export class IdbPersistence implements AssetPersistence {
     await done((await this.store('assets', 'readwrite')).put(bytes, hash))
   }
   async delete(): Promise<void> {
-    await done(indexedDB.deleteDatabase('miralo-try'))
+    await done(indexedDB.deleteDatabase('lacuno-try'))
   }
   async getAsset(hash: string): Promise<Uint8Array<ArrayBuffer> | undefined> {
     const stored = await done((await this.store('assets')).get(hash))

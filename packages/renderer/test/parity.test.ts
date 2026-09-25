@@ -1,14 +1,14 @@
 import { readFileSync } from 'node:fs'
-import { assembleDocument, render } from '@miralo/compiler/render'
-import { generateStylesheet, LIVE_STATES } from '@miralo/css'
-import { fixtureDocument, parseDocument } from '@miralo/schema'
+import { assembleDocument, render } from '@lacuno/compiler/render'
+import { generateStylesheet, LIVE_STATES } from '@lacuno/css'
+import { fixtureDocument, parseDocument } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { renderCanvas } from '../src/index.js'
 
 it('keeps page instances opaque, exposes only the active definition, and preserves inherited styles', () => {
   const doc = parseDocument(
     JSON.parse(
-      readFileSync(new URL('../../../templates/miralo/miralo.json', import.meta.url), 'utf8'),
+      readFileSync(new URL('../../../templates/lacuno/lacuno.json', import.meta.url), 'utf8'),
     ),
   )
   const page = Object.values(doc.pages).find((page) => page.path === '/')!
@@ -17,11 +17,11 @@ it('keeps page instances opaque, exposes only the active definition, and preserv
   const component = doc.components[instance.component]!
   const before = structuredClone(doc)
   const normal = renderCanvas(doc, page, undefined, 'site-test').html
-  expect(normal).toContain(`data-miralo-node="${instance.id}"`)
-  expect(normal).not.toContain(`data-miralo-node="${component.root}"`)
+  expect(normal).toContain(`data-lacuno-node="${instance.id}"`)
+  expect(normal).not.toContain(`data-lacuno-node="${component.root}"`)
   const editing = renderCanvas(doc, page, undefined, 'site-test', component.id).html
-  expect(editing).toContain(`data-miralo-node="${component.root}"`)
-  expect(editing).not.toContain(`data-miralo-node="${instance.id}"`)
+  expect(editing).toContain(`data-lacuno-node="${component.root}"`)
+  expect(editing).not.toContain(`data-lacuno-node="${instance.id}"`)
   expect(editing).toMatch(/<body[^>]*class="[^"]+"/)
   expect(doc).toEqual(before)
   doc.components['cmp-alias'] = { id: 'cmp-alias', name: 'Alias', props: [], root: 'n-alias' }
@@ -35,8 +35,8 @@ it('keeps page instances opaque, exposes only the active definition, and preserv
   }
   instance.component = 'cmp-alias'
   const alias = renderCanvas(doc, page, undefined, 'site-test').html
-  expect(alias).toContain(`data-miralo-node="${instance.id}"`)
-  expect(alias).not.toContain('data-miralo-node="n-alias"')
+  expect(alias).toContain(`data-lacuno-node="${instance.id}"`)
+  expect(alias).not.toContain('data-lacuno-node="n-alias"')
 })
 
 it.each([
@@ -45,7 +45,7 @@ it.each([
     'default template',
     parseDocument(
       JSON.parse(
-        readFileSync(new URL('../../../templates/miralo/miralo.json', import.meta.url), 'utf8'),
+        readFileSync(new URL('../../../templates/lacuno/lacuno.json', import.meta.url), 'utf8'),
       ),
     ),
   ],
@@ -68,18 +68,18 @@ it.each([
         const normalized = canvas.html
           // Neither fixture embed nests a div.
           // An unstyled embed's wrapper is canvas-only; a styled one publishes without the marker.
-          .replace(/<div data-miralo-embed[^>]*>([\s\S]*?)<\/div>/g, '$1')
-          .replace(/ data-miralo-embed/g, '')
-          .replace(/ data-miralo-node="[^"]*"/g, '')
+          .replace(/<div data-lacuno-embed[^>]*>([\s\S]*?)<\/div>/g, '$1')
+          .replace(/ data-lacuno-embed/g, '')
+          .replace(/ data-lacuno-node="[^"]*"/g, '')
           // Structural states emit both forms in the canvas: drop the forced sibling.
-          .replace(/, \S+\[data-mi-state="[^"]*"\]/g, '')
+          .replace(/, \S+\[data-lc-state="[^"]*"\]/g, '')
           // Interaction states emit only the forced form: map it back to its real pseudo-class.
-          .replace(/\[data-mi-state="([^"]+)"\]/g, (whole, state) =>
+          .replace(/\[data-lc-state="([^"]+)"\]/g, (whole, state) =>
             LIVE_STATES.has(state) ? `:${state}` : whole,
           )
           .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\n/, '')
         expect(normalized).toBe(assembleDocument(compiled))
-        expect(canvas.html).toContain('data-miralo-node=')
+        expect(canvas.html).toContain('data-lacuno-node=')
       }
     }
   },

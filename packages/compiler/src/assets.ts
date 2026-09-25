@@ -1,4 +1,4 @@
-import type { AssetRef } from '@miralo/schema'
+import type { AssetRef } from '@lacuno/schema'
 
 const EXT: Record<string, string> = {
   'image/png': 'png',

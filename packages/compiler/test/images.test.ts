@@ -1,5 +1,5 @@
-import type { AssetRef } from '@miralo/schema'
-import { fixtureDocument } from '@miralo/schema'
+import type { AssetRef } from '@lacuno/schema'
+import { fixtureDocument } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { RenderError } from '../src/errors.js'
 import {

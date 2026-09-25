@@ -2,20 +2,20 @@ import { cp, mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseDocument } from '@miralo/schema'
+import { parseDocument } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { build } from '../src/build.js'
 import { enumerateRoutes } from '../src/routes.js'
 
-it.skipIf(Boolean(process.env.MIRALO_FAST_TESTS))(
+it.skipIf(Boolean(process.env.LACUNO_FAST_TESTS))(
   'builds the copied default template',
   async () => {
-    const source = fileURLToPath(new URL('../../../templates/miralo/', import.meta.url))
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-template-'))
+    const source = fileURLToPath(new URL('../../../templates/lacuno/', import.meta.url))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-template-'))
     try {
-      await cp(path.join(source, 'miralo.json'), path.join(dir, 'miralo.json'))
+      await cp(path.join(source, 'lacuno.json'), path.join(dir, 'lacuno.json'))
       await cp(path.join(source, 'assets'), path.join(dir, 'assets'), { recursive: true })
-      const doc = parseDocument(JSON.parse(await readFile(path.join(dir, 'miralo.json'), 'utf8')))
+      const doc = parseDocument(JSON.parse(await readFile(path.join(dir, 'lacuno.json'), 'utf8')))
       const routes = enumerateRoutes(doc).map((route) => route.path)
       expect(routes).toEqual([
         '/',

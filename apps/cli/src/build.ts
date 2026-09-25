@@ -1,8 +1,8 @@
 import { parseArgs } from 'node:util'
-import { BuildError } from '@miralo/compiler'
-import { build } from '@miralo/compiler/build'
+import { BuildError } from '@lacuno/compiler'
+import { build } from '@lacuno/compiler/build'
 
-export const BUILD_USAGE = 'Usage: miralo build [dir] [--out <dir>] [--site-url <url>] [--json]'
+export const BUILD_USAGE = 'Usage: lacuno build [dir] [--out <dir>] [--site-url <url>] [--json]'
 
 export type Io = { log: (s: string) => void; error: (s: string) => void }
 

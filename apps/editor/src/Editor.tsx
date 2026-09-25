@@ -1,4 +1,4 @@
-import type { State } from '@miralo/schema'
+import type { State } from '@lacuno/schema'
 import { useId, useMemo, useState } from 'react'
 import { message } from './api.js'
 import type { LivePreview } from './Canvas.js'

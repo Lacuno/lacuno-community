@@ -1,4 +1,4 @@
-import type { Operation, Patch } from '@miralo/document'
+import type { Operation, Patch } from '@lacuno/document'
 
 export type Actor = { kind: 'editor' } | { kind: 'agent'; app: string }
 

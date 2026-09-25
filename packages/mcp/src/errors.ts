@@ -1,6 +1,6 @@
-import { BuildError } from '@miralo/compiler'
-import { OperationError, PatchError, StaleRevisionError } from '@miralo/document'
-import { DocumentError } from '@miralo/schema'
+import { BuildError } from '@lacuno/compiler'
+import { OperationError, PatchError, StaleRevisionError } from '@lacuno/document'
+import { DocumentError } from '@lacuno/schema'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 export type ToolError = {

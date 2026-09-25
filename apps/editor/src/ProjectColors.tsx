@@ -1,7 +1,7 @@
-import { contextFromDocument, serializeValue } from '@miralo/css'
-import type { Operation } from '@miralo/document'
-import { referencesToDesignToken } from '@miralo/document/references'
-import { type Document, designTokenCssName } from '@miralo/schema'
+import { contextFromDocument, serializeValue } from '@lacuno/css'
+import type { Operation } from '@lacuno/document'
+import { referencesToDesignToken } from '@lacuno/document/references'
+import { type Document, designTokenCssName } from '@lacuno/schema'
 import { useEffect, useState } from 'react'
 import type { LivePreview } from './Canvas.js'
 import {

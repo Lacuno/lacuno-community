@@ -1,5 +1,5 @@
-import { DocumentStore } from '@miralo/document'
-import { fixtureDocument } from '@miralo/schema'
+import { DocumentStore } from '@lacuno/document'
+import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MCP_OPERATIONS } from '../src/guide.js'
 import { connect, jsonOf, textOf } from './helpers.js'
@@ -85,8 +85,8 @@ describe('guide and resources', () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const uris = (await c.client.listResources()).resources.map((r) => r.uri).sort()
-    expect(uris).toEqual(['miralo://schema/document', 'miralo://schema/operations'])
-    const ops = await c.client.readResource({ uri: 'miralo://schema/operations' })
+    expect(uris).toEqual(['lacuno://schema/document', 'lacuno://schema/operations'])
+    const ops = await c.client.readResource({ uri: 'lacuno://schema/operations' })
     const schema = JSON.parse((ops.contents[0] as { text: string }).text) as {
       anyOf?: unknown[]
       oneOf?: unknown[]

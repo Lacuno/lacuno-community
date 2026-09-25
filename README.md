@@ -1,4 +1,4 @@
-# Miralo
+# Lacuno
 
 **An open source, self-hostable web design tool with an agent built in.**
 
@@ -25,7 +25,7 @@ service will handle those operations for you. No Cloud service is available yet.
 
 | Doc | What it covers |
 | --- | --- |
-| [docs/VISION.md](docs/VISION.md) | Why Miralo exists, who it is for, the principles we will not compromise on |
+| [docs/VISION.md](docs/VISION.md) | Why Lacuno exists, who it is for, the principles we will not compromise on |
 | [docs/FEATURES.md](docs/FEATURES.md) | The full feature map, what ships when, and what we deliberately defer |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Data model, compiler, editor, server, storage, publishing, tech stack |
 | [docs/AGENTS.md](docs/AGENTS.md) | The agent layer: in-app agent, MCP, skills, proposals, safety |
@@ -34,7 +34,7 @@ service will handle those operations for you. No Cloud service is available yet.
 | [docs/LANDSCAPE.md](docs/LANDSCAPE.md) | Competitor research: Webstudio, Webflow, Framer, Base44 and others; where we differ |
 | [docs/STACK.md](docs/STACK.md) | Pinned technology choices with reasons and fallbacks |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Decision log. Every big call, the alternatives, and why |
-| [templates/miralo/README.md](templates/miralo/README.md) | Copy, customize and build the runnable default template |
+| [templates/lacuno/README.md](templates/lacuno/README.md) | Copy, customize and build the runnable default template |
 
 ## The pitch in five lines
 
@@ -72,11 +72,11 @@ environment/secrets separately; managed gateway instances also require the same 
 Backups contain sensitive account and site data, are not encrypted, and are not a substitute for
 off-host storage. Treat only operator-owned backups as trusted: checksums detect corruption, not forgery.
 
-## Working on Miralo
+## Working on Lacuno
 
 For maintenance tooling, `node apps/server/dist/published-main.js` runs only the published-site
-listener against an existing database opened read-only. Set `MIRALO_DATA_DIR`,
-`MIRALO_PUBLISH_BASE_URL`, `MIRALO_PUBLISH_PORT` and `HOST` explicitly. It does not migrate data,
+listener against an existing database opened read-only. Set `LACUNO_DATA_DIR`,
+`LACUNO_PUBLISH_BASE_URL`, `LACUNO_PUBLISH_PORT` and `HOST` explicitly. It does not migrate data,
 run builds, expose the editor or accept authenticated management requests. `--list` prints the
 current site/release IDs for operator health checks. The normal server reuses the same publication
 reader and file-serving rules. This process can serve existing releases while an editor runtime is
@@ -100,11 +100,11 @@ packages/document   Versioned operations, dry runs and atomic site-folder persis
 packages/css        The document-to-stylesheet generator
 packages/compiler   The document-to-static-site compiler, using Astro internally
 packages/mcp        MCP tools and resources over the document and compiler
-apps/cli            The `miralo build` and `miralo mcp` commands
+apps/cli            The `lacuno build` and `lacuno mcp` commands
 apps/server         Authenticated HTTP API with SQLite document persistence
 apps/editor         React editor with canvas selection and text/style editing
 packages/renderer   Canvas HTML using the shared compiler and CSS generator
-templates/miralo  Runnable default site, source asset and usage instructions
+templates/lacuno  Runnable default site, source asset and usage instructions
 scripts/            Smoke and Lighthouse checks
 docs/               Vision, features, architecture, agents, roadmap and decisions
 ```
@@ -112,5 +112,5 @@ docs/               Vision, features, architecture, agents, roadmap and decision
 Phase 0 is complete. An MCP client authored the default template through the provider-independent
 stdio server, the CLI generated its six static routes, responsive and keyboard browser checks passed,
 and every route scored 100 in the Lighthouse performance category. See
-[the template instructions](templates/miralo/README.md) to run it and [the roadmap](docs/ROADMAP.md)
+[the template instructions](templates/lacuno/README.md) to run it and [the roadmap](docs/ROADMAP.md)
 for the demonstrated exit criteria and planned editor work.

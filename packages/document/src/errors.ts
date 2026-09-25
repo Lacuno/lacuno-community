@@ -1,4 +1,4 @@
-import { DocumentError } from '@miralo/schema'
+import { DocumentError } from '@lacuno/schema'
 import type { Patch } from './patch.js'
 
 /** The batch named a revision that is no longer current. Re-read and retry. */

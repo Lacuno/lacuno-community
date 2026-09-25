@@ -1,6 +1,6 @@
-import type { Operation } from '@miralo/document'
-import { instancesOfComponent, subtreeIds } from '@miralo/document/references'
-import type { Binding, Component, Document, Node } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import { instancesOfComponent, subtreeIds } from '@lacuno/document/references'
+import type { Binding, Component, Document, Node } from '@lacuno/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import {
   copySubtree,

@@ -1,6 +1,6 @@
-import { classNames, contextFromDocument, selectorFor, serializeValue } from '@miralo/css'
-import type { Operation } from '@miralo/document'
-import type { CssValue, Document, Node, State } from '@miralo/schema'
+import { classNames, contextFromDocument, selectorFor, serializeValue } from '@lacuno/css'
+import type { Operation } from '@lacuno/document'
+import type { CssValue, Document, Node, State } from '@lacuno/schema'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { assetUrl } from './AssetsPanel.js'
@@ -234,8 +234,8 @@ export function Inspector({
   }
   useEffect(() => {
     const listen = (event: Event) => canvasStyle.current((event as CustomEvent).detail)
-    window.addEventListener('miralo:canvas-style', listen)
-    return () => window.removeEventListener('miralo:canvas-style', listen)
+    window.addEventListener('lacuno:canvas-style', listen)
+    return () => window.removeEventListener('lacuno:canvas-style', listen)
   }, [])
   const previewKey = JSON.stringify({
     node: {

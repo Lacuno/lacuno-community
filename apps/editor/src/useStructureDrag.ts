@@ -1,5 +1,5 @@
-import type { Operation } from '@miralo/document'
-import type { Document as SiteDocument } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import type { Document as SiteDocument } from '@lacuno/schema'
 import { useEffect, useRef } from 'react'
 import { createDragPreview } from './dragPreview.js'
 import { canvasDropTarget } from './dragTarget.js'
@@ -46,9 +46,9 @@ function createController(getOptions: () => Options) {
   }
   const bind = (surface: Document) => {
     const indicator = surface.createElement('div')
-    indicator.setAttribute('data-miralo-drop-indicator', '')
+    indicator.setAttribute('data-lacuno-drop-indicator', '')
     // A unique id keeps the canvas morph from matching a server node against the indicator.
-    indicator.id = 'miralo-drop-indicator'
+    indicator.id = 'lacuno-drop-indicator'
     indicator.style.cssText =
       'display:none;position:fixed;pointer-events:none;z-index:2147483647;box-sizing:border-box;border:2px solid #7952ed;background:#7952ed16;'
     const label = surface.createElement('span')
@@ -75,7 +75,7 @@ function createController(getOptions: () => Options) {
     const onCanvas = !!surface.defaultView?.frameElement
     const elementAt = (event: DragEvent) =>
       (event.target as Element | null)?.closest?.<HTMLElement>(
-        '[data-drag-preset], [data-drag-node], [data-miralo-node]',
+        '[data-drag-preset], [data-drag-node], [data-lacuno-node]',
       )
     // The canvas hit-tests real geometry; layer rows are a plain vertical list.
     const locate = (event: DragEvent) => {
@@ -116,7 +116,7 @@ function createController(getOptions: () => Options) {
         return
       }
       const preset = element.dataset.dragPreset as Preset | undefined
-      const id = element.dataset.dragNode ?? element.dataset.miraloNode
+      const id = element.dataset.dragNode ?? element.dataset.lacunoNode
       if (preset)
         item = {
           preset,
@@ -135,13 +135,13 @@ function createController(getOptions: () => Options) {
         event.dataTransfer.setDragImage(blank, 0, 0)
       }
       event.dataTransfer.effectAllowed = 'preset' in item ? 'copy' : 'move'
-      event.dataTransfer.setData('application/x-miralo-element', 'internal')
+      event.dataTransfer.setData('application/x-lacuno-element', 'internal')
     }
     const isFileDrop = (event: DragEvent) => event.dataTransfer?.types.includes('Files')
     const imageTarget = (event: DragEvent) => {
       const { doc, disabled } = getOptions()
       const element = elementAt(event)
-      const id = element?.dataset.miraloNode
+      const id = element?.dataset.lacunoNode
       const node = id && doc?.nodes[id]
       if (
         !disabled &&

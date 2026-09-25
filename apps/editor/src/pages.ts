@@ -1,5 +1,5 @@
-import type { Operation } from '@miralo/document'
-import { type Document, Page, type Seo } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import { type Document, Page, type Seo } from '@lacuno/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type PageTree, pageTree } from './structure.js'
 

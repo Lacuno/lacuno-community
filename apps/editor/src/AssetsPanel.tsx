@@ -1,5 +1,5 @@
-import type { Operation } from '@miralo/document'
-import type { AssetRef, Document } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import type { AssetRef, Document } from '@lacuno/schema'
 import { useState } from 'react'
 import { api, message } from './api.js'
 import { ErrorNote } from './Dialog.js'

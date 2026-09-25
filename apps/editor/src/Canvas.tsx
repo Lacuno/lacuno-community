@@ -1,5 +1,5 @@
-import { MOTION_CSS } from '@miralo/css'
-import type { State } from '@miralo/schema'
+import { MOTION_CSS } from '@lacuno/css'
+import type { State } from '@lacuno/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
 import type { StyleEdit, Swatch } from './colorWheel.js'
@@ -22,18 +22,18 @@ export type LivePreview = {
 }
 
 function nodeElement(doc: Document | null | undefined, id: string) {
-  return doc?.querySelector<HTMLElement>(`[data-miralo-node="${CSS.escape(id)}"]`) ?? undefined
+  return doc?.querySelector<HTMLElement>(`[data-lacuno-node="${CSS.escape(id)}"]`) ?? undefined
 }
 
 /** The selection marker, and the state the picker forces on the selected element. */
 function highlight(frame: HTMLIFrameElement | null, selected: string, state: State) {
   const doc = frame?.contentDocument
   if (!doc) return
-  doc.querySelector('[data-miralo-selected]')?.removeAttribute('data-miralo-selected')
-  doc.querySelector('[data-mi-state]')?.removeAttribute('data-mi-state')
+  doc.querySelector('[data-lacuno-selected]')?.removeAttribute('data-lacuno-selected')
+  doc.querySelector('[data-lc-state]')?.removeAttribute('data-lc-state')
   const element = nodeElement(doc, selected)
-  element?.setAttribute('data-miralo-selected', '')
-  if (state !== 'none') element?.setAttribute('data-mi-state', state)
+  element?.setAttribute('data-lacuno-selected', '')
+  if (state !== 'none') element?.setAttribute('data-lc-state', state)
 }
 
 /** The text of every style in a rendered head, in order. */
@@ -47,24 +47,24 @@ const headStyles = (doc: Document) =>
  */
 function swapPlaceholders(doc: Document) {
   for (const media of doc.querySelectorAll(
-    ':is(img, video)[data-miralo-node]:not([src]), :is(img, video)[data-miralo-node][src=""]',
+    ':is(img, video)[data-lacuno-node]:not([src]), :is(img, video)[data-lacuno-node][src=""]',
   )) {
     const placeholder = doc.createElement('div')
     for (const attribute of media.attributes)
       placeholder.setAttribute(attribute.name, attribute.value)
-    if (media.tagName === 'VIDEO') placeholder.setAttribute('data-miralo-placeholder', 'Video')
+    if (media.tagName === 'VIDEO') placeholder.setAttribute('data-lacuno-placeholder', 'Video')
     else {
-      placeholder.setAttribute('data-miralo-image-placeholder', '')
+      placeholder.setAttribute('data-lacuno-image-placeholder', '')
       placeholder.setAttribute('aria-label', 'Image placeholder. Drop a photo here.')
     }
     media.replaceWith(placeholder)
   }
-  for (const embed of doc.querySelectorAll<HTMLElement>('[data-miralo-embed]'))
+  for (const embed of doc.querySelectorAll<HTMLElement>('[data-lacuno-embed]'))
     if (
       !embed.innerText.trim() &&
       !embed.querySelector(':not(script, style, iframe, noscript, template)')
     )
-      embed.setAttribute('data-miralo-placeholder', 'Embed')
+      embed.setAttribute('data-lacuno-placeholder', 'Embed')
 }
 
 export function Canvas({
@@ -136,24 +136,24 @@ export function Canvas({
     const draft = latest.current.livePreview
     if (draft.node) {
       let element = nodeElement(doc, draft.node.id)
-      if (element?.hasAttribute('data-miralo-image-placeholder') && draft.node.attrs?.src) {
+      if (element?.hasAttribute('data-lacuno-image-placeholder') && draft.node.attrs?.src) {
         const placeholder = element
         const image = doc.createElement('img')
         for (const attribute of placeholder.attributes) {
-          if (attribute.name !== 'data-miralo-image-placeholder')
+          if (attribute.name !== 'data-lacuno-image-placeholder')
             image.setAttribute(attribute.name, attribute.value)
         }
         placeholder.replaceWith(image)
         element = image
         undo.push(() => image.replaceWith(placeholder))
       }
-      if (element && !element.hasAttribute('data-miralo-editing')) {
+      if (element && !element.hasAttribute('data-lacuno-editing')) {
         const target = element
         // Style previews must preserve child DOM, including its current selection marker.
         const markup = draft.node.text !== undefined ? target.innerHTML : undefined
         const style = target.getAttribute('style')
         undo.push(() => {
-          if (target.hasAttribute('data-miralo-editing')) return
+          if (target.hasAttribute('data-lacuno-editing')) return
           if (markup !== undefined) target.innerHTML = markup
           if (style === null) target.removeAttribute('style')
           else target.setAttribute('style', style)
@@ -275,7 +275,7 @@ export function Canvas({
   latest.current = current
   const refresh = (doc: Document) => {
     swapPlaceholders(doc)
-    for (const element of doc.querySelectorAll<HTMLElement>('[data-miralo-node]'))
+    for (const element of doc.querySelectorAll<HTMLElement>('[data-lacuno-node]'))
       element.draggable = true
     highlight(frame.current, latest.current.selected, latest.current.state)
     latest.current.paint()
@@ -298,7 +298,7 @@ export function Canvas({
       callbacks: {
         beforeNodeRemoved: (node) =>
           !(node as Element).matches?.(
-            '[data-miralo-selection-overlay], [data-miralo-drop-indicator]',
+            '[data-lacuno-selection-overlay], [data-lacuno-drop-indicator]',
           ),
       },
     })
@@ -337,22 +337,22 @@ export function Canvas({
       const doc = frame.current?.contentDocument
       const element = nodeElement(doc, id)
       if (!doc || !element || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-      const motion = element.hasAttribute('data-miralo-motion')
-      element.setAttribute('data-miralo-motion', '')
+      const motion = element.hasAttribute('data-lacuno-motion')
+      element.setAttribute('data-lacuno-motion', '')
       const before = element.getAttribute('style')
       cleanup = () => {
-        element.toggleAttribute('data-miralo-motion', motion)
-        element.removeAttribute('data-mi-enter')
+        element.toggleAttribute('data-lacuno-motion', motion)
+        element.removeAttribute('data-lc-enter')
         if (before === null) element.removeAttribute('style')
         else element.setAttribute('style', before)
         latest.current.paint()
       }
       const computed = doc.defaultView!.getComputedStyle(element)
-      const duration = Number.parseFloat(computed.getPropertyValue('--mi-duration')) || 400
-      const delay = Number.parseFloat(computed.getPropertyValue('--mi-delay')) || 0
-      element.removeAttribute('data-mi-enter')
+      const duration = Number.parseFloat(computed.getPropertyValue('--lc-duration')) || 400
+      const delay = Number.parseFloat(computed.getPropertyValue('--lc-delay')) || 0
+      element.removeAttribute('data-lc-enter')
       void element.offsetWidth
-      element.setAttribute('data-mi-enter', '')
+      element.setAttribute('data-lc-enter', '')
       timer = setTimeout(
         () => {
           cleanup?.()
@@ -367,13 +367,13 @@ export function Canvas({
     const flashNodes = (event: Event) => {
       flash.current = { ids: (event as CustomEvent<string[]>).detail, until: Date.now() + 1000 }
     }
-    window.addEventListener('miralo:motion-preview', preview)
-    window.addEventListener('miralo:spacing-focus', focus)
-    window.addEventListener('miralo:flash', flashNodes)
+    window.addEventListener('lacuno:motion-preview', preview)
+    window.addEventListener('lacuno:spacing-focus', focus)
+    window.addEventListener('lacuno:flash', flashNodes)
     return () => {
-      window.removeEventListener('miralo:motion-preview', preview)
-      window.removeEventListener('miralo:spacing-focus', focus)
-      window.removeEventListener('miralo:flash', flashNodes)
+      window.removeEventListener('lacuno:motion-preview', preview)
+      window.removeEventListener('lacuno:spacing-focus', focus)
+      window.removeEventListener('lacuno:flash', flashNodes)
       clearTimeout(timer)
       cleanup?.()
     }
@@ -417,7 +417,7 @@ export function Canvas({
             (next) => latest.current.onState(next),
             (edit: StyleEdit) =>
               window.dispatchEvent(
-                new CustomEvent('miralo:canvas-style', {
+                new CustomEvent('lacuno:canvas-style', {
                   detail: { id: latest.current.selected, ...edit },
                 }),
               ),
@@ -426,32 +426,32 @@ export function Canvas({
           dragCleanup.current = bindDragSurface(doc)
           const style = doc.createElement('style')
           style.textContent =
-            'div[data-miralo-node]:empty, section[data-miralo-node]:empty { min-height: 48px; min-width: 48px; } [data-miralo-node]:not([data-miralo-selected]):hover:not(:has([data-miralo-node]:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }'
-          style.textContent += `[data-miralo-image-placeholder] { min-height:160px !important; min-width:80px; background: #f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; position:relative; } [data-miralo-image-placeholder]::after { content:""; display:block; width:40px; height:40px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%239187aa' stroke-width='1.5'%3E%3Cpath d='M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8'/%3E%3Ccircle cx='22' cy='10' r='2'/%3E%3C/svg%3E"); }`
+            'div[data-lacuno-node]:empty, section[data-lacuno-node]:empty { min-height: 48px; min-width: 48px; } [data-lacuno-node]:not([data-lacuno-selected]):hover:not(:has([data-lacuno-node]:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }'
+          style.textContent += `[data-lacuno-image-placeholder] { min-height:160px !important; min-width:80px; background: #f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; position:relative; } [data-lacuno-image-placeholder]::after { content:""; display:block; width:40px; height:40px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%239187aa' stroke-width='1.5'%3E%3Cpath d='M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8'/%3E%3Ccircle cx='22' cy='10' r='2'/%3E%3C/svg%3E"); }`
           style.textContent +=
-            '[data-miralo-placeholder] { display:grid; place-items:center; min-height:120px !important; padding:12px; background:#f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; font:12px/1.4 system-ui, sans-serif; color:#6f6787; text-align:center; } [data-miralo-placeholder]::before { content:attr(data-miralo-placeholder); } [data-miralo-placeholder="Embed"]::before { content:"Embed. Scripts and iframes run on the published site."; } [data-miralo-placeholder] iframe { display:none; }'
+            '[data-lacuno-placeholder] { display:grid; place-items:center; min-height:120px !important; padding:12px; background:#f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; font:12px/1.4 system-ui, sans-serif; color:#6f6787; text-align:center; } [data-lacuno-placeholder]::before { content:attr(data-lacuno-placeholder); } [data-lacuno-placeholder="Embed"]::before { content:"Embed. Scripts and iframes run on the published site."; } [data-lacuno-placeholder] iframe { display:none; }'
           style.textContent += MOTION_CSS
           style.textContent +=
-            '[data-miralo-editing] .tiptap {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;cursor:text;user-select:text;} [data-miralo-editing] .tiptap p {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;margin:0;} [data-miralo-editing] .tiptap strong {font-weight:bold;} [data-miralo-editing] .tiptap em {font-style:italic;}'
+            '[data-lacuno-editing] .tiptap {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;cursor:text;user-select:text;} [data-lacuno-editing] .tiptap p {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;margin:0;} [data-lacuno-editing] .tiptap strong {font-weight:bold;} [data-lacuno-editing] .tiptap em {font-style:italic;}'
           doc.head.append(style)
-          const chrome = '[data-miralo-editing], [data-miralo-selection-overlay]'
+          const chrome = '[data-lacuno-editing], [data-lacuno-selection-overlay]'
           const pick = (event: Event) => {
             if ((event.target as Element | null)?.closest?.(chrome)) return
             event.preventDefault()
             event.stopPropagation()
             const target = event.target as Element | null
-            const element = target?.closest?.('[data-miralo-node]')
-            const id = element?.getAttribute('data-miralo-node')
+            const element = target?.closest?.('[data-lacuno-node]')
+            const id = element?.getAttribute('data-lacuno-node')
             if (id) latest.current.select(id)
           }
           doc.addEventListener('click', pick, true)
           doc.addEventListener('auxclick', pick, true)
           doc.addEventListener('dblclick', (event) => {
             const element = (event.target as Element | null)?.closest?.<HTMLElement>(
-              '[data-miralo-node]',
+              '[data-lacuno-node]',
             )
-            const id = element?.dataset.miraloNode
-            if (id && element && !element.hasAttribute('data-miralo-editing')) {
+            const id = element?.dataset.lacunoNode
+            if (id && element && !element.hasAttribute('data-lacuno-editing')) {
               event.preventDefault()
               latest.current.onEditText(id, element)
             }

@@ -1,5 +1,5 @@
-import { contextFromDocument, serializeValue } from '@miralo/css'
-import type { CssValue, DesignToken, Document } from '@miralo/schema'
+import { contextFromDocument, serializeValue } from '@lacuno/css'
+import type { CssValue, DesignToken, Document } from '@lacuno/schema'
 import { type ReactNode, useId, useRef } from 'react'
 import { EditorIcon } from './EditorIcon.js'
 import { placePopover } from './popover.js'

@@ -1,5 +1,5 @@
-import { DocumentStore } from '@miralo/document'
-import { fixtureDocument } from '@miralo/schema'
+import { DocumentStore } from '@lacuno/document'
+import { fixtureDocument } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import {
   committedHistory,

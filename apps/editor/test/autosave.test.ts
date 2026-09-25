@@ -1,4 +1,4 @@
-import type { Operation } from '@miralo/document'
+import type { Operation } from '@lacuno/document'
 import { describe, expect, it } from 'vitest'
 import { type AutosaveState, createAutosave } from '../src/autosave.js'
 

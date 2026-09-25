@@ -1,5 +1,5 @@
-import type { Operation } from '@miralo/document'
-import type { Document } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import type { Document } from '@lacuno/schema'
 import { useState } from 'react'
 import { CodeField } from './CodeField.js'
 import { Dialog, ErrorNote } from './Dialog.js'

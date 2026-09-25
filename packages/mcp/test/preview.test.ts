@@ -1,5 +1,5 @@
-import { DocumentStore } from '@miralo/document'
-import { fixtureDocument } from '@miralo/schema'
+import { DocumentStore } from '@lacuno/document'
+import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { connect, jsonOf, textOf } from './helpers.js'
 
@@ -22,7 +22,7 @@ describe('page.preview', () => {
     expect(html).toContain('Design it. Publish it. Own it.')
     expect(html).toMatch(/<img[^>]+src="\/assets\/[a-f0-9]{64}\.png"/)
     expect(html).toContain('<style>')
-    expect(html).not.toContain('data-miralo-node')
+    expect(html).not.toContain('data-lacuno-node')
   })
 
   it('lists text nodes with their ids in text mode', async () => {

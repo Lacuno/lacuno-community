@@ -1,5 +1,5 @@
-import type { AssetRef, Document } from '@miralo/schema'
-import { DocumentError, hashAsset, parseDocument } from '@miralo/schema'
+import type { AssetRef, Document } from '@lacuno/schema'
+import { DocumentError, hashAsset, parseDocument } from '@lacuno/schema'
 import type { Warning } from './context.js'
 import { planBatch } from './engine.js'
 import { StaleRevisionError } from './errors.js'
@@ -51,7 +51,7 @@ export class DocumentStore {
   static async withPersistence(persistence: Persistence): Promise<DocumentStore> {
     const raw = await persistence.load()
     if (raw === undefined)
-      throw new DocumentError([{ path: 'miralo.json', message: 'no document found' }])
+      throw new DocumentError([{ path: 'lacuno.json', message: 'no document found' }])
     return new DocumentStore(persistence, parseDocument(raw))
   }
 

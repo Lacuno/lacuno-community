@@ -1,5 +1,5 @@
 {
-  "name": "@miralo/compiler",
+  "name": "@lacuno/compiler",
   "version": "0.0.0",
   "type": "module",
   "exports": {
@@ -14,8 +14,8 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
-    "@miralo/css": "workspace:*",
-    "@miralo/schema": "workspace:*",
+    "@lacuno/css": "workspace:*",
+    "@lacuno/schema": "workspace:*",
     "astro": "^7.3.2",
     "sharp": "^0.35.4"
   },

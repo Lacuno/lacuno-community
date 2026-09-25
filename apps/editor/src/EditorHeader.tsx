@@ -1,4 +1,4 @@
-import type { Page } from '@miralo/schema'
+import type { Page } from '@lacuno/schema'
 import { Brand, SignUpLink } from './App.js'
 import { useConfig } from './api.js'
 import { type Connection, connectionLabel } from './ConnectPanel.js'

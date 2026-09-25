@@ -6,7 +6,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
   const { page, canvas, document } = await editor()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  await canvas.locator('[data-miralo-node="n-home-hero-note"]').dispatchEvent('click')
+  await canvas.locator('[data-lacuno-node="n-home-hero-note"]').dispatchEvent('click')
   await page.getByRole('button', { name: 'Components', exact: true }).click()
   const rail = page.getByRole('navigation', { name: 'Editor panels' })
   const collapsedWidth = (await rail.boundingBox())!.width
@@ -19,7 +19,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
   expect((await rail.boundingBox())!.width).toBeGreaterThan(collapsedWidth)
   expect((await content.boundingBox())!.width).toBe(contentWidth)
   await page.screenshot({
-    path: path.join(root, '.miralo/editor-preview/sidebar-expanded.png'),
+    path: path.join(root, '.lacuno/editor-preview/sidebar-expanded.png'),
   })
   await page.getByRole('button', { name: 'Collapse sidebar labels' }).click()
   expect((await rail.boundingBox())!.width).toBe(collapsedWidth)
@@ -34,7 +34,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
   await dialog.getByText('Allow instance-specific text', { exact: true }).click()
   await dialog.getByRole('checkbox').first().check()
   await page.screenshot({
-    path: path.join(root, '.miralo/editor-preview/component-create.png'),
+    path: path.join(root, '.lacuno/editor-preview/component-create.png'),
   })
   await dialog.getByRole('button', { name: 'Create component', exact: true }).click()
   await expect.poll(() => dialog.count()).toBe(0)
@@ -44,15 +44,15 @@ it('creates, customizes, edits and detaches reusable components through distinct
   const instance = Object.values(extracted.nodes).find(
     (node) => node.type === 'component' && node.component === component.id,
   )!
-  await expect.poll(() => canvas.locator(`[data-miralo-node="${instance.id}"]`).count()).toBe(1)
-  expect(await canvas.locator('[data-miralo-node="n-home-note-top"]').count()).toBe(0)
+  await expect.poll(() => canvas.locator(`[data-lacuno-node="${instance.id}"]`).count()).toBe(1)
+  expect(await canvas.locator('[data-lacuno-node="n-home-note-top"]').count()).toBe(0)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect.poll(async () => (await document()).components[component.id]).toBeUndefined()
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
   await expect
     .poll(async () => (await document()).components[component.id]?.name)
     .toBe('Promo panel')
-  await canvas.locator(`[data-miralo-node="${instance.id}"]`).dispatchEvent('click')
+  await canvas.locator(`[data-lacuno-node="${instance.id}"]`).dispatchEvent('click')
   await page.getByLabel(component.props[0]!.label!, { exact: true }).fill('Only this instance')
   await expect
     .poll(async () => {
@@ -61,7 +61,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
     })
     .toEqual({ type: 'static', value: 'Only this instance' })
   await page.screenshot({
-    path: path.join(root, '.miralo/editor-preview/component-instance.png'),
+    path: path.join(root, '.lacuno/editor-preview/component-instance.png'),
   })
   await page.getByRole('button', { name: 'Add', exact: true }).click()
   expect(await page.getByRole('button', { name: 'Insert Promo panel', exact: true }).count()).toBe(
@@ -71,7 +71,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
   await expect
     .poll(() => page.getByRole('button', { name: 'Create component…', exact: true }).isDisabled())
     .toBe(true)
-  await page.screenshot({ path: path.join(root, '.miralo/editor-preview/components-tab.png') })
+  await page.screenshot({ path: path.join(root, '.lacuno/editor-preview/components-tab.png') })
   await page.getByRole('button', { name: 'Insert Promo panel', exact: true }).click()
   await expect
     .poll(
@@ -82,8 +82,8 @@ it('creates, customizes, edits and detaches reusable components through distinct
     )
     .toBe(2)
   await page.getByRole('button', { name: 'Edit shared component', exact: true }).click()
-  await expect.poll(() => canvas.locator('[data-miralo-node="n-home-note-copy"]').count()).toBe(1)
-  await canvas.locator('[data-miralo-node="n-home-note-copy"]').click()
+  await expect.poll(() => canvas.locator('[data-lacuno-node="n-home-note-copy"]').count()).toBe(1)
+  await canvas.locator('[data-lacuno-node="n-home-note-copy"]').click()
   await page.getByLabel('Text', { exact: true }).fill('Shared text changed on the canvas')
   await expect
     .poll(async () => {
@@ -92,7 +92,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
     })
     .toEqual({ type: 'static', value: 'Shared text changed on the canvas' })
   await page.screenshot({
-    path: path.join(root, '.miralo/editor-preview/component-shared.png'),
+    path: path.join(root, '.lacuno/editor-preview/component-shared.png'),
   })
   await page.getByRole('button', { name: 'Component settings…', exact: true }).click()
   const settings = page.getByRole('dialog', { name: 'Component settings', exact: true })
@@ -120,7 +120,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
     .getByLabel(`Field name for ${component.props[0]!.name}`, { exact: true })
     .fill('Eyebrow')
   await page.screenshot({
-    path: path.join(root, '.miralo/editor-preview/component-fields.png'),
+    path: path.join(root, '.lacuno/editor-preview/component-fields.png'),
   })
   await settings.getByRole('button', { name: 'Save component settings', exact: true }).click()
   await expect.poll(() => settings.count()).toBe(0)
@@ -136,7 +136,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
     .toBe(2)
   await expect.poll(() => canvas.getByText('Only this instance', { exact: true }).count()).toBe(1)
   await expect.poll(() => canvas.getByText('Shared default', { exact: true }).count()).toBe(1)
-  await canvas.locator(`[data-miralo-node="${instance.id}"]`).dispatchEvent('click')
+  await canvas.locator(`[data-lacuno-node="${instance.id}"]`).dispatchEvent('click')
   await page.getByText('Instance actions', { exact: true }).click()
   await page.getByRole('button', { name: 'Detach from component…' }).click()
   const detach = page.getByRole('dialog', { name: 'Detach component', exact: true })
@@ -174,7 +174,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
   expect((await document()).components[copy.id]).toBeDefined()
   await copyDialog.getByRole('button', { name: 'Delete component…', exact: true }).click()
   await page.screenshot({
-    path: path.join(root, '.miralo/editor-preview/component-management.png'),
+    path: path.join(root, '.lacuno/editor-preview/component-management.png'),
   })
   await copyDialog.getByRole('button', { name: 'Confirm delete component', exact: true }).click()
   await expect.poll(() => copyDialog.count()).toBe(0)

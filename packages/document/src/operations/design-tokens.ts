@@ -1,4 +1,4 @@
-import { CssValue, DesignToken, DesignTokenGroup, DesignTokenId, ModeId } from '@miralo/schema'
+import { CssValue, DesignToken, DesignTokenGroup, DesignTokenId, ModeId } from '@lacuno/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'

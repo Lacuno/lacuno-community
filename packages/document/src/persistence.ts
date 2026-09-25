@@ -1,4 +1,4 @@
-import type { Document } from '@miralo/schema'
+import type { Document } from '@lacuno/schema'
 
 /** Where a document and its asset bytes live. Phase 1's server supplies SQLite and git here. */
 export interface Persistence {

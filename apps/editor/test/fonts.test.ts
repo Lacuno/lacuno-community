@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { type Document, type Font, fixtureDocument } from '@miralo/schema'
+import { type Document, type Font, fixtureDocument } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { FONT_STACKS, faceFromFileName, faceLabel, fontChoices, setFallback } from '../src/fonts.js'
 
@@ -38,7 +38,7 @@ it('prefills a variable face from 100 to 900 when the name says Variable, VF or 
 
 it('lists the template font, then the built-in stacks', () => {
   const template = JSON.parse(
-    readFileSync(new URL('../../../templates/miralo/miralo.json', import.meta.url), 'utf8'),
+    readFileSync(new URL('../../../templates/lacuno/lacuno.json', import.meta.url), 'utf8'),
   ) as Document
   expect(fontChoices(template)).toEqual([
     'Arial, Helvetica, sans-serif',

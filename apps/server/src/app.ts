@@ -9,9 +9,9 @@ import {
   Patch,
   stageUpload,
   UploadInput,
-} from '@miralo/document'
-import { renderPreview } from '@miralo/renderer'
-import { AssetHash, hashAsset, parseDocument } from '@miralo/schema'
+} from '@lacuno/document'
+import { renderPreview } from '@lacuno/renderer'
+import { AssetHash, hashAsset, parseDocument } from '@lacuno/schema'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db/migration'
 import { and, eq } from 'drizzle-orm'
@@ -270,7 +270,7 @@ export async function createServer(options: ServerOptions) {
       const source = parseDocument(
         assets
           ? imported
-          : JSON.parse(await readFile(path.join(options.templateDir, 'miralo.json'), 'utf8')),
+          : JSON.parse(await readFile(path.join(options.templateDir, 'lacuno.json'), 'utf8')),
       )
       const document = parseDocument({
         ...source,

@@ -1,5 +1,5 @@
-import type { CollectionSchema, Entry, FieldDef } from '@miralo/schema'
-import { CollectionId, EntryId, FieldId, OptionChoice } from '@miralo/schema'
+import type { CollectionSchema, Entry, FieldDef } from '@lacuno/schema'
+import { CollectionId, EntryId, FieldId, OptionChoice } from '@lacuno/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'

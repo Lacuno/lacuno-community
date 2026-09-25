@@ -1,4 +1,4 @@
-import { AssetId, AssetRef } from '@miralo/schema'
+import { AssetId, AssetRef } from '@lacuno/schema'
 import { z } from 'zod'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'

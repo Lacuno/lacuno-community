@@ -19,7 +19,7 @@ const Claims = z.object({
 
 /** Generic opt-in authenticated reverse-proxy mode. No browser assertion or cookie is trusted. */
 export class GatewayAuth {
-  readonly ownerId = 'miralo-gateway-owner'
+  readonly ownerId = 'lacuno-gateway-owner'
   constructor(
     private sqlite: Database.Database,
     private options: GatewayOptions,
@@ -60,7 +60,7 @@ export class GatewayAuth {
   }
 
   async authenticate(request: Request) {
-    const assertion = request.headers.get('x-miralo-assertion')
+    const assertion = request.headers.get('x-lacuno-assertion')
     if (!assertion || assertion.length > 8192) throw new Error('Missing gateway assertion')
     const { payload } = await jwtVerify(assertion, new TextEncoder().encode(this.options.secret), {
       algorithms: ['HS256'],

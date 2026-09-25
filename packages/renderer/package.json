@@ -1,5 +1,5 @@
 {
-  "name": "@miralo/renderer",
+  "name": "@lacuno/renderer",
   "version": "0.0.0",
   "type": "module",
   "exports": {
@@ -10,9 +10,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@miralo/compiler": "workspace:*",
-    "@miralo/css": "workspace:*",
-    "@miralo/schema": "workspace:*"
+    "@lacuno/compiler": "workspace:*",
+    "@lacuno/css": "workspace:*",
+    "@lacuno/schema": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -4,7 +4,7 @@
 
 ```
                     ┌──────────────────────────────────────────────┐
-                    │                 Miralo server               │
+                    │                 Lacuno server               │
                     │  Hono + Node 22                               │
   Browser ─────────►│  ├─ /api        REST + tRPC-style typed API   │
   (editor SPA)      │  ├─ /ws         Yjs sync + presence           │
@@ -29,11 +29,11 @@ belongs to the planned Cloud service. See [self-hosting](SELF_HOSTING.md).
 ## Monorepo layout
 
 ```
-miralo/
+lacuno/
   apps/
     server/        Hono app, wires everything below together, ships as the Docker image
     editor/        React SPA: canvas, panels, agent UI
-    cli/           `miralo` binary: local dev, MCP stdio bridge, export, import
+    cli/           `lacuno` binary: local dev, MCP stdio bridge, export, import
   packages/
     schema/        Zod schema for the document. Types, validation, migrations. Zero deps beyond zod
     document/      Operations over the document: typed mutations compiled to patches, revision, dry run, persistence
@@ -139,10 +139,10 @@ and written back on the next commit.
 
 ```
 site/
-  miralo.json            the document, including collection entries for now
+  lacuno.json            the document, including collection entries for now
   assets/<hash>            asset bytes, addressed by content hash, no extension
   skills/*.md              agent skills for this site
-  .miralo/               build cache, ignored by git, owned by the build
+  .lacuno/               build cache, ignored by git, owned by the build
   dist/                    static output, owned by the build
   node_modules/sharp       symlink the build creates so Astro's image step can load sharp
 ```
@@ -160,7 +160,7 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
   so `.button.primary` styles only apply where both are present, matching Webflow semantics.
 - Breakpoints become media queries in cascade order. Base styles first, then narrower widths.
 - States map to pseudo-classes and pseudo-elements. The canvas stylesheet, and only that one,
-  also emits each state rule as `<selector>[data-mi-state~="<state>"]`, so the editor can force the
+  also emits each state rule as `<selector>[data-lc-state~="<state>"]`, so the editor can force the
   picked state on the selected element.
 - Output is deterministic: sorted keys, stable formatting, so diffs are readable and snapshot tests
   are stable.
@@ -187,7 +187,7 @@ generates is meant to be read, edited or kept.
 - A pure renderer turns a document and a page into head and body HTML. It resolves bindings,
   components, slots, collection lists and rich text, and never touches the filesystem, so it is
   tested with plain snapshots.
-- The build writes a fixed scaffold into `.miralo/astro`: one catch-all route, the generated
+- The build writes a fixed scaffold into `.lacuno/astro`: one catch-all route, the generated
   stylesheet, the document as JSON, copied assets, and a `node_modules` directory holding
   symlinks to the installed Astro and compiler packages. The route enumerates every output path
   through `getStaticPaths`, calls the renderer, and wraps the result in real html, head and body
@@ -203,7 +203,7 @@ generates is meant to be read, edited or kept.
 - Custom code enters through embeds today and code components later. Code components are inputs
   to the build, never files a developer edits in place.
 
-The compiler has no knowledge of the server. The CLI exposes it as `miralo build`.
+The compiler has no knowledge of the server. The CLI exposes it as `lacuno build`.
 
 ## Server
 
@@ -229,14 +229,14 @@ The compiler has no knowledge of the server. The CLI exposes it as `miralo build
 
 ## CLI
 
-`miralo` is a single binary with the same packages:
+`lacuno` is a single binary with the same packages:
 
-- `miralo dev` runs the server locally against a folder.
-- `miralo build` produces the static output for a site folder.
-- `miralo mcp` runs the MCP server over stdio for local agents and proxies to a remote instance
+- `lacuno dev` runs the server locally against a folder.
+- `lacuno build` produces the static output for a site folder.
+- `lacuno mcp` runs the MCP server over stdio for local agents and proxies to a remote instance
   when configured.
-- `miralo export` and `miralo import` move sites between instances and formats.
-- `miralo backup` and `miralo restore` bundle the database, repositories and assets.
+- `lacuno export` and `lacuno import` move sites between instances and formats.
+- `lacuno backup` and `lacuno restore` bundle the database, repositories and assets.
 
 ## Security posture
 

@@ -1,7 +1,7 @@
 # The agent layer
 
-Miralo treats agents as collaborators, not as a feature. The agent is whichever AI app the user
-already pays for: Claude, ChatGPT, Cursor, VS Code and the rest. Miralo never calls a model and
+Lacuno treats agents as collaborators, not as a feature. The agent is whichever AI app the user
+already pays for: Claude, ChatGPT, Cursor, VS Code and the rest. Lacuno never calls a model and
 never holds an API key. It gives the user's app hands: a document it can read and write, tools to
 look at the result, and a canvas where the designer watches it work.
 
@@ -17,7 +17,7 @@ look at the result, and a canvas where the designer watches it work.
 4. **The agent can look.** Every agent surface has preview, screenshot and diff tools. An agent
    that cannot see its result produces worse results.
 5. **Bring your own app, not your own key.** The user's subscription does the thinking. No
-   provider settings, no keys, no Miralo-operated inference.
+   provider settings, no keys, no Lacuno-operated inference.
 
 ## Surfaces
 
@@ -25,7 +25,7 @@ look at the result, and a canvas where the designer watches it work.
 
 The editor's **Connect your AI** button registers the site's MCP endpoint in the app of the
 user's choice: an install link where the app has one, a one-line command or a URL to paste where
-it does not, then an OAuth consent screen in Miralo. Once connected, the editor shows the app's
+it does not, then an OAuth consent screen in Lacuno. Once connected, the editor shows the app's
 name, when it last acted, and each batch it applies; touched elements flash on the canvas. See the
 [design](superpowers/specs/2026-09-23-connect-your-ai-design.md).
 
@@ -38,7 +38,7 @@ name, when it last acted, and each batch it applies; touched elements flash on t
 
 ### MCP over stdio
 
-`miralo mcp <dir>` serves the same tools over stdio for a site folder, for agents that work
+`lacuno mcp <dir>` serves the same tools over stdio for a site folder, for agents that work
 from a repository without a server, and for building templates.
 
 ### MCP tools
@@ -82,7 +82,7 @@ Use `color.brand` only for primary actions. Sections alternate `surface.default`
 - Skills can include example documents: a section archetype with a node subtree the agent should
   reuse rather than reinvent.
 - Skills are plain files, so they version with the site, fork with templates and can be shared.
-- Miralo ships default skills: responsive fixes, accessibility, copywriting, component
+- Lacuno ships default skills: responsive fixes, accessibility, copywriting, component
   extraction, collection schema design, SEO.
 
 ## Semantic vocabulary

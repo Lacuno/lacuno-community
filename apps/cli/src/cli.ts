@@ -1,7 +1,7 @@
 import { BUILD_USAGE, type Io, runBuild } from './build.js'
 import { MCP_USAGE, runMcp } from './mcp.js'
 
-const USAGE = `miralo, the Miralo command line
+const USAGE = `lacuno, the Lacuno command line
 
 Commands:
   build   Build a site folder to static output

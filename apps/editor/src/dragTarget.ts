@@ -1,4 +1,4 @@
-import type { Document as SiteDocument } from '@miralo/schema'
+import type { Document as SiteDocument } from '@lacuno/schema'
 import { canContain, type DragItem, type DropPosition, dropTarget } from './structure.js'
 
 export function layoutAxis(
@@ -32,19 +32,19 @@ export function canvasDropTarget(
 ) {
   const view = surface.defaultView
   if (!view) return
-  let element = surface.elementFromPoint(x, y)?.closest<HTMLElement>('[data-miralo-node]')
+  let element = surface.elementFromPoint(x, y)?.closest<HTMLElement>('[data-lacuno-node]')
   if (!element) return
   // A container drag must not target its own children (including text under the cursor).
   if ('id' in item) {
-    const source = surface.querySelector<HTMLElement>(`[data-miralo-node="${CSS.escape(item.id)}"]`)
+    const source = surface.querySelector<HTMLElement>(`[data-lacuno-node="${CSS.escape(item.id)}"]`)
     if (source?.contains(element)) element = source
   }
   const chain: HTMLElement[] = []
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
-    if (current.dataset.miraloNode) chain.push(current)
+    if (current.dataset.lacunoNode) chain.push(current)
   }
   const candidate = (target: HTMLElement, edgeOnly: boolean) => {
-    const id = target.dataset.miraloNode!
+    const id = target.dataset.lacunoNode!
     if (!doc.nodes[id]) return
     const rect = target.getBoundingClientRect()
     const { horizontal, reverse } = layoutAxis(

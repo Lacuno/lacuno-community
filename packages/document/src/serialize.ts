@@ -1,4 +1,4 @@
-import type { Document } from '@miralo/schema'
+import type { Document } from '@lacuno/schema'
 
 /** The id-keyed maps, sorted so insertion order never shows up in a diff. */
 const SORTED_MAPS = [

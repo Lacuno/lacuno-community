@@ -1,4 +1,4 @@
-import type { CollectionListNode, Entry } from '@miralo/schema'
+import type { CollectionListNode, Entry } from '@lacuno/schema'
 
 type Query = CollectionListNode['query']
 type Filter = NonNullable<NonNullable<Query>['filter']>[number]

@@ -1,4 +1,4 @@
-import type { Operation } from '@miralo/document'
+import type { Operation } from '@lacuno/document'
 
 export type AutosaveState = {
   operations: Operation[]

@@ -4,7 +4,7 @@ import {
   safeLinkHref,
   safeTextStyleValue,
   textStyleProperties,
-} from '@miralo/schema'
+} from '@lacuno/schema'
 import { escapeAttr, escapeHtml, type OnWarn } from './html.js'
 
 type PmNode = {

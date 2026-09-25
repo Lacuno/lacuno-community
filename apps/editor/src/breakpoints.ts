@@ -1,4 +1,4 @@
-import type { Document } from '@miralo/schema'
+import type { Document } from '@lacuno/schema'
 
 export function editingBreakpoint(doc: Document, width: number): string {
   return (

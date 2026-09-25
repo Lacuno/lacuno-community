@@ -1,12 +1,12 @@
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { hashAsset } from '@miralo/schema'
+import { hashAsset } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { FolderPersistence } from '../src/folder.js'
 
 it('concurrent writes of identical assets leave exactly one file with the right bytes', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-assets-race-'))
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-assets-race-'))
   try {
     const persistence = new FolderPersistence(dir)
     const bytes = new TextEncoder().encode('Shared upload')

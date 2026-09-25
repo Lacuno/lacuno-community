@@ -1,4 +1,4 @@
-import type { CssValue } from '@miralo/schema'
+import type { CssValue } from '@lacuno/schema'
 
 export type Swatch = { id: string; name: string; value: string }
 export type Hsl = { h: number; s: number; l: number }

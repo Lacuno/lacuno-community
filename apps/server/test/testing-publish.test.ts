@@ -3,7 +3,7 @@ import { editor } from './harness.js'
 
 it('publishes to testing, promotes the same build and keeps testing through the next release', async () => {
   const { context, page, canvas } = await editor()
-  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
 
   const dialog = page.locator('.publish-dialog')
   const summary = dialog.locator('.publish-summary')

@@ -1,4 +1,4 @@
-import type { Document, Node, NodeId } from '@miralo/schema'
+import type { Document, Node, NodeId } from '@lacuno/schema'
 
 function snippet(node: Node): string {
   if (node.type !== 'text') return ''

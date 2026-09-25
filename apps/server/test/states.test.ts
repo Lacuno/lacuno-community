@@ -5,9 +5,9 @@ it('edits a hover state in the canvas, publishes its rule and undoes it', async 
   const { server, page, canvas, publish, saved } = await editor()
   const background = (id: string) =>
     canvas
-      .locator(`[data-miralo-node="${id}"]`)
+      .locator(`[data-lacuno-node="${id}"]`)
       .evaluate((element) => getComputedStyle(element).backgroundColor)
-  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
+  const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   const restingCta = await background('n-home-cta')
   const restingLead = await background('n-home-lead')
@@ -23,7 +23,7 @@ it('edits a hover state in the canvas, publishes its rule and undoes it', async 
   await expect
     .poll(() => page.getByTitle('Every change here applies to this state').textContent())
     .toBe('Hover')
-  await expect.poll(() => cta.getAttribute('data-mi-state')).toBe('hover')
+  await expect.poll(() => cta.getAttribute('data-lc-state')).toBe('hover')
   await page.getByRole('button', { name: 'Appearance', exact: true }).click()
   await page.getByLabel('Background color', { exact: true }).fill('#ff0000')
   await saved()
@@ -32,7 +32,7 @@ it('edits a hover state in the canvas, publishes its rule and undoes it', async 
 
   // Back to None: the forced attribute goes, and with it the hover paint.
   await pickState('Default')
-  await expect.poll(() => cta.getAttribute('data-mi-state')).toBeNull()
+  await expect.poll(() => cta.getAttribute('data-lc-state')).toBeNull()
   await expect.poll(() => background('n-home-cta')).toBe(restingCta)
 
   const live = await publish()
@@ -41,8 +41,8 @@ it('edits a hover state in the canvas, publishes its rule and undoes it', async 
   expect(stylesheet).toBeTruthy()
   const css = await (await server.published!.request(live + stylesheet)).text()
   // The build minifies colours, so #ff0000 may arrive as `red`.
-  expect(css).toMatch(/\.mi-[^{]*:hover\{background-color:(red|#ff0000)\}/i)
-  expect(css).not.toContain('data-mi-state')
+  expect(css).toMatch(/\.lc-[^{]*:hover\{background-color:(red|#ff0000)\}/i)
+  expect(css).not.toContain('data-lc-state')
 
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await saved()

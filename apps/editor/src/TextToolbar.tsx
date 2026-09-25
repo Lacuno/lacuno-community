@@ -1,4 +1,4 @@
-import type { CssValue, Document } from '@miralo/schema'
+import type { CssValue, Document } from '@lacuno/schema'
 import type { ReactNode } from 'react'
 import { pickerHex } from './colors.js'
 import { fontChoices } from './fonts.js'

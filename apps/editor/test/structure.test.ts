@@ -1,5 +1,5 @@
-import { DocumentStore, type Operation } from '@miralo/document'
-import { fixtureDocument, type Node } from '@miralo/schema'
+import { DocumentStore, type Operation } from '@lacuno/document'
+import { fixtureDocument, type Node } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import {
   dropEdit,

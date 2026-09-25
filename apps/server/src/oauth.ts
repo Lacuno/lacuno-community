@@ -85,7 +85,7 @@ export function oauthPlugins(): NonNullable<BetterAuthOptions['plugins']> {
       },
     }) as BetterAuthPlugin,
     {
-      id: 'miralo-oauth',
+      id: 'lacuno-oauth',
       hooks: {
         before: [
           {

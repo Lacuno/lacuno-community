@@ -1,4 +1,4 @@
-import type { Operation } from '@miralo/document'
+import type { Operation } from '@lacuno/document'
 import { useEffect, useRef, useState } from 'react'
 import { createAutosave } from './autosave.js'
 

@@ -18,7 +18,7 @@ export function SignUpLink() {
 export function Brand() {
   return (
     <span className="brand">
-      <span className="brand-mark">f</span>miralo<span className="badge">EARLY ACCESS</span>
+      <span className="brand-mark">f</span>lacuno<span className="badge">EARLY ACCESS</span>
     </span>
   )
 }
@@ -77,13 +77,13 @@ function Auth({ onLogin }: { onLogin: (user: User) => void }) {
           }}
         >
           <p className="eyebrow">LET’S GET STARTED</p>
-          <h2>{setup ? 'Set up your Miralo' : signup ? 'Create your account' : 'Welcome back'}</h2>
+          <h2>{setup ? 'Set up your Lacuno' : signup ? 'Create your account' : 'Welcome back'}</h2>
           <p className="muted">
             {setup
               ? 'Create your owner account. Registration closes automatically afterward.'
               : signup
                 ? 'A workspace for everything you’ll make.'
-                : 'Sign in to your Miralo workspace.'}
+                : 'Sign in to your Lacuno workspace.'}
           </p>
           {(signup || setup) && (
             <label>

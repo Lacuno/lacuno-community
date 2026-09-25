@@ -1,11 +1,11 @@
-import { classNames } from '@miralo/css'
+import { classNames } from '@lacuno/css'
 import {
   createEmptyDocument,
   type Document,
   fixtureDocument,
   type Node,
   styleKey,
-} from '@miralo/schema'
+} from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { publicAssetPath } from '../src/assets.js'
 import { plainImageResolver } from '../src/images.js'
@@ -324,7 +324,7 @@ describe('renderNode: components, slots, lists, embeds', () => {
     const html = '<blockquote>Embedded quote</blockquote>'
     expect(renderNode('n-embed', empty, state(doc))).toBe(html)
     expect(renderNode('n-embed', empty, { ...state(doc), annotateNodes: true })).toBe(
-      `<div data-miralo-embed data-miralo-node="n-embed">${html}</div>`,
+      `<div data-lacuno-embed data-lacuno-node="n-embed">${html}</div>`,
     )
   })
 
@@ -360,7 +360,7 @@ it('marks elements whose class carries a Motion field or an interactive state, n
     { id: 'c', type: 'element', tag: 'div', parent: null, children: [], classes: ['odd'] },
   ])
   for (const [cls, pseudo, property] of [
-    ['timed', 'none', '--mi-duration'],
+    ['timed', 'none', '--lc-duration'],
     ['hovered', 'hover', 'background-color'],
     ['odd', 'odd', 'background-color'],
   ] as const) {
@@ -374,7 +374,7 @@ it('marks elements whose class carries a Motion field or an interactive state, n
     }
     doc.styles[styleKey(style)] = style
   }
-  expect(renderNode('a', empty, state(doc))).toContain('data-miralo-motion')
-  expect(renderNode('b', empty, state(doc))).toContain('data-miralo-motion')
-  expect(renderNode('c', empty, state(doc))).not.toContain('data-miralo-motion')
+  expect(renderNode('a', empty, state(doc))).toContain('data-lacuno-motion')
+  expect(renderNode('b', empty, state(doc))).toContain('data-lacuno-motion')
+  expect(renderNode('c', empty, state(doc))).not.toContain('data-lacuno-motion')
 })

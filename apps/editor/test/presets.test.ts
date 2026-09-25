@@ -1,5 +1,5 @@
-import { DocumentStore } from '@miralo/document'
-import { fixtureDocument, styleKey } from '@miralo/schema'
+import { DocumentStore } from '@lacuno/document'
+import { fixtureDocument, styleKey } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { formattingOperations } from '../src/formatting.js'
 import {

@@ -1,4 +1,4 @@
-import type { Document, Node, State } from '@miralo/schema'
+import type { Document, Node, State } from '@lacuno/schema'
 
 export type StateInfo = { label: string; hint: string; icon: string }
 

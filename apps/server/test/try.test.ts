@@ -22,8 +22,8 @@ it('edits the template in the browser with a service worker as its server', asyn
   const server = createServer(async (request, response) => {
     const pathname = new URL(request.url!, 'http://host').pathname
     requested.push(pathname)
-    if (request.method === 'POST' && pathname === '/_miralo/import') {
-      imported = { ticket: request.headers['x-miralo-import'], body: '' }
+    if (request.method === 'POST' && pathname === '/_lacuno/import') {
+      imported = { ticket: request.headers['x-lacuno-import'], body: '' }
       for await (const chunk of request) imported.body += chunk
       response.writeHead(200, { 'Content-Type': 'application/json' })
       response.end(JSON.stringify({ redirect: '/done' }))
@@ -53,7 +53,7 @@ it('edits the template in the browser with a service worker as its server', asyn
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   await page.goto(`${origin}/`)
   const canvas = page.frameLocator('iframe[title="Site canvas"]')
-  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   expect(await heading.textContent()).toBe('Your website. Your rules.')
   expect(new URL(page.url()).search).toBe('?site=try')
   const saved = () =>

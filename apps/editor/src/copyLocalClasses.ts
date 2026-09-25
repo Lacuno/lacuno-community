@@ -1,5 +1,5 @@
-import type { Operation } from '@miralo/document'
-import type { Document } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import type { Document } from '@lacuno/schema'
 
 /** Copy editable local styles once per duplicated subtree; shared/locked/combo classes retain identity. */
 export function localClassCopier(doc: Document, operations: Operation[]) {

@@ -3,9 +3,9 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
-import { writeFixtureSite } from '@miralo/compiler/build'
-import { DocumentStore } from '@miralo/document'
-import { openFolder } from '@miralo/document/folder'
+import { writeFixtureSite } from '@lacuno/compiler/build'
+import { DocumentStore } from '@lacuno/document'
+import { openFolder } from '@lacuno/document/folder'
 import sharp from 'sharp'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { pngSize } from '../src/screenshot.js'
@@ -47,7 +47,7 @@ function png(result: Record<string, unknown>): { width: number; height: number; 
 
 describe('page.screenshot', () => {
   it.skipIf(!chromium)('captures the page at the viewport width and crops to a node', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-shot-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-shot-'))
     dirs.push(dir)
     await writeFixtureSite(dir)
     const c = await connect(await openFolder(dir), { siteDir: dir })
@@ -68,7 +68,7 @@ describe('page.screenshot', () => {
   it.skipIf(!chromium)(
     'reads assets through the assets option when there is no site folder',
     async () => {
-      const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-shot-'))
+      const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-shot-'))
       dirs.push(dir)
       const doc = await writeFixtureSite(dir)
       const read: string[] = []
@@ -88,7 +88,7 @@ describe('page.screenshot', () => {
   )
 
   it.skipIf(!chromium)('captures lazy images far below the fold', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-shot-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-shot-'))
     dirs.push(dir)
     const doc = await writeFixtureSite(dir)
     const style = (value: string) => ({ style: { type: 'static' as const, value } })
@@ -123,7 +123,7 @@ describe('page.screenshot', () => {
         ...style('display: block; width: 400px; height: 300px'),
       },
     }
-    await writeFile(path.join(dir, 'miralo.json'), JSON.stringify(doc))
+    await writeFile(path.join(dir, 'lacuno.json'), JSON.stringify(doc))
     const c = await connect(await openFolder(dir), { siteDir: dir })
     close = c.close
     const { bytes } = png(
@@ -146,7 +146,7 @@ describe('page.screenshot', () => {
     const thirdParty = createServer(() => requests++)
     await new Promise<void>((r) => thirdParty.listen(0, '127.0.0.1', r))
     const { port } = thirdParty.address() as AddressInfo
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-shot-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-shot-'))
     dirs.push(dir)
     const doc = await writeFixtureSite(dir)
     doc.nodes['n-home']!.children.push('n-beacon')
@@ -158,7 +158,7 @@ describe('page.screenshot', () => {
       classes: [],
       html: `<img src="http://127.0.0.1:${port}/pixel.png"><script>fetch('http://127.0.0.1:${port}/beacon')</script>`,
     }
-    await writeFile(path.join(dir, 'miralo.json'), JSON.stringify(doc))
+    await writeFile(path.join(dir, 'lacuno.json'), JSON.stringify(doc))
     const c = await connect(await openFolder(dir), { siteDir: dir })
     close = c.close
     try {

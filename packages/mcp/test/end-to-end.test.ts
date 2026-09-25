@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { build, fixtureAssetBytes, writeFixtureSite } from '@miralo/compiler/build'
-import { createFolder } from '@miralo/document/folder'
+import { build, fixtureAssetBytes, writeFixtureSite } from '@lacuno/compiler/build'
+import { createFolder } from '@lacuno/document/folder'
 import { afterEach, describe, expect, it } from 'vitest'
 import { fixtureOperations } from '../../document/test/fixture-operations.js'
 import { connect, jsonOf, textOf } from './helpers.js'
@@ -16,9 +16,9 @@ afterEach(async () => {
 
 describe('building the fixture site through MCP', () => {
   it('matches the compiler building the fixture directly', async () => {
-    const a = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-a-'))
+    const a = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-a-'))
     dirs.push(a)
-    const b = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-b-'))
+    const b = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-b-'))
     dirs.push(b)
     const store = await createFolder(a, 'Fixture Co')
     const c = await connect(store, { siteDir: a })

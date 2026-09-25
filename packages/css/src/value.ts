@@ -1,5 +1,5 @@
-import type { AssetRef, CssValue, Document } from '@miralo/schema'
-import { designTokenCssName } from '@miralo/schema'
+import type { AssetRef, CssValue, Document } from '@lacuno/schema'
+import { designTokenCssName } from '@lacuno/schema'
 
 export type ValueContext = {
   designTokenName: (id: string) => string | undefined

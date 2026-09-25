@@ -40,7 +40,7 @@ it('connects an AI app from the header panel and disconnects it', async () => {
   for (const name of ['claude.ai', 'ChatGPT']) {
     await choose(name)
     expect(await card.getByRole('button', { name: 'Copy URL' }).isDisabled()).toBe(true)
-    await card.getByText('Needs a public address. Works on Miralo Cloud.').waitFor()
+    await card.getByText('Needs a public address. Works on Lacuno Cloud.').waitFor()
   }
   // Claude Desktop's connector runs from Anthropic's cloud; its local bridge works here.
   await choose('Claude Desktop')

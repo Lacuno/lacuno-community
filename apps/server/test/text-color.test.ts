@@ -34,12 +34,12 @@ async function pickColor(canvas: Canvas, swatch: RegExp, not: string) {
 
 const colorOf = (canvas: Canvas, word: string) =>
   canvas
-    .locator('[data-miralo-node="n-home-title"] span', { hasText: word })
+    .locator('[data-lacuno-node="n-home-title"] span', { hasText: word })
     .evaluate((span) => getComputedStyle(span).color)
 
 it('colours the selected words from the canvas bar while editing text', async () => {
   const { page, canvas, saved, document } = await editor()
-  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   const style = (property: string) =>
     heading.evaluate((el, property) => getComputedStyle(el).getPropertyValue(property), property)
   const text = (await heading.textContent())!
@@ -83,7 +83,7 @@ it('colours the selected words from the canvas bar while editing text', async ()
 
 it('keeps range colours and the words when the whole text changes', async () => {
   const { page, canvas, saved, document } = await editor()
-  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   const text = (await heading.textContent())!
   const [, sized, , colored] = text.split(' ') as [string, string, string, string]
   const format = async (word: string, label: string, value: string) => {
@@ -125,7 +125,7 @@ it('keeps range colours and the words when the whole text changes', async () => 
 
 it('starts the wheel on the selected words and saves project colours while editing text', async () => {
   const { page, canvas, document } = await editor()
-  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   const text = (await heading.textContent())!
   const [, first, , last] = text.split(' ') as [string, string, string, string]
   await heading.dblclick()

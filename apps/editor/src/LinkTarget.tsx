@@ -1,4 +1,4 @@
-import { type Document, safeLinkHref } from '@miralo/schema'
+import { type Document, safeLinkHref } from '@lacuno/schema'
 import { useId, useRef, useState } from 'react'
 import { ErrorNote } from './Dialog.js'
 import { placePopover } from './popover.js'

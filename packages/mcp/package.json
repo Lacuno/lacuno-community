@@ -1,5 +1,5 @@
 {
-  "name": "@miralo/mcp",
+  "name": "@lacuno/mcp",
   "version": "0.0.0",
   "type": "module",
   "exports": {
@@ -10,10 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@miralo/compiler": "workspace:*",
-    "@miralo/css": "workspace:*",
-    "@miralo/document": "workspace:*",
-    "@miralo/schema": "workspace:*",
+    "@lacuno/compiler": "workspace:*",
+    "@lacuno/css": "workspace:*",
+    "@lacuno/document": "workspace:*",
+    "@lacuno/schema": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.6.5"
   },

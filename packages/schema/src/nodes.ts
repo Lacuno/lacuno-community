@@ -65,7 +65,7 @@ const Base = {
 export const ElementNode = z.object({
   ...Base,
   type: z.literal('element'),
-  /** Always explicit. Miralo never infers a tag from a component name. */
+  /** Always explicit. Lacuno never infers a tag from a component name. */
   tag: Tag,
 })
 

@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
-import type { Document } from '@miralo/schema'
+import type { Document } from '@lacuno/schema'
 import { type Browser, chromium, type Page } from 'playwright'
 import { expect, onTestFinished } from 'vitest'
 import { createServer } from '../src/app.js'
@@ -27,7 +27,7 @@ export type History = {
  * server exists, so parallel files never race for a port. Everything closes when the test ends.
  */
 export async function launch(viewport = { width: 1500, height: 1000 }, allowSignup = true) {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-test-'))
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-test-'))
   let server: Awaited<ReturnType<typeof createServer>> | undefined
   let browser: Browser | undefined
   const hostname = '127.0.0.1'
@@ -50,7 +50,7 @@ export async function launch(viewport = { width: 1500, height: 1000 }, allowSign
   const origin = `http://${hostname}:${port(app)}`
   server = await createServer({
     dataDir: dir,
-    templateDir: path.join(root, 'templates/miralo'),
+    templateDir: path.join(root, 'templates/lacuno'),
     editorDir: path.join(root, 'apps/editor/dist'),
     baseURL: origin,
     publishBaseURL: `http://localhost:${port(published)}`,
@@ -77,7 +77,7 @@ export async function editor(viewport?: { width: number; height: number }) {
   await page.getByLabel('Site name').fill('Test site')
   await page.getByRole('button', { name: 'Create site', exact: false }).click()
   const canvas = page.frameLocator('iframe[title="Site canvas"]')
-  await canvas.locator('[data-miralo-node]').first().waitFor()
+  await canvas.locator('[data-lacuno-node]').first().waitFor()
   const siteId = new URL(page.url()).searchParams.get('site')!
 
   const api = async (route: string, body?: unknown) => {

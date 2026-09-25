@@ -1,4 +1,4 @@
-import type { Class, Document, State } from '@miralo/schema'
+import type { Class, Document, State } from '@lacuno/schema'
 
 /**
  * Class names as they appear in the output. Named classes keep their user-facing name, made
@@ -35,9 +35,9 @@ export function classNames(doc: Document): ClassNames {
   for (const id of ids) {
     const cls = doc.classes[id] as Class
     if (cls.kind !== 'local') continue
-    let name = `mi-${cssIdent(id)}`
+    let name = `lc-${cssIdent(id)}`
     let n = 2
-    while (used.has(name)) name = `mi-${cssIdent(id)}-${n++}`
+    while (used.has(name)) name = `lc-${cssIdent(id)}-${n++}`
     used.add(name)
     out.set(id, name)
   }
@@ -106,7 +106,7 @@ function paddingFor(doc: Document, names: ClassNames): { shared: number; presets
 
 /**
  * `.button.primary:hover` for a combo class with a state. In the canvas (`forced`) the state
- * picker drives styles through `.button.primary[data-mi-state="hover"]`: interaction states
+ * picker drives styles through `.button.primary[data-lc-state="hover"]`: interaction states
  * emit only that form so the live pointer can't trigger them, structural states emit both, and
  * pseudo-elements, which the picker cannot force onto the element itself, emit only their own.
  */
@@ -134,7 +134,7 @@ export function selectorFor(
   const base = chain.join('')
   const real = `${base}${STATE_SELECTOR[state]}`
   if (!forced || state === 'none' || STATE_SELECTOR[state].startsWith('::')) return real
-  const picked = `${base}[data-mi-state="${state}"]`
+  const picked = `${base}[data-lc-state="${state}"]`
   return LIVE_STATES.has(state) ? picked : `${real}, ${picked}`
 }
 

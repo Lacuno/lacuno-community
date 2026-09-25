@@ -11,14 +11,14 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
     if (request.url().endsWith('/document/apply')) writes++
   })
   const projection = page.frameLocator('iframe[title="Drag preview"]')
-  const projectedLead = projection.locator('[data-miralo-node="n-home-lead"]')
-  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
-  const lead = canvas.locator('[data-miralo-node="n-home-lead"]')
-  const parent = canvas.locator('[data-miralo-node="n-home-hero-copy"]')
-  const gap = canvas.locator('[data-miralo-sort-gap]')
+  const projectedLead = projection.locator('[data-lacuno-node="n-home-lead"]')
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
+  const lead = canvas.locator('[data-lacuno-node="n-home-lead"]')
+  const parent = canvas.locator('[data-lacuno-node="n-home-hero-copy"]')
+  const gap = canvas.locator('[data-lacuno-sort-gap]')
   const order = () =>
     parent.evaluate((element) =>
-      Array.from(element.children, (child) => child.getAttribute('data-miralo-node')),
+      Array.from(element.children, (child) => child.getAttribute('data-lacuno-node')),
     )
   const styles = () =>
     parent.evaluate((element) =>
@@ -80,19 +80,19 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
   expect(await order()).toEqual(originalOrder)
   expect(
     await projection
-      .locator('[data-miralo-node="n-home-title"]')
+      .locator('[data-lacuno-node="n-home-title"]')
       .evaluate((element) => getComputedStyle(element).opacity),
   ).toBe('0')
   expect(
     await canvas
-      .locator('[data-miralo-drop-indicator]')
+      .locator('[data-lacuno-drop-indicator]')
       .evaluate((element) => getComputedStyle(element).display),
   ).toBe('none')
   for (let i = 0; i < 5; i++) await move(point.x, point.y)
   expect(await gap.getAttribute('data-destination')).toBe('n-home-lead')
   expect(writes).toBe(0)
   expect((await snapshot()).revision).toBe(before.revision)
-  await page.screenshot({ path: path.join(root, '.miralo/editor-preview/drag-sort-gap.png') })
+  await page.screenshot({ path: path.join(root, '.lacuno/editor-preview/drag-sort-gap.png') })
   await heading.evaluate((element) => element.ownerDocument.defaultView!.scrollBy(0, 40))
   await expect
     .poll(
@@ -139,11 +139,11 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
   expect(await styles()).toEqual(originalStyles)
 
   // The uneven columns from the real template resize/reflow in the projection only.
-  const aside = canvas.locator('[data-miralo-node="n-home-hero-note"]')
-  const hero = canvas.locator('[data-miralo-node="n-home-hero"]')
+  const aside = canvas.locator('[data-lacuno-node="n-home-hero-note"]')
+  const hero = canvas.locator('[data-lacuno-node="n-home-hero"]')
   const heroOrder = () =>
     hero.evaluate((element) =>
-      Array.from(element.children, (child) => child.getAttribute('data-miralo-node')),
+      Array.from(element.children, (child) => child.getAttribute('data-lacuno-node')),
     )
   const oldHeroOrder = await heroOrder()
   const fromAside = (await aside.boundingBox())!
@@ -153,7 +153,7 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
   await begin({ x: fromAside.x + 3, y: fromAside.y + 3 }, swapPoint)
   await expect.poll(() => gap.getAttribute('data-parent')).toBe('n-home-hero')
   expect(await gap.getAttribute('data-index')).toBe('0')
-  const resized = (await projection.locator('[data-miralo-node="n-home-hero-copy"]').boundingBox())!
+  const resized = (await projection.locator('[data-lacuno-node="n-home-hero-copy"]').boundingBox())!
   expect(resized.width).toBeLessThan(copyBox.width / 2)
   expect(resized.height).toBeGreaterThan(copyBox.height)
   expect(await heroOrder()).toEqual(oldHeroOrder)
@@ -161,7 +161,7 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
   for (let i = 0; i < 5; i++) await move(swapPoint.x, swapPoint.y)
   expect(await gap.getAttribute('data-index')).toBe('0')
   expect((await snapshot()).revision).toBe(gridRevision)
-  await page.screenshot({ path: path.join(root, '.miralo/editor-preview/drag-grid-gap.png') })
+  await page.screenshot({ path: path.join(root, '.lacuno/editor-preview/drag-grid-gap.png') })
   await release(swapPoint)
   await expect.poll(() => heroOrder()).toEqual([...oldHeroOrder].reverse())
   expect((await parent.boundingBox())!.width).toBeCloseTo(resized.width, 0)
@@ -172,7 +172,7 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
 
   // Reparenting opens a gap in the new container and closes the old one.
   await heading.scrollIntoViewIfNeeded()
-  const note = canvas.locator('[data-miralo-node="n-home-note-copy"]')
+  const note = canvas.locator('[data-lacuno-node="n-home-note-copy"]')
   const noteBox = (await note.boundingBox())!
   const headingBox = (await heading.boundingBox())!
   const nestedPoint = { x: noteBox.x + noteBox.width / 2, y: noteBox.y + noteBox.height * 0.8 }
@@ -180,16 +180,16 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
   await expect.poll(() => gap.getAttribute('data-parent')).toBe('n-home-hero-note')
   expect(
     await projection
-      .locator('[data-miralo-node="n-home-title"]')
-      .evaluate((element) => element.parentElement!.getAttribute('data-miralo-node')),
+      .locator('[data-lacuno-node="n-home-title"]')
+      .evaluate((element) => element.parentElement!.getAttribute('data-lacuno-node')),
   ).toBe('n-home-hero-note')
   expect(
-    await heading.evaluate((element) => element.parentElement!.getAttribute('data-miralo-node')),
+    await heading.evaluate((element) => element.parentElement!.getAttribute('data-lacuno-node')),
   ).toBe('n-home-hero-copy')
   await release(nestedPoint)
   await expect
     .poll(() =>
-      heading.evaluate((element) => element.parentElement!.getAttribute('data-miralo-node')),
+      heading.evaluate((element) => element.parentElement!.getAttribute('data-lacuno-node')),
     )
     .toBe('n-home-hero-note')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
@@ -270,7 +270,7 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
     })
     expect(changed.status()).toBe(200)
     await page.reload()
-    const card = (i: number) => canvas.locator(`[data-miralo-node="n-drag-card-${i}"]`)
+    const card = (i: number) => canvas.locator(`[data-lacuno-node="n-drag-card-${i}"]`)
     await card(1).scrollIntoViewIfNeeded()
     const first = (await card(1).boundingBox())!
     const third = (await card(3).boundingBox())!
@@ -281,13 +281,13 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
     await begin({ x: third.x + third.width / 2, y: third.y + third.height / 2 }, target)
     await expect.poll(() => gap.getAttribute('data-parent')).toBe('n-drag-layout')
     expect(await gap.getAttribute('data-index')).toBe('0')
-    const finalBox = (await projection.locator('[data-miralo-node="n-drag-card-1"]').boundingBox())!
+    const finalBox = (await projection.locator('[data-lacuno-node="n-drag-card-1"]').boundingBox())!
     expect(await card(1).boundingBox()).toEqual(first)
     const layoutOrder = () =>
       canvas
-        .locator('[data-miralo-node="n-drag-layout"]')
+        .locator('[data-lacuno-node="n-drag-layout"]')
         .evaluate((element) =>
-          Array.from(element.children, (child) => child.getAttribute('data-miralo-node')),
+          Array.from(element.children, (child) => child.getAttribute('data-lacuno-node')),
         )
     expect(await layoutOrder()).toEqual(['n-drag-card-1', 'n-drag-card-2', 'n-drag-card-3'])
     await release(target)
@@ -308,16 +308,16 @@ it('projects vertical, grid, wrapped, reversed and nested drops without writes u
   const paletteRevision = (await snapshot()).revision
   for (const name of ['Section', 'Image', 'Grid']) {
     const tile = (await page.getByRole('button', { name, exact: true }).boundingBox())!
-    const card = (await canvas.locator('[data-miralo-node="n-drag-card-1"]').boundingBox())!
+    const card = (await canvas.locator('[data-lacuno-node="n-drag-card-1"]').boundingBox())!
     const destination = { x: card.x + 3, y: card.y + card.height / 2 }
     await begin({ x: tile.x + tile.width / 2, y: tile.y + tile.height / 2 }, destination)
     const insertedId = await gap.getAttribute('data-source')
-    const inserted = projection.locator(`[data-miralo-node="${insertedId}"]`)
+    const inserted = projection.locator(`[data-lacuno-node="${insertedId}"]`)
     expect((await inserted.boundingBox())!.height).toBeGreaterThan(0)
     expect(await inserted.evaluate((element) => getComputedStyle(element).opacity)).toBe('0')
     if (name === 'Section') expect(await inserted.locator('h2').textContent()).toBe('A new section')
     if (name === 'Image')
-      expect(await inserted.getAttribute('data-miralo-image-placeholder')).toBe('')
+      expect(await inserted.getAttribute('data-lacuno-image-placeholder')).toBe('')
     if (name === 'Grid')
       expect(await inserted.evaluate((element) => getComputedStyle(element).display)).toBe('grid')
     expect((await snapshot()).revision).toBe(paletteRevision)

@@ -5,7 +5,7 @@ it('switches spacing mode with the chip: nubs, labelled boxes, sidebar focus, te
   const { page, canvas, saved } = await editor({ width: 1200, height: 1000 })
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
+  const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
 
@@ -49,9 +49,9 @@ it('switches spacing mode with the chip: nubs, labelled boxes, sidebar focus, te
   await saved()
   expect(await chip.getAttribute('aria-pressed')).toBe('true')
   expect(await shown('.strip.padding.top')).toBe(true)
-  const title = canvas.locator('[data-miralo-node="n-home-title"]')
+  const title = canvas.locator('[data-lacuno-node="n-home-title"]')
   await title.click()
-  await expect.poll(() => title.getAttribute('data-miralo-selected')).toBe('')
+  await expect.poll(() => title.getAttribute('data-lacuno-selected')).toBe('')
   expect(await chip.getAttribute('aria-pressed')).toBe('true')
   expect(await shown('.strip.margin.bottom')).toBe(true)
   expect(await shown('.handle.padding.top')).toBe(true)
@@ -63,7 +63,7 @@ it('switches spacing mode with the chip: nubs, labelled boxes, sidebar focus, te
   // Dragging the top nub (Ctrl: no token snapping) moves the bottom label live while the readout
   // stands in for the top one; after the commit the top label reads the new padding.
   await cta.click()
-  await expect.poll(() => cta.getAttribute('data-miralo-selected')).toBe('')
+  await expect.poll(() => cta.getAttribute('data-lacuno-selected')).toBe('')
   const bottom0 = (await strip('.strip.padding.bottom')).label
   const release = await press(page, '.handle.padding.top', { dy: -20 }, 2)
   await expect.poll(async () => (await strip('.strip.padding.bottom')).label).not.toBe(bottom0)

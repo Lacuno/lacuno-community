@@ -7,7 +7,7 @@ export function MotionControls(props: StyleControls) {
   const { disabled, node } = props
   const { overridden, value: read, set } = useStyleField(props)
   const preview = () =>
-    window.dispatchEvent(new CustomEvent('miralo:motion-preview', { detail: { id: node.id } }))
+    window.dispatchEvent(new CustomEvent('lacuno:motion-preview', { detail: { id: node.id } }))
   return (
     <div className="motion-controls">
       <div className="motion-timing">
@@ -16,24 +16,24 @@ export function MotionControls(props: StyleControls) {
             key={key}
             label={key === 'duration' ? 'Duration (ms)' : 'Delay (ms)'}
             name={`Motion ${key}`}
-            value={ms(read(`--mi-${key}`, key === 'duration' ? '400ms' : '0ms'))}
+            value={ms(read(`--lc-${key}`, key === 'duration' ? '400ms' : '0ms'))}
             unit="ms"
             min={0}
             max={10000}
             disabled={disabled}
-            overridden={overridden(`--mi-${key}`)}
+            overridden={overridden(`--lc-${key}`)}
             // An emptied timing field means no time, not an unset property.
-            set={(next) => set(`--mi-${key}`, next || '0ms')}
+            set={(next) => set(`--lc-${key}`, next || '0ms')}
           />
         ))}
         <label>
           Easing
           <select
             aria-label="Motion easing"
-            data-overridden={overridden('--mi-easing')}
+            data-overridden={overridden('--lc-easing')}
             disabled={disabled}
-            value={read('--mi-easing', 'ease-out')}
-            onChange={(event) => set('--mi-easing', event.target.value)}
+            value={read('--lc-easing', 'ease-out')}
+            onChange={(event) => set('--lc-easing', event.target.value)}
           >
             {['ease-out', 'ease-in-out', 'ease-in', 'ease', 'linear'].map((value) => (
               <option key={value}>{value}</option>
@@ -44,18 +44,18 @@ export function MotionControls(props: StyleControls) {
           Entrance
           <select
             aria-label="Entrance animation"
-            data-overridden={overridden('--mi-entrance')}
+            data-overridden={overridden('--lc-entrance')}
             disabled={disabled}
-            value={read('--mi-entrance', 'none')}
-            onChange={(event) => set('--mi-entrance', event.target.value)}
+            value={read('--lc-entrance', 'none')}
+            onChange={(event) => set('--lc-entrance', event.target.value)}
           >
             {Object.entries({
               none: 'None',
-              'mi-fade': 'Fade in',
-              'mi-slide-up': 'Slide up',
-              'mi-slide-down': 'Slide down',
-              'mi-slide-left': 'Slide left',
-              'mi-slide-right': 'Slide right',
+              'lc-fade': 'Fade in',
+              'lc-slide-up': 'Slide up',
+              'lc-slide-down': 'Slide down',
+              'lc-slide-left': 'Slide left',
+              'lc-slide-right': 'Slide right',
             }).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -65,7 +65,7 @@ export function MotionControls(props: StyleControls) {
         </label>
         <button
           type="button"
-          disabled={disabled || read('--mi-entrance', 'none') === 'none'}
+          disabled={disabled || read('--lc-entrance', 'none') === 'none'}
           onClick={preview}
         >
           Preview entrance

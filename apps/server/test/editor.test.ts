@@ -5,8 +5,8 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   const { context, page, canvas, origin, siteId, saved } = await editor()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  await canvas.locator('[data-miralo-node="n-home-title"]').waitFor()
-  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  await canvas.locator('[data-lacuno-node="n-home-title"]').waitFor()
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   await heading.click()
   const selectionOutline = canvas.locator('.selection-dashes')
   await expect
@@ -23,21 +23,21 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   // Selecting a child after styling its parent must retain the child's selection marker.
   const selectionParentId = await heading.evaluate((element) =>
-    element.parentElement!.getAttribute('data-miralo-node'),
+    element.parentElement!.getAttribute('data-lacuno-node'),
   )
-  await canvas.locator(`[data-miralo-node="${selectionParentId}"]`).dispatchEvent('click')
+  await canvas.locator(`[data-lacuno-node="${selectionParentId}"]`).dispatchEvent('click')
   await page.getByRole('button', { name: 'Layout', exact: true }).click()
   await page.getByLabel('Inside spacing top', { exact: true }).fill('24')
   await saved()
   await heading.dispatchEvent('click')
-  await expect.poll(() => heading.getAttribute('data-miralo-selected')).toBe('')
-  await expect.poll(() => canvas.locator('[data-miralo-selected]').count()).toBe(1)
+  await expect.poll(() => heading.getAttribute('data-lacuno-selected')).toBe('')
+  await expect.poll(() => canvas.locator('[data-lacuno-selected]').count()).toBe(1)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await saved()
   await heading.dispatchEvent('click')
   await page.getByRole('button', { name: 'Home', exact: true }).click()
-  await page.getByLabel('Text', { exact: true }).fill('Made with Miralo.')
-  await expect.poll(() => heading.textContent()).toBe('Made with Miralo.')
+  await page.getByLabel('Text', { exact: true }).fill('Made with Lacuno.')
+  await expect.poll(() => heading.textContent()).toBe('Made with Lacuno.')
   expect(await page.getByRole('button', { name: 'Save changes', exact: true }).count()).toBe(0)
   await saved()
   await page.getByLabel('Size', { exact: true }).fill('42px')
@@ -49,7 +49,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
     .not.toBe('42px')
-  expect(await heading.textContent()).toBe('Made with Miralo.')
+  expect(await heading.textContent()).toBe('Made with Lacuno.')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect.poll(() => heading.textContent()).toBe('Your website. Your rules.')
   await expect
@@ -57,7 +57,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     .toBe(true)
   await page.getByRole('button', { name: 'Redo', exact: true }).focus()
   await page.keyboard.press('Control+Shift+Z')
-  await expect.poll(() => heading.textContent()).toBe('Made with Miralo.')
+  await expect.poll(() => heading.textContent()).toBe('Made with Lacuno.')
   await heading.click()
   await page.keyboard.press('Control+Shift+Z')
   await expect
@@ -72,12 +72,12 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.keyboard.press('ControlOrMeta+Z')
   await expect
     .poll(() => page.getByLabel('Text', { exact: true }).inputValue())
-    .toBe('Made with Miralo.')
+    .toBe('Made with Lacuno.')
   await expect
     .poll(() => page.getByRole('button', { name: 'Undo', exact: true }).isEnabled())
     .toBe(true)
   await page.reload()
-  await expect.poll(() => heading.textContent()).toBe('Made with Miralo.')
+  await expect.poll(() => heading.textContent()).toBe('Made with Lacuno.')
   await expect
     .poll(() => page.getByRole('button', { name: 'Undo', exact: true }).isDisabled())
     .toBe(true)
@@ -85,7 +85,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   expect(await page.locator('[data-drag-node="n-home-title"]').count()).toBe(0)
   await heading.click()
   await page.locator('[data-drag-node="n-home-title"]').click()
-  expect(await page.getByLabel('Text', { exact: true }).inputValue()).toBe('Made with Miralo.')
+  expect(await page.getByLabel('Text', { exact: true }).inputValue()).toBe('Made with Lacuno.')
   await page.getByLabel('Text', { exact: true }).fill('Autosaved on navigation')
   await page.getByRole('button', { name: 'Pages', exact: true }).click()
   await page.locator('.page-link').filter({ hasText: 'About' }).click()
@@ -94,7 +94,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.locator('.page-link').filter({ hasText: 'Home' }).click()
   await expect.poll(() => heading.textContent()).toBe('Autosaved on navigation')
   await heading.click()
-  await page.getByLabel('Text', { exact: true }).fill('Made with Miralo.')
+  await page.getByLabel('Text', { exact: true }).fill('Made with Lacuno.')
   await saved()
   await page.getByLabel('Text', { exact: true }).fill('Unsaved draft')
   const snapshotResponse = await context.request.get(`${origin}/api/sites/${siteId}/document`)
@@ -118,9 +118,9 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByRole('button', { name: 'Reload latest', exact: true }).click()
   await expect
     .poll(() => page.getByLabel('Text', { exact: true }).inputValue())
-    .toBe('Made with Miralo.')
-  await expect.poll(() => heading.textContent()).toBe('Made with Miralo.')
-  expect(await page.title()).toBe('Miralo — Editor')
+    .toBe('Made with Lacuno.')
+  await expect.poll(() => heading.textContent()).toBe('Made with Lacuno.')
+  expect(await page.title()).toBe('Lacuno — Editor')
   await page.getByLabel('Text', { exact: true }).fill('Temporary undo target')
   await saved()
   await expect.poll(() => heading.textContent()).toBe('Temporary undo target')
@@ -170,12 +170,12 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByRole('region', { name: 'Layers panel' }).waitFor()
   const inserted = canvas.getByRole('heading', { name: 'Your new heading', exact: true })
   await inserted.waitFor()
-  const insertedId = await inserted.getAttribute('data-miralo-node')
+  const insertedId = await inserted.getAttribute('data-lacuno-node')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect.poll(() => inserted.count()).toBe(0)
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
   await inserted.waitFor()
-  expect(await inserted.getAttribute('data-miralo-node')).toBe(insertedId)
+  expect(await inserted.getAttribute('data-lacuno-node')).toBe(insertedId)
   await page.getByRole('button', { name: 'Element actions', exact: true }).click()
   await expect
     .poll(() => page.getByRole('button', { name: 'Move up', exact: true }).isEnabled())
@@ -509,7 +509,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByRole('button', { name: 'Motion', exact: true }).click()
   await page.getByLabel('Motion duration', { exact: true }).fill('1500')
   await saved()
-  await page.getByLabel('Entrance animation', { exact: true }).selectOption('mi-slide-up')
+  await page.getByLabel('Entrance animation', { exact: true }).selectOption('lc-slide-up')
   await saved()
   await page.getByRole('button', { name: 'Preview entrance', exact: true }).click()
   await expect
@@ -519,7 +519,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
           .getAnimations()
           .some(
             (animation) =>
-              animation instanceof CSSAnimation && animation.animationName === 'mi-slide-up',
+              animation instanceof CSSAnimation && animation.animationName === 'lc-slide-up',
           ),
       ),
     )
@@ -570,7 +570,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   expect(errors).toEqual([])
   // Saving and undoing a lower-page edit must not return the canvas to its top. The canvas
   // morphs in place rather than reloading, so a marker on the document survives the commit.
-  const lowerHeading = canvas.locator('[data-miralo-node="n-home-feature-publish-title"]')
+  const lowerHeading = canvas.locator('[data-lacuno-node="n-home-feature-publish-title"]')
   await lowerHeading.click()
   const scrollBefore = await lowerHeading.evaluate(() => window.scrollY)
   expect(scrollBefore).toBeGreaterThan(300)
@@ -664,7 +664,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByText('Wrap selection in…', { exact: true }).click()
   await page.getByLabel('Wrap structure', { exact: true }).selectOption('row')
   const originalParent = await heading.evaluate((element) =>
-    element.parentElement!.getAttribute('data-miralo-node'),
+    element.parentElement!.getAttribute('data-lacuno-node'),
   )
   await page.getByRole('button', { name: 'Wrap selection', exact: true }).click()
   await expect
@@ -690,7 +690,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect
     .poll(() =>
-      heading.evaluate((element) => element.parentElement!.getAttribute('data-miralo-node')),
+      heading.evaluate((element) => element.parentElement!.getAttribute('data-lacuno-node')),
     )
     .toBe(originalParent)
   // Real native drags cross the editor/canvas boundary and remain single undoable edits.
@@ -729,9 +729,9 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     await expect
       .poll(
         async () =>
-          (await page.locator('[data-miralo-drop-indicator]').isVisible()) ||
-          (await canvas.locator('[data-miralo-drop-indicator]').isVisible()) ||
-          (await canvas.locator('[data-miralo-sort-gap]').count()) === 1,
+          (await page.locator('[data-lacuno-drop-indicator]').isVisible()) ||
+          (await canvas.locator('[data-lacuno-drop-indicator]').isVisible()) ||
+          (await canvas.locator('[data-lacuno-sort-gap]').count()) === 1,
       )
       .toBe(true)
     // Cancel the native drag session (the browser action behind Escape).
@@ -750,17 +750,17 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await drag(page.getByRole('button', { name: 'Stack', exact: true }), heading, 0.9)
   await expect.poll(() => page.locator('.layer.selected').textContent()).toBe('Stack')
   const stackId = await page.locator('.layer.selected').getAttribute('data-drag-node')
-  const stack = canvas.locator(`[data-miralo-node="${stackId}"]`)
+  const stack = canvas.locator(`[data-lacuno-node="${stackId}"]`)
   await drag(heading, stack)
   await expect
     .poll(() =>
-      heading.evaluate((element) => element.parentElement!.getAttribute('data-miralo-node')),
+      heading.evaluate((element) => element.parentElement!.getAttribute('data-lacuno-node')),
     )
     .toBe(stackId)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect
     .poll(() =>
-      heading.evaluate((element) => element.parentElement!.getAttribute('data-miralo-node')),
+      heading.evaluate((element) => element.parentElement!.getAttribute('data-lacuno-node')),
     )
     .toBe(originalParent)
   const headingLayer = page.locator('[data-drag-node="n-home-title"]')
@@ -768,27 +768,27 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await drag(headingLayer, stackLayer)
   await expect
     .poll(() =>
-      heading.evaluate((element) => element.parentElement!.getAttribute('data-miralo-node')),
+      heading.evaluate((element) => element.parentElement!.getAttribute('data-lacuno-node')),
     )
     .toBe(stackId)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect
     .poll(() =>
-      heading.evaluate((element) => element.parentElement!.getAttribute('data-miralo-node')),
+      heading.evaluate((element) => element.parentElement!.getAttribute('data-lacuno-node')),
     )
     .toBe(originalParent)
   await drag(stackLayer, headingLayer, 0.05)
   await expect
     .poll(() =>
       heading.evaluate((element) =>
-        element.previousElementSibling?.getAttribute('data-miralo-node'),
+        element.previousElementSibling?.getAttribute('data-lacuno-node'),
       ),
     )
     .toBe(stackId)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect
     .poll(() =>
-      heading.evaluate((element) => element.nextElementSibling?.getAttribute('data-miralo-node')),
+      heading.evaluate((element) => element.nextElementSibling?.getAttribute('data-lacuno-node')),
     )
     .toBe(stackId)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
@@ -801,7 +801,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   page.on('request', watchCancelledDrag)
   await drag(page.getByRole('button', { name: 'Row', exact: true }), heading, 0.9, true)
   expect(cancelledWrites).toBe(0)
-  expect(await canvas.locator('[data-miralo-drop-indicator]').isVisible()).toBe(false)
+  expect(await canvas.locator('[data-lacuno-drop-indicator]').isVisible()).toBe(false)
   page.off('request', watchCancelledDrag)
   // Navigator collapse, canvas reveal, naming, duplication and deletion preserve undo.
   await heading.click({ force: true })
@@ -820,7 +820,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByRole('button', { name: 'Duplicate element', exact: true }).click()
   await expect.poll(() => page.locator('.layer.selected').textContent()).toBe('Hero title copy')
   const copyId = await page.locator('.layer.selected').getAttribute('data-drag-node')
-  const copy = canvas.locator(`[data-miralo-node="${copyId}"]`)
+  const copy = canvas.locator(`[data-lacuno-node="${copyId}"]`)
   expect(await copy.textContent()).toBe(await heading.textContent())
   // Backspace in a form field on the page belongs to the field, not to the selected element.
   let deleteWrites = 0
@@ -871,7 +871,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await drag(imageTile, heading, 0.9)
   await expect.poll(() => page.locator('.layer.selected').textContent()).toBe('Image')
   const imageId = await page.locator('.layer.selected').getAttribute('data-drag-node')
-  const insertedImage = canvas.locator(`[data-miralo-node="${imageId}"]`)
+  const insertedImage = canvas.locator(`[data-lacuno-node="${imageId}"]`)
   await expect
     .poll(() => insertedImage.evaluate((element) => (element as HTMLImageElement).naturalWidth))
     .toBe(40)
@@ -924,7 +924,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     .not.toBe(imageId)
   await saved()
   const placeholderId = await page.locator('.layer.selected').getAttribute('data-drag-node')
-  const placeholder = canvas.locator(`[data-miralo-node="${placeholderId}"]`)
+  const placeholder = canvas.locator(`[data-lacuno-node="${placeholderId}"]`)
   await expect.poll(() => placeholder.evaluate((element) => element.tagName)).toBe('DIV')
   await expect.poll(() => placeholder.getAttribute('src')).toBe(null)
   await placeholder.evaluate((element) => element.scrollIntoView({ block: 'center' }))
@@ -985,7 +985,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect.poll(() => settings.getByRole('alert').textContent()).toContain('already uses')
   await settings.getByLabel('URL path', { exact: true }).fill('/contact')
   await settings.getByLabel('SEO title', { exact: true }).fill('Contact our team')
-  await settings.getByLabel('SEO description', { exact: true }).fill('Get in touch with Miralo.')
+  await settings.getByLabel('SEO description', { exact: true }).fill('Get in touch with Lacuno.')
   await settings.getByRole('button', { name: 'Create page', exact: true }).click()
   await expect.poll(() => page.locator('.page-link.active').textContent()).toContain('Contact')
   await page.getByRole('button', { name: 'Settings for Contact', exact: true }).click()
@@ -1030,7 +1030,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     .poll(() => settings.getByLabel('SEO title', { exact: true }).inputValue())
     .toBe('Contact our team')
   expect(await settings.getByLabel('SEO description', { exact: true }).inputValue()).toBe(
-    'Get in touch with Miralo.',
+    'Get in touch with Lacuno.',
   )
   await settings.getByRole('button', { name: 'Close', exact: true }).click()
   await page.getByRole('button', { name: 'Settings for Home', exact: true }).click()

@@ -15,7 +15,7 @@
 **/dist
 **/test
 **/.turbo
-**/.miralo
+**/.lacuno
 **/.env*
 **/*.log
 **/.DS_Store

@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import type { Document } from '@miralo/schema'
+import type { Document } from '@lacuno/schema'
 import { IdbPersistence } from './idb.js'
 import worker from './worker.ts?worker&url'
 
@@ -7,7 +7,7 @@ const { serviceWorker } = navigator
 const ticket = new URLSearchParams(location.hash.slice(1)).get('import')
 if (ticket) {
   // After sign-up the site moves to the new account and leaves this browser.
-  const template = await import('../../../../templates/miralo/miralo.json')
+  const template = await import('../../../../templates/lacuno/lacuno.json')
   const persistence = new IdbPersistence(template.default)
   const site = (await persistence.load()) as Document
   const assets: Record<string, string> = {}
@@ -15,9 +15,9 @@ if (ticket) {
     const bytes = await persistence.getAsset(hash)
     if (bytes) assets[hash] = btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(''))
   }
-  const response = await fetch('/_miralo/import', {
+  const response = await fetch('/_lacuno/import', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Miralo-Import': ticket },
+    headers: { 'Content-Type': 'application/json', 'X-Lacuno-Import': ticket },
     body: JSON.stringify({ name: site.site.name, document: site, assets }),
   }).catch(() =>
     Response.json(

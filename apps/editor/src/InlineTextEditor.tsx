@@ -1,5 +1,5 @@
-import { contextFromDocument, serializeValue } from '@miralo/css'
-import type { Operation } from '@miralo/document'
+import { contextFromDocument, serializeValue } from '@lacuno/css'
+import type { Operation } from '@lacuno/document'
 import {
   type CssValue,
   type Document,
@@ -7,7 +7,7 @@ import {
   safeLinkHref,
   safeTextStyleValue,
   type TextNode,
-} from '@miralo/schema'
+} from '@lacuno/schema'
 import { Editor, getSchema, type JSONContent, Mark } from '@tiptap/core'
 import { Color, FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import StarterKit from '@tiptap/starter-kit'
@@ -132,7 +132,7 @@ export function InlineTextEditor({
         parent.draggable = false
       }
     }
-    element.setAttribute('data-miralo-editing', '')
+    element.setAttribute('data-lacuno-editing', '')
     element.innerHTML = ''
     const instance = new Editor({
       element,
@@ -205,7 +205,7 @@ export function InlineTextEditor({
       element.innerHTML = markup
       if (originalStyle === null) element.removeAttribute('style')
       else element.setAttribute('style', originalStyle)
-      element.removeAttribute('data-miralo-editing')
+      element.removeAttribute('data-lacuno-editing')
       view?.scrollTo(scroll)
       for (const parent of draggable) parent.draggable = true
       unregister()
@@ -343,8 +343,8 @@ export function InlineTextEditor({
   }
   useEffect(() => {
     const listen = (event: Event) => void canvasStyle.current((event as CustomEvent).detail)
-    window.addEventListener('miralo:canvas-style', listen)
-    return () => window.removeEventListener('miralo:canvas-style', listen)
+    window.addEventListener('lacuno:canvas-style', listen)
+    return () => window.removeEventListener('lacuno:canvas-style', listen)
   }, [])
   return (
     <>

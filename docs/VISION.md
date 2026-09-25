@@ -14,9 +14,9 @@ React code. Puck and GrapesJS are libraries you embed, not products you run.
 Nobody has shipped the combination: a Webflow-class visual editor, static-first output, a native CMS,
 a real self-host story, and an agent that is a first-class collaborator rather than an API wrapper.
 
-## What Miralo is
+## What Lacuno is
 
-Miralo is a self-hostable, open source web design and publishing tool.
+Lacuno is a self-hostable, open source web design and publishing tool.
 
 - You design visually with a real CSS model: classes, combo classes, breakpoints, states, design tokens.
 - Your site is a typed JSON document that lives in a git repository you own.
@@ -36,8 +36,8 @@ and documentation for themselves and for clients, and who want to own the result
 Secondary: developers who want a visual layer over an Astro site without giving up the codebase, and
 teams that want an agent to draft and maintain sites under human review.
 
-Not for: web apps with authentication, dashboards, or per-user state. Miralo builds sites, not apps.
-An island can embed an app, but Miralo will not become one.
+Not for: web apps with authentication, dashboards, or per-user state. Lacuno builds sites, not apps.
+An island can embed an app, but Lacuno will not become one.
 
 ## Principles
 
@@ -49,7 +49,7 @@ An island can embed an app, but Miralo will not become one.
 3. **Static first.** The default output is HTML and CSS a CDN can serve. Every dynamic feature must
    justify its JavaScript.
 4. **Own your site.** Git-backed documents, exportable Astro projects, standard assets. Leaving
-   Miralo should be a `git clone`, not a migration project.
+   Lacuno should be a `git clone`, not a migration project.
 5. **Agents are users.** An agent gets the same document, the same permissions model, the same undo
    history and the same audit trail as a human. Its changes are proposals until a human accepts them,
    unless the human says otherwise.

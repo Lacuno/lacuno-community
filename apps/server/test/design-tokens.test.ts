@@ -8,7 +8,7 @@ it('creates a spacing token, binds a field to it, snaps a handle to it, detaches
   })
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
+  const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
 
   // The CTA's own padding declaration for one side, read from the saved document.

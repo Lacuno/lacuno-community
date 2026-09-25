@@ -1,5 +1,5 @@
-import { applyPatches, invertPatches, type Patch } from '@miralo/document/patch'
-import type { Document } from '@miralo/schema'
+import { applyPatches, invertPatches, type Patch } from '@lacuno/document/patch'
+import type { Document } from '@lacuno/schema'
 import { committedHistory, type EditHistory } from './history.js'
 
 /** One committed batch on the site, as the server's event stream sends it. */

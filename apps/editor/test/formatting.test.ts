@@ -1,5 +1,5 @@
-import { DocumentStore } from '@miralo/document'
-import { type CssValue, fixtureDocument, rem, styleKey } from '@miralo/schema'
+import { DocumentStore } from '@lacuno/document'
+import { type CssValue, fixtureDocument, rem, styleKey } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { editingBreakpoint } from '../src/breakpoints.js'
 import {

@@ -1,6 +1,6 @@
-# Miralo Cloud boundary
+# Lacuno Cloud boundary
 
-Cloud development lives in a separate `miralo-cloud` repository. Its local implementation includes
+Cloud development lives in a separate `lacuno-cloud` repository. Its local implementation includes
 accounts, workspace ownership, isolated Community containers, authenticated editor handoff and
 local published-site routing. It is not a deployed hosted product.
 
@@ -9,7 +9,7 @@ and rollback. Cloud will manage accounts, workspace infrastructure, routing and 
 operational features such as domains/TLS, backups and upgrades. Community operators remain free to
 configure these themselves using the [self-hosting guide](SELF_HOSTING.md).
 
-The provisional Cloud architecture runs one existing Miralo runtime per customer workspace, with
+The provisional Cloud architecture runs one existing Lacuno runtime per customer workspace, with
 separate data and secrets. Cloud must not copy the editor or write directly into runtime databases.
 Its first target is signup → workspace/site → existing editor → managed published URL.
 

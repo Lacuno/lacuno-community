@@ -3,7 +3,7 @@ import { editor } from './harness.js'
 
 it('keeps the ribbon one height and the canvas in place in every state and width', async () => {
   const { page, canvas } = await editor()
-  const node = (id: string) => canvas.locator(`[data-miralo-node="${id}"]`)
+  const node = (id: string) => canvas.locator(`[data-lacuno-node="${id}"]`)
   const button = (name: string) => page.getByRole('button', { name, exact: true })
   const tabs = ['Home', 'Layout', 'Appearance', 'Effects', 'Motion']
   const tab = (name: string) =>

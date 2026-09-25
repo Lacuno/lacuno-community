@@ -1,4 +1,4 @@
-import { type RichText, type TextNode, textStyleProperties } from '@miralo/schema'
+import { type RichText, type TextNode, textStyleProperties } from '@lacuno/schema'
 
 export const textStyleAttributes: Record<string, string> = Object.fromEntries(
   Object.entries(textStyleProperties).map(([attribute, property]) => [property, attribute]),

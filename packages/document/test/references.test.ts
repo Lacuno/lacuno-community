@@ -1,4 +1,4 @@
-import { fixtureDocument } from '@miralo/schema'
+import { fixtureDocument } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { allIds } from '../src/ids.js'
 import { partialPatches } from '../src/partial.js'

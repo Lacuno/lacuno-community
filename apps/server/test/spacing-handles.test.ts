@@ -9,7 +9,7 @@ it('drags on-canvas padding and margin handles: symmetric, Alt single-side, one 
   page.on('request', (request) => {
     if (request.url().endsWith('/document/apply')) writes++
   })
-  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
+  const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
 

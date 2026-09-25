@@ -1,4 +1,4 @@
-import { fixtureDocument, px, rem } from '@miralo/schema'
+import { fixtureDocument, px, rem } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import {
   groupOfProperty,

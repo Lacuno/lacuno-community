@@ -3,7 +3,7 @@ import { editor } from './harness.js'
 
 it('shows the state chip and colour wheel on the canvas selection bar', async () => {
   const { context, page, canvas, document } = await editor()
-  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
+  const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
   // The bars carry the state chip and, for a text node, both a text and a background swatch.

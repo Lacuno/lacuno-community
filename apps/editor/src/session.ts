@@ -1,6 +1,6 @@
-import type { Operation } from '@miralo/document'
-import { applyPatches, invertPatches, type Patch } from '@miralo/document/patch'
-import { type Document, parseDocument } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import { applyPatches, invertPatches, type Patch } from '@lacuno/document/patch'
+import { type Document, parseDocument } from '@lacuno/schema'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { ApiError, api, message } from './api.js'
@@ -126,7 +126,7 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
     const flash = run.flatMap((event) =>
       event.actor.kind === 'agent' ? touchedNodes(event.patches) : [],
     )
-    if (flash.length) window.dispatchEvent(new CustomEvent('miralo:flash', { detail: flash }))
+    if (flash.length) window.dispatchEvent(new CustomEvent('lacuno:flash', { detail: flash }))
   }, [snapshot, frozen, activity, siteId, acceptSnapshot, editHistory])
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {

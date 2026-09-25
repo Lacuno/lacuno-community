@@ -1,5 +1,5 @@
-import type { Operation } from '@miralo/document'
-import type { Binding, Component, ComponentInstanceNode, Document } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import type { Binding, Component, ComponentInstanceNode, Document } from '@lacuno/schema'
 import { useId, useState } from 'react'
 import {
   componentDeletionReason,

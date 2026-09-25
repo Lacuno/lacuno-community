@@ -6,9 +6,9 @@ import {
   type Resolved,
   render,
   routePath,
-} from '@miralo/compiler'
-import { generateStylesheet, styleElement } from '@miralo/css'
-import type { Document, Entry, NodeId, Page, RichText } from '@miralo/schema'
+} from '@lacuno/compiler'
+import { generateStylesheet, styleElement } from '@lacuno/css'
+import type { Document, Entry, NodeId, Page, RichText } from '@lacuno/schema'
 import { InputError } from './errors.js'
 
 export type PreviewRoute = { page: Page; entry?: Entry }

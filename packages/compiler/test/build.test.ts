@@ -8,7 +8,7 @@ import { writeFixtureSite } from '../src/fixture-site.js'
 
 const dirs: string[] = []
 async function tmp(): Promise<string> {
-  const d = await mkdtemp(path.join(os.tmpdir(), 'miralo-build-'))
+  const d = await mkdtemp(path.join(os.tmpdir(), 'lacuno-build-'))
   dirs.push(d)
   return d
 }
@@ -16,7 +16,7 @@ afterEach(async () => {
   for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true })
 })
 
-describe.skipIf(process.env.MIRALO_FAST_TESTS)('build (runs Astro, slow)', () => {
+describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () => {
   it('builds the fixture site to static output and is idempotent', async () => {
     const dir = await tmp()
     await writeFixtureSite(dir)
@@ -56,9 +56,9 @@ describe.skipIf(process.env.MIRALO_FAST_TESTS)('build (runs Astro, slow)', () =>
     expect(await readFile(path.join(dir, 'dist/index.html'), 'utf8')).toBe(home)
 
     // The document's own public URL wins over the option, which is only a fallback.
-    const doc = JSON.parse(await readFile(path.join(dir, 'miralo.json'), 'utf8'))
+    const doc = JSON.parse(await readFile(path.join(dir, 'lacuno.json'), 'utf8'))
     doc.site.url = 'https://own.example'
-    await writeFile(path.join(dir, 'miralo.json'), JSON.stringify(doc))
+    await writeFile(path.join(dir, 'lacuno.json'), JSON.stringify(doc))
     await build(dir, { siteUrl: 'https://example.com', quiet: true })
     expect(await readFile(path.join(dir, 'dist/index.html'), 'utf8')).toContain(
       '<link rel="canonical" href="https://own.example/">',
@@ -71,7 +71,7 @@ describe.skipIf(process.env.MIRALO_FAST_TESTS)('build (runs Astro, slow)', () =>
   it('classifies document and render errors before running Astro', async () => {
     const dir = await tmp()
     await expect(build(dir, { quiet: true })).rejects.toMatchObject({ kind: 'document' })
-    await writeFile(path.join(dir, 'miralo.json'), '{')
+    await writeFile(path.join(dir, 'lacuno.json'), '{')
     await expect(build(dir, { quiet: true })).rejects.toMatchObject({
       kind: 'document',
       message: expect.stringContaining('not valid JSON'),
@@ -97,7 +97,7 @@ describe('build option validation', () => {
       kind: 'options',
     })
     expect(await readFile(path.join(outside, 'output', 'keep.txt'), 'utf8')).toBe('keep')
-    expect(existsSync(path.join(dir, '.miralo'))).toBe(false)
+    expect(existsSync(path.join(dir, '.lacuno'))).toBe(false)
   })
 
   it('does not allow build output to replace Git metadata', async () => {
@@ -120,7 +120,7 @@ describe('build option validation', () => {
     const dir = await tmp()
     await writeFixtureSite(dir)
     await expect(build(dir, { outDir: dir })).rejects.toMatchObject({ kind: 'options' })
-    expect(existsSync(path.join(dir, 'miralo.json'))).toBe(true)
+    expect(existsSync(path.join(dir, 'lacuno.json'))).toBe(true)
   })
 
   it('rejects an outDir that is a reserved subdirectory without touching it', async () => {
@@ -129,6 +129,6 @@ describe('build option validation', () => {
     await expect(build(dir, { outDir: path.join(dir, 'assets') })).rejects.toMatchObject({
       kind: 'options',
     })
-    expect(existsSync(path.join(dir, 'miralo.json'))).toBe(true)
+    expect(existsSync(path.join(dir, 'lacuno.json'))).toBe(true)
   })
 })

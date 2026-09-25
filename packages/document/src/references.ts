@@ -1,5 +1,5 @@
-import type { CssValue, Document, Node, NodeId } from '@miralo/schema'
-import { nodeBindings } from '@miralo/schema'
+import type { CssValue, Document, Node, NodeId } from '@lacuno/schema'
+import { nodeBindings } from '@lacuno/schema'
 
 export function subtreeIds(doc: Document, rootId: NodeId): NodeId[] {
   const out: NodeId[] = []

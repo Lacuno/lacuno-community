@@ -3,9 +3,9 @@ import { editor } from './harness.js'
 
 it('clears the selection on a click in the empty canvas space, not on panel controls', async () => {
   const { page, canvas } = await editor()
-  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
+  const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
-  const selectedCount = () => canvas.locator('[data-miralo-selected]').count()
+  const selectedCount = () => canvas.locator('[data-lacuno-selected]').count()
   const emptyInspector = () => page.locator('.inspector-empty').count()
   // The workspace's left padding is empty canvas space next to the iframe.
   const clickBackground = async () => {

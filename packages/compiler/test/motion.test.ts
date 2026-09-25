@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import { classNames, generateStylesheet } from '@miralo/css'
-import { fixtureDocument, styleKey } from '@miralo/schema'
+import { classNames, generateStylesheet } from '@lacuno/css'
+import { fixtureDocument, styleKey } from '@lacuno/schema'
 import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
 import { plainImageResolver } from '../src/images.js'
@@ -14,20 +14,20 @@ it('marks elements for motion exactly when the motion rules are emitted', () => 
     css: generateStylesheet(doc).css,
   })
   // The fixture styles `.button:hover` and sets no Motion field: the hover still eases. Without its state styles nothing is marked.
-  expect(output().body).toContain('<a class="button primary" data-miralo-motion=""')
-  expect(output().css).toContain(':where([data-miralo-motion])')
+  expect(output().body).toContain('<a class="button primary" data-lacuno-motion=""')
+  expect(output().css).toContain(':where([data-lacuno-motion])')
   for (const key of Object.keys(doc.styles))
     if (doc.styles[key]!.state !== 'none') delete doc.styles[key]
-  expect(output().body).not.toContain('data-miralo-motion')
-  expect(output().css).not.toContain('data-miralo-motion')
+  expect(output().body).not.toContain('data-lacuno-motion')
+  expect(output().css).not.toContain('data-lacuno-motion')
 })
 
 it('runs entrances once on viewport entry and honors reduced motion in published HTML', async () => {
   const doc = fixtureDocument()
   const id = 'l-hero-title'
   for (const [state, property, value] of [
-    ['none', '--mi-entrance', 'mi-slide-up'],
-    ['none', '--mi-duration', '1000ms'],
+    ['none', '--lc-entrance', 'lc-slide-up'],
+    ['none', '--lc-duration', '1000ms'],
     ['hover', 'scale', '1.2'],
   ] as const) {
     const style = {
@@ -61,7 +61,7 @@ it('runs entrances once on viewport entry and honors reduced motion in published
     const page = await browser.newPage({ viewport: { width: 1000, height: 600 } })
     await page.setContent(html)
     const target = page.locator(`.${classNames(doc).get(id)}`)
-    expect(await target.getAttribute('data-mi-enter')).toBeNull()
+    expect(await target.getAttribute('data-lc-enter')).toBeNull()
     await target.scrollIntoViewIfNeeded()
     await expect
       .poll(() => target.evaluate((element) => element.getAnimations().length))
@@ -69,10 +69,10 @@ it('runs entrances once on viewport entry and honors reduced motion in published
     await target.evaluate((element) => {
       for (const animation of element.getAnimations()) animation.finish()
     })
-    await expect.poll(() => target.getAttribute('data-mi-enter')).toBeNull()
+    await expect.poll(() => target.getAttribute('data-lc-enter')).toBeNull()
     await page.evaluate(() => window.scrollTo(0, 0))
     await target.scrollIntoViewIfNeeded()
-    expect(await target.getAttribute('data-mi-enter')).toBeNull()
+    expect(await target.getAttribute('data-lc-enter')).toBeNull()
     await target.hover()
     // Wait for actual animation completion rather than racing the default polling deadline.
     await target.evaluate(async (element) => {
@@ -88,7 +88,7 @@ it('runs entrances once on viewport entry and honors reduced motion in published
     expect(await target.evaluate((element) => element.getAnimations().length)).toBe(0)
     await page.setContent(html)
     await target.scrollIntoViewIfNeeded()
-    expect(await target.getAttribute('data-mi-enter')).toBeNull()
+    expect(await target.getAttribute('data-lc-enter')).toBeNull()
     expect(await target.evaluate((element) => getComputedStyle(element).opacity)).toBe('1')
     const noScript = await browser.newPage({ javaScriptEnabled: false })
     await noScript.setContent(html)

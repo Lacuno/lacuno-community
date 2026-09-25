@@ -1,6 +1,6 @@
-import type { Operation } from '@miralo/document'
-import { isDescendant, subtreeIds } from '@miralo/document/references'
-import type { Document, ElementNode, Node, TextNode } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import { isDescendant, subtreeIds } from '@lacuno/document/references'
+import type { Document, ElementNode, Node, TextNode } from '@lacuno/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 
 type DefinedFields<T> = { [K in keyof T]: Exclude<T[K], undefined> }

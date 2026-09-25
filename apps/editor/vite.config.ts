@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-const templateAssets = new URL('../../templates/miralo/assets/', import.meta.url)
+const templateAssets = new URL('../../templates/lacuno/assets/', import.meta.url)
 
 export default defineConfig({
   plugins: [

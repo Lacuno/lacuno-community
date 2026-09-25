@@ -1,8 +1,8 @@
-import { classNames, compareSelectors } from '@miralo/css'
-import type { Operation } from '@miralo/document'
-import { nodesUsingClass } from '@miralo/document/references'
-import type { CssValue, Document, Node, State, StyleDecl } from '@miralo/schema'
-import { styleKey } from '@miralo/schema'
+import { classNames, compareSelectors } from '@lacuno/css'
+import type { Operation } from '@lacuno/document'
+import { nodesUsingClass } from '@lacuno/document/references'
+import type { CssValue, Document, Node, State, StyleDecl } from '@lacuno/schema'
+import { styleKey } from '@lacuno/schema'
 import { FONT_STACKS } from './fonts.js'
 
 export const formattingGroups = [
@@ -104,10 +104,10 @@ export const formattingGroups = [
   {
     name: 'Motion',
     fields: [
-      { property: '--mi-duration', label: 'Duration' },
-      { property: '--mi-delay', label: 'Delay' },
-      { property: '--mi-easing', label: 'Easing' },
-      { property: '--mi-entrance', label: 'Entrance' },
+      { property: '--lc-duration', label: 'Duration' },
+      { property: '--lc-delay', label: 'Delay' },
+      { property: '--lc-easing', label: 'Easing' },
+      { property: '--lc-entrance', label: 'Entrance' },
     ],
   },
 ] as const

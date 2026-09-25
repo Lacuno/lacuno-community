@@ -4,8 +4,8 @@ import {
   type Persistence,
   stageUpload,
   UploadInput,
-} from '@miralo/document'
-import { renderPreview } from '@miralo/renderer'
+} from '@lacuno/document'
+import { renderPreview } from '@lacuno/renderer'
 
 /** The one site a visitor edits in the browser. */
 export const TRY_SITE = 'try'

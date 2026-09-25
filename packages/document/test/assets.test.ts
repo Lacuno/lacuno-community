@@ -1,4 +1,4 @@
-import { fixtureDocument } from '@miralo/schema'
+import { fixtureDocument } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { planBatch } from '../src/engine.js'
 import { OperationError } from '../src/errors.js'

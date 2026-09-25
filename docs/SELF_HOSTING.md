@@ -1,7 +1,7 @@
-# Self-hosting Miralo Community
+# Self-hosting Lacuno Community
 
 Community includes the builder, compiler, publishing and rollback. You operate the infrastructure:
-server provisioning, DNS, HTTPS, access control, backups, monitoring and updates. Miralo Cloud is
+server provisioning, DNS, HTTPS, access control, backups, monitoring and updates. Lacuno Cloud is
 a planned paid managed service, not a requirement for using Community. This guide does not provision
 hosting or manage domains and certificates for you.
 
@@ -20,19 +20,19 @@ openssl rand -hex 32
 ```
 
 Put the generated value in `BETTER_AUTH_SECRET` in `.env.docker`. Keep this file private and keep
-the same secret across restarts and updates. Leave `MIRALO_ALLOW_SIGNUP=false`.
+the same secret across restarts and updates. Leave `LACUNO_ALLOW_SIGNUP=false`.
 
 ```sh
 docker compose --env-file .env.docker up -d --build
 docker compose --env-file .env.docker ps
-docker compose --env-file .env.docker logs --tail=100 miralo
+docker compose --env-file .env.docker logs --tail=100 lacuno
 ```
 
 Open `http://localhost:3000`. On a fresh private instance, the first-run screen asks you to create
 the owner account. Retrieve its one-time setup token from your server terminal:
 
 ```sh
-docker compose --env-file .env.docker exec miralo node apps/server/dist/setup-token.js
+docker compose --env-file .env.docker exec lacuno node apps/server/dist/setup-token.js
 ```
 
 Paste the token into the setup form with your name, email and password. Treat the token as a secret:
@@ -45,12 +45,12 @@ Create a site, then publish v1. The published URL is
 `http://<site-id>.localhost:3001`. Modern browsers resolve `.localhost` to loopback; this local URL
 is not reachable by visitors on other machines. Existing installations retain their accounts and
 registration configuration; owner setup does not remove or convert existing users. The legacy
-`MIRALO_ALLOW_SIGNUP=true` option remains for explicitly configured multi-account instances, not
+`LACUNO_ALLOW_SIGNUP=true` option remains for explicitly configured multi-account instances, not
 for the default Community setup. Keep it disabled on an existing instance to stop public signup.
 
 The container runs as UID/GID 1000, with production dependencies, no compiler toolchain, and a
 health check on `/health`. Both host ports bind to loopback by default. SQLite, assets, snapshots
-and compiled releases are stored in the `miralo-data` named volume at `/data`. Container
+and compiled releases are stored in the `lacuno-data` named volume at `/data`. Container
 recreation preserves this volume. **Do not run `docker compose down -v`: it deletes the data volume.**
 Keep the Compose project name stable; changing the directory/project name selects a different volume.
 If using a bind mount instead, its directory must be writable by UID/GID 1000.
@@ -64,8 +64,8 @@ Use a dedicated publishing domain distinct from the editor's domain. For example
 
 ```dotenv
 BETTER_AUTH_URL=https://editor.example.com
-MIRALO_PUBLISH_BASE_URL=https://sites.example.net
-MIRALO_ALLOW_SIGNUP=false
+LACUNO_PUBLISH_BASE_URL=https://sites.example.net
+LACUNO_ALLOW_SIGNUP=false
 ```
 
 Configure DNS yourself: the editor hostname and `*.sites.example.net` must point to your server.
@@ -84,12 +84,12 @@ publication, so no extra DNS record or certificate is needed. Every testing resp
 address can open it.
 
 To put the site in one label instead, write `{site}` where it goes:
-`MIRALO_PUBLISH_BASE_URL=https://{site}--main.sites.example.net` serves
+`LACUNO_PUBLISH_BASE_URL=https://{site}--main.sites.example.net` serves
 `<site-id>--main.sites.example.net` and `<site-id>-testing--main.sites.example.net`. One wildcard
 certificate for `*.sites.example.net` then covers every site, whatever else shares that domain.
 
-For a proxy in another container, connect it to the Compose network and use `miralo:3000` and
-`miralo:3001` instead of loopback. Only expose the proxy's HTTP/HTTPS ports publicly. Configure
+For a proxy in another container, connect it to the Compose network and use `lacuno:3000` and
+`lacuno:3001` instead of loopback. Only expose the proxy's HTTP/HTTPS ports publicly. Configure
 body-size/time limits to accommodate uploads (the API allows 15 MiB on its image-upload endpoint).
 
 Published pages may contain user-authored scripts. Never serve them on the editor's origin, route
@@ -114,11 +114,11 @@ are marked failed and can be published again). Choose a new backup filename each
 
 ```sh
 umask 077
-docker compose --env-file .env.docker stop miralo
-docker compose --env-file .env.docker run --rm --no-deps -T --entrypoint tar miralo \
-  -czf - -C /data . > miralo-backup.tar.gz
-docker compose --env-file .env.docker start miralo
-tar -tzf miralo-backup.tar.gz
+docker compose --env-file .env.docker stop lacuno
+docker compose --env-file .env.docker run --rm --no-deps -T --entrypoint tar lacuno \
+  -czf - -C /data . > lacuno-backup.tar.gz
+docker compose --env-file .env.docker start lacuno
+tar -tzf lacuno-backup.tar.gz
 ```
 
 Check that the backup command succeeded before relying on the archive. Store the image/repository
@@ -129,9 +129,9 @@ new Compose project creates a separate volume (the original instance must be sto
 ports). Use the image matching the backup and the original auth secret:
 
 ```sh
-docker compose --env-file .env.docker -p miralo-restore run --rm --no-deps -T \
-  --entrypoint tar miralo -xzf - --no-same-owner -C /data < miralo-backup.tar.gz
-docker compose --env-file .env.docker -p miralo-restore up -d
+docker compose --env-file .env.docker -p lacuno-restore run --rm --no-deps -T \
+  --entrypoint tar lacuno -xzf - --no-same-owner -C /data < lacuno-backup.tar.gz
+docker compose --env-file .env.docker -p lacuno-restore up -d
 ```
 
 Verify login, draft content, asset previews, live pages and release history before switching traffic.
@@ -157,7 +157,7 @@ does not roll back application/database versions.
 - **Disk growth:** all releases and failed build directories are retained. Monitor storage; do not
   manually delete live release files or asset bytes. Automated retention is not yet available.
 
-For development verification, `docker build -t miralo-community:local .` followed by
+For development verification, `docker build -t lacuno-community:local .` followed by
 `pnpm smoke:docker` tests a disposable container and volume: non-root execution, account creation,
 editing, publishing, restart persistence and offline backup/restore into a fresh volume. It deletes
 only its own temporary container and volumes.

@@ -1,4 +1,4 @@
-import type { Entry } from '@miralo/schema'
+import type { Entry } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { applyQuery } from '../src/query.js'
 

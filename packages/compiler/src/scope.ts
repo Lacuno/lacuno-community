@@ -7,8 +7,8 @@ import type {
   Entry,
   NodeId,
   RichText,
-} from '@miralo/schema'
-import { designTokenCssName } from '@miralo/schema'
+} from '@lacuno/schema'
+import { designTokenCssName } from '@lacuno/schema'
 import { RenderError } from './errors.js'
 
 /** One component instance being rendered. Slot children render in the outer scope. */

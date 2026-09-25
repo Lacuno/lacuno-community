@@ -1,30 +1,30 @@
-# Miralo starter
+# Lacuno starter
 
-This folder is a complete, editable Miralo marketing-site starter. Its source is native Miralo
+This folder is a complete, editable Lacuno marketing-site starter. Its source is native Lacuno
 data rather than an HTML embed or custom code. It includes three static pages, a collection-backed
 article template, three sample articles, shared navigation and footer components, and a reusable
 paper/ink/lime design system.
 
 ## Copy and build
 
-From the Miralo repository root, choose a new destination that does not already contain a site:
+From the Lacuno repository root, choose a new destination that does not already contain a site:
 
 ```sh
-mkdir -p "$HOME/MiraloSites"
-cp -R templates/miralo "$HOME/MiraloSites/my-site"
-pnpm --silent miralo build "$HOME/MiraloSites/my-site"
+mkdir -p "$HOME/LacunoSites"
+cp -R templates/lacuno "$HOME/LacunoSites/my-site"
+pnpm --silent lacuno build "$HOME/LacunoSites/my-site"
 ```
 
 The compiler writes the static result to `dist/` inside the copied folder. A build does not publish
 the site online. If you copy a working folder that has already been built, omit the generated
-`dist/`, `.miralo/` and `node_modules/` directories; only `miralo.json`, `assets/` and this
+`dist/`, `.lacuno/` and `node_modules/` directories; only `lacuno.json`, `assets/` and this
 README are needed.
 
 To edit the copied document with an MCP client, run its stdio server from the repository root. The
 concrete copied folder must be the final argument:
 
 ```sh
-pnpm --silent miralo mcp "$HOME/MiraloSites/my-site"
+pnpm --silent lacuno mcp "$HOME/LacunoSites/my-site"
 ```
 
 The client owns that process. It should call `document.read`, keep the returned revision, and use
@@ -60,16 +60,16 @@ is a real 1440 × 900 browser capture of this starter's final About page, import
 distributed with this repository under its AGPL-3.0-or-later license. The starter uses a system font
 stack and has no external font or image attribution requirements.
 
-The Miralo-operated browser builder and hosting service described in the sample copy are planned.
+The Lacuno-operated browser builder and hosting service described in the sample copy are planned.
 No current availability, price or numeric allowance is promised. Self-hosting the builder and
-generated websites remains part of the project direction. The primary “Explore Miralo” action
+generated websites remains part of the project direction. The primary “Explore Lacuno” action
 links to `/about` because a working public project destination was not available when the starter
 was authored.
 
 ## Authoring and verification evidence
 
 The initial empty document was created once with `DocumentStore.create` (now `createFolder` from
-`@miralo/document/folder`); this bootstrap exception was necessary before the MCP server could
+`@lacuno/document/folder`); this bootstrap exception was necessary before the MCP server could
 open a site. Every later content, style and asset mutation
 used an SDK MCP client connected to the real stdio command shown above. The client did not import the
 document engine, call `store.apply`, or hand-write the completed JSON. The source reached revision
@@ -84,14 +84,14 @@ unsettled-top-level-await warning while closing after a successful call; persist
 back before that warning.
 
 For repository contributions, run
-`pnpm exec biome format --write templates/miralo/miralo.json` after MCP authoring and before
+`pnpm exec biome format --write templates/lacuno/lacuno.json` after MCP authoring and before
 committing. This normalizes serialized whitespace; it does not replace MCP operations for document
 content or styles.
 
 Final MCP readback covered all four page outlines, the shared styles and components, the three
 collection entries, the preview image and the complete document. `site.build` returned six pages and
-no warnings. A separate CLI check copied only this README, `miralo.json` and `assets/` to a fresh
-temporary folder and ran `pnpm --silent miralo build <absolute-copy-dir> --json`; it also returned
+no warnings. A separate CLI check copied only this README, `lacuno.json` and `assets/` to a fresh
+temporary folder and ran `pnpm --silent lacuno build <absolute-copy-dir> --json`; it also returned
 `{"pages":6,"warnings":[]}`.
 
 All six routes returned HTTP 200 in browser checks at 1440, 390 and 320 CSS pixels, with no horizontal
@@ -101,7 +101,7 @@ outlines. The rendered color pairs measured from 13.27:1 to 15.99:1 contrast. Th
 preview loaded the final imported image with intrinsic dimensions, alt text, lazy loading and
 generated WebP/AVIF variants.
 
-On 2026-09-17, `pnpm lighthouse templates/miralo` audited the template with Lighthouse 13.4.1,
+On 2026-09-17, `pnpm lighthouse templates/lacuno` audited the template with Lighthouse 13.4.1,
 Node 22.14.0 and Google Chrome for Testing 153.0.8010.12 on arm64 macOS 27.0. The default mobile
 preset used a 412 × 823 viewport, device scale factor 1.75 and simulated mobile Slow 4G throttling.
 Every route scored 100 in the performance category:

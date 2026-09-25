@@ -1,6 +1,6 @@
-import type { ApplyResult, Batch } from '@miralo/document'
-import { DocumentStore } from '@miralo/document'
-import { fixtureDocument } from '@miralo/schema'
+import type { ApplyResult, Batch } from '@lacuno/document'
+import { DocumentStore } from '@lacuno/document'
+import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { connect, jsonOf } from './helpers.js'
 

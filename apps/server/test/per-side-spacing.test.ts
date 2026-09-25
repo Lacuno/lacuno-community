@@ -9,7 +9,7 @@ it('binds per-side spacing inputs to the longhands and the handles, with a chain
   page.on('request', (request) => {
     if (request.url().endsWith('/document/apply')) writes++
   })
-  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
+  const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
   await page.getByRole('button', { name: 'Layout', exact: true }).click()

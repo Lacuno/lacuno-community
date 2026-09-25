@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
-import { DocumentStore } from '@miralo/document'
-import template from '../../../../templates/miralo/miralo.json'
+import { DocumentStore } from '@lacuno/document'
+import template from '../../../../templates/lacuno/lacuno.json'
 import { IdbPersistence } from './idb.js'
 import { handle } from './routes.js'
 

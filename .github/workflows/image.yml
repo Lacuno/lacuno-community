@@ -22,7 +22,7 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/lacuno/miralo-community:main
-            ghcr.io/lacuno/miralo-community:${{ github.sha }}
+            ghcr.io/lacuno/lacuno-community:main
+            ghcr.io/lacuno/lacuno-community:${{ github.sha }}
       # Cloud pins the runtime image by this digest.
-      - run: echo "ghcr.io/lacuno/miralo-community@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+      - run: echo "ghcr.io/lacuno/lacuno-community@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"

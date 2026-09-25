@@ -1,4 +1,4 @@
-import { fixtureDocument } from '@miralo/schema'
+import { fixtureDocument } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { applicableStates } from '../src/states.js'
 

@@ -1,6 +1,6 @@
-import { assembleDocument, render } from '@miralo/compiler/render'
-import { generateStylesheet, styleElement } from '@miralo/css'
-import type { AssetRef, Document, Entry, Page } from '@miralo/schema'
+import { assembleDocument, render } from '@lacuno/compiler/render'
+import { generateStylesheet, styleElement } from '@lacuno/css'
+import type { AssetRef, Document, Entry, Page } from '@lacuno/schema'
 
 export type CanvasResult = { html: string; warnings: { node: string; message: string }[] }
 

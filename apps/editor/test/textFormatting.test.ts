@@ -1,4 +1,4 @@
-import { fixtureDocument, type TextNode } from '@miralo/schema'
+import { fixtureDocument, type TextNode } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { textDocument, wholeText } from '../src/textFormatting.js'
 

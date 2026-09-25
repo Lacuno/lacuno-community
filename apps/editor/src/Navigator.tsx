@@ -1,5 +1,5 @@
-import type { Operation } from '@miralo/document'
-import type { Document } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import type { Document } from '@lacuno/schema'
 import { useEffect, useRef, useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
 import { presetValues } from './presets.js'

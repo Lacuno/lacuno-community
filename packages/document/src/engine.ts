@@ -1,4 +1,4 @@
-import type { Document } from '@miralo/schema'
+import type { Document } from '@lacuno/schema'
 import { createContext, type Warning } from './context.js'
 import type { OperationDef } from './define.js'
 import { OperationError } from './errors.js'

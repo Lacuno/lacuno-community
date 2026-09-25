@@ -6,7 +6,7 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
   // A sentinel on the iframe document; it can only survive if the document is never replaced.
   const sentinel = () =>
     canvas.locator('body').evaluate(() => (document as unknown as { __ff?: string }).__ff ?? '')
-  const cta = canvas.locator('[data-miralo-node="n-home-cta"]')
+  const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
   await canvas.locator('body').evaluate(() => {
@@ -40,7 +40,7 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
   expect(await sentinel()).toBe('kept')
 
   // A text edit commit.
-  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   await heading.click()
   await page.getByLabel('Text', { exact: true }).fill('Morphed in place')
   await expect.poll(() => heading.textContent()).toBe('Morphed in place')
@@ -98,7 +98,7 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
     const record = { frames: [] as string[], morphed: false }
     ;(window as unknown as { __frames?: typeof record }).__frames = record
     const sample = () => {
-      const element = doc.querySelector('[data-miralo-node="n-home-cta"]')!
+      const element = doc.querySelector('[data-lacuno-node="n-home-cta"]')!
       record.frames.push(getComputedStyle(element).backgroundColor)
       record.morphed ||= styles() !== before
       requestAnimationFrame(sample)

@@ -24,23 +24,23 @@ describe('publication hosts', () => {
   })
 
   it('fills in a {site} template', () => {
-    const template = reader('https://{site}--k3j9x2a1bc.sites.miralo.io:4000')
-    expect(template.url(site)).toBe(`https://${site}--k3j9x2a1bc.sites.miralo.io:4000`)
+    const template = reader('https://{site}--k3j9x2a1bc.sites.lacuno.io:4000')
+    expect(template.url(site)).toBe(`https://${site}--k3j9x2a1bc.sites.lacuno.io:4000`)
     expect(template.url(site, 'testing')).toBe(
-      `https://${site}-testing--k3j9x2a1bc.sites.miralo.io:4000`,
+      `https://${site}-testing--k3j9x2a1bc.sites.lacuno.io:4000`,
     )
-    expect(template.siteForHost(`${site}--k3j9x2a1bc.sites.miralo.io`)).toEqual({
+    expect(template.siteForHost(`${site}--k3j9x2a1bc.sites.lacuno.io`)).toEqual({
       siteId: site,
       target: 'production',
     })
-    expect(template.siteForHost(`${site}-testing--k3j9x2a1bc.sites.miralo.io`)).toEqual({
+    expect(template.siteForHost(`${site}-testing--k3j9x2a1bc.sites.lacuno.io`)).toEqual({
       siteId: site,
       target: 'testing',
     })
-    expect(template.siteForHost(`x.${site}--k3j9x2a1bc.sites.miralo.io`)).toBeUndefined()
-    expect(template.siteForHost(`${site}--k3j9x2a1bc.x.sites.miralo.io`)).toBeUndefined()
-    expect(template.siteForHost(`${site}--other00000.sites.miralo.io`)).toBeUndefined()
-    expect(template.siteForHost(`${site}.sites.miralo.io`)).toBeUndefined()
+    expect(template.siteForHost(`x.${site}--k3j9x2a1bc.sites.lacuno.io`)).toBeUndefined()
+    expect(template.siteForHost(`${site}--k3j9x2a1bc.x.sites.lacuno.io`)).toBeUndefined()
+    expect(template.siteForHost(`${site}--other00000.sites.lacuno.io`)).toBeUndefined()
+    expect(template.siteForHost(`${site}.sites.lacuno.io`)).toBeUndefined()
     expect(() => reader('https://{site}.{site}.example.net')).toThrow('{site} once')
   })
 })

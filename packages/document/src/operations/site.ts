@@ -1,5 +1,5 @@
-import type { Mode } from '@miralo/schema'
-import { AssetId, Font, ModeId, Redirect } from '@miralo/schema'
+import type { Mode } from '@lacuno/schema'
+import { AssetId, Font, ModeId, Redirect } from '@lacuno/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'

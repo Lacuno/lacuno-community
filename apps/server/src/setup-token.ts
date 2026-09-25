@@ -2,7 +2,7 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { root } from './environment.js'
 
-const file = path.join(path.resolve(root, process.env.MIRALO_DATA_DIR ?? 'data'), 'miralo.sqlite')
+const file = path.join(path.resolve(root, process.env.LACUNO_DATA_DIR ?? 'data'), 'lacuno.sqlite')
 let sqlite: Database.Database | undefined
 try {
   sqlite = new Database(file, { readonly: true, fileMustExist: true })

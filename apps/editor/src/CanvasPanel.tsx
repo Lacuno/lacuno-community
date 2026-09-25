@@ -1,4 +1,4 @@
-import type { Entry, Page, State } from '@miralo/schema'
+import type { Entry, Page, State } from '@lacuno/schema'
 import { editingBreakpoint } from './breakpoints.js'
 import { Canvas, type LivePreview } from './Canvas.js'
 import { colorLabel, colorPreview, projectColors } from './colors.js'

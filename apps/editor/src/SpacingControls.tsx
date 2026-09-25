@@ -1,4 +1,4 @@
-import { contextFromDocument, serializeValue } from '@miralo/css'
+import { contextFromDocument, serializeValue } from '@lacuno/css'
 import { useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
 import { type StyleControls, useStyleField } from './styleField.js'
@@ -11,7 +11,7 @@ const pairs = [
 type Side = (typeof pairs)[number][number]
 // Tell the canvas which side's input has focus, so it shows the spacing boxes meanwhile.
 const focusSide = (detail: { kind: 'padding' | 'margin'; side: string } | null) =>
-  window.dispatchEvent(new CustomEvent('miralo:spacing-focus', { detail }))
+  window.dispatchEvent(new CustomEvent('lacuno:spacing-focus', { detail }))
 
 // The visible labels name the kind and side ("Inside top"); the accessible names spell it out.
 type ClusterProps = StyleControls & {

@@ -1,18 +1,18 @@
 import { copyFile, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { CssValue, Document } from '@miralo/schema'
+import type { CssValue, Document } from '@lacuno/schema'
 import { assetFileName, isImage } from './assets.js'
 import { BuildError } from './errors.js'
 
 export type ScaffoldInput = {
-  /** The Astro project root, normally `<siteDir>/.miralo/astro`. Cleared on every write. */
+  /** The Astro project root, normally `<siteDir>/.lacuno/astro`. Cleared on every write. */
   root: string
   siteDir: string
   doc: Document
   css: string
   /** Installed `astro` package directory, linked as `node_modules/astro`. */
   astroDir: string
-  /** The compiler package directory, linked as `node_modules/@miralo/compiler`. */
+  /** The compiler package directory, linked as `node_modules/@lacuno/compiler`. */
   compilerDir: string
 }
 
@@ -28,7 +28,7 @@ import {
   parseDocument,
   render,
   resolveAllImages,
-} from '@miralo/compiler/render'
+} from '@lacuno/compiler/render'
 import raw from '../data/document.json'
 import '../styles/site.css'
 
@@ -96,7 +96,7 @@ export async function writeScaffold(input: ScaffoldInput): Promise<void> {
     await mkdir(path.join(root, d), { recursive: true })
   }
   await link(input.astroDir, path.join(root, 'node_modules', 'astro'))
-  await link(input.compilerDir, path.join(root, 'node_modules', '@miralo', 'compiler'))
+  await link(input.compilerDir, path.join(root, 'node_modules', '@lacuno', 'compiler'))
   await writeFile(path.join(root, 'src/pages/[...path].astro'), ROUTE_SOURCE)
   await writeFile(path.join(root, 'src/styles/site.css'), input.css)
   await writeFile(path.join(root, 'src/data/document.json'), JSON.stringify(doc))

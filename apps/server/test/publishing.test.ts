@@ -69,10 +69,10 @@ describe('publishing', () => {
     request(`${route}/document/apply`, cookie, { expectedRevision, operations: [operation] })
 
   beforeAll(async () => {
-    dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-publish-'))
+    dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-publish-'))
     options = {
       dataDir: dir,
-      templateDir: fileURLToPath(new URL('../../../templates/miralo', import.meta.url)),
+      templateDir: fileURLToPath(new URL('../../../templates/lacuno', import.meta.url)),
       baseURL: origin,
       publishBaseURL: 'http://localhost:3001',
       secret: 'publishing-test-secret-192836519283651928365',
@@ -121,7 +121,7 @@ describe('publishing', () => {
       liveURL = (await history()).url
       const published = await live()
       expect(published.status).toBe(200)
-      expect(published.headers.get('x-miralo-release')).toBe(firstId)
+      expect(published.headers.get('x-lacuno-release')).toBe(firstId)
       originalHtml = await published.text()
       expect(originalHtml).not.toContain('An unpublished draft')
     },
@@ -131,7 +131,7 @@ describe('publishing', () => {
   it(
     'snapshots online while serving and restores a working instance elsewhere',
     async () => {
-      const recovery = await mkdtemp(path.join(os.tmpdir(), 'miralo-recovery-'))
+      const recovery = await mkdtemp(path.join(os.tmpdir(), 'lacuno-recovery-'))
       try {
         const backup = path.join(recovery, 'backup')
         let done = false
@@ -169,17 +169,17 @@ describe('publishing', () => {
 
   it('serves only release output on the publishing listener', async () => {
     expect((await live('/about')).status).toBe(200)
-    expect((await live('/miralo.json')).status).toBe(404)
+    expect((await live('/lacuno.json')).status).toBe(404)
     for (const suffix of [
-      '/assets/%2e%2e%2fmiralo.json',
+      '/assets/%2e%2e%2flacuno.json',
       '/%ZZ',
       '/.cache/astro.config.mjs',
-      '/assets/%5c..%5cmiralo.json',
+      '/assets/%5c..%5clacuno.json',
     ])
       expect((await live(suffix)).status).toBe(404)
     const siteId = route.slice('/api/sites/'.length)
     await symlink(
-      path.join(dir, 'miralo.sqlite'),
+      path.join(dir, 'lacuno.sqlite'),
       path.join(dir, 'builds', siteId, firstId, 'dist', 'private.sqlite'),
     )
     expect((await live('/private.sqlite')).status).toBe(404)
@@ -334,11 +334,11 @@ describe('publishing', () => {
         await waitFor(sent, 'ready')
         expect(await history()).toMatchObject({ publishedId: production, testingId: sent })
         const page = await testing()
-        expect(page.headers.get('x-miralo-release')).toBe(sent)
+        expect(page.headers.get('x-lacuno-release')).toBe(sent)
         expect(page.headers.get('x-robots-tag')).toBe('noindex, nofollow')
         expect((await testing('/missing')).headers.get('x-robots-tag')).toBe('noindex, nofollow')
         const livePage = await live()
-        expect(livePage.headers.get('x-miralo-release')).toBe(production)
+        expect(livePage.headers.get('x-lacuno-release')).toBe(production)
         expect(livePage.headers.get('x-robots-tag')).toBeNull()
         // The cloud runtime's `--list` shape and rows are unchanged by a testing publication.
         expect(reader.publications()).toEqual(listed)
@@ -353,12 +353,12 @@ describe('publishing', () => {
         expect((await activate(sent, production, 'production')).status).toBe(200)
         expect(await history()).toMatchObject({ publishedId: sent, testingId: sent })
         expect((await history()).releases).toHaveLength(count)
-        expect((await live()).headers.get('x-miralo-release')).toBe(sent)
+        expect((await live()).headers.get('x-lacuno-release')).toBe(sent)
 
         // Rolling production back leaves testing where it was.
         expect((await activate(production!, sent, 'production')).status).toBe(200)
         expect(await history()).toMatchObject({ publishedId: production, testingId: sent })
-        expect((await testing()).headers.get('x-miralo-release')).toBe(sent)
+        expect((await testing()).headers.get('x-lacuno-release')).toBe(sent)
 
         const failed = (await history()).releases.find((row) => row.status === 'failed')!
         expect((await activate(failed.id, sent, 'testing')).status).toBe(404)

@@ -2,8 +2,8 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { DocumentStore } from '@miralo/document'
-import { createFolder } from '@miralo/document/folder'
+import { DocumentStore } from '@lacuno/document'
+import { createFolder } from '@lacuno/document/folder'
 import { afterEach, describe, expect, it } from 'vitest'
 import { connect, jsonOf } from './helpers.js'
 
@@ -16,8 +16,8 @@ afterEach(async () => {
 
 describe('asset.import and site.build', () => {
   it('rejects a symlink escaping the site while allowing an internal symlink', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-links-'))
-    const outside = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-outside-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-links-'))
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-outside-'))
     dirs.push(dir, outside)
     await writeFile(path.join(outside, 'private.txt'), 'private')
     await symlink(path.join(outside, 'private.txt'), path.join(dir, 'escape.txt'))
@@ -40,7 +40,7 @@ describe('asset.import and site.build', () => {
     expect(store.revision).toBe(1)
   })
   it('imports from a path and from data, then builds', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-'))
     dirs.push(dir)
     const store = await createFolder(dir, 'Site')
     const c = await connect(store, { siteDir: dir })
@@ -85,7 +85,7 @@ describe('asset.import and site.build', () => {
   })
 
   it('site.build fails with kind input on an in-memory store', async () => {
-    const { fixtureDocument } = await import('@miralo/schema')
+    const { fixtureDocument } = await import('@lacuno/schema')
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     expect(jsonOf(await c.client.callTool({ name: 'site.build', arguments: {} }))).toMatchObject({
@@ -94,7 +94,7 @@ describe('asset.import and site.build', () => {
   })
 
   it('serializes overlapping site.build calls so they never run concurrently', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-'))
     dirs.push(dir)
     const store = await createFolder(dir, 'Site')
     const c = await connect(store, { siteDir: dir })

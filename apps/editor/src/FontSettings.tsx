@@ -1,5 +1,5 @@
-import type { Operation } from '@miralo/document'
-import type { Document, Font } from '@miralo/schema'
+import type { Operation } from '@lacuno/document'
+import type { Document, Font } from '@lacuno/schema'
 import { useState } from 'react'
 import { FONT_ACCEPT, FONT_FORMATS, uploadAsset } from './AssetsPanel.js'
 import { message } from './api.js'

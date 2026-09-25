@@ -1,4 +1,4 @@
-import { fixtureDocument, parseDocument } from '@miralo/schema'
+import { fixtureDocument, parseDocument } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { serializeDocument } from '../src/serialize.js'
 

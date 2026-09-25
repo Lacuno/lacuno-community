@@ -1,28 +1,28 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalPassThroughEnv": ["CHROME_PATH", "MIRALO_FAST_TESTS"],
+  "globalPassThroughEnv": ["CHROME_PATH", "LACUNO_FAST_TESTS"],
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "test": { "dependsOn": ["^build"] },
-    "@miralo/compiler#test": {
+    "@lacuno/compiler#test": {
       "dependsOn": ["^build"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/templates/miralo/miralo.json",
-        "$TURBO_ROOT$/templates/miralo/assets/**"
+        "$TURBO_ROOT$/templates/lacuno/lacuno.json",
+        "$TURBO_ROOT$/templates/lacuno/assets/**"
       ]
     },
-    "@miralo/server#test": {
+    "@lacuno/server#test": {
       "dependsOn": ["^build"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/templates/miralo/miralo.json",
-        "$TURBO_ROOT$/templates/miralo/assets/**"
+        "$TURBO_ROOT$/templates/lacuno/lacuno.json",
+        "$TURBO_ROOT$/templates/lacuno/assets/**"
       ]
     },
-    "@miralo/renderer#test": {
+    "@lacuno/renderer#test": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/templates/miralo/miralo.json"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/templates/lacuno/lacuno.json"]
     },
     "typecheck": { "dependsOn": ["^build"] }
   }

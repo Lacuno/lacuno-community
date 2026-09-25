@@ -232,7 +232,7 @@ function ConnectSteps({
           {action[app.registration]}
         </button>
       )}
-      {disabled && <p className="hint">Needs a public address. Works on Miralo Cloud.</p>}
+      {disabled && <p className="hint">Needs a public address. Works on Lacuno Cloud.</p>}
       <p className="hint">{app.fallback}</p>
       {app.bridge && (
         <>

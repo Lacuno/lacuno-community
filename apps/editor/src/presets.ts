@@ -1,5 +1,5 @@
-import { classNames, compareSelectors } from '@miralo/css'
-import type { Operation } from '@miralo/document'
+import { classNames, compareSelectors } from '@lacuno/css'
+import type { Operation } from '@lacuno/document'
 import {
   type CssValue,
   type Document,
@@ -7,7 +7,7 @@ import {
   type State,
   type StyleDecl,
   styleKey,
-} from '@miralo/schema'
+} from '@lacuno/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
 import {
   clearStyles,
@@ -83,7 +83,7 @@ export function presetValues(
   for (const property of properties) {
     const style = [property, ...shorthands(property)].map((name) => winners[name]).find(Boolean)
     if (style) values[style.property] = structuredClone(style.value)
-    else if (!property.startsWith('--mi-') && computed[property])
+    else if (!property.startsWith('--lc-') && computed[property])
       values[property] = { type: 'raw', value: computed[property]! }
   }
   return values

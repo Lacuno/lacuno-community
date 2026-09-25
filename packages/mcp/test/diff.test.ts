@@ -1,8 +1,8 @@
 import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { DocumentStore } from '@miralo/document'
-import { fixtureDocument } from '@miralo/schema'
+import { DocumentStore } from '@lacuno/document'
+import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { type DocumentDiff, diffDocuments } from '../src/diff.js'
 import { connect, jsonOf, textOf } from './helpers.js'
@@ -69,7 +69,7 @@ describe('document.diff', () => {
   })
 
   it('compares against another document file and round-trips as JSON', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-diff-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-diff-'))
     dirs.push(dir)
     await writeFile(path.join(dir, 'old.json'), JSON.stringify(fixtureDocument()))
     const { client, store } = await setup(dir)
@@ -160,8 +160,8 @@ describe('document.diff', () => {
   })
 
   it('keeps against inside the site folder', async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-diff-'))
-    const outside = await mkdtemp(path.join(os.tmpdir(), 'miralo-mcp-outside-'))
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-diff-'))
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-outside-'))
     dirs.push(dir, outside)
     await writeFile(path.join(outside, 'old.json'), JSON.stringify(fixtureDocument()))
     await symlink(path.join(outside, 'old.json'), path.join(dir, 'link.json'))

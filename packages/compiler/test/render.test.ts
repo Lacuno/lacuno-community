@@ -1,4 +1,4 @@
-import { fixtureDocument, type TextNode } from '@miralo/schema'
+import { fixtureDocument, type TextNode } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { RenderError } from '../src/errors.js'
 import { plainImageResolver } from '../src/images.js'
@@ -16,11 +16,11 @@ describe('render', () => {
     expect(result.warnings).toEqual([])
     expect(result.body).toContain('<main class="page">')
     expect(result.body).toContain(
-      '<h1 class="heading mi-l-hero-title">Design it. Publish it. Own it.</h1>',
+      '<h1 class="heading lc-l-hero-title">Design it. Publish it. Own it.</h1>',
     )
     // `.button` styles a hover state, so the anchor is marked for the motion transition.
     expect(result.body).toContain(
-      '<a class="button primary" data-miralo-motion="" href="/blog">Read the blog</a>',
+      '<a class="button primary" data-lacuno-motion="" href="/blog">Read the blog</a>',
     )
     expect(result.body).toContain('<h3>Third post</h3>')
     expect(assembleDocument(result)).toMatchSnapshot()

@@ -4,7 +4,7 @@ import { editor } from './harness.js'
 
 it('inserts a list, span, video and embed from the palette and publishes them', async () => {
   const { server, page, canvas, publish, saved } = await editor()
-  await canvas.locator('[data-miralo-node="n-home-cta"]').waitFor()
+  await canvas.locator('[data-lacuno-node="n-home-cta"]').waitFor()
 
   const insert = async (name: string) => {
     await page.getByRole('button', { name: 'Add', exact: true }).click()
@@ -33,7 +33,7 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
 
   // A span is inline text, edited like any other text.
   await insert('Span')
-  const span = canvas.locator('span[data-miralo-node]', { hasText: 'Span' })
+  const span = canvas.locator('span[data-lacuno-node]', { hasText: 'Span' })
   await editText(span, ' text')
   await expect.poll(() => span.textContent()).toBe('Span text')
 
@@ -46,7 +46,7 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
   })
   await page.getByRole('button', { name: 'Insert clip.mp4', exact: true }).waitFor()
   await insert('Video')
-  await canvas.locator('[data-miralo-placeholder="Video"]').waitFor()
+  await canvas.locator('[data-lacuno-placeholder="Video"]').waitFor()
   await page.getByRole('button', { name: 'Choose video', exact: true }).click()
   await page
     .getByRole('dialog', { name: 'Video library' })
@@ -76,7 +76,7 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
     .fill('<iframe src="https://example.com"></iframe>')
   await page.getByLabel('Embed code', { exact: true }).blur()
   await saved()
-  await canvas.locator('[data-miralo-placeholder="Embed"] iframe').waitFor({ state: 'attached' })
+  await canvas.locator('[data-lacuno-placeholder="Embed"] iframe').waitFor({ state: 'attached' })
   // Styling an embed publishes a wrapper that carries its class.
   await page.getByRole('button', { name: 'Layout', exact: true }).click()
   await page
@@ -86,7 +86,7 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
   await expect
     .poll(() =>
       canvas
-        .locator('[data-miralo-embed]')
+        .locator('[data-lacuno-embed]')
         .evaluate((element) => getComputedStyle(element).paddingTop),
     )
     .toBe('20px')

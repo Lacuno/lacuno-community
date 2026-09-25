@@ -1,24 +1,24 @@
 services:
-  miralo:
+  lacuno:
     build: .
-    image: miralo-community:local
+    image: lacuno-community:local
     init: true
     restart: unless-stopped
     stop_grace_period: 30s
     environment:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env.docker}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
-      MIRALO_PUBLISH_BASE_URL: ${MIRALO_PUBLISH_BASE_URL:-http://localhost:3001}
-      MIRALO_ALLOW_SIGNUP: ${MIRALO_ALLOW_SIGNUP:-false}
+      LACUNO_PUBLISH_BASE_URL: ${LACUNO_PUBLISH_BASE_URL:-http://localhost:3001}
+      LACUNO_ALLOW_SIGNUP: ${LACUNO_ALLOW_SIGNUP:-false}
     ports:
       - "127.0.0.1:3000:3000"
       - "127.0.0.1:3001:3001"
     volumes:
-      - miralo-data:/data
+      - lacuno-data:/data
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
 
 volumes:
-  miralo-data:
+  lacuno-data:

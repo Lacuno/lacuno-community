@@ -1,4 +1,4 @@
-import { type AssetRef, type Document, type Page, pageLang } from '@miralo/schema'
+import { type AssetRef, type Document, type Page, pageLang } from '@lacuno/schema'
 import { extensionForMime, isImage, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { escapeAttr, escapeHtml } from './html.js'

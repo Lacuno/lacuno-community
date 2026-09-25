@@ -1,4 +1,4 @@
-import type { AssetRef, Document } from '@miralo/schema'
+import type { AssetRef, Document } from '@lacuno/schema'
 import { assetFileName, isImage, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 

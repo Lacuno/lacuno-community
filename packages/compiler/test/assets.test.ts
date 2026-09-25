@@ -1,4 +1,4 @@
-import type { AssetRef } from '@miralo/schema'
+import type { AssetRef } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { assetFileName, extensionForMime, isImage, publicAssetPath } from '../src/assets.js'
 

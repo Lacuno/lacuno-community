@@ -1,4 +1,4 @@
-import type { Document } from '@miralo/schema'
+import type { Document } from '@lacuno/schema'
 import { AssetPreview, assetsOfKind } from './AssetsPanel.js'
 import { Dialog } from './Dialog.js'
 

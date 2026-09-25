@@ -1,5 +1,5 @@
 {
-  "name": "@miralo/css",
+  "name": "@lacuno/css",
   "version": "0.0.0",
   "type": "module",
   "exports": {
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@miralo/schema": "workspace:*"
+    "@lacuno/schema": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

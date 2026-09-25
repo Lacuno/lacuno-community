@@ -1,5 +1,5 @@
-import { contextFromDocument, serializeValue } from '@miralo/css'
-import type { CssValue, Document, Node, State } from '@miralo/schema'
+import { contextFromDocument, serializeValue } from '@lacuno/css'
+import type { CssValue, Document, Node, State } from '@lacuno/schema'
 import { localValue } from './formatting.js'
 import { presetValues } from './presets.js'
 

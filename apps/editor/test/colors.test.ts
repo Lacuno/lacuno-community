@@ -1,5 +1,5 @@
-import { DocumentStore, type Operation } from '@miralo/document'
-import { fixtureDocument, styleKey } from '@miralo/schema'
+import { DocumentStore, type Operation } from '@lacuno/document'
+import { fixtureDocument, styleKey } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { colorLabel, colorPreview, colorTokenName, defaultMode, pickerHex } from '../src/colors.js'
 import { commit } from './helpers.js'

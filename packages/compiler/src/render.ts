@@ -1,5 +1,5 @@
-import { classNames, MOTION_SCRIPT } from '@miralo/css'
-import { type AssetRef, type Document, type Entry, type Page, pageLang } from '@miralo/schema'
+import { classNames, MOTION_SCRIPT } from '@lacuno/css'
+import { type AssetRef, type Document, type Entry, type Page, pageLang } from '@lacuno/schema'
 import { publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { renderHead } from './head.js'
@@ -72,7 +72,7 @@ export function render(
     (doc.site.bodyCode ?? '') +
     (page.bodyCode ?? '') +
     (!ctx.annotateNodes &&
-    Object.values(doc.styles).some((style) => style.property === '--mi-entrance')
+    Object.values(doc.styles).some((style) => style.property === '--lc-entrance')
       ? `<script>${MOTION_SCRIPT}</script>`
       : '')
   return { htmlAttrs: { lang: pageLang(doc, page) }, head, body, warnings: state.warnings }

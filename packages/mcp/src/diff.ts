@@ -1,6 +1,6 @@
-import { publicAssetPath } from '@miralo/compiler'
-import { contextFromDocument, serializeValue } from '@miralo/css'
-import type { Document, NodeId, RichText } from '@miralo/schema'
+import { publicAssetPath } from '@lacuno/compiler'
+import { contextFromDocument, serializeValue } from '@lacuno/css'
+import type { Document, NodeId, RichText } from '@lacuno/schema'
 import { plainText } from './preview.js'
 
 /** One line of a diff. A change names the field that changed, with its value before and after. */

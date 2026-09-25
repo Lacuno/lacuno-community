@@ -1,4 +1,4 @@
-import type { Document, Font } from '@miralo/schema'
+import type { Document, Font } from '@lacuno/schema'
 
 /** Weight names from 100 to 900, as font files spell them without the spaces. */
 export const WEIGHT_NAMES = [

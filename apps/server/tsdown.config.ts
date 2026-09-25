@@ -11,7 +11,7 @@ export default defineConfig({
   format: 'esm',
   platform: 'node',
   target: 'node22',
-  noExternal: [/^@miralo\//],
+  noExternal: [/^@lacuno\//],
   // page.screenshot loads Playwright only when it is installed.
   external: ['playwright'],
   dts: false,

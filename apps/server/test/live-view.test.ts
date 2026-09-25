@@ -67,13 +67,13 @@ it('lands outside batches on the open canvas, queueing them behind a save in fli
     (await apply((await document()).revision, [paragraph('n-live-1', 'From outside')])).status,
   ).toBe(200)
   await expect
-    .poll(() => canvas.locator('[data-miralo-node="n-live-1"]').textContent())
+    .poll(() => canvas.locator('[data-lacuno-node="n-live-1"]').textContent())
     .toBe('From outside')
   expect(await conflict.count()).toBe(0)
 
   // The editor's own save is in flight when the outside batch lands on top of it: the batch
   // waits in the queue and applies once the save's response arrives.
-  const heading = canvas.locator('[data-miralo-node="n-home-title"]')
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   await heading.click()
   await page.route(
     '**/document/apply',
@@ -97,7 +97,7 @@ it('lands outside batches on the open canvas, queueing them behind a save in fli
   await page.getByLabel('Text', { exact: true }).fill('Saved first')
   await saved()
   await expect
-    .poll(() => canvas.locator('[data-miralo-node="n-live-2"]').textContent())
+    .poll(() => canvas.locator('[data-lacuno-node="n-live-2"]').textContent())
     .toBe('Queued')
   expect(await heading.textContent()).toBe('Saved first')
   expect(await conflict.count()).toBe(0)

@@ -92,7 +92,7 @@ a { color: inherit; }
 .button.primary:hover {
   background-color: var(--color-brand-hover);
 }
-.mi-l-hero-title.mi-l-hero-title.mi-l-hero-title.mi-l-hero-title {
+.lc-l-hero-title.lc-l-hero-title.lc-l-hero-title.lc-l-hero-title {
   letter-spacing: -0.02em;
 }
 
@@ -109,25 +109,25 @@ a { color: inherit; }
 }
 
 
-* { --mi-duration: 400ms; --mi-delay: 0ms; --mi-easing: ease-out; --mi-entrance: none; }
-@keyframes mi-fade { from { opacity: 0; } }
-@keyframes mi-slide-up { from { opacity: 0; translate: 0 24px; } }
-@keyframes mi-slide-down { from { opacity: 0; translate: 0 -24px; } }
-@keyframes mi-slide-left { from { opacity: 0; translate: 24px 0; } }
-@keyframes mi-slide-right { from { opacity: 0; translate: -24px 0; } }
+* { --lc-duration: 400ms; --lc-delay: 0ms; --lc-easing: ease-out; --lc-entrance: none; }
+@keyframes lc-fade { from { opacity: 0; } }
+@keyframes lc-slide-up { from { opacity: 0; translate: 0 24px; } }
+@keyframes lc-slide-down { from { opacity: 0; translate: 0 -24px; } }
+@keyframes lc-slide-left { from { opacity: 0; translate: 24px 0; } }
+@keyframes lc-slide-right { from { opacity: 0; translate: -24px 0; } }
 @media (prefers-reduced-motion: no-preference) {
-  :where([data-miralo-motion]) {
+  :where([data-lacuno-motion]) {
     transition-property: opacity, scale, rotate, translate, transform, box-shadow, background-color, color, border-color, outline-color;
-    transition-duration: var(--mi-duration, 400ms);
-    transition-delay: var(--mi-delay, 0ms);
-    transition-timing-function: var(--mi-easing, ease-out);
+    transition-duration: var(--lc-duration, 400ms);
+    transition-delay: var(--lc-delay, 0ms);
+    transition-timing-function: var(--lc-easing, ease-out);
   }
-  :where([data-miralo-motion][data-mi-enter]) {
-    animation: var(--mi-entrance, none) var(--mi-duration, 400ms) var(--mi-easing, ease-out) var(--mi-delay, 0ms) both;
+  :where([data-lacuno-motion][data-lc-enter]) {
+    animation: var(--lc-entrance, none) var(--lc-duration, 400ms) var(--lc-easing, ease-out) var(--lc-delay, 0ms) both;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-miralo-motion] { animation: none !important; transition: none !important; }
+  [data-lacuno-motion] { animation: none !important; transition: none !important; }
 }
 
 "

@@ -1,4 +1,4 @@
-import { type ClassNames, classAttr, isMotionStyle } from '@miralo/css'
+import { type ClassNames, classAttr, isMotionStyle } from '@lacuno/css'
 import type {
   AssetRef,
   Binding,
@@ -7,7 +7,7 @@ import type {
   Node,
   NodeId,
   RichText,
-} from '@miralo/schema'
+} from '@lacuno/schema'
 import { isImage } from './assets.js'
 import { RenderError } from './errors.js'
 import { type AttrMap, escapeHtml, renderAttrs, VOID_TAGS } from './html.js'
@@ -98,7 +98,7 @@ function resolveAttrs(
     const frame = scope.frames.find(
       (frame) => frame.instance && frame.component.id !== state.editingComponent,
     )
-    if (!frame) out['data-miralo-node'] = nodeId
+    if (!frame) out['data-lacuno-node'] = nodeId
     else {
       // Alias components have another instance as their root; annotate the rendered root.
       let root = frame.component.root
@@ -109,11 +109,11 @@ function resolveAttrs(
         if (node?.type !== 'component') break
         root = state.doc.components[node.component]!.root
       }
-      if (root === nodeId) out['data-miralo-node'] = frame.instance
+      if (root === nodeId) out['data-lacuno-node'] = frame.instance
     }
   }
   const node = state.doc.nodes[nodeId]
-  if (node?.classes.some((c) => state.motion.has(c))) out['data-miralo-motion'] = ''
+  if (node?.classes.some((c) => state.motion.has(c))) out['data-lacuno-motion'] = ''
   return imageAsset ? { attrs: out, imageAsset } : { attrs: out }
 }
 
@@ -266,7 +266,7 @@ export function renderNode(id: NodeId, scope: Scope, state: RenderState): string
       // always wraps it so it can be selected and sized. Otherwise the markup goes out as it is.
       const { attrs } = resolveAttrs(node.attrs, scope, state, node.id)
       if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
-      if (state.annotateNodes) attrs['data-miralo-embed'] = true
+      if (state.annotateNodes) attrs['data-lacuno-embed'] = true
       if (!Object.keys(attrs).length) return node.html
       return `<div${renderAttrs(attrs)}>${node.html}</div>`
     }

@@ -1,7 +1,7 @@
 import path from 'node:path'
-import { type Persistence, StaleRevisionError } from '@miralo/document'
-import { FolderPersistence } from '@miralo/document/folder'
-import type { Document } from '@miralo/schema'
+import { type Persistence, StaleRevisionError } from '@lacuno/document'
+import { FolderPersistence } from '@lacuno/document/folder'
+import type { Document } from '@lacuno/schema'
 import { and, eq } from 'drizzle-orm'
 import { type SiteDatabase, sites } from './database.js'
 
