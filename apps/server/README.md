@@ -42,7 +42,7 @@ and site creation. `pnpm dev` builds the editor before starting the server.
 | `HOST` | `127.0.0.1` | Listen address |
 | `PORT` | `3000` | Listen port |
 | `MIRALO_PUBLISH_PORT` | `PORT + 1` | Separate static publishing listener |
-| `MIRALO_PUBLISH_BASE_URL` | `http://localhost:<publish port>` when auth uses `localhost`; otherwise disabled | Base origin for `<site-id>.<hostname>` published sites |
+| `MIRALO_PUBLISH_BASE_URL` | `http://localhost:<publish port>` when auth uses `localhost`; otherwise disabled | Base origin for `<site-id>.<hostname>` published sites, or a template with `{site}` in the hostname |
 
 Relative directory settings resolve from the repository root. Both source and bundled servers
 automatically load the root `.env`; exported environment variables take precedence. Without `.env`,

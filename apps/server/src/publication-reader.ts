@@ -7,6 +7,8 @@ export type Target = 'production' | 'testing'
 export class PublicationReader {
   readonly dataDir: string
   private base: URL
+  /** Site hosts are `<prefix><label><suffix>`; a base without `{site}` means `{site}.<host>`. */
+  private host: [prefix: string, suffix: string]
   constructor(
     protected sqlite: Database.Database,
     dataDir: string,
@@ -25,16 +27,20 @@ export class PublicationReader {
       throw new Error('Published base URL must be an HTTP(S) origin without a path or credentials')
     if (this.base.hostname.includes(':') || /^\d+\.\d+\.\d+\.\d+$/.test(this.base.hostname))
       throw new Error('Published base URL needs a hostname, such as localhost or sites.example.net')
+    const parts = this.base.hostname.split('{site}')
+    if (parts.length > 2) throw new Error('Published base URL may contain {site} once')
+    this.host = parts.length === 2 ? [parts[0]!, parts[1]!] : ['', `.${this.base.hostname}`]
   }
   url(siteId: string, target: Target = 'production') {
     const url = new URL(this.base)
-    url.hostname = `${siteId}${target === 'testing' ? '-testing' : ''}.${url.hostname}`
+    url.hostname = this.host.join(`${siteId}${target === 'testing' ? '-testing' : ''}`)
     return url.origin
   }
   siteForHost(hostname: string): { siteId: string; target: Target } | undefined {
-    const suffix = `.${this.base.hostname}`
-    if (!hostname.endsWith(suffix)) return
-    const match = hostname.slice(0, -suffix.length).match(/^([0-9a-f-]{36})(-testing)?$/)
+    const [prefix, suffix] = this.host
+    if (!hostname.startsWith(prefix) || !hostname.endsWith(suffix)) return
+    const label = hostname.slice(prefix.length, hostname.length - suffix.length)
+    const match = label.match(/^([0-9a-f-]{36})(-testing)?$/)
     if (match) return { siteId: match[1]!, target: match[2] ? 'testing' : 'production' }
   }
   directory(siteId: string, releaseId: string) {

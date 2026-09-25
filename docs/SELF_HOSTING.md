@@ -83,6 +83,11 @@ publication, so no extra DNS record or certificate is needed. Every testing resp
 `X-Robots-Tag: noindex, nofollow`; testing has no password or private link, so anyone with the
 address can open it.
 
+To put the site in one label instead, write `{site}` where it goes:
+`MIRALO_PUBLISH_BASE_URL=https://{site}--main.sites.example.net` serves
+`<site-id>--main.sites.example.net` and `<site-id>-testing--main.sites.example.net`. One wildcard
+certificate for `*.sites.example.net` then covers every site, whatever else shares that domain.
+
 For a proxy in another container, connect it to the Compose network and use `miralo:3000` and
 `miralo:3001` instead of loopback. Only expose the proxy's HTTP/HTTPS ports publicly. Configure
 body-size/time limits to accommodate uploads (the API allows 15 MiB on its image-upload endpoint).
