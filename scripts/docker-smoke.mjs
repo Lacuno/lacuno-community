@@ -110,7 +110,7 @@ try {
   assert(edited.ok, 'Document edit failed')
   const published = await post(
     `/api/sites/${id}/releases`,
-    { expectedRevision: 1, publishedId: null },
+    { expectedRevision: 1, expectedId: null },
     cookie,
   )
   assert(published.status === 202, 'Publish was not queued')
@@ -204,8 +204,14 @@ try {
     'Docker smoke passed: non-root, sign-in, editing, publishing, restart, backup/restore and live output.',
   )
 } catch (error) {
+  // `docker logs` replays the server's stderr, where its errors go, on its own stderr.
   if (containerCreated)
-    console.error(await docker('logs', name).catch(() => 'Cannot read container logs'))
+    console.error(
+      await exec('docker', ['logs', name]).then(
+        (logs) => logs.stdout + logs.stderr,
+        () => 'Cannot read container logs',
+      ),
+    )
   throw error
 } finally {
   // These unique resources belong solely to this test; never touch an operator's instance.

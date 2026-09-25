@@ -34,11 +34,11 @@ async function main(): Promise<number> {
       return 1
     }
     const pages = (parsed as { pages?: unknown }).pages
-    if (pages !== 4) {
+    if (pages !== 5) {
       console.error(result.stdout)
       return 1
     }
-    console.log('smoke ok: 4 pages')
+    console.log('smoke ok: 5 pages')
     return 0
   } finally {
     await rm(dir, { recursive: true, force: true })

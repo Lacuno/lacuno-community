@@ -49,13 +49,12 @@ export async function screenshot(
     })
     await page.goto(`${ORIGIN}/`, { waitUntil: 'load' })
     // Fonts, then lazy images below the fold, which would otherwise be captured blank; at most 5s.
+    // decode() also waits for the load; after only `load`, an async-decoded image can paint blank.
     await page.evaluate(`Promise.race([
       new Promise((r) => setTimeout(r, 5000)),
       document.fonts.ready.then(() => Promise.all([...document.images].map((img) => {
         img.loading = 'eager'
-        return img.complete
-          ? img.decode().catch(() => {})
-          : new Promise((r) => { img.onload = img.onerror = r })
+        return img.decode().catch(() => {})
       }))),
     ]).then(() => {})`)
     if (node === undefined) return await page.screenshot({ fullPage: height === undefined })

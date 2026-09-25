@@ -22,7 +22,10 @@ const TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 }
 
-/** A static file server that maps `/a/b` to `dist/a/b/index.html`, like a CDN would. */
+/**
+ * A static file server that maps `/a/b` to `dist/a/b/index.html` or else `dist/a/b.html`, like a
+ * CDN would; the latter is how Astro writes the not-found page.
+ */
 async function serve(dir: string): Promise<{ origin: string; close: () => Promise<void> }> {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost')
@@ -30,7 +33,7 @@ async function serve(dir: string): Promise<{ origin: string; close: () => Promis
     try {
       if ((await stat(file)).isDirectory()) file = path.join(file, 'index.html')
     } catch {
-      /* fall through to the read below, which reports 404 */
+      file += '.html' // a missing one fails the read below, which reports 404
     }
     try {
       const body = await readFile(file)
