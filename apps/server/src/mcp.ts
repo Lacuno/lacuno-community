@@ -19,11 +19,15 @@ export type McpDeps = {
   events: typeof siteEvents
   /** Absent when publishing is not configured; `site.publish` is then not offered. */
   releases: Releases | undefined
+  /** The public origin; behind a gateway the request URL is an internal address. */
+  origin: string
 }
 
 type Session = {
   siteId: string
   connectionId: string
+  /** The user who approved the connection. */
+  userId: string
   /** The client's name from the MCP `initialize` handshake, until then the approved app name. */
   app: string
   /** The site's store as of the current request; a store holds the snapshot it loaded. */
@@ -47,6 +51,13 @@ export function activeConnections(siteId: string): Set<string> {
 export async function closeSessions(siteId: string, connectionId: string) {
   for (const s of [...sessions.values()])
     if (s.siteId === siteId && s.connectionId === connectionId) await s.transport.close()
+}
+
+/** Closes every open session a user approved, after their access was revoked; resolves to the count. */
+export async function closeUserSessions(userId: string) {
+  const closing = [...sessions.values()].filter((s) => s.userId === userId)
+  for (const s of closing) await s.transport.close()
+  return closing.length
 }
 
 /** Publishes the site's saved draft to testing and waits for the build; resolves to its URL. */
@@ -75,7 +86,7 @@ export function mcpRoutes(deps: McpDeps): Hono {
     const siteId = c.req.param('id')
     const grant = await deps.oauth.verify(c.req.header('authorization'), siteId)
     if (!grant) {
-      const metadata = `${new URL(c.req.url).origin}/.well-known/oauth-protected-resource/mcp/${siteId}`
+      const metadata = `${deps.origin}/.well-known/oauth-protected-resource/mcp/${siteId}`
       c.header('WWW-Authenticate', `Bearer resource_metadata="${metadata}"`)
       return c.json({ error: 'Authentication required' }, 401)
     }
@@ -95,6 +106,7 @@ export function mcpRoutes(deps: McpDeps): Hono {
       const created: Session = {
         siteId,
         connectionId: grant.clientId,
+        userId: grant.userId,
         app: grant.app,
         store,
         transport: new WebStandardStreamableHTTPServerTransport({

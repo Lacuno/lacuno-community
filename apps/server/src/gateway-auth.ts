@@ -15,6 +15,8 @@ const Claims = z.object({
   method: z.string(),
   target: z.string(),
   bodyHash: z.string(),
+  /** Cloud's own requests, which only `revoke-user` accepts. */
+  system: z.literal(true).optional(),
 })
 
 /** Generic opt-in authenticated reverse-proxy mode. No browser assertion or cookie is trusted. */
@@ -82,7 +84,7 @@ export class GatewayAuth {
     )
       throw new Error('Invalid gateway request binding')
     rememberNonce(this.sqlite, claims.jti, claims.exp, now)
-    return { id: claims.sub, name: claims.name, email: claims.email }
+    return { id: claims.sub, name: claims.name, email: claims.email, system: claims.system }
   }
 }
 

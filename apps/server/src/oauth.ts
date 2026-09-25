@@ -1,16 +1,21 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
+import { randomBytes } from 'node:crypto'
 import { createCimdClientDiscovery } from '@better-auth/cimd'
 import { fetchClientMetadataResource } from '@better-auth/cimd/node'
 import {
+  type ClientMetadataResourceFetch,
   getOAuthProviderApi,
   getOAuthProviderState,
   type OAuthOptions,
   oauthProvider,
   type Scope,
 } from '@better-auth/oauth-provider'
-import type { AuthContext, BetterAuthOptions, BetterAuthPlugin } from 'better-auth'
-import { APIError, createAuthMiddleware } from 'better-auth/api'
+import type { AuthContext, BetterAuthOptions, BetterAuthPlugin, Session, User } from 'better-auth'
+import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api'
 import type Database from 'better-sqlite3'
 import { Hono } from 'hono'
+import { SignJWT } from 'jose'
+import type { GatewayOptions } from './gateway-auth.js'
 
 /** What a valid bearer token grants: one user, one site, from one registered app. */
 export type Verified = { userId: string; siteId: string; clientId: string; app: string }
@@ -43,8 +48,105 @@ export const SCOPE = 'site'
 const siteOf = (resource: string | null) =>
   resource ? /^\/mcp\/([^/]+)$/.exec(new URL(resource).pathname)?.[1] : undefined
 
+/** The user the gateway verified for the OAuth request being handled, in gateway mode. */
+export const gatewayUser = new AsyncLocalStorage<{ id: string; name: string; email: string }>()
+
+/** Marks the one session row per user that holds its connections; no browser ever holds it. */
+const ANCHOR = 'lacuno-connections'
+const YEAR = 365 * 24 * 60 * 60 * 1000
+
+/** Upserts the local row of a gateway user, which their consents and tokens belong to. */
+async function mirror(adapter: AuthContext['adapter'], { id, name }: { id: string; name: string }) {
+  const now = new Date()
+  return (
+    (await adapter.update<User>({
+      model: 'user',
+      where: [{ field: 'id', value: id }],
+      update: { name, updatedAt: now },
+    })) ??
+    adapter.create<Record<string, unknown>, User>({
+      model: 'user',
+      forceAllowId: true,
+      data: {
+        id,
+        name,
+        email: `${id}@gateway.invalid`,
+        emailVerified: false,
+        createdAt: now,
+        updatedAt: now,
+      },
+    })
+  )
+}
+
+/** The user's anchor session, created or extended by a year. */
+async function anchor(adapter: AuthContext['adapter'], userId: string) {
+  const now = new Date()
+  const update = { expiresAt: new Date(now.getTime() + YEAR), updatedAt: now }
+  return (
+    (await adapter.update<Session>({
+      model: 'session',
+      where: [
+        { field: 'userId', value: userId },
+        { field: 'userAgent', value: ANCHOR },
+      ],
+      update,
+    })) ??
+    adapter.create<Record<string, unknown>, Session>({
+      model: 'session',
+      data: {
+        ...update,
+        userId,
+        userAgent: ANCHOR,
+        token: randomBytes(32).toString('base64url'),
+        createdAt: now,
+      },
+    })
+  )
+}
+
+/**
+ * Fetches Client ID Metadata Documents through Cloud's relay, as a gateway runtime has no internet
+ * access. A relay refusal throws, like the Node fetcher does for a private address.
+ */
+function relayFetch(relay: string, secret: string, issuer: string): ClientMetadataResourceFetch {
+  const key = new TextEncoder().encode(secret)
+  return async (input, init) => {
+    const url = String(input)
+    const token = await new SignJWT({ url })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuer(issuer)
+      .setAudience('lacuno-cimd-relay')
+      .setIssuedAt()
+      .setExpirationTime('30s')
+      .sign(key)
+    const response = await fetch(relay, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url }),
+      signal: init?.signal ?? null,
+    })
+    const refused = response.headers.get('x-lacuno-relay-error')
+    if (refused) throw new TypeError(refused)
+    return response
+  }
+}
+
 /** Better Auth plugins that make this server an OAuth authorization server for its MCP endpoint. */
-export function oauthPlugins(): NonNullable<BetterAuthOptions['plugins']> {
+export function oauthPlugins({
+  origin,
+  gateway,
+  cimdRelay,
+}: {
+  origin: string
+  gateway?: GatewayOptions | undefined
+  cimdRelay?: string | undefined
+}): NonNullable<BetterAuthOptions['plugins']> {
+  // A gateway runtime reaches the internet only through the relay; without one it offers
+  // registration alone.
+  const fetchMetadata = !gateway
+    ? fetchClientMetadataResource
+    : cimdRelay && relayFetch(cimdRelay, gateway.secret, origin)
   return [
     // Cast: its endpoint types trip exactOptionalPropertyTypes against BetterAuthPlugin.
     oauthProvider({
@@ -59,14 +161,16 @@ export function oauthPlugins(): NonNullable<BetterAuthOptions['plugins']> {
       // Every site's resource is open to every client; the consent and the owner check guard it.
       enforcePerClientResources: false,
       // Client ID Metadata Documents, which MCP prefers over registration.
-      extensions: [
-        {
-          clientDiscovery: createCimdClientDiscovery({
-            fetchClientMetadataResource,
-            metadataProfile: 'mcp-2026-07-28',
-          }),
-        },
-      ],
+      extensions: fetchMetadata
+        ? [
+            {
+              clientDiscovery: createCimdClientDiscovery({
+                fetchClientMetadataResource: fetchMetadata,
+                metadataProfile: 'mcp-2026-07-28',
+              }),
+            },
+          ]
+        : [],
       // One consent per app and site, keyed by the site the request names.
       postLogin: {
         page: '/consent',
@@ -95,6 +199,23 @@ export function oauthPlugins(): NonNullable<BetterAuthOptions['plugins']> {
               context: { body: { application_type: 'native', ...ctx.body } },
             })),
           },
+          {
+            // Tokens hang off a session row, so each user's connections hang off an anchor session
+            // instead of the browser's: signing out does not end them. In gateway mode the user is
+            // the gateway's, mirrored into a local row.
+            matcher: (ctx) =>
+              ['/oauth2/authorize', '/oauth2/consent', '/oauth2/public-client'].includes(
+                ctx.path ?? '',
+              ),
+            handler: createAuthMiddleware(async (ctx) => {
+              const { adapter } = ctx.context
+              const verified = gatewayUser.getStore()
+              const user = gateway
+                ? verified && (await mirror(adapter, verified))
+                : (await getSessionFromCtx(ctx))?.user
+              if (user) ctx.context.session = { session: await anchor(adapter, user.id), user }
+            }),
+          },
         ],
       },
     } satisfies BetterAuthPlugin,
@@ -105,7 +226,12 @@ export function createOAuth(
   auth: { $context: Promise<unknown>; handler: (request: Request) => Promise<Response> },
   sqlite: Database.Database,
   origin: string,
-): OAuth & { routes: Hono } {
+  { gateway }: { gateway: boolean },
+): OAuth & {
+  routes: Hono
+  /** Ends every connection a gateway user approved; resolves to what it revoked. */
+  revokeUser(userId: string): Promise<{ consents: number; tokens: number }>
+} {
   const context = auth.$context as Promise<AuthContext>
   const issuer = `${origin}/api/auth`
   const resourceOf = (siteId: string) => `${origin}/mcp/${siteId}`
@@ -158,12 +284,15 @@ export function createOAuth(
       const provider = getOAuthProviderApi(ctx as never, options)
       // Unknown tokens throw; expired and revoked ones come back inactive.
       const payload = await (async () => provider.validateAccessToken(token))().catch(() => null)
+      const found = site.get(siteId)
       if (
         !payload?.active ||
         payload.aud !== resourceOf(siteId) ||
         !String(payload.scope).split(' ').includes(SCOPE) ||
+        // A sub means the token's user row exists. Every gateway user edits every site.
         !payload.sub ||
-        site.get(siteId)?.ownerId !== payload.sub
+        !found ||
+        (!gateway && found.ownerId !== payload.sub)
       )
         return null
       const clientId = String(payload.client_id)
@@ -189,5 +318,22 @@ export function createOAuth(
       return removed > 0
     },
     touch: (id) => void lastActive.set(id, Date.now()),
+    async revokeUser(userId) {
+      const { adapter } = await context
+      const where = [{ field: 'userId', value: userId }]
+      const consents = await adapter.deleteMany({ model: 'oauthConsent', where })
+      let tokens = 0
+      for (const model of ['oauthAccessToken', 'oauthRefreshToken'])
+        tokens += await adapter.updateMany({ model, where, update: { revoked: new Date() } })
+      // The anchor session and the tokens go with the mirror row; only mirrors have this email.
+      await adapter.deleteMany({
+        model: 'user',
+        where: [
+          { field: 'id', value: userId },
+          { field: 'email', value: `${userId}@gateway.invalid` },
+        ],
+      })
+      return { consents, tokens }
+    },
   }
 }

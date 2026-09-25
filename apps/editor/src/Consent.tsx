@@ -4,10 +4,16 @@ import { api, message } from './api.js'
 
 /** The signed authorization request an AI app sent the user here with. */
 const query = () => location.search.slice(1)
+const loopback = ['localhost', '127.0.0.1', '[::1]']
 
 /** Asks the signed-in owner whether an AI app may edit the site its request names. */
 export function Consent() {
-  const [request, setRequest] = useState<{ app: string; site: string | null }>()
+  const [request, setRequest] = useState<{
+    app: string
+    site: string | null
+    /** Where a web app returns after Allow; any app can pick its name, not its address. */
+    returnsTo: string | null
+  }>()
   const [error, setError] = useState('')
   useEffect(() => {
     const params = new URLSearchParams(query())
@@ -18,12 +24,14 @@ export function Consent() {
       ),
       api<{ sites: { id: string; name: string }[] }>('/api/sites'),
     ])
-      .then(([client, { sites }]) =>
+      .then(([client, { sites }]) => {
+        const { hostname } = new URL(params.get('redirect_uri') ?? '')
         setRequest({
           app: client.client_name ?? 'An app',
           site: sites.find((site) => site.id === siteId)?.name ?? null,
-        }),
-      )
+          returnsTo: loopback.includes(hostname) ? null : hostname,
+        })
+      })
       .catch((e) => setError(message(e)))
   }, [])
   async function answer(accept: boolean) {
@@ -53,6 +61,7 @@ export function Consent() {
             <h1>
               Allow {request.app} to edit {request.site}?
             </h1>
+            {request.returnsTo && <p>You will return to {request.returnsTo}.</p>}
             <p className="muted">
               {request.app} will be able to read and change pages, styles and assets on this site
               until you disconnect it.

@@ -154,9 +154,10 @@ for Claude Code, claude.ai, Claude Desktop, ChatGPT, Cursor, VS Code, Codex CLI 
 the registration each app documents, a connections list with Disconnect, and an activity list;
 committed batches stream to the open editor over server-sent events and land on the canvas live
 with a flash, queued behind the designer's own save; uploads take inline data and `site.publish`
-builds to testing. Open: the OAuth provider ties tokens to the approving browser session, so a
-connection stops when that editor session ends; custom-scheme redirect URIs are refused by the
-provider; gateway mode blocks the routes until Cloud milestone 12.
+builds to testing. Since 2026-09-25 tokens hang off a per-user anchor session instead of the
+approving browser session, so signing out no longer ends a connection, and gateway mode serves the
+OAuth, metadata and MCP routes for Cloud milestone 12 ([gateway protocol](GATEWAY_AUTH.md)). Open:
+custom-scheme redirect URIs are refused by the provider.
 
 - A remote MCP endpoint per site on the Community server, exposing the existing tools over
   Streamable HTTP with OAuth. The same server that runs the editor is the MCP server.

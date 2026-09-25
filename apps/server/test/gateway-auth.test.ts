@@ -1,9 +1,16 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
+import { createServer as createHttpServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SignJWT } from 'jose'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import Database from 'better-sqlite3'
+import { jwtVerify, SignJWT } from 'jose'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createServer } from '../src/app.js'
 
@@ -74,6 +81,10 @@ describe('gateway mode', () => {
       setupRequired: false,
       allowSignup: false,
     })
+    // Without a relay the runtime cannot fetch Client ID Metadata Documents, so it only registers.
+    const metadata = await (await request('/.well-known/oauth-authorization-server')).json()
+    expect(metadata.registration_endpoint).toBe(`${origin}/api/auth/oauth2/register`)
+    expect(metadata).not.toHaveProperty('client_id_metadata_document_supported')
   })
 
   it('accepts a request-bound assertion exactly once', async () => {
@@ -148,4 +159,282 @@ it('will not silently replace existing local accounts with gateway authenticatio
     server.close()
     await rm(dir, { recursive: true, force: true })
   }
+})
+
+describe('connecting an AI app through the gateway', () => {
+  const system = {
+    sub: 'lacuno-cloud',
+    name: 'Lacuno Cloud',
+    email: 'system@lacuno.invalid',
+    system: true,
+  }
+  const json = { origin, 'content-type': 'application/json' }
+  const form = { 'content-type': 'application/x-www-form-urlencoded' }
+  const documentURL = 'https://app.example/oauth/client.json'
+  const privateURL = 'https://internal.example/oauth/client.json'
+  let dir = ''
+  let server: Awaited<ReturnType<typeof createServer>>
+  let siteId = ''
+  let resource = ''
+  // A fake Cloud relay: it checks the relay token and serves one stored metadata document.
+  const relayCalls: { url: string; valid: boolean }[] = []
+  const relay = createHttpServer(async (request, response) => {
+    let body = ''
+    for await (const chunk of request) body += chunk
+    const { url } = JSON.parse(body) as { url: string }
+    const valid = await jwtVerify(
+      request.headers.authorization?.replace(/^Bearer /, '') ?? '',
+      new TextEncoder().encode(secret),
+      { algorithms: ['HS256'], issuer: origin, audience: 'lacuno-cimd-relay', maxTokenAge: 30 },
+    ).then(
+      ({ payload }) => payload.url === url && payload.exp! - payload.iat! <= 30,
+      () => false,
+    )
+    relayCalls.push({ url, valid })
+    if (valid && url === documentURL)
+      return response
+        .writeHead(200, {
+          'content-type': 'application/json',
+          'cache-control': 'max-age=300',
+          'x-lacuno-relay': 'upstream',
+        })
+        .end(
+          JSON.stringify({
+            client_id: documentURL,
+            client_name: 'Example App',
+            redirect_uris: ['https://app.example/callback'],
+            token_endpoint_auth_method: 'none',
+          }),
+        )
+    const error = valid ? 'private_address' : 'unauthorized'
+    response
+      .writeHead(valid ? 400 : 401, {
+        'content-type': 'application/json',
+        'x-lacuno-relay-error': error,
+      })
+      .end(JSON.stringify({ error }))
+  })
+
+  /** A request as the gateway forwards it: signed for the claims in `as`, else anonymous. */
+  const call = async (
+    target: string,
+    {
+      method = 'GET',
+      body = '',
+      headers = {},
+      as,
+    }: { method?: string; body?: string; headers?: Record<string, string>; as?: object } = {},
+  ) =>
+    server.app.request(origin + target, {
+      method,
+      headers: as
+        ? { ...headers, 'x-lacuno-assertion': await assertion(target, method, body, { ...as }) }
+        : headers,
+      ...(body ? { body } : {}),
+    })
+  const authorizeURL = (client_id: string, redirect_uri: string, verifier: string) =>
+    `/api/auth/oauth2/authorize?${new URLSearchParams({
+      response_type: 'code',
+      client_id,
+      redirect_uri,
+      scope: 'site offline_access',
+      state: 'state-1',
+      code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+      code_challenge_method: 'S256',
+      resource,
+    })}`
+  /** Authorizes an app as a Cloud user through the consent page's calls, then exchanges the code. */
+  async function connect(client_id: string, redirect_uri: string, as: object = {}) {
+    const verifier = randomBytes(32).toString('base64url')
+    const consent = (
+      await call(authorizeURL(client_id, redirect_uri, verifier), { as })
+    ).headers.get('location')!
+    expect(consent).toMatch(/^\/consent\?/)
+    const client = `/api/auth/oauth2/public-client?client_id=${encodeURIComponent(client_id)}`
+    expect((await (await call(client, { as })).json()).client_id).toBe(client_id)
+    const body = JSON.stringify({ accept: true, oauth_query: consent.slice('/consent?'.length) })
+    const answer = await call('/api/auth/oauth2/consent', {
+      method: 'POST',
+      body,
+      headers: json,
+      as,
+    })
+    expect(answer.status, await answer.clone().text()).toBe(200)
+    const callback = new URL(((await answer.json()) as { url: string }).url)
+    expect(callback.searchParams.get('iss')).toBe(`${origin}/api/auth`)
+    const token = await call('/api/auth/oauth2/token', {
+      method: 'POST',
+      headers: form,
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: callback.searchParams.get('code')!,
+        redirect_uri,
+        code_verifier: verifier,
+        client_id,
+        resource,
+      }).toString(),
+    })
+    expect(token.status, await token.clone().text()).toBe(200)
+    return ((await token.json()) as { access_token: string }).access_token
+  }
+  const register = (ip: string) =>
+    call('/api/auth/oauth2/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-lacuno-client-ip': ip },
+      body: JSON.stringify({
+        client_name: 'Claude Code',
+        redirect_uris: ['http://127.0.0.1/callback'],
+        token_endpoint_auth_method: 'none',
+      }),
+    })
+
+  beforeAll(async () => {
+    relay.listen(0, '127.0.0.1')
+    await once(relay, 'listening')
+    dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-gateway-connect-'))
+    server = await createServer({
+      ...settings(dir),
+      cimdRelay: `http://127.0.0.1:${(relay.address() as AddressInfo).port}/cimd`,
+    })
+    const body = JSON.stringify({ name: 'Acme' })
+    siteId = (
+      await (await call('/api/sites', { method: 'POST', body, headers: json, as: {} })).json()
+    ).id
+    resource = `${origin}/mcp/${siteId}`
+  })
+  afterAll(async () => {
+    server.close()
+    relay.close()
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('connects a registered app for a Cloud user, until Cloud revokes the user', async () => {
+    // An app starts at the MCP address; the challenge names the public origin, not the address
+    // the gateway forwarded to.
+    const challenge = await server.app.request(`http://10.0.0.7:3000/mcp/${siteId}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    })
+    expect(challenge.status).toBe(401)
+    expect(challenge.headers.get('www-authenticate')).toBe(
+      `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp/${siteId}"`,
+    )
+    const protectedResource = await call(`/.well-known/oauth-protected-resource/mcp/${siteId}`)
+    expect(await protectedResource.json()).toMatchObject({
+      resource,
+      authorization_servers: [`${origin}/api/auth`],
+    })
+    const metadata = await (await call('/.well-known/oauth-authorization-server/api/auth')).json()
+    expect(metadata).toMatchObject({
+      issuer: `${origin}/api/auth`,
+      authorization_endpoint: `${origin}/api/auth/oauth2/authorize`,
+      client_id_metadata_document_supported: true,
+    })
+
+    const registered = await register('198.51.100.1')
+    expect(registered.status, await registered.clone().text()).toBe(201)
+    const { client_id } = (await registered.json()) as { client_id: string }
+    const token = await connect(client_id, 'http://127.0.0.1:43123/callback')
+
+    const client = new Client({ name: 'Test Agent', version: '1.0.0' })
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(resource), {
+        requestInit: { headers: { authorization: `Bearer ${token}` } },
+        fetch: async (url, init) => server.app.request(url, init),
+      }) as Transport,
+    )
+    const read = await client.callTool({ name: 'document.read', arguments: {} })
+    expect(read.isError).not.toBe(true)
+    const sessionId = (client.transport as StreamableHTTPClientTransport).sessionId!
+
+    // Only Cloud's own assertion revokes, and it is good for nothing else.
+    const body = JSON.stringify({ userId: 'cloud-user-1' })
+    const revoke = (as: object, payload = body) =>
+      call('/api/gateway/revoke-user', {
+        method: 'POST',
+        body: payload,
+        headers: { 'content-type': 'application/json' },
+        as,
+      })
+    expect((await revoke({})).status).toBe(403)
+    expect((await revoke(system, '{"user":"cloud-user-1"}')).status).toBe(400)
+    expect((await call('/api/sites', { as: system })).status).toBe(401)
+    const revoked = await revoke(system)
+    expect(await revoked.json()).toEqual({ consents: 1, tokens: 2, sessions: 1 })
+    expect(await (await revoke(system)).json()).toEqual({ consents: 0, tokens: 0, sessions: 0 })
+    const call9 = await call(`/mcp/${siteId}`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'mcp-session-id': sessionId,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 9,
+        method: 'tools/call',
+        params: { name: 'document.read', arguments: {} },
+      }),
+    })
+    expect(call9.status).toBe(401)
+  })
+
+  it('gives each Cloud user their own mirror row and consent', async () => {
+    const registered = await register('198.51.100.2')
+    const { client_id } = (await registered.json()) as { client_id: string }
+    const redirect = 'http://127.0.0.1:43124/callback'
+    await connect(client_id, redirect)
+    await connect(client_id, redirect, { sub: 'cloud-user-2', name: 'Second user' })
+    const sqlite = new Database(path.join(dir, 'lacuno.sqlite'), { readonly: true })
+    try {
+      expect(
+        sqlite
+          .prepare(
+            'SELECT u.id, u.email FROM oauthConsent c JOIN user u ON u.id = c.userId WHERE c.clientId = ? ORDER BY u.id',
+          )
+          .all(client_id),
+      ).toEqual([
+        { id: 'cloud-user-1', email: 'cloud-user-1@gateway.invalid' },
+        { id: 'cloud-user-2', email: 'cloud-user-2@gateway.invalid' },
+      ])
+    } finally {
+      sqlite.close()
+    }
+  })
+
+  it('resolves a Client ID Metadata Document through the relay', async () => {
+    await connect(documentURL, 'https://app.example/callback', { sub: 'cloud-user-3' })
+    expect(relayCalls).toEqual([{ url: documentURL, valid: true }])
+    const refused = await call(
+      authorizeURL(privateURL, 'https://internal.example/callback', 'verifier'),
+      { as: { sub: 'cloud-user-3' } },
+    )
+    expect(refused.status).toBe(400)
+    expect(await refused.json()).toMatchObject({ error: 'invalid_client' })
+    expect(relayCalls.at(-1)).toEqual({ url: privateURL, valid: true })
+  })
+
+  it('keeps every other auth route closed and consent same-origin', async () => {
+    for (const target of ['/api/auth/sign-in/email', '/api/auth/oauth2/introspect']) {
+      expect((await call(target, { method: 'POST', body: '{}', headers: json })).status).toBe(401)
+      const signed = await call(target, { method: 'POST', body: '{}', headers: json, as: {} })
+      expect(signed.status).toBe(403)
+    }
+    expect((await call('/api/sites')).status).toBe(401)
+    const consent = await call('/api/auth/oauth2/consent', {
+      method: 'POST',
+      body: JSON.stringify({ accept: true, oauth_query: 'x=1' }),
+      headers: { ...json, origin: 'https://attacker.example' },
+      as: {},
+    })
+    expect(consent.status).toBe(403)
+  })
+
+  it('rate-limits registration per client address', async () => {
+    for (let i = 0; i < 5; i++) expect((await register('203.0.113.7')).status).toBe(201)
+    expect((await register('203.0.113.7')).status).toBe(429)
+    expect((await register('203.0.113.8')).status).toBe(201)
+  })
 })

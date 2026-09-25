@@ -29,12 +29,64 @@ sets that header to an HS256 JWT signed using the UTF-8 gateway secret. Required
 | `method` | Exact HTTP method |
 | `target` | Exact URL pathname plus query string |
 | `bodyHash` | Lowercase SHA-256 hex of the exact request-body bytes, including the empty body |
+| `system` | Optional; `true` only on the gateway's own revocation requests (below) |
 
 Do not send assertions to the browser or place them in URLs. Re-sign retries with a new nonce.
 `GET /health` and `/api/config` are public readiness/configuration endpoints; editor HTML, assets and
 management APIs require assertions. `/api/config` reports `authentication: "gateway"` and
 `gatewayProtocol: 1`. `GET /api/auth/get-session` returns the verified identity profile, not a local
-browser session. The gateway owns browser logout and immediate session/membership revocation.
+browser session. The gateway owns browser logout and immediate session/membership revocation; AI
+connections outlive both until revoked (below).
+
+## Connect your AI
+
+AI apps connect to one site at `<editor origin>/mcp/<site>` with OAuth issued by the runtime, whose
+issuer is `<editor origin>/api/auth`. The protocol stays version 1: these are added routes, and an
+older runtime answers them with 401 or 404.
+
+**Anonymous routes.** They authenticate themselves, so the gateway forwards them without a user and
+the runtime ignores any assertion on them. Forward only `content-type`, `accept`, `authorization`,
+`mcp-session-id`, `mcp-protocol-version`, `last-event-id` and `x-lacuno-client-ip`, and pass back
+only `content-type`, `cache-control`, `location`, `www-authenticate`, `mcp-session-id` and
+`retry-after`.
+
+| Method | Path | Authenticated by |
+| --- | --- | --- |
+| `GET` | `/.well-known/*` | Public metadata |
+| `POST` | `/api/auth/oauth2/register` | Open dynamic registration, rate-limited per client IP |
+| `POST` | `/api/auth/oauth2/token`, `/api/auth/oauth2/revoke` | PKCE verifier, refresh token or the token itself |
+| `GET`, `POST`, `DELETE` | `/mcp/<site>` | Bearer token whose audience is that site |
+
+**Browser routes.** The consent flow runs with an assertion like every other request, as the
+asserted user: `GET /api/auth/oauth2/authorize`, `GET /consent`, `GET /api/auth/oauth2/public-client`
+and `POST /api/auth/oauth2/consent` (same-origin JSON). The live editor uses
+`GET /api/sites/<id>/events` (server-sent events) and `DELETE /api/sites/<id>/connections/<app>`
+(Disconnect). Every other `/api/auth/*` route stays closed (403).
+
+**Who approves.** The runtime mirrors each asserted user into a local user row (email
+`<sub>@gateway.invalid`) that owns their consents and tokens, anchored to one session row per user
+that no browser holds. Every gateway user may connect every site of the instance.
+
+**Client IP.** Set `x-lacuno-client-ip` on every forwarded request, overwriting any value the client
+sent. The runtime's OAuth rate limits (register 5, token 20, authorize 30 per minute) key on it.
+
+**Revoking a user.** `POST /api/gateway/revoke-user` with `{"userId":"<sub>"}` deletes that user's
+consents, revokes their tokens, removes their mirror row and anchor session, and closes their open
+MCP sessions. It answers `200 {"consents":n,"tokens":n,"sessions":n}`, with zeros when there is
+nothing left to revoke; 400 for an invalid body; 401 for a missing, invalid or replayed assertion;
+403 for an assertion without `system`. Its assertion is a normal one with `system: true`
+(conventionally `sub` `lacuno-cloud`), sent without an `Origin` header and never on behalf of a
+browser. The runtime refuses a `system` assertion (401) on every other route.
+
+**Client ID Metadata Documents.** A runtime without internet access fetches them through the relay
+in `LACUNO_CIMD_RELAY_URL`. Without it, gateway mode offers dynamic registration only and does not
+advertise `client_id_metadata_document_supported`. Each fetch is `POST <relay>` with
+`{"url":"https://…"}` and `authorization: Bearer <jwt>`, an HS256 JWT signed with the gateway
+secret whose claims are `iss` (the editor origin), `aud` `lacuno-cimd-relay`, `url` (the body's URL),
+`iat` and `exp` at most 30 seconds later. The relay answers with the upstream status, content type,
+cache control and body, never following redirects, or refuses with 400, 401, 429 or 502,
+`x-lacuno-relay-error: <code>` and `{"error":"<code>"}`; a refusal fails the app's authorization
+with `invalid_client`.
 
 The proxy is a full trust boundary: anyone with its signing key can act as the managed owner. Protect
 and rotate keys deliberately, synchronize clocks and prevent direct public runtime access. This

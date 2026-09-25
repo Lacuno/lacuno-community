@@ -15,7 +15,7 @@ import { AssetHash, hashAsset, parseDocument } from '@lacuno/schema'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db/migration'
 import { and, eq } from 'drizzle-orm'
-import { Hono } from 'hono'
+import { Hono, type MiddlewareHandler } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { streamSSE } from 'hono/streaming'
@@ -23,8 +23,8 @@ import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { type SiteEvent, siteEvents, summarize } from './events.js'
 import { GatewayAuth, type GatewayOptions } from './gateway-auth.js'
-import { activeConnections, closeSessions, mcpRoutes } from './mcp.js'
-import { createOAuth, type OAuth, oauthPlugins } from './oauth.js'
+import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
+import { createOAuth, gatewayUser, type OAuth, oauthPlugins } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
 import { SqlitePersistence } from './persistence.js'
 import { publishedApp } from './published.js'
@@ -39,6 +39,8 @@ export type ServerOptions = {
   editorDir?: string
   publishBaseURL?: string
   gateway?: GatewayOptions
+  /** Cloud's Client ID Metadata Document relay, for a gateway runtime without internet access. */
+  cimdRelay?: string
   /** Test-only: replaces the OAuth grants so tests can call the MCP endpoint with a fixed token. */
   oauth?: OAuth
 }
@@ -74,6 +76,11 @@ const BatchInput = z.strictObject({
   patches: z.array(Patch).min(1).max(5000).optional(),
   dryRun: z.boolean().optional(),
 })
+/** Routes a gateway forwards without a user, since each authenticates itself. */
+const anonymous = (method: string, path: string) =>
+  (method === 'GET' && path.startsWith('/.well-known/')) ||
+  (method === 'POST' && /^\/api\/auth\/oauth2\/(register|token|revoke)$/.test(path)) ||
+  (['GET', 'POST', 'DELETE'].includes(method) && /^\/mcp\/[^/]+$/.test(path))
 
 export async function createServer(options: ServerOptions) {
   if (options.secret.length < 32) throw new Error('Auth secret must contain at least 32 characters')
@@ -88,7 +95,11 @@ export async function createServer(options: ServerOptions) {
       trustedOrigins: [origin],
       emailAndPassword: { enabled: true, disableSignUp: !options.allowSignup },
       rateLimit: { enabled: true, storage: 'database' },
-      plugins: oauthPlugins(),
+      // Behind a gateway every request comes from the gateway; it names the client.
+      ...(options.gateway
+        ? { advanced: { ipAddress: { ipAddressHeaders: ['x-lacuno-client-ip'] } } }
+        : {}),
+      plugins: oauthPlugins({ origin, gateway: options.gateway, cimdRelay: options.cimdRelay }),
     } satisfies BetterAuthOptions
     const migrations = await getMigrations(authOptions)
     await migrations.runMigrations()
@@ -99,7 +110,7 @@ export async function createServer(options: ServerOptions) {
     const setup = gateway ? undefined : new OwnerSetup(sqlite, options.allowSignup ?? false)
     if (gateway || setup?.singleOwner) authOptions.emailAndPassword.disableSignUp = true
     const auth = betterAuth(authOptions)
-    const provider = createOAuth(auth, sqlite, origin)
+    const provider = createOAuth(auth, sqlite, origin, { gateway: !!gateway })
     // Tests may swap the verifier; the discovery routes stay the provider's.
     const oauth: OAuth = options.oauth ?? provider
     // Only the token-protected setup endpoint can reach this registration-enabled handler.
@@ -117,7 +128,7 @@ export async function createServer(options: ServerOptions) {
       Variables: {
         userId: string
         workspaceId: string
-        gatewayUser: { id: string; name: string; email: string }
+        gatewayUser: Awaited<ReturnType<GatewayAuth['authenticate']>>
       }
     }>()
     app.use('/api/*', async (c, next) => {
@@ -152,26 +163,8 @@ export async function createServer(options: ServerOptions) {
         ...(gateway ? { authentication: 'gateway', gatewayProtocol: 1 } : {}),
       }),
     )
-    if (gateway) {
-      app.use('*', async (c, next) => {
-        try {
-          c.set('gatewayUser', await gateway.authenticate(c.req.raw))
-        } catch {
-          return c.json({ error: 'Authenticated gateway required' }, 401)
-        }
-        await next()
-      })
-      app.get('/api/auth/get-session', (c) => c.json({ user: c.get('gatewayUser') }))
-      app.on(['GET', 'POST'], '/api/auth/*', (c) =>
-        c.json({ error: 'Authentication is managed by the gateway' }, 403),
-      )
-    }
-    // OAuth clients post forms from other apps; these endpoints authenticate the client instead.
-    app.post('/api/auth/oauth2/:endpoint{token|register|revoke|introspect}', (c) =>
-      auth.handler(c.req.raw),
-    )
     // Require same-origin JSON writes even for endpoints outside Better Auth's CSRF checks.
-    app.use('/api/*', async (c, next) => {
+    const sameOriginJson: MiddlewareHandler = async (c, next) => {
       if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) {
         const requestOrigin = c.req.header('origin')
         if (
@@ -183,7 +176,49 @@ export async function createServer(options: ServerOptions) {
           return c.json({ error: 'Expected application/json' }, 415)
       }
       await next()
-    })
+    }
+    if (gateway) {
+      app.use('*', async (c, next) => {
+        if (anonymous(c.req.method, c.req.path)) return next()
+        const user = await gateway.authenticate(c.req.raw).catch(() => undefined)
+        // Cloud's own assertions are good for revoking access and nothing else.
+        if (!user || (user.system && c.req.path !== '/api/gateway/revoke-user'))
+          return c.json({ error: 'Authenticated gateway required' }, 401)
+        c.set('gatewayUser', user)
+        await next()
+      })
+      app.get('/api/auth/get-session', (c) => c.json({ user: c.get('gatewayUser') }))
+      // The consent flow, as the gateway's user.
+      app.on(
+        ['GET', 'POST'],
+        '/api/auth/oauth2/:endpoint{authorize|public-client|consent}',
+        sameOriginJson,
+        (c) => gatewayUser.run(c.get('gatewayUser'), () => auth.handler(c.req.raw)),
+      )
+      app.post('/api/gateway/revoke-user', async (c) => {
+        if (!c.get('gatewayUser').system)
+          return c.json({ error: 'Only the gateway itself can revoke access' }, 403)
+        const input = z
+          .strictObject({ userId: z.string().min(1).max(200) })
+          .safeParse(await c.req.json().catch(() => null))
+        if (!input.success) return c.json({ error: 'Invalid user' }, 400)
+        const { userId } = input.data
+        return c.json({
+          ...(await provider.revokeUser(userId)),
+          sessions: await closeUserSessions(userId),
+        })
+      })
+    }
+    // OAuth clients post forms from other apps; these endpoints authenticate the client instead.
+    app.post(
+      `/api/auth/oauth2/:endpoint{token|register|revoke${gateway ? '' : '|introspect'}}`,
+      (c) => auth.handler(c.req.raw),
+    )
+    if (gateway)
+      app.on(['GET', 'POST'], '/api/auth/*', (c) =>
+        c.json({ error: 'Authentication is managed by the gateway' }, 403),
+      )
+    app.use('/api/*', sameOriginJson)
     app.post('/api/setup', async (c) => {
       if (!setup) return c.json({ error: 'Owner setup is unavailable in gateway mode' }, 403)
       if (!setup.required)
@@ -324,7 +359,7 @@ export async function createServer(options: ServerOptions) {
       DocumentStore.withPersistence(new SqlitePersistence(db, id, options.dataDir))
     app.route(
       '/mcp',
-      mcpRoutes({ store, dataDir: options.dataDir, oauth, events: siteEvents, releases }),
+      mcpRoutes({ store, dataDir: options.dataDir, oauth, events: siteEvents, releases, origin }),
     )
     app.get('/api/sites/:id/connections', (c) => {
       const active = activeConnections(c.req.param('id'))
