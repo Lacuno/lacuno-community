@@ -16,6 +16,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm exec playwright install chromium --with-deps
       - run: pnpm test
       - run: pnpm build
       - run: pnpm smoke
