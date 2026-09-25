@@ -41,6 +41,8 @@ export type ServerOptions = {
   gateway?: GatewayOptions
   /** Cloud's Client ID Metadata Document relay, for a gateway runtime without internet access. */
   cimdRelay?: string
+  /** Cloud's export sink, which receives every published release. Needs `gateway`. */
+  export?: string
   /** Test-only: replaces the OAuth grants so tests can call the MCP endpoint with a fixed token. */
   oauth?: OAuth
 }
@@ -84,6 +86,7 @@ const anonymous = (method: string, path: string) =>
 
 export async function createServer(options: ServerOptions) {
   if (options.secret.length < 32) throw new Error('Auth secret must contain at least 32 characters')
+  if (options.export && !options.gateway) throw new Error('Export requires the gateway settings')
   const origin = new URL(options.baseURL).origin
   const { db, sqlite } = openDatabase(options.dataDir)
   let releases: Releases | undefined
@@ -119,7 +122,14 @@ export async function createServer(options: ServerOptions) {
       emailAndPassword: { enabled: true, disableSignUp: false },
     })
     releases = options.publishBaseURL
-      ? new Releases(sqlite, options.dataDir, options.publishBaseURL)
+      ? new Releases(
+          sqlite,
+          options.dataDir,
+          options.publishBaseURL,
+          options.export && options.gateway
+            ? { url: options.export, secret: options.gateway.secret, issuer: origin }
+            : undefined,
+        )
       : undefined
     if (releases?.siteForHost(new URL(origin).hostname))
       throw new Error('The editor hostname cannot be inside the published site namespace')

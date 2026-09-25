@@ -1,10 +1,25 @@
 import { createHash } from 'node:crypto'
 import type Database from 'better-sqlite3'
-import { jwtVerify } from 'jose'
+import { type JWTPayload, jwtVerify, SignJWT } from 'jose'
 import { z } from 'zod'
 import { OwnerSetup } from './owner-setup.js'
 
 export type GatewayOptions = { issuer: string; secret: string }
+
+/** A 30-second HS256 token, signed with the gateway secret, for one of Cloud's internal services. */
+export const signForCloud = (
+  secret: string,
+  issuer: string,
+  audience: string,
+  claims: JWTPayload,
+) =>
+  new SignJWT(claims)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuer(issuer)
+    .setAudience(audience)
+    .setIssuedAt()
+    .setExpirationTime('30s')
+    .sign(new TextEncoder().encode(secret))
 const Claims = z.object({
   sub: z.string().min(1).max(200),
   name: z.string().min(1).max(200),

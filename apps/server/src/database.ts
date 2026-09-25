@@ -87,4 +87,23 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM lacuno_migrations WHERE version = 2').get()) return
+      sqlite.exec(`
+      CREATE TABLE export_pointer (
+        site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        target TEXT NOT NULL CHECK(target IN ('production','testing')),
+        release_id TEXT NOT NULL REFERENCES releases(id),
+        attempts INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(site_id, target)
+      );
+      CREATE TABLE exported_release (
+        release_id TEXT PRIMARY KEY NOT NULL REFERENCES releases(id) ON DELETE CASCADE
+      );
+      INSERT INTO lacuno_migrations (version) VALUES (2);
+    `)
+    })
+    .immediate()
 }

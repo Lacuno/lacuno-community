@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { hashAsset, parseDocument } from '@lacuno/schema'
 import type Database from 'better-sqlite3'
 import { HTTPException } from 'hono/http-exception'
+import { Exporter, type ExportOptions } from './export.js'
 import { PublicationReader, type Target } from './publication-reader.js'
 
 type ReleaseRow = {
@@ -34,9 +35,20 @@ export class Releases extends PublicationReader {
   private running = false
   private timer: ReturnType<typeof setInterval>
   private child: ChildProcess | undefined
+  private exporter: Exporter | undefined
 
-  constructor(sqlite: Database.Database, dataDir: string, baseURL: string) {
+  constructor(
+    sqlite: Database.Database,
+    dataDir: string,
+    baseURL: string,
+    exportOptions?: ExportOptions,
+  ) {
     super(sqlite, dataDir, baseURL)
+    this.exporter =
+      exportOptions &&
+      new Exporter(sqlite, exportOptions, (siteId, id) =>
+        path.join(this.directory(siteId, id), 'dist'),
+      )
     this.timer = setInterval(() => {
       void this.tick()
     }, 1000)
@@ -145,6 +157,7 @@ export class Releases extends PublicationReader {
         'INSERT INTO publications(site_id,target,release_id) VALUES(?,?,?) ON CONFLICT(site_id,target) DO UPDATE SET release_id=excluded.release_id',
       )
       .run(siteId, target, id)
+    this.exporter?.queue(siteId, target, id)
   }
 
   private async tick() {
@@ -184,6 +197,10 @@ export class Releases extends PublicationReader {
       }, 5000)
       heartbeat.unref()
       const warnings = await this.build(job)
+      await this.exporter?.upload(job.site_id, id).catch((error) => {
+        if (!this.stopped) console.error('Export of a release failed', error)
+        throw new Error('Publishing to the edge failed. Publish again to retry.')
+      })
       if (this.stopped) return
       this.sqlite
         .transaction(() => {
@@ -273,6 +290,7 @@ export class Releases extends PublicationReader {
   close() {
     this.stopped = true
     clearInterval(this.timer)
+    this.exporter?.close()
     this.child?.kill('SIGKILL')
     this.sqlite
       .prepare(

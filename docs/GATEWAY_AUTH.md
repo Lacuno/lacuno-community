@@ -88,6 +88,18 @@ cache control and body, never following redirects, or refuses with 400, 401, 429
 `x-lacuno-relay-error: <code>` and `{"error":"<code>"}`; a refusal fails the app's authorization
 with `invalid_client`.
 
+**Export to an edge.** With `LACUNO_EXPORT_URL` set (it requires the gateway settings), the runtime
+copies every published release to that sink. After a build, before the release becomes ready, each
+file in its output goes up as `PUT <export>/sites/<site>/<key>` (`application/octet-stream`): files
+under `assets/` and `_astro/` as `immutable/<path>`, after a `HEAD` of the same URL answers 404, and
+everything else as `releases/<release>/<path>`, each path segment URL-encoded. The sink answers 204,
+and anything else fails the release. Each time a release is published, restored, promoted or sent to
+testing, `PUT <export>/sites/<site>/pointer/<production|testing>` with the release id as its body
+follows from an outbox, retried with backoff until the sink answers 204. At start the runtime queues
+the current releases it has not exported yet. Every request carries `authorization: Bearer <jwt>`,
+signed like the relay's with `aud` `lacuno-export` and the claims `site`, `key` (as in the URL) and,
+for `PUT`, `sha256` (the body's lowercase hex SHA-256).
+
 The proxy is a full trust boundary: anyone with its signing key can act as the managed owner. Protect
 and rotate keys deliberately, synchronize clocks and prevent direct public runtime access. This
 protocol is not OIDC, fine-grained authorization or per-user document attribution. Each workspace

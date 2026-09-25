@@ -14,8 +14,7 @@ import type { AuthContext, BetterAuthOptions, BetterAuthPlugin, Session, User } 
 import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api'
 import type Database from 'better-sqlite3'
 import { Hono } from 'hono'
-import { SignJWT } from 'jose'
-import type { GatewayOptions } from './gateway-auth.js'
+import { type GatewayOptions, signForCloud } from './gateway-auth.js'
 
 /** What a valid bearer token grants: one user, one site, from one registered app. */
 export type Verified = { userId: string; siteId: string; clientId: string; app: string }
@@ -110,16 +109,9 @@ async function anchor(adapter: AuthContext['adapter'], userId: string) {
  * access. A relay refusal throws, like the Node fetcher does for a private address.
  */
 function relayFetch(relay: string, secret: string, issuer: string): ClientMetadataResourceFetch {
-  const key = new TextEncoder().encode(secret)
   return async (input, init) => {
     const url = String(input)
-    const token = await new SignJWT({ url })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuer(issuer)
-      .setAudience('lacuno-cimd-relay')
-      .setIssuedAt()
-      .setExpirationTime('30s')
-      .sign(key)
+    const token = await signForCloud(secret, issuer, 'lacuno-cimd-relay', { url })
     const response = await fetch(relay, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
