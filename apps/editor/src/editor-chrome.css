@@ -775,12 +775,6 @@
   letter-spacing: -0.8px;
   gap: 9px;
 }
-.editor-header .brand-mark {
-  width: 28px;
-  height: 30px;
-  border-radius: 7px;
-  background: var(--accent);
-}
 .editor .back-button,
 .editor .reload-button {
   width: 32px;

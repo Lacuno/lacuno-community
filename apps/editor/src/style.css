@@ -96,14 +96,14 @@ p {
 .brand-mark {
   display: grid;
   place-items: center;
-  width: 29px;
-  height: 31px;
-  border-radius: 8px 8px 8px 2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   color: white;
-  background: var(--accent);
-  font-size: 25px;
-  font-style: italic;
-  font-weight: 750;
+  background: #7047eb;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 .badge {
   font-size: 8px;

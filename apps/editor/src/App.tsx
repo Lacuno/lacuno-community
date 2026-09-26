@@ -18,7 +18,7 @@ export function SignUpLink() {
 export function Brand() {
   return (
     <span className="brand">
-      <span className="brand-mark">f</span>lacuno<span className="badge">EARLY ACCESS</span>
+      <span className="brand-mark">l</span>lacuno<span className="badge">EARLY ACCESS</span>
     </span>
   )
 }
