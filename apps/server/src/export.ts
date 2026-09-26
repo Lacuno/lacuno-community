@@ -2,12 +2,55 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import type Database from 'better-sqlite3'
+import { HTTPException } from 'hono/http-exception'
 import { signForCloud } from './gateway-auth.js'
 import type { Target } from './publication-reader.js'
 
 /** Cloud's export sink, which a gateway runtime reaches without internet access. */
 export type ExportOptions = { url: string; secret: string; issuer: string }
 type Pointer = { site_id: string; target: Target; release_id: string; attempts: number }
+
+/** One call to the sink for a site's `key`, signed for exactly that site, key and body. */
+async function send(
+  options: ExportOptions,
+  method: 'HEAD' | 'PUT',
+  site: string,
+  key: string,
+  body?: Uint8Array,
+) {
+  const sha256 = body && createHash('sha256').update(body).digest('hex')
+  const token = await signForCloud(options.secret, options.issuer, 'lacuno-export', {
+    site,
+    key,
+    ...(sha256 ? { sha256 } : {}),
+  })
+  return fetch(`${options.url}/sites/${site}/${key}`, {
+    method,
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(body ? { 'content-type': 'application/octet-stream' } : {}),
+    },
+    ...(body ? { body: new Uint8Array(body) } : {}),
+    signal: AbortSignal.timeout(120_000),
+  })
+}
+
+/**
+ * Keeps an asset's bytes in Cloud's object storage (`PUT <export>/sites/<site>/asset/<hash>`), so a
+ * document never references an asset Cloud could not restore.
+ */
+export async function exportAsset(
+  options: ExportOptions,
+  site: string,
+  hash: string,
+  bytes: Uint8Array,
+) {
+  const response = await send(options, 'PUT', site, `asset/${hash}`, bytes).catch(() => undefined)
+  if (response?.status !== 204) {
+    console.error(`Export sink answered ${response?.status ?? 'nothing'} for an asset`)
+    throw new HTTPException(502, { message: 'The file could not be stored. Please try again.' })
+  }
+}
 
 /**
  * Copies published releases to Cloud's edge. Files go up before a release becomes ready; pointers
@@ -55,31 +98,13 @@ export class Exporter {
       // Content-addressed files are shared by every release of the site.
       const immutable = ['assets', '_astro'].includes(parts[0]!)
       const key = `${immutable ? 'immutable' : `releases/${releaseId}`}/${parts.map(encodeURIComponent).join('/')}`
-      if (immutable && (await this.send('HEAD', siteId, key)).status === 200) continue
-      const response = await this.send('PUT', siteId, key, await readFile(file))
+      if (immutable && (await send(this.options, 'HEAD', siteId, key)).status === 200) continue
+      const response = await send(this.options, 'PUT', siteId, key, await readFile(file))
       if (response.status !== 204) throw new Error(`Export sink answered ${response.status}`)
     }
     this.sqlite
       .prepare('INSERT OR IGNORE INTO exported_release(release_id) VALUES(?)')
       .run(releaseId)
-  }
-
-  private async send(method: 'HEAD' | 'PUT', site: string, key: string, body?: Buffer) {
-    const sha256 = body && createHash('sha256').update(body).digest('hex')
-    const token = await signForCloud(this.options.secret, this.options.issuer, 'lacuno-export', {
-      site,
-      key,
-      ...(sha256 ? { sha256 } : {}),
-    })
-    return fetch(`${this.options.url}/sites/${site}/${key}`, {
-      method,
-      headers: {
-        authorization: `Bearer ${token}`,
-        ...(body ? { 'content-type': 'application/octet-stream' } : {}),
-      },
-      ...(body ? { body: new Uint8Array(body) } : {}),
-      signal: AbortSignal.timeout(120_000),
-    })
   }
 
   private async drain() {
@@ -111,7 +136,8 @@ export class Exporter {
               .get(row.release_id)
           )
             await this.upload(row.site_id, row.release_id)
-          const response = await this.send(
+          const response = await send(
+            this.options,
             'PUT',
             row.site_id,
             `pointer/${row.target}`,

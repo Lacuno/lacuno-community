@@ -4,6 +4,7 @@ import { FolderPersistence } from '@lacuno/document/folder'
 import type { Document } from '@lacuno/schema'
 import { and, eq } from 'drizzle-orm'
 import { type SiteDatabase, sites } from './database.js'
+import { type ExportOptions, exportAsset } from './export.js'
 
 /** Each request loads a fresh snapshot; the conditional UPDATE also protects across processes. */
 export class SqlitePersistence implements Persistence {
@@ -14,6 +15,7 @@ export class SqlitePersistence implements Persistence {
     private db: SiteDatabase,
     private siteId: string,
     dataDir: string,
+    private exportOptions?: ExportOptions,
   ) {
     this.assets = new FolderPersistence(path.join(dataDir, 'sites', siteId))
   }
@@ -47,7 +49,9 @@ export class SqlitePersistence implements Persistence {
     this.loadedRevision = document.revision
   }
 
-  putAsset(bytes: Uint8Array, hash: string): Promise<void> {
-    return this.assets.putAsset(bytes, hash)
+  /** With the export sink, returns only once Cloud keeps the bytes too. */
+  async putAsset(bytes: Uint8Array, hash: string): Promise<void> {
+    await this.assets.putAsset(bytes, hash)
+    if (this.exportOptions) await exportAsset(this.exportOptions, this.siteId, hash, bytes)
   }
 }

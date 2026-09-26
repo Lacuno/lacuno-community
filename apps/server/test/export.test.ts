@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { createServer as createHttpServer } from 'node:http'
@@ -228,5 +228,42 @@ describe('export to the edge', () => {
     await expect.poll(() => pointers.get('production')).toBe(second)
     expect(log.filter((line) => line === 'PUT pointer/production')).toHaveLength(2)
     await expect.poll(() => table('export_pointer')).toEqual([])
+  })
+  it('keeps template and uploaded assets in the sink before answering', async () => {
+    const created = await call('/api/sites', { name: 'Assets' })
+    const { document } = await call(`/api/sites/${created.id}/document`)
+    const hashes = Object.values(document.assets as Record<string, { hash: string }>).map(
+      (asset) => asset.hash,
+    )
+    expect(hashes.length).toBeGreaterThan(0)
+    for (const hash of hashes) expect(files.get(`asset/${hash}`)).toBeDefined()
+
+    // A PNG by its signature; the upload answers only once the sink has it.
+    const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), randomBytes(64)])
+    const upload = { name: 'photo.png', data: png.toString('base64') }
+    const asset = await call(`/api/sites/${created.id}/assets/upload`, upload)
+    expect(files.get(`asset/${asset.hash}`)?.equals(png)).toBe(true)
+
+    // A sink failure fails the upload, so the editor never registers the asset.
+    const other = Buffer.concat([png.subarray(0, 8), randomBytes(64)])
+    failures = { match: /^PUT asset\//, status: 503, times: 1 }
+    const target = `/api/sites/${created.id}/assets/upload`
+    const body = JSON.stringify({ name: 'other.png', data: other.toString('base64') })
+    const failed = await server.app.request(origin + target, {
+      method: 'POST',
+      headers: {
+        origin,
+        'content-type': 'application/json',
+        'x-lacuno-assertion': await assertion(target, 'POST', body),
+      },
+      body,
+    })
+    expect(failed.status).toBe(502)
+    expect(await failed.json()).toEqual({
+      error: 'The file could not be stored. Please try again.',
+    })
+    expect([...files.keys()].filter((key) => key.startsWith('asset/'))).toHaveLength(
+      hashes.length + 1,
+    )
   })
 })

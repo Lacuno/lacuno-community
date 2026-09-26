@@ -22,6 +22,7 @@ import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { type SiteEvent, siteEvents, summarize } from './events.js'
+import { exportAsset } from './export.js'
 import { GatewayAuth, type GatewayOptions } from './gateway-auth.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
 import { createOAuth, gatewayUser, type OAuth, oauthPlugins } from './oauth.js'
@@ -88,6 +89,10 @@ export async function createServer(options: ServerOptions) {
   if (options.secret.length < 32) throw new Error('Auth secret must contain at least 32 characters')
   if (options.export && !options.gateway) throw new Error('Export requires the gateway settings')
   const origin = new URL(options.baseURL).origin
+  const exportOptions =
+    options.export && options.gateway
+      ? { url: options.export, secret: options.gateway.secret, issuer: origin }
+      : undefined
   const { db, sqlite } = openDatabase(options.dataDir)
   let releases: Releases | undefined
   try {
@@ -122,14 +127,7 @@ export async function createServer(options: ServerOptions) {
       emailAndPassword: { enabled: true, disableSignUp: false },
     })
     releases = options.publishBaseURL
-      ? new Releases(
-          sqlite,
-          options.dataDir,
-          options.publishBaseURL,
-          options.export && options.gateway
-            ? { url: options.export, secret: options.gateway.secret, issuer: origin }
-            : undefined,
-        )
+      ? new Releases(sqlite, options.dataDir, options.publishBaseURL, exportOptions)
       : undefined
     if (releases?.siteForHost(new URL(origin).hostname))
       throw new Error('The editor hostname cannot be inside the published site namespace')
@@ -337,6 +335,7 @@ export async function createServer(options: ServerOptions) {
                 })
               : new Error(`Template asset checksum mismatch: ${asset.id}`)
           await writeFile(path.join(dir, 'assets', asset.hash), bytes)
+          if (exportOptions) await exportAsset(exportOptions, id, asset.hash, bytes)
         }
         db.insert(sites)
           .values({
@@ -366,7 +365,7 @@ export async function createServer(options: ServerOptions) {
       await next()
     })
     const store = (id: string) =>
-      DocumentStore.withPersistence(new SqlitePersistence(db, id, options.dataDir))
+      DocumentStore.withPersistence(new SqlitePersistence(db, id, options.dataDir, exportOptions))
     app.route(
       '/mcp',
       mcpRoutes({ store, dataDir: options.dataDir, oauth, events: siteEvents, releases, origin }),
@@ -465,7 +464,7 @@ export async function createServer(options: ServerOptions) {
       const { document } = (await store(c.req.param('id'))).read()
       const { status, body } = await stageUpload(
         document,
-        new SqlitePersistence(db, c.req.param('id'), options.dataDir),
+        new SqlitePersistence(db, c.req.param('id'), options.dataDir, exportOptions),
         input.data.name,
         Buffer.from(input.data.data, 'base64'),
       )

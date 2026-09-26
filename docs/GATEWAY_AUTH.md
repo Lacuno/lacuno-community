@@ -96,7 +96,10 @@ everything else as `releases/<release>/<path>`, each path segment URL-encoded. T
 and anything else fails the release. Each time a release is published, restored, promoted or sent to
 testing, `PUT <export>/sites/<site>/pointer/<production|testing>` with the release id as its body
 follows from an outbox, retried with backoff until the sink answers 204. At start the runtime queues
-the current releases it has not exported yet. Every request carries `authorization: Bearer <jwt>`,
+the current releases it has not exported yet. Every asset written to a site (an upload, an
+imported file or a new site's own) also goes up as `PUT <export>/sites/<site>/asset/<hash>` before
+the request that wrote it answers, and a failure fails that request, so a document never refers to
+an asset the sink does not keep. Every request carries `authorization: Bearer <jwt>`,
 signed like the relay's with `aud` `lacuno-export` and the claims `site`, `key` (as in the URL) and,
 for `PUT`, `sha256` (the body's lowercase hex SHA-256).
 
