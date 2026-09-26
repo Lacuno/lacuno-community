@@ -206,7 +206,8 @@ function Sites({
             <button type="button" className="site-card" key={site.id} onClick={() => open(site.id)}>
               <div className="site-art">
                 <span>
-                  F<span className="art-dot">.</span>
+                  {site.name.charAt(0)}
+                  <span className="art-dot">.</span>
                 </span>
                 <div className="art-lines" />
               </div>
