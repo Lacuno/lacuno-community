@@ -14,17 +14,25 @@ export const message = (error: unknown, fallback = 'Something went wrong') =>
   error instanceof Error ? error.message : fallback
 
 export async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(path, {
-    credentials: 'same-origin',
-    ...(signal ? { signal } : {}),
-    ...(body === undefined
-      ? {}
-      : {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        }),
-  })
+  const send = () =>
+    fetch(path, {
+      credentials: 'same-origin',
+      ...(signal ? { signal } : {}),
+      ...(body === undefined
+        ? {}
+        : {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          }),
+    })
+  let response = await send()
+  // A workspace that is starting or stopping asks to come back later: once, after that delay.
+  const delay = Number(response.headers.get('retry-after'))
+  if (response.status === 503 && delay > 0) {
+    await new Promise((resolve) => setTimeout(resolve, delay * 1000))
+    response = await send()
+  }
   const text = await response.text()
   let data: unknown
   try {

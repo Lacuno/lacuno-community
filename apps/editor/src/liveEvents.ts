@@ -49,3 +49,24 @@ export function land(document: Document, history: EditHistory, run: SiteEvent[])
   }
   return { document, history }
 }
+
+/**
+ * A site's event stream. A runtime that stops ends it with a 204, and EventSource then gives up
+ * for good; `reopen` opens it again, which the session calls after a request reached the runtime.
+ * A forgotten tab therefore never wakes a stopped runtime.
+ */
+export function liveStream(url: string, onBatch: (event: SiteEvent) => void) {
+  let source: EventSource
+  const open = () => {
+    source = new EventSource(url)
+    source.addEventListener('batch', (message) => onBatch(JSON.parse(message.data)))
+  }
+  open()
+  return {
+    open: () => source.readyState === EventSource.OPEN,
+    reopen: () => {
+      if (source.readyState === EventSource.CLOSED) open()
+    },
+    close: () => source.close(),
+  }
+}

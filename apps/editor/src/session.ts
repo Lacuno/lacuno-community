@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { ApiError, api, message } from './api.js'
 import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
-import { catchUp, land, type SiteEvent, touchedNodes } from './liveEvents.js'
+import { catchUp, land, liveStream, type SiteEvent, touchedNodes } from './liveEvents.js'
 
 export type Snapshot = { document: Document; revision: number }
 export type DocumentSession = ReturnType<typeof useDocumentSession>
@@ -81,20 +81,18 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
   const [activity, setActivity] = useState<SiteEvent[]>([])
   // Batches the snapshot has yet to take in: they wait while the designer's own edit settles.
   const queue = useRef<SiteEvent[]>([])
-  const stream = useRef<EventSource | undefined>(undefined)
+  const stream = useRef<ReturnType<typeof liveStream>>(undefined)
   const reading = useRef(false)
   const loaded = !!snapshot
   useEffect(() => {
     if (!loaded) return
-    const source = new EventSource(`/api/sites/${siteId}/events`)
-    stream.current = source
-    source.addEventListener('batch', (message) => {
-      const event = JSON.parse(message.data) as SiteEvent
+    const live = liveStream(`/api/sites/${siteId}/events`, (event) => {
       queue.current.push(event)
       setActivity((list) => [event, ...list].slice(0, 50))
     })
+    stream.current = live
     return () => {
-      source.close()
+      live.close()
       stream.current = undefined
     }
   }, [siteId, loaded])
@@ -111,7 +109,10 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
     if (gap) {
       reading.current = true
       api<Snapshot>(`/api/sites/${siteId}/document`)
-        .then((next) => acceptSnapshot({ ...next, document: parseDocument(next.document) }))
+        .then((next) => {
+          acceptSnapshot({ ...next, document: parseDocument(next.document) })
+          stream.current?.reopen()
+        })
         .catch((e) => setError(e.message))
         .finally(() => {
           reading.current = false
@@ -140,7 +141,7 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
    * open stream is about to deliver the batch that moved it.
    */
   const onStale = useCallback(() => {
-    if (inFlight.current || stream.current?.readyState === EventSource.OPEN) return
+    if (inFlight.current || stream.current?.open()) return
     setConflict(true)
     setError('This site changed in another session. Reload the latest version to continue.')
   }, [])
@@ -175,6 +176,8 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
         `/api/sites/${siteId}/document/apply`,
         { expectedRevision: snapshot.revision, ...body },
       )
+      // The runtime answers again: an event stream it ended while stopped comes back.
+      stream.current?.reopen()
       // Invert against the document the server planned from, so an undo restores it exactly.
       const entry = step ?? {
         undo: invertPatches(snapshot.document, result.patches),

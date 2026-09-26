@@ -1,8 +1,8 @@
 import { applyPatches } from '@lacuno/document/patch'
 import { fixtureDocument } from '@lacuno/schema'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { emptyHistory } from '../src/history.js'
-import { catchUp, land, type SiteEvent, touchedNodes } from '../src/liveEvents.js'
+import { catchUp, land, liveStream, type SiteEvent, touchedNodes } from '../src/liveEvents.js'
 
 const event = (revision: number): SiteEvent => ({
   revision,
@@ -81,5 +81,46 @@ describe('land', () => {
       text: { type: 'static', value: 'By another editor' },
     })
     expect(history.undo).toEqual([])
+  })
+})
+
+describe('liveStream', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  /** Stands in for the browser's EventSource: tests open, deliver and end streams by hand. */
+  class FakeSource extends EventTarget {
+    static readonly OPEN = 1
+    static readonly CLOSED = 2
+    static opened: FakeSource[] = []
+    readyState = FakeSource.OPEN
+    constructor(readonly url: string) {
+      super()
+      FakeSource.opened.push(this)
+    }
+    close() {
+      this.readyState = FakeSource.CLOSED
+    }
+  }
+
+  it('reopens a stream the runtime ended, and only then', () => {
+    vi.stubGlobal('EventSource', FakeSource)
+    const batches: number[] = []
+    const live = liveStream('/api/sites/s/events', (item) => batches.push(item.revision))
+    const [first] = FakeSource.opened
+    first?.dispatchEvent(new MessageEvent('batch', { data: JSON.stringify(event(4)) }))
+    expect(batches).toEqual([4])
+    live.reopen()
+    expect(FakeSource.opened).toHaveLength(1)
+    // A stopped runtime answers 204, which ends the stream for good.
+    first?.close()
+    expect(live.open()).toBe(false)
+    live.reopen()
+    expect(FakeSource.opened).toHaveLength(2)
+    expect(live.open()).toBe(true)
+    FakeSource.opened[1]?.dispatchEvent(
+      new MessageEvent('batch', { data: JSON.stringify(event(5)) }),
+    )
+    expect(batches).toEqual([4, 5])
+    live.close()
+    expect(live.open()).toBe(false)
   })
 })
