@@ -26,6 +26,7 @@ describe('export to the edge', () => {
   // A fake Cloud sink: it checks every token like Cloud does and keeps what it was sent.
   const files = new Map<string, Buffer>()
   const pointers = new Map<string, string>()
+  const lists = new Map<string, string>()
   const log: string[] = []
   let failures: { match: RegExp; status: number; times: number } | undefined
   const sink = createHttpServer(async (request, response) => {
@@ -51,6 +52,7 @@ describe('export to the edge', () => {
       return response.writeHead(failures.status).end()
     if (request.method === 'HEAD') return response.writeHead(files.has(key!) ? 200 : 404).end()
     if (key!.startsWith('pointer/')) pointers.set(key!.slice('pointer/'.length), body.toString())
+    else if (key === 'assets') lists.set(siteId!, body.toString())
     else files.set(key!, body)
     response.writeHead(204).end()
   })
@@ -282,5 +284,33 @@ describe('export to the edge', () => {
       error:
         'Storage is full. This workspace has used all the storage in its plan. Delete files you no longer need or upgrade the plan.',
     })
+  })
+
+  it('sends a site’s asset list when a save changes it, retrying after a sink error', async () => {
+    const created = await call('/api/sites', { name: 'Listed' })
+    const listed = () => lists.get(created.id)?.split('\n')
+    const apply = async (operations: unknown[]) => {
+      const { revision } = await call(`/api/sites/${created.id}/document`)
+      return call(`/api/sites/${created.id}/document/apply`, {
+        expectedRevision: revision,
+        operations,
+      })
+    }
+    const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), randomBytes(64)])
+    const upload = { name: 'listed.png', data: png.toString('base64') }
+    const asset = await call(`/api/sites/${created.id}/assets/upload`, upload)
+    failures = { match: /^PUT assets$/, status: 503, times: 1 }
+    await apply([{ type: 'asset.create', ...asset }])
+    await expect.poll(listed, { timeout: 5000 }).toContain(asset.hash)
+    expect(log.filter((line) => line === 'PUT assets').length).toBeGreaterThanOrEqual(2)
+    await expect.poll(() => table('export_assets')).toEqual([])
+
+    // A deleted asset leaves the list; a save that keeps the assets sends none.
+    await apply([{ type: 'asset.delete', id: asset.id }])
+    await expect.poll(listed).not.toContain(asset.hash)
+    log.length = 0
+    await apply([{ type: 'site.update', name: 'Renamed' }])
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    expect(log).toEqual([])
   })
 })

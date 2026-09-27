@@ -99,7 +99,10 @@ follows from an outbox, retried with backoff until the sink answers 204. At star
 the current releases it has not exported yet. Every asset written to a site (an upload, an
 imported file or a new site's own) also goes up as `PUT <export>/sites/<site>/asset/<hash>` before
 the request that wrote it answers, and a failure fails that request, so a document never refers to
-an asset the sink does not keep. Every request carries `authorization: Bearer <jwt>`,
+an asset the sink does not keep. When a save changes the assets a site's document lists (and once
+for every site after the upgrade that added it), `PUT <export>/sites/<site>/assets` sends their
+hashes, sorted, one per line, from an outbox retried with backoff until the sink answers 204; Cloud
+counts the files a site lists as its workspace's storage. Every request carries `authorization: Bearer <jwt>`,
 signed like the relay's with `aud` `lacuno-export` and the claims `site`, `key` (as in the URL) and,
 for `PUT`, `sha256` (the body's lowercase hex SHA-256).
 

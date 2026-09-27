@@ -106,4 +106,19 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM lacuno_migrations WHERE version = 3').get()) return
+      // Sites whose asset list the exporter owes the sink, starting with every existing one.
+      sqlite.exec(`
+      CREATE TABLE export_assets (
+        site_id TEXT PRIMARY KEY NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO export_assets(site_id) SELECT id FROM sites;
+      INSERT INTO lacuno_migrations (version) VALUES (3);
+    `)
+    })
+    .immediate()
 }

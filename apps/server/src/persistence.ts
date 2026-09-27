@@ -2,13 +2,14 @@ import path from 'node:path'
 import { type Persistence, StaleRevisionError } from '@lacuno/document'
 import { FolderPersistence } from '@lacuno/document/folder'
 import type { Document } from '@lacuno/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { type SiteDatabase, sites } from './database.js'
-import { type ExportOptions, exportAsset } from './export.js'
+import { assetList, type ExportOptions, exportAsset } from './export.js'
 
 /** Each request loads a fresh snapshot; the conditional UPDATE also protects across processes. */
 export class SqlitePersistence implements Persistence {
   private loadedRevision: number | undefined
+  private loadedAssets: string | undefined
   private assets: FolderPersistence
 
   constructor(
@@ -23,7 +24,9 @@ export class SqlitePersistence implements Persistence {
   async load(): Promise<unknown> {
     const row = this.db.select().from(sites).where(eq(sites.id, this.siteId)).get()
     this.loadedRevision = row?.revision
-    return row ? JSON.parse(row.document) : undefined
+    const document = row && JSON.parse(row.document)
+    this.loadedAssets = document && assetList(document)
+    return document
   }
 
   async save(document: Document): Promise<void> {
@@ -47,6 +50,14 @@ export class SqlitePersistence implements Persistence {
       throw new StaleRevisionError(this.loadedRevision, current.revision)
     }
     this.loadedRevision = document.revision
+    // Cloud counts the assets a site lists as its storage; the exporter sends it the new list.
+    const assets = assetList(document)
+    if (this.exportOptions && assets !== this.loadedAssets)
+      this.db.run(
+        sql`INSERT INTO export_assets(site_id) VALUES(${this.siteId})
+        ON CONFLICT(site_id) DO UPDATE SET attempts=0,next_attempt_at=0`,
+      )
+    this.loadedAssets = assets
   }
 
   /** With the export sink, returns only once Cloud keeps the bytes too. */

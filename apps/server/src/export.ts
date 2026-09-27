@@ -59,8 +59,19 @@ export async function exportAsset(
 }
 
 /**
+ * The hashes of the assets a document lists, sorted, one per line: the body of
+ * `PUT <export>/sites/<site>/assets`, which tells Cloud the files the site uses now.
+ */
+export function assetList(document: { assets?: Record<string, { hash: string }> }) {
+  return [...new Set(Object.values(document.assets ?? {}).map(({ hash }) => hash))]
+    .sort()
+    .join('\n')
+}
+
+/**
  * Copies published releases to Cloud's edge. Files go up before a release becomes ready; pointers
  * go through an outbox written with the publication, so a sink outage delays them, never loses them.
+ * A site's asset list goes through an outbox too, written when a save changes it.
  */
 export class Exporter {
   private stopped = false
@@ -165,6 +176,42 @@ export class Exporter {
               'UPDATE export_pointer SET attempts=attempts+1,next_attempt_at=? WHERE site_id=? AND target=? AND release_id=?',
             )
             .run(Date.now() + Math.min(1000 * 2 ** row.attempts, 300_000), ...where)
+      }
+      const lists = this.sqlite
+        .prepare('SELECT site_id,attempts FROM export_assets WHERE next_attempt_at <= ?')
+        .all(now) as { site_id: string; attempts: number }[]
+      for (const { site_id, attempts } of lists) {
+        // Claimed like a pointer; a save while it is sent sets it due again, so it stays queued.
+        const claim = now + 60_000
+        if (
+          this.stopped ||
+          !this.sqlite
+            .prepare(
+              'UPDATE export_assets SET next_attempt_at=? WHERE site_id=? AND next_attempt_at <= ?',
+            )
+            .run(claim, site_id, now).changes
+        )
+          continue
+        const { document } = this.sqlite
+          .prepare('SELECT document FROM sites WHERE id=?')
+          .get(site_id) as { document: string }
+        const body = Buffer.from(assetList(JSON.parse(document)))
+        const response = await send(this.options, 'PUT', site_id, 'assets', body).catch(
+          () => undefined,
+        )
+        if (this.stopped) return
+        if (response?.status === 204)
+          this.sqlite
+            .prepare('DELETE FROM export_assets WHERE site_id=? AND next_attempt_at=?')
+            .run(site_id, claim)
+        else {
+          console.error(`Export sink answered ${response?.status ?? 'nothing'} for an asset list`)
+          this.sqlite
+            .prepare(
+              'UPDATE export_assets SET attempts=attempts+1,next_attempt_at=? WHERE site_id=? AND next_attempt_at=?',
+            )
+            .run(Date.now() + Math.min(1000 * 2 ** attempts, 300_000), site_id, claim)
+        }
       }
     } finally {
       this.draining = false
