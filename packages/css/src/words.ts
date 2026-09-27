@@ -15,7 +15,7 @@ import {
  */
 const WORDS_CSS = `[data-lc-words] { --lc-interval: 2200ms; display: inline-grid; overflow: clip; }
 [data-lc-words] > * { grid-area: 1 / 1; width: max-content; white-space: pre; }
-[data-lc-words] svg { display: inline-block; width: 0.8em; height: 0.8em; margin-inline-end: 0.15em; vertical-align: -0.1em; stroke-width: 2.5; }
+[data-lc-words] svg { display: inline-block; width: 0.62em; height: 0.62em; margin-inline-end: 0.18em; vertical-align: -0.02em; stroke-width: 1.75; }
 [data-lc-said] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) {
   [data-lc-words] > :not(:first-child) { display: none; }

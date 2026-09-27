@@ -192,7 +192,7 @@ background tab resumes; the editor realigns them after each canvas render. The l
 `aria-hidden` and visually hidden text reads every turn once, "AI, designer, you"; texts in step
 that sit next to each other read as one phrase per turn from the last of them, "your AI, your
 designer, you". Icons are a curated set of 16 Lucide icons (ISC), inlined as SVG in
-`currentColor` at 0.8em, so a page carries only those it uses. With reduced motion only the first
+`currentColor` at 0.62em with a light stroke, so a page carries only those it uses. With reduced motion only the first
 word shows. The editor runs the same sizing function against the canvas, whose sandbox runs no page
 scripts.
 
