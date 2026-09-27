@@ -25,7 +25,8 @@ it('publishes the first word in place, the others hidden from assistive tech and
   expect(body).toContain(
     '<span data-lc-words="3" style="--lc-interval:1000ms"><span>AI</span><span aria-hidden="true">designer</span><span aria-hidden="true">you</span></span><span data-lc-said>, designer, you</span>',
   )
-  expect(body).toContain("document.querySelectorAll('[data-lc-words]')")
+  expect(body).toContain('function sizeWords(page)')
+  expect(body).toContain('})(document);')
   // The canvas sandbox runs no scripts; the editor sizes the words itself.
   expect(hero(true).body).not.toContain('<script>')
 })
