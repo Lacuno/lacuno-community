@@ -46,6 +46,12 @@ export async function exportAsset(
   bytes: Uint8Array,
 ) {
   const response = await send(options, 'PUT', site, `asset/${hash}`, bytes).catch(() => undefined)
+  // The workspace is at its plan's storage limit.
+  if (response?.status === 507)
+    throw new HTTPException(507, {
+      message:
+        'Storage is full. This workspace has used all the storage in its plan. Delete files you no longer need or upgrade the plan.',
+    })
   if (response?.status !== 204) {
     console.error(`Export sink answered ${response?.status ?? 'nothing'} for an asset`)
     throw new HTTPException(502, { message: 'The file could not be stored. Please try again.' })

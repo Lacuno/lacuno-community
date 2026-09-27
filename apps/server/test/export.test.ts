@@ -265,5 +265,22 @@ describe('export to the edge', () => {
     expect([...files.keys()].filter((key) => key.startsWith('asset/'))).toHaveLength(
       hashes.length + 1,
     )
+
+    // A workspace at its plan's storage limit gets its own answer.
+    failures = { match: /^PUT asset\//, status: 507, times: 1 }
+    const full = await server.app.request(origin + target, {
+      method: 'POST',
+      headers: {
+        origin,
+        'content-type': 'application/json',
+        'x-lacuno-assertion': await assertion(target, 'POST', body),
+      },
+      body,
+    })
+    expect(full.status).toBe(507)
+    expect(await full.json()).toEqual({
+      error:
+        'Storage is full. This workspace has used all the storage in its plan. Delete files you no longer need or upgrade the plan.',
+    })
   })
 })
