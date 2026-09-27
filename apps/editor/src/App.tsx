@@ -5,7 +5,9 @@ import { Editor } from './Editor.js'
 
 const logo = new URL('./logo.svg', import.meta.url).href
 
-type User = { name: string; email: string }
+/** Behind a gateway, the user's role in the workspace; elsewhere the user owns it. */
+export type Role = 'owner' | 'editor' | 'viewer'
+type User = { name: string; email: string; role?: Role }
 type Site = { id: string; name: string; revision: number }
 
 /** Where the try editor sends a visitor for what needs an account. */
@@ -175,8 +177,9 @@ function Sites({
   const [sites, setSites] = useState<Site[]>([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  // The try editor has its one site and no account to sign out of.
+  // The try editor has its one site and no account to sign out of; viewers create none.
   const trying = useConfig().config?.try
+  const creating = !trying && user.role !== 'viewer'
   useEffect(() => {
     api<{ sites: Site[] }>('/api/sites')
       .then((data) => setSites(data.sites))
@@ -220,7 +223,7 @@ function Sites({
               </div>
             </button>
           ))}
-          {!trying && (
+          {creating && (
             <form
               className="create-card"
               onSubmit={async (event) => {
@@ -284,7 +287,7 @@ export function App() {
     )
   if (!user) return <Auth onLogin={setUser} />
   if (location.pathname === '/consent') return <Consent />
-  if (site) return <Editor siteId={site} back={() => open('')} />
+  if (site) return <Editor siteId={site} role={user.role ?? 'owner'} back={() => open('')} />
   return (
     <Sites
       user={user}

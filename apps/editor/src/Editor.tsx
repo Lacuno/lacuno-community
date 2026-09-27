@@ -1,5 +1,6 @@
 import type { State } from '@lacuno/schema'
 import { useId, useMemo, useState } from 'react'
+import type { Role } from './App.js'
 import { message } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
@@ -20,7 +21,16 @@ import { useImageDrop } from './useImageDrop.js'
 import { usePreview } from './usePreview.js'
 import { useStructureDrag } from './useStructureDrag.js'
 
-export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
+export function Editor({
+  siteId,
+  role,
+  back,
+}: {
+  siteId: string
+  /** Viewers see the site read-only; only the owner publishes. */
+  role: Role
+  back: () => void
+}) {
   const [focus, setFocus] = useState(false)
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false)
   const [sidebar, setSidebar] = useState<Panel>('Layers')
@@ -46,6 +56,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
   // A stable object, so the canvas repaints its draft only when a preview changes.
   const draft = useMemo(() => ({ ...livePreview, ...colorPreview }), [livePreview, colorPreview])
   const session = useDocumentSession(siteId, {
+    readOnly: role === 'viewer',
     blocked: !!inlineTarget,
     setPageId,
     onLeave: () => setInlineTarget(undefined),
@@ -111,6 +122,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
       )}
       <EditorHeader
         session={session}
+        role={role}
         page={page}
         back={back}
         uploadingImage={uploadingImage}

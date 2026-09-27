@@ -1,5 +1,5 @@
 import type { Page } from '@lacuno/schema'
-import { Brand, SignUpLink } from './App.js'
+import { Brand, type Role, SignUpLink } from './App.js'
 import { useConfig } from './api.js'
 import { type Connection, connectionLabel } from './ConnectPanel.js'
 import { EditorIcon } from './EditorIcon.js'
@@ -7,6 +7,7 @@ import type { DocumentSession } from './session.js'
 
 export function EditorHeader({
   session,
+  role,
   page,
   back,
   uploadingImage,
@@ -15,6 +16,7 @@ export function EditorHeader({
   connect,
 }: {
   session: DocumentSession
+  role: Role
   page: Page | undefined
   back: () => void
   uploadingImage: boolean
@@ -69,17 +71,19 @@ export function EditorHeader({
         role="status"
         data-state={conflict || error ? 'error' : busy || dirty ? 'pending' : 'saved'}
       >
-        {conflict
-          ? 'Changes paused'
-          : error
-            ? 'Could not save'
-            : busy
-              ? 'Saving…'
-              : dirty
-                ? 'Changes pending…'
-                : saved
-                  ? 'All changes saved'
-                  : 'Saved'}
+        {role === 'viewer'
+          ? 'View only'
+          : conflict
+            ? 'Changes paused'
+            : error
+              ? 'Could not save'
+              : busy
+                ? 'Saving…'
+                : dirty
+                  ? 'Changes pending…'
+                  : saved
+                    ? 'All changes saved'
+                    : 'Saved'}
       </span>
       <button
         type="button"
@@ -91,31 +95,35 @@ export function EditorHeader({
       >
         <EditorIcon name="reload" />
       </button>
-      <button
-        type="button"
-        className="connect-trigger"
-        data-state={connection.state}
-        onClick={connect}
-      >
-        <EditorIcon name="sparkle" />
-        {connection.label}
-      </button>
+      {role !== 'viewer' && (
+        <button
+          type="button"
+          className="connect-trigger"
+          data-state={connection.state}
+          onClick={connect}
+        >
+          <EditorIcon name="sparkle" />
+          {connection.label}
+        </button>
+      )}
       {config?.try && <SignUpLink />}
-      <button
-        type="button"
-        className="publish-trigger publish-action"
-        disabled={!snapshot || busy || conflict || uploadingImage}
-        onClick={async () => {
-          if (!(await session.flushPending())) {
-            session.setError('Finish or correct your pending edits before publishing.')
-            return
-          }
-          session.setDirty(false)
-          publish()
-        }}
-      >
-        Publish
-      </button>
+      {role === 'owner' && (
+        <button
+          type="button"
+          className="publish-trigger publish-action"
+          disabled={!snapshot || busy || conflict || uploadingImage}
+          onClick={async () => {
+            if (!(await session.flushPending())) {
+              session.setError('Finish or correct your pending edits before publishing.')
+              return
+            }
+            session.setDirty(false)
+            publish()
+          }}
+        >
+          Publish
+        </button>
+      )}
     </header>
   )
 }

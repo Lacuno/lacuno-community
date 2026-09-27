@@ -11,6 +11,8 @@ export type Snapshot = { document: Document; revision: number }
 export type DocumentSession = ReturnType<typeof useDocumentSession>
 
 type Options = {
+  /** A viewer's session: it reads and follows the site but never writes. */
+  readOnly?: boolean
   /** True while a text editor owns the document: undo, redo and the panels stay put. */
   blocked: boolean
   setPageId: (update: (current: string) => string) => void
@@ -18,7 +20,10 @@ type Options = {
 }
 
 /** The saved document, everything that writes to it and the undo history over it. */
-export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave }: Options) {
+export function useDocumentSession(
+  siteId: string,
+  { readOnly = false, blocked, setPageId, onLeave }: Options,
+) {
   const [snapshot, setSnapshot] = useState<Snapshot>()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -165,7 +170,7 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
     step?: HistoryEntry,
   ) {
     const batch = 'patches' in body ? body.patches : body.operations
-    if (!snapshot || conflict || inFlight.current || batch.length === 0) return false
+    if (readOnly || !snapshot || conflict || inFlight.current || batch.length === 0) return false
     inFlight.current = true
     autoFlight.current = action === 'auto'
     setBusy(true)
@@ -212,8 +217,8 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
   }
   const save = (operations: Operation[], action: 'edit' | 'auto' = 'edit') =>
     commit({ operations }, action)
-  const canUndo = !!snapshot && editHistory.undo.length > 0 && !frozen
-  const canRedo = !!snapshot && editHistory.redo.length > 0 && !frozen
+  const canUndo = !!snapshot && editHistory.undo.length > 0 && !frozen && !readOnly
+  const canRedo = !!snapshot && editHistory.redo.length > 0 && !frozen && !readOnly
   function travel(direction: 'undo' | 'redo') {
     if (!(direction === 'undo' ? canUndo : canRedo)) return
     const entry = editHistory[direction].at(-1)
@@ -257,7 +262,9 @@ export function useDocumentSession(siteId: string, { blocked, setPageId, onLeave
     saved,
     generation,
     unsettled,
-    frozen,
+    // Every editing control is disabled while frozen; a viewer's session always is.
+    frozen: frozen || readOnly,
+    readOnly,
     registerFlush,
     flushPending,
     onStale,

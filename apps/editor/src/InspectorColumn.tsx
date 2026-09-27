@@ -42,7 +42,7 @@ export function InspectorColumn({
   computed: { id: string; values: Record<string, string> }
   setLivePreview: (preview: LivePreview) => void
 }) {
-  const { doc, busy, conflict, generation, save, registerFlush, setDirty } = session
+  const { doc, busy, conflict, generation, save, registerFlush, setDirty, readOnly } = session
   if (inlineTarget && doc)
     return (
       <aside className="inspector">
@@ -66,7 +66,8 @@ export function InspectorColumn({
         </div>
       </aside>
     )
-  if (doc && doc.nodes[selected]?.type === 'component')
+  // A viewer reads the canvas and layers; the node inspectors only edit.
+  if (doc && !readOnly && doc.nodes[selected]?.type === 'component')
     return (
       <ComponentInstancePanel
         key={`${selected}-${generation}`}
@@ -84,7 +85,7 @@ export function InspectorColumn({
         detach={() => editing.setComponentDialog('detach')}
       />
     )
-  if (doc && selected && doc.nodes[selected])
+  if (doc && !readOnly && selected && doc.nodes[selected])
     return (
       <Inspector
         siteId={siteId}
