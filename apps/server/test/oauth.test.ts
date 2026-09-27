@@ -117,6 +117,7 @@ it('connects an app to one site through registration, consent and a PKCE token e
     userId: expect.any(String),
     siteId,
     clientId: client_id,
+    connectionId: expect.any(String),
     app: 'Claude Code',
   }
   expect(await server.oauth.verify(bearer, siteId)).toEqual(verified)
@@ -178,14 +179,23 @@ it('connects an app to one site through registration, consent and a PKCE token e
   expect(await server.oauth.verify(bearer, siteId)).toEqual(verified)
   sqlite.close()
 
-  // The connect panel lists the connection until it is revoked, which ends its tokens.
+  // The connect panel lists the connection, the token's consent, until it is revoked, which
+  // ends its tokens.
+  const { connectionId, userId } = (await server.oauth.verify(bearer, siteId))!
   expect(server.oauth.connections(siteId)).toEqual([
-    { id: client_id, app: 'Claude Code', approvedAt: expect.any(Number), lastActiveAt: null },
+    {
+      id: connectionId,
+      app: 'Claude Code',
+      clientId: client_id,
+      userId,
+      approvedAt: expect.any(Number),
+      lastActiveAt: null,
+    },
   ])
-  server.oauth.touch(client_id)
-  expect(server.oauth.connections(siteId)[0]!.lastActiveAt).toBeGreaterThan(0)
-  expect(await server.oauth.revoke(siteId, client_id)).toBe(true)
+  server.oauth.touch(connectionId)
+  const [connection] = server.oauth.connections(siteId)
+  expect(connection!.lastActiveAt).toBeGreaterThan(0)
+  await server.oauth.revoke(siteId, connection!)
   expect(await server.oauth.verify(bearer, siteId)).toBeNull()
   expect(server.oauth.connections(siteId)).toEqual([])
-  expect(await server.oauth.revoke(siteId, client_id)).toBe(false)
 })

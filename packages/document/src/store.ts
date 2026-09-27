@@ -105,9 +105,9 @@ export class DocumentStore {
     name: string
     mime: string
     bytes: Uint8Array
-    alt?: string
-    width?: number
-    height?: number
+    alt?: string | undefined
+    width?: number | undefined
+    height?: number | undefined
   }): Promise<AssetRef> {
     const hash = await hashAsset(input.bytes)
     await this.persistence.putAsset(input.bytes, hash)

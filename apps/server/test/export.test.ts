@@ -6,6 +6,9 @@ import type { AddressInfo } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { jwtVerify, SignJWT } from 'jose'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createServer, type ServerOptions } from '../src/app.js'
@@ -27,6 +30,7 @@ describe('export to the edge', () => {
   const files = new Map<string, Buffer>()
   const pointers = new Map<string, string>()
   const lists = new Map<string, string>()
+  const activity: unknown[] = []
   const log: string[] = []
   let failures: { match: RegExp; status: number; times: number } | undefined
   const sink = createHttpServer(async (request, response) => {
@@ -53,6 +57,7 @@ describe('export to the edge', () => {
     if (request.method === 'HEAD') return response.writeHead(files.has(key!) ? 200 : 404).end()
     if (key!.startsWith('pointer/')) pointers.set(key!.slice('pointer/'.length), body.toString())
     else if (key === 'assets') lists.set(siteId!, body.toString())
+    else if (key === 'activity') activity.push(JSON.parse(body.toString()))
     else files.set(key!, body)
     response.writeHead(204).end()
   })
@@ -130,6 +135,23 @@ describe('export to the edge', () => {
       secret: 'export-test-auth-secret-at-least-32-chars',
       templateDir: path.join(root, 'templates/lacuno'),
       gateway: { issuer, secret },
+      // One AI app, connected by the gateway's user, for every site.
+      oauth: {
+        verify: async (authorization, siteId) =>
+          authorization === 'Bearer agent-token'
+            ? {
+                userId: 'cloud-user-1',
+                siteId,
+                clientId: 'app-1',
+                connectionId: 'conn-1',
+                app: 'Test App',
+                user: 'Gateway owner',
+              }
+            : null,
+        connections: () => [],
+        revoke: async () => {},
+        touch: () => {},
+      },
     }
     server = await createServer(options)
     site = (await call('/api/sites', { name: 'Exported' })).id
@@ -315,6 +337,52 @@ describe('export to the edge', () => {
         'Storage is full. This workspace has used all the storage in its plan. Delete files you no longer need or upgrade the plan.',
     })
   })
+
+  it(
+    'tells Cloud what an AI app did for whoever connected it; its files meet the storage limit',
+    async () => {
+      const client = new Client({ name: 'Claude Code', version: '1.0.0' })
+      await client.connect(
+        new StreamableHTTPClientTransport(new URL(`${origin}/mcp/${site}`), {
+          requestInit: { headers: { authorization: 'Bearer agent-token' } },
+          fetch: async (url, init) => server.app.request(url, init),
+        }) as Transport,
+      )
+      const tool = async (name: string, args: Record<string, unknown> = {}) =>
+        JSON.parse(
+          ((await client.callTool({ name, arguments: args })).content as { text: string }[])[0]!
+            .text,
+        )
+      const { revision } = await tool('document.read')
+      const operations = [{ type: 'class.create', name: 'agent' }]
+      await tool('document.apply', { expectedRevision: revision, operations })
+      await tool('document.apply', { expectedRevision: revision + 1, operations })
+      // Edits count once an hour per session; a publish each time.
+      await expect(tool('site.publish')).resolves.toHaveProperty('url')
+      const by = { user: 'cloud-user-1', app: 'Claude Code' }
+      await expect
+        .poll(() => activity)
+        .toEqual([
+          { ...by, action: 'edited' },
+          { ...by, action: 'published' },
+        ])
+
+      // A full workspace takes no new file from an AI app either.
+      failures = { match: /^PUT asset\//, status: 507, times: 2 }
+      const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), randomBytes(64)])
+      expect(
+        await tool('asset.import', { name: 'full.png', data: png.toString('base64') }),
+      ).toEqual({
+        kind: 'input',
+        message: expect.stringContaining('Storage is full.'),
+      })
+      const { url } = await tool('asset.upload', { name: 'full.png' })
+      const answer = await server.app.request(url, { method: 'PUT', body: new Uint8Array(png) })
+      expect(answer.status).toBe(507)
+      await client.close()
+    },
+    build,
+  )
 
   it('sends a site’s asset list when a save changes it, retrying after a sink error', async () => {
     const created = await call('/api/sites', { name: 'Listed' })

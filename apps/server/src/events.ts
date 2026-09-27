@@ -1,6 +1,7 @@
 import type { Operation, Patch } from '@lacuno/document'
 
-export type Actor = { kind: 'editor' } | { kind: 'agent'; app: string }
+/** An agent's `user` is who connected it, named in gateway mode. */
+export type Actor = { kind: 'editor' } | { kind: 'agent'; app: string; user?: string }
 
 /** One committed batch on a site, as the editor's event stream and activity list see it. */
 export type SiteEvent = {

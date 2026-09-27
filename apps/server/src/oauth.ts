@@ -17,12 +17,26 @@ import { Hono } from 'hono'
 import { type GatewayOptions, signForCloud } from './gateway-auth.js'
 
 /** What a valid bearer token grants: one user, one site, from one registered app. */
-export type Verified = { userId: string; siteId: string; clientId: string; app: string }
+export type Verified = {
+  userId: string
+  siteId: string
+  clientId: string
+  /** The consent behind the token: the connection the editor lists. */
+  connectionId: string
+  app: string
+  /** In gateway mode, the name of the person who connected the app. */
+  user?: string | undefined
+}
 
 /** A consent a user gave an app for a site, as the connect panel lists it. */
 export type Connection = {
   id: string
   app: string
+  clientId: string
+  /** Who connected the app. */
+  userId: string
+  /** Their name, in gateway mode, where several people connect apps to one site. */
+  by?: string | undefined
   approvedAt: number
   lastActiveAt: number | null
 }
@@ -31,8 +45,8 @@ export type OAuth = {
   /** The grant behind an `Authorization` header for this site, or null when it is not valid. */
   verify(authorization: string | undefined, siteId: string): Promise<Verified | null>
   connections(siteId: string): Connection[]
-  /** Revoke one connection's tokens; true when it existed. */
-  revoke(siteId: string, id: string): Promise<boolean>
+  /** Revoke one connection and its tokens. */
+  revoke(siteId: string, connection: Connection): Promise<void>
   /** Record that a connection acted, for `lastActiveAt`. */
   touch(id: string): void
 }
@@ -105,17 +119,25 @@ async function anchor(adapter: AuthContext['adapter'], userId: string) {
 }
 
 /**
- * Fetches Client ID Metadata Documents through Cloud's relay, as a gateway runtime has no internet
- * access. A relay refusal throws, like the Node fetcher does for a private address.
+ * Fetches through Cloud's relay, as a gateway runtime has no internet access: Client ID Metadata
+ * Documents (`lacuno-cimd-relay`) or an AI app's files (`lacuno-file-relay`). A relay refusal
+ * throws its code, like the Node fetcher throws for a private address.
  */
-function relayFetch(relay: string, secret: string, issuer: string): ClientMetadataResourceFetch {
+export function relayFetch(
+  relay: string,
+  secret: string,
+  issuer: string,
+  audience: 'lacuno-cimd-relay' | 'lacuno-file-relay',
+): ClientMetadataResourceFetch {
   return async (input, init) => {
     const url = String(input)
-    const token = await signForCloud(secret, issuer, 'lacuno-cimd-relay', { url })
+    const token = await signForCloud(secret, issuer, audience, { url })
     const response = await fetch(relay, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
       body: JSON.stringify({ url }),
+      // A redirect the relay passes on is the caller's to check, never followed here.
+      redirect: 'manual',
       signal: init?.signal ?? null,
     })
     const refused = response.headers.get('x-lacuno-relay-error')
@@ -138,7 +160,7 @@ export function oauthPlugins({
   // registration alone.
   const fetchMetadata = !gateway
     ? fetchClientMetadataResource
-    : cimdRelay && relayFetch(cimdRelay, gateway.secret, origin)
+    : cimdRelay && relayFetch(cimdRelay, gateway.secret, origin, 'lacuno-cimd-relay')
   return [
     // Cast: its endpoint types trip exactOptionalPropertyTypes against BetterAuthPlugin.
     oauthProvider({
@@ -234,8 +256,21 @@ export function createOAuth(
   const app = sqlite.prepare<[string], { name: string | null }>(
     'SELECT name FROM oauthClient WHERE clientId = ?',
   )
-  const consents = sqlite.prepare<[string], { id: string; app: string | null; approvedAt: string }>(
-    'SELECT c.clientId AS id, k.name AS app, c.createdAt AS approvedAt FROM oauthConsent c JOIN oauthClient k ON k.clientId = c.clientId WHERE c.referenceId = ?',
+  const consents = sqlite.prepare<
+    [string],
+    {
+      id: string
+      app: string | null
+      clientId: string
+      userId: string
+      by: string
+      approvedAt: string
+    }
+  >(
+    'SELECT c.id, k.name AS app, c.clientId, c.userId, u.name AS by, c.createdAt AS approvedAt FROM oauthConsent c JOIN oauthClient k ON k.clientId = c.clientId JOIN user u ON u.id = c.userId WHERE c.referenceId = ?',
+  )
+  const consent = sqlite.prepare<[string, string, string], { id: string; by: string }>(
+    'SELECT c.id, u.name AS by FROM oauthConsent c JOIN user u ON u.id = c.userId WHERE c.clientId = ? AND c.userId = ? AND c.referenceId = ?',
   )
 
   const routes = new Hono()
@@ -288,26 +323,39 @@ export function createOAuth(
       )
         return null
       const clientId = String(payload.client_id)
-      return { userId: payload.sub, siteId, clientId, app: app.get(clientId)?.name ?? clientId }
+      // The consent is the connection the editor lists; without it the token grants nothing.
+      const connection = consent.get(clientId, payload.sub, siteId)
+      if (!connection) return null
+      return {
+        userId: payload.sub,
+        siteId,
+        clientId,
+        connectionId: connection.id,
+        app: app.get(clientId)?.name ?? clientId,
+        user: gateway ? connection.by : undefined,
+      }
     },
     connections: (siteId) =>
-      consents.all(siteId).map(({ id, app, approvedAt }) => ({
+      consents.all(siteId).map(({ id, app, clientId, userId, by, approvedAt }) => ({
         id,
-        app: app ?? id,
+        app: app ?? clientId,
+        clientId,
+        userId,
+        by: gateway ? by : undefined,
         approvedAt: new Date(approvedAt).getTime(),
         lastActiveAt: lastActive.get(id) ?? null,
       })),
-    async revoke(siteId, id) {
+    async revoke(siteId, { id, clientId, userId }) {
       const { adapter } = await context
+      await adapter.deleteMany({ model: 'oauthConsent', where: [{ field: 'id', value: id }] })
       const where = [
-        { field: 'clientId', value: id },
+        { field: 'clientId', value: clientId },
         { field: 'referenceId', value: siteId },
+        { field: 'userId', value: userId },
       ]
-      const removed = await adapter.deleteMany({ model: 'oauthConsent', where })
       for (const model of ['oauthAccessToken', 'oauthRefreshToken'])
         await adapter.updateMany({ model, where, update: { revoked: new Date() } })
       lastActive.delete(id)
-      return removed > 0
     },
     touch: (id) => void lastActive.set(id, Date.now()),
     async revokeUser(userId) {

@@ -66,16 +66,20 @@ only `content-type`, `cache-control`, `location`, `www-authenticate`, `mcp-sessi
 | `POST` | `/api/auth/oauth2/register` | Open dynamic registration, rate-limited per client IP |
 | `POST` | `/api/auth/oauth2/token`, `/api/auth/oauth2/revoke` | PKCE verifier, refresh token or the token itself |
 | `GET`, `POST`, `DELETE` | `/mcp/<site>` | Bearer token whose audience is that site |
+| `PUT` | `/mcp/<site>/upload/<token>` | A single-use address from the `asset.upload` tool, valid 10 minutes while its MCP session is open; the body is one file (at most 10 MB), the answer `201` with the asset, or `404`, `413`, `415` or `507` |
 
 **Browser routes.** The consent flow runs with an assertion like every other request, as the
 asserted user: `GET /api/auth/oauth2/authorize`, `GET /consent`, `GET /api/auth/oauth2/public-client`
 and `POST /api/auth/oauth2/consent` (same-origin JSON). The live editor uses
-`GET /api/sites/<id>/events` (server-sent events) and `DELETE /api/sites/<id>/connections/<app>`
-(Disconnect). Every other `/api/auth/*` route stays closed (403).
+`GET /api/sites/<id>/events` (server-sent events) and `DELETE /api/sites/<id>/connections/<id>`
+(Disconnect), which the runtime refuses (403) unless the asserted user connected that app or is the
+owner. Every other `/api/auth/*` route stays closed (403).
 
 **Who approves.** The runtime mirrors each asserted user into a local user row (email
 `<sub>@gateway.invalid`) that owns their consents and tokens, anchored to one session row per user
-that no browser holds. Every gateway user may connect every site of the instance.
+that no browser holds. Every gateway user may connect every site of the instance. Each consent is
+one connection: the editor lists it with that user's name, and names them with each batch their app
+applies ("Claude Code, via Anna").
 
 **Client IP.** Set `x-lacuno-client-ip` on every forwarded request, overwriting any value the client
 sent. The runtime's OAuth rate limits (register 5, token 20, authorize 30 per minute) key on it.
@@ -88,15 +92,22 @@ nothing left to revoke; 400 for an invalid body; 401 for a missing, invalid or r
 (conventionally `sub` `lacuno-cloud`), sent without an `Origin` header and never on behalf of a
 browser. The runtime refuses a `system` assertion (401) on every other route.
 
-**Client ID Metadata Documents.** A runtime without internet access fetches them through the relay
-in `LACUNO_CIMD_RELAY_URL`. Without it, gateway mode offers dynamic registration only and does not
-advertise `client_id_metadata_document_supported`. Each fetch is `POST <relay>` with
-`{"url":"https://…"}` and `authorization: Bearer <jwt>`, an HS256 JWT signed with the gateway
-secret whose claims are `iss` (the editor origin), `aud` `lacuno-cimd-relay`, `url` (the body's URL),
-`iat` and `exp` at most 30 seconds later. The relay answers with the upstream status, content type,
-cache control and body, never following redirects, or refuses with 400, 401, 429 or 502,
-`x-lacuno-relay-error: <code>` and `{"error":"<code>"}`; a refusal fails the app's authorization
-with `invalid_client`.
+**Client ID Metadata Documents and files.** A runtime without internet access fetches Client ID
+Metadata Documents, and the files an AI app imports by `url`, through the relay in
+`LACUNO_CIMD_RELAY_URL`. Without it, gateway mode offers dynamic registration only, does not
+advertise `client_id_metadata_document_supported`, and `asset.import` takes no `url`. Each fetch is
+`POST <relay>` with `{"url":"https://…"}` and `authorization: Bearer <jwt>`, an HS256 JWT signed
+with the gateway secret whose claims are `iss` (the editor origin), `aud` (`lacuno-cimd-relay` for a
+metadata document, `lacuno-file-relay` for a file), `url` (the body's URL), `iat` and `exp` at most
+30 seconds later. The relay fetches only public addresses over https on port 443, never following
+redirects, and answers with the upstream status, content type, cache control, location and body,
+or refuses with 400, 401, 429, 502 or 507, `x-lacuno-relay-error: <code>` and
+`{"error":"<code>"}`. A refusal fails an app's authorization with `invalid_client`. For a file the
+runtime follows at most 5 redirects, asking the relay for each, and stops at 10 MB and 30 seconds;
+the relay also refuses (`content_type`) a success that is not an image, video, font or
+`application/octet-stream`, and (`storage_full`, 507) any file while the workspace's storage is
+full. A self-hosted runtime without a gateway downloads directly with the same limits and address
+checks.
 
 **Export to an edge.** With `LACUNO_EXPORT_URL` set (it requires the gateway settings), the runtime
 copies every published release to that sink. After a build, before the release becomes ready, each
@@ -115,11 +126,14 @@ hashes, sorted, one per line, from an outbox retried with backoff until the sink
 counts the files a site lists as its workspace's storage. When an editor stores a newer thumbnail
 of a site (its home page's first screen, a 640×400 WebP or JPEG the editor draws in the browser),
 `PUT <export>/sites/<site>/thumbnail` sends the image before the request answers, and a failure
-fails that request, so the editor draws it again later. Every request carries
-`authorization: Bearer <jwt>`, signed like the relay's with `aud` `lacuno-export` and the claims `site`, `key` (as in the URL) and,
-for `PUT`, `sha256` (the body's lowercase hex SHA-256).
+fails that request, so the editor draws it again later. After an AI app publishes, and at most
+once an hour per MCP session after it changes the document, `PUT <export>/sites/<site>/activity`
+sends `{"user":"<sub>","app":"<app name>","action":"published"|"edited"}` for the person who
+connected it, once and best effort; the sink answers 204. Every request carries
+`authorization: Bearer <jwt>`, signed like the relay's with `aud` `lacuno-export` and the claims
+`site`, `key` (as in the URL) and, for `PUT`, `sha256` (the body's lowercase hex SHA-256).
 
 The proxy is a full trust boundary: anyone with its signing key can act as the managed owner. Protect
 and rotate keys deliberately, synchronize clocks and prevent direct public runtime access. This
-protocol is not OIDC, fine-grained authorization or per-user document attribution. Each workspace
+protocol is not OIDC, fine-grained authorization or per-user attribution of browser edits. Each workspace
 needs separate data and keys. Default local-owner behavior is unchanged when gateway mode is absent.

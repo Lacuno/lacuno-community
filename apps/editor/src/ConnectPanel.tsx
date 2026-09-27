@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { SignUpLink } from './App.js'
+import { type Role, SignUpLink } from './App.js'
 import { api, message, useConfig } from './api.js'
 import { ConnectIcon } from './ConnectIcon.js'
 import { type ConnectApp, connectApps } from './connectApps.js'
@@ -10,6 +10,10 @@ import './publishing.css'
 export type Connection = {
   id: string
   app: string
+  /** Behind a gateway, who connected the app. */
+  by?: string
+  /** The person asking connected it. */
+  mine: boolean
   approvedAt: number
   lastActiveAt: number | null
   /** An MCP session is open. */
@@ -50,12 +54,15 @@ export function connectionLabel(connections: Connection[]) {
 
 export function ConnectPanel({
   siteId,
+  role,
   connections,
   refresh,
   activity,
   close,
 }: {
   siteId: string
+  /** Everyone disconnects their own AI apps; the owner disconnects anyone's. */
+  role: Role
   connections: Connection[]
   refresh: () => Promise<void>
   activity: SiteEvent[]
@@ -167,7 +174,8 @@ export function ConnectPanel({
               </span>
             </div>
             <p className="hint">
-              Approved {time(item.approvedAt)} · Last active{' '}
+              Approved {time(item.approvedAt)}
+              {item.by && ` by ${item.by}`} · Last active{' '}
               {item.lastActiveAt ? time(item.lastActiveAt) : 'never'}
             </p>
             {confirm === item.id ? (
@@ -181,9 +189,11 @@ export function ConnectPanel({
                 </button>
               </div>
             ) : (
-              <button type="button" onClick={() => setConfirm(item.id)}>
-                Disconnect {item.app}
-              </button>
+              (role === 'owner' || item.mine) && (
+                <button type="button" onClick={() => setConfirm(item.id)}>
+                  Disconnect {item.app}
+                </button>
+              )
             )}
           </li>
         ))}
@@ -194,7 +204,13 @@ export function ConnectPanel({
         {activity.slice(0, 50).map((item) => (
           <li key={item.revision}>
             <div className="release-title">
-              <strong>{item.actor.kind === 'agent' ? item.actor.app : 'You'}</strong>
+              <strong>
+                {item.actor.kind === 'editor'
+                  ? 'You'
+                  : item.actor.user
+                    ? `${item.actor.app}, via ${item.actor.user}`
+                    : item.actor.app}
+              </strong>
               <time dateTime={new Date(item.at).toISOString()}>{time(item.at)}</time>
             </div>
             <p>{item.summary}</p>

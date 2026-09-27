@@ -1,13 +1,15 @@
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import type { DocumentStore } from '@lacuno/document'
-import { createServer } from '@lacuno/mcp'
+import type { ApplyResult, Batch, DocumentStore, Operation, stageUpload } from '@lacuno/document'
+import { type AssetDetails, createServer, InputError } from '@lacuno/mcp'
+import type { AssetRef } from '@lacuno/schema'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
+import { HTTPException } from 'hono/http-exception'
 import { type siteEvents, summarize } from './events.js'
 import type { OAuth } from './oauth.js'
 import type { Releases } from './releases.js'
@@ -23,24 +25,40 @@ export type McpDeps = {
   canPublish: (userId: string) => boolean
   /** The public origin; behind a gateway the request URL is an internal address. */
   origin: string
+  /** Checks and stores a file like an editor upload, returning the asset to register. */
+  stage: (siteId: string, name: string, bytes: Uint8Array) => ReturnType<typeof stageUpload>
+  /** Downloads an address for asset.import; absent where the runtime cannot reach the internet. */
+  fetchUrl: ((url: string) => Promise<Uint8Array>) | undefined
+  /** Tells Cloud what an AI app did, for the person who connected it; absent without Cloud. */
+  report: ((siteId: string, activity: Activity) => void) | undefined
 }
+
+/** What an AI app did, reported for the person who connected it. */
+export type Activity = { user: string; app: string; action: 'edited' | 'published' }
 
 type Session = {
   siteId: string
   connectionId: string
-  /** The user who approved the connection. */
+  /** The user who approved the connection, and in gateway mode their name. */
   userId: string
+  user: string | undefined
   /** The client's name from the MCP `initialize` handshake, until then the approved app name. */
   app: string
   /** The site's store as of the current request; a store holds the snapshot it loaded. */
   store: DocumentStore
   transport: WebStandardStreamableHTTPServerTransport
   expiry?: ReturnType<typeof setTimeout>
+  /** When `edited` was last reported. */
+  reported?: number
 }
 
 const IDLE_MS = 30 * 60_000
 const PUBLISH_MS = 120_000
+const UPLOAD_MS = 10 * 60_000
+const HOUR = 60 * 60_000
 const sessions = new Map<string, Session>()
+/** Single-use upload addresses by token: the session that asked for one and the file's details. */
+const uploads = new Map<string, { session: Session; details: AssetDetails; expires: number }>()
 
 /** Connection ids with an open MCP session on this site. */
 export function activeConnections(siteId: string): Set<string> {
@@ -79,6 +97,41 @@ async function publishTesting(releases: Releases, siteId: string, revision: numb
   throw new Error('The build is still running. Check the testing address later.')
 }
 
+/** A batch an AI app committed: to the editor's live view, and to Cloud at most once an hour. */
+function applied(deps: McpDeps, session: Session, batch: Batch, result: ApplyResult) {
+  deps.events.emit(session.siteId, {
+    revision: result.revision,
+    patches: result.patches,
+    actor: { kind: 'agent', app: session.app, ...(session.user && { user: session.user }) },
+    at: Date.now(),
+    summary: summarize(batch.operations, result.patches),
+  })
+  if (Date.now() - (session.reported ?? 0) < HOUR) return
+  session.reported = Date.now()
+  deps.report?.(session.siteId, { user: session.userId, app: session.app, action: 'edited' })
+}
+
+/** Checks an AI app's file like an editor upload, stores it and registers it in one batch. */
+async function importFile(
+  deps: McpDeps,
+  session: Session,
+  store: DocumentStore,
+  { bytes, ...details }: AssetDetails & { bytes: Uint8Array },
+): Promise<AssetRef> {
+  const { status, body } = await deps.stage(session.siteId, details.name, bytes)
+  if (status !== 200)
+    throw new HTTPException(status, { message: (body as { error: string }).error })
+  const asset = body as AssetRef
+  // A file the site has already comes back as it is.
+  if (store.read().document.assets[asset.id]) return asset
+  const operation = { type: 'asset.create', ...asset } as Operation
+  for (const [key, value] of Object.entries(details))
+    if (value !== undefined) Object.assign(operation, { [key]: value })
+  const batch = { expectedRevision: store.revision, operations: [operation] }
+  applied(deps, session, batch, await store.apply(batch))
+  return store.read().document.assets[asset.id] as AssetRef
+}
+
 /** MCP Streamable HTTP at `/:id`, one transport and server per session, behind OAuth. */
 export function mcpRoutes(deps: McpDeps): Hono {
   const app = new Hono()
@@ -97,7 +150,7 @@ export function mcpRoutes(deps: McpDeps): Hono {
       c.req.method === 'POST' ? await c.req.json().catch(() => undefined) : undefined
     const sessionId = c.req.header('mcp-session-id')
     let session = sessionId ? sessions.get(sessionId) : undefined
-    if (sessionId && (session?.siteId !== siteId || session.connectionId !== grant.clientId))
+    if (sessionId && (session?.siteId !== siteId || session.connectionId !== grant.connectionId))
       return c.json({ error: 'Session not found' }, 404)
     if (!session && !isInitializeRequest(body))
       return c.json({ error: 'Initialize a session first' }, 400)
@@ -107,8 +160,9 @@ export function mcpRoutes(deps: McpDeps): Hono {
       const { releases } = deps
       const created: Session = {
         siteId,
-        connectionId: grant.clientId,
+        connectionId: grant.connectionId,
         userId: grant.userId,
+        user: grant.user,
         app: grant.app,
         store,
         transport: new WebStandardStreamableHTTPServerTransport({
@@ -131,17 +185,29 @@ export function mcpRoutes(deps: McpDeps): Hono {
       const server = createServer(live, {
         assets: (hash) =>
           readFile(path.join(deps.dataDir, 'sites', siteId, 'assets', hash)).catch(() => undefined),
-        onApply: (batch, result) =>
-          deps.events.emit(siteId, {
-            revision: result.revision,
-            patches: result.patches,
-            actor: { kind: 'agent', app: created.app },
-            at: Date.now(),
-            summary: summarize(batch.operations, result.patches),
+        onApply: (batch, result) => applied(deps, created, batch, result),
+        importAsset: (asset) =>
+          importFile(deps, created, created.store, asset).catch((error) => {
+            throw error instanceof HTTPException ? new InputError(error.message) : error
           }),
+        ...(deps.fetchUrl && { fetchUrl: deps.fetchUrl }),
+        uploadUrl: (details) => {
+          const now = Date.now()
+          for (const [token, upload] of uploads) if (upload.expires < now) uploads.delete(token)
+          const token = randomBytes(32).toString('base64url')
+          uploads.set(token, { session: created, details, expires: now + UPLOAD_MS })
+          return {
+            url: `${deps.origin}/mcp/${siteId}/upload/${token}`,
+            expiresAt: new Date(now + UPLOAD_MS).toISOString(),
+          }
+        },
         ...(releases &&
           deps.canPublish(grant.userId) && {
-            publish: (name) => publishTesting(releases, siteId, created.store.revision, name),
+            publish: async (name) => {
+              const published = await publishTesting(releases, siteId, created.store.revision, name)
+              deps.report?.(siteId, { user: created.userId, app: created.app, action: 'published' })
+              return published
+            },
           }),
       })
       server.server.oninitialized = () => {
@@ -159,6 +225,28 @@ export function mcpRoutes(deps: McpDeps): Hono {
     if ((body as { method?: unknown } | undefined)?.method === 'tools/call')
       deps.oauth.touch(current.connectionId)
     return current.transport.handleRequest(c.req.raw, { parsedBody: body })
+  })
+  // An address from asset.upload takes one file, while the session that asked for it is open.
+  app.put('/:id/upload/:token', async (c) => {
+    const upload = uploads.get(c.req.param('token'))
+    uploads.delete(c.req.param('token'))
+    const session = upload?.session
+    if (
+      !upload ||
+      !session ||
+      upload.expires < Date.now() ||
+      session.siteId !== c.req.param('id') ||
+      !session.transport.sessionId ||
+      sessions.get(session.transport.sessionId) !== session
+    )
+      return c.json(
+        { error: 'This upload address is used or expired. Call asset.upload again.' },
+        404,
+      )
+    deps.oauth.touch(session.connectionId)
+    const bytes = new Uint8Array(await c.req.arrayBuffer())
+    const store = await deps.store(session.siteId)
+    return c.json(await importFile(deps, session, store, { ...upload.details, bytes }), 201)
   })
   return app
 }

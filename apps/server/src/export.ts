@@ -68,6 +68,21 @@ export async function exportThumbnail(options: ExportOptions, site: string, imag
 }
 
 /**
+ * Tells Cloud what an AI app did, for the person who connected it
+ * (`PUT <export>/sites/<site>/activity`). Best effort: the app's work never waits on it.
+ */
+export async function exportActivity(
+  options: ExportOptions,
+  site: string,
+  activity: { user: string; app: string; action: string },
+) {
+  const body = Buffer.from(JSON.stringify(activity))
+  const response = await send(options, 'PUT', site, 'activity', body).catch(() => undefined)
+  if (response?.status !== 204)
+    console.error(`Export sink answered ${response?.status ?? 'nothing'} for activity`)
+}
+
+/**
  * The hashes of the assets a document lists, sorted, one per line: the body of
  * `PUT <export>/sites/<site>/assets`, which tells Cloud the files the site uses now.
  */

@@ -33,6 +33,39 @@ describe('tools for a server without a site folder', () => {
     expect(jsonOf(byPath)).toMatchObject({ kind: 'input' })
   })
 
+  it("hands files to the endpoint's own import: downloaded, inline or by upload address", async () => {
+    const imported: unknown[] = []
+    const c = await connect(DocumentStore.inMemory(fixtureDocument()), {
+      fetchUrl: async (url) => new TextEncoder().encode(url),
+      importAsset: async (asset) => {
+        imported.push({ ...asset, bytes: Buffer.from(asset.bytes).toString() })
+        return { id: 'a-1', name: asset.name, kind: 'image', hash: 'h', mime: 'image/png', size: 1 }
+      },
+      uploadUrl: (asset) => ({
+        url: `https://editor.test/upload/${asset.name}`,
+        expiresAt: 'soon',
+      }),
+    })
+    close = c.close
+    const url = 'https://images.test/a.png'
+    await c.client.callTool({ name: 'asset.import', arguments: { name: 'a.png', url, alt: 'A' } })
+    await c.client.callTool({
+      name: 'asset.import',
+      arguments: { name: 'b.png', mime: 'text/html', data: Buffer.from('b').toString('base64') },
+    })
+    expect(imported).toEqual([
+      { name: 'a.png', alt: 'A', bytes: url },
+      { name: 'b.png', bytes: 'b' },
+    ])
+    const upload = await c.client.callTool({ name: 'asset.upload', arguments: { name: 'c.png' } })
+    expect(jsonOf(upload)).toEqual({ url: 'https://editor.test/upload/c.png', expiresAt: 'soon' })
+    const both = await c.client.callTool({
+      name: 'asset.import',
+      arguments: { name: 'd.png', url, data: 'ZA==' },
+    })
+    expect(jsonOf(both)).toMatchObject({ kind: 'input' })
+  })
+
   it('offers site.publish instead of site.build and reports committed batches', async () => {
     const names: (string | undefined)[] = []
     const applied: [Batch, ApplyResult][] = []

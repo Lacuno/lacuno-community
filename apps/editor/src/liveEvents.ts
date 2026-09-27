@@ -6,7 +6,8 @@ import { committedHistory, type EditHistory } from './history.js'
 export type SiteEvent = {
   revision: number
   patches: Patch[]
-  actor: { kind: 'editor' } | { kind: 'agent'; app: string }
+  /** An agent's `user` is who connected it, named behind a gateway. */
+  actor: { kind: 'editor' } | { kind: 'agent'; app: string; user?: string }
   at: number
   summary: string
 }

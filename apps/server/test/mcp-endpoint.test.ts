@@ -24,14 +24,23 @@ let touched: string[] = []
 const oauth: OAuth = {
   verify: async (authorization, site) =>
     authorization === token && !revoked
-      ? { userId: 'u', siteId: site, clientId: 'conn-1', app: 'Test App' }
+      ? { userId: 'u', siteId: site, clientId: 'app-1', connectionId: 'conn-1', app: 'Test App' }
       : null,
   connections: () =>
-    revoked ? [] : [{ id: 'conn-1', app: 'Test App', approvedAt: 1, lastActiveAt: null }],
-  revoke: async (_, id) => {
-    if (id !== 'conn-1' || revoked) return false
+    revoked
+      ? []
+      : [
+          {
+            id: 'conn-1',
+            app: 'Test App',
+            clientId: 'app-1',
+            userId: 'u',
+            approvedAt: 1,
+            lastActiveAt: null,
+          },
+        ],
+  revoke: async () => {
     revoked = true
-    return true
   },
   touch: (id) => {
     touched.push(id)
@@ -54,6 +63,12 @@ async function connect() {
   )
   return client
 }
+
+/** The start of a PNG, which is what an upload's type is told by. */
+const png = Buffer.concat([
+  Buffer.from('89504e470d0a1a0a', 'hex'),
+  Buffer.from('rest of the image'),
+])
 
 const json = <T>(result: Awaited<ReturnType<Client['callTool']>>) =>
   JSON.parse((result.content as { text: string }[])[0]!.text) as T
@@ -161,15 +176,71 @@ describe('the remote MCP endpoint', () => {
     )
     expect(read.revision).toBe(revision + 2)
 
-    const asset = json<{ hash: string; size: number }>(
+    const asset = json<{ hash: string; size: number; mime: string }>(
       await client.callTool({
         name: 'asset.import',
-        arguments: { name: 'note.txt', mime: 'text/plain', data: 'aGVsbG8=' },
+        arguments: { name: 'dot.png', data: png.toString('base64') },
       }),
     )
-    expect(asset.size).toBe(5)
+    expect(asset).toMatchObject({ size: png.length, mime: 'image/png' })
     expect(existsSync(path.join(dataDir, 'sites', siteId, 'assets', asset.hash))).toBe(true)
     await client.close()
+  })
+
+  it('imports files like editor uploads: by download or through a single-use address', async () => {
+    const client = await connect()
+    const tool = async (name: string, args: Record<string, unknown>) =>
+      json<Record<string, unknown>>(await client.callTool({ name, arguments: args }))
+    // A declared type does not count: the bytes are checked like an upload in the editor.
+    expect(
+      await tool('asset.import', {
+        name: 'page.html',
+        mime: 'image/png',
+        data: Buffer.from('<script>').toString('base64'),
+      }),
+    ).toMatchObject({ kind: 'input', message: expect.stringContaining('Choose a PNG') })
+    // Downloads reach only public https addresses.
+    for (const [url, why] of [
+      ['https://127.0.0.1/a.png', 'it is not a public address'],
+      ['https://localhost/a.png', 'it is not a public address'],
+      ['http://example.com/a.png', 'is not an https address'],
+    ])
+      expect(await tool('asset.import', { name: 'a.png', url })).toMatchObject({
+        kind: 'input',
+        message: expect.stringContaining(why!),
+      })
+
+    const events: SiteEvent[] = []
+    const unsubscribe = siteEvents.subscribe(siteId, (event) => events.push(event))
+    const upload = await tool('asset.upload', { name: 'photo.png', alt: 'A photo' })
+    expect(upload).toEqual({
+      url: expect.stringMatching(new RegExp(`^${origin}/mcp/${siteId}/upload/[\\w-]{43}$`)),
+      expiresAt: expect.any(String),
+    })
+    const put = (url: string, body: Buffer = png) =>
+      server.app.request(url, { method: 'PUT', body: new Uint8Array(body) })
+    const answer = await put(upload.url as string)
+    expect(answer.status).toBe(201)
+    const asset = (await answer.json()) as { id: string; hash: string }
+    expect(asset).toMatchObject({ name: 'photo.png', alt: 'A photo', mime: 'image/png' })
+    const { document } = (await (await request(`/api/sites/${siteId}/document`)).json()) as {
+      document: { assets: Record<string, unknown> }
+    }
+    expect(document.assets[asset.id]).toEqual(asset)
+    unsubscribe()
+    expect(events).toEqual([
+      expect.objectContaining({ actor: { kind: 'agent', app: 'Test Agent' } }),
+    ])
+    // Each address takes one file, for its own site, while its session is open.
+    expect((await put(upload.url as string)).status).toBe(404)
+    const text = await tool('asset.upload', { name: 'note.txt' })
+    expect((await put(text.url as string, Buffer.from('hello'))).status).toBe(415)
+    const other = await tool('asset.upload', { name: 'other.png' })
+    expect((await put((other.url as string).replace(siteId, 'another-site'))).status).toBe(404)
+    const late = await tool('asset.upload', { name: 'late.png' })
+    await (client.transport as StreamableHTTPClientTransport).terminateSession()
+    await client.close()
+    expect((await put(late.url as string)).status).toBe(404)
   })
 
   it("screenshots a page from the site's stored assets", async () => {
@@ -189,7 +260,14 @@ describe('the remote MCP endpoint', () => {
     const client = await connect()
     const list = async () => (await request(`/api/sites/${siteId}/connections`)).json()
     expect(await list()).toEqual([
-      { id: 'conn-1', app: 'Test App', approvedAt: 1, lastActiveAt: null, active: true },
+      {
+        id: 'conn-1',
+        app: 'Test App',
+        approvedAt: 1,
+        lastActiveAt: null,
+        mine: false,
+        active: true,
+      },
     ])
     const sessionId = (client.transport as StreamableHTTPClientTransport).sessionId!
     const remove = (id: string) =>

@@ -54,9 +54,13 @@ from a repository without a server, and for building templates.
 - **Looking.** `page.preview` returns a route's HTML as published, or its visible text with node
   ids; `page.screenshot` returns a PNG of a route or a node through an optional Playwright
   Chromium; `document.diff` summarises a dry-run batch or the changes since another document.
-- **Assets and publishing.** `asset.import` uploads a file; `site.build` builds a folder over
-  stdio, and over the connected endpoint `site.publish` builds to the testing origin so the agent
-  can show its result.
+- **Assets and publishing.** Files never have to pass through the model: `asset.import` takes a
+  public https `url` the server downloads, a `path` in the site folder over stdio, or base64
+  `data` for tiny files; over the connected endpoint, `asset.upload` returns a single-use address,
+  valid 10 minutes, that an app with a shell PUTs the file to (`curl -T`). The connected endpoint
+  checks every file like an editor upload (type by its first bytes, 10 MB) and registers it as a
+  batch the canvas shows. `site.build` builds a folder over stdio, and over the connected endpoint
+  `site.publish` builds to the testing origin so the agent can show its result.
 - **Bindings.** A node attribute, a bound text value and a component prop each hold a binding:
   `static`, `field`, `designToken`, `asset`, `prop` or `page`. A `page` binding names a page id and
   compiles to that page's path, so a link survives a path change; deleting a referenced page is
@@ -101,7 +105,8 @@ contrast, a `pricing` section that breaks at tablet width. An agent runs it befo
 
 - Every tool call is logged with the connected app, the user who connected it and the resulting
   diff, and shows up in the editor's activity list.
-- Connections are per site and revocable from the editor. A token only ever grants one site.
+- Connections are per site and revocable from the editor: by whoever connected the app, or by the
+  workspace owner. A token only ever grants one site.
 - Agents cannot change permissions, invite users, delete sites or publish to production. Those
   are human-only actions and are not exposed as tools.
 - Rate limits per connection.

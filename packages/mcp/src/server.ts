@@ -8,7 +8,7 @@ import {
   type DocumentStore,
   type Operation,
 } from '@lacuno/document'
-import { Document, type Node, parseDocument } from '@lacuno/schema'
+import { type AssetRef, Document, type Node, parseDocument } from '@lacuno/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { diffDocuments, formatDiff } from './diff.js'
@@ -26,6 +26,14 @@ import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
 import { pngSize, type ReadAsset, screenshot } from './screenshot.js'
 
+/** What an imported file is called and described as. */
+export type AssetDetails = {
+  name: string
+  alt?: string | undefined
+  width?: number | undefined
+  height?: number | undefined
+}
+
 export type ServerOptions = {
   siteDir?: string
   /** Reads an asset's bytes for screenshots when they are not in `siteDir`. */
@@ -34,6 +42,15 @@ export type ServerOptions = {
   onApply?: (batch: Batch, result: ApplyResult) => void
   /** Publishes the draft to the testing target; replaces `site.build` with `site.publish`. */
   publish?: (name: string | undefined) => Promise<{ url: string }>
+  /**
+   * The connected endpoint's import, which checks a file like an editor upload. Without it,
+   * asset.import stores the bytes as the declared `mime`, as a site folder's author means them.
+   */
+  importAsset?: (asset: AssetDetails & { bytes: Uint8Array }) => Promise<AssetRef>
+  /** Downloads a public https address; asset.import then takes `url`. */
+  fetchUrl?: (url: string) => Promise<Uint8Array>
+  /** A single-use address the client can PUT one file to; offers asset.upload. */
+  uploadUrl?: (asset: AssetDetails) => { url: string; expiresAt: string }
 }
 
 /**
@@ -144,48 +161,65 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
   )
 
+  const details = {
+    name: z.string().min(1),
+    alt: z.string().optional(),
+    width: z.number().int().positive().optional(),
+    height: z.number().int().positive().optional(),
+  }
   server.registerTool(
     'asset.import',
     {
       description:
-        'Import an asset from a file path or base64 data; returns the asset reference. path is relative to the site folder and must stay inside it.',
+        'Import a file and return the asset reference. Pass one of: url, a public https address the server downloads; path, relative to the site folder and inside it; data, base64 (small files only: every byte costs tokens). For a local file on a connected site, use asset.upload instead.',
       inputSchema: {
-        name: z.string().min(1),
-        mime: z.string().min(1),
+        ...details,
+        mime: z.string().min(1).optional(),
+        url: z.string().optional(),
         path: z.string().optional(),
         data: z.string().optional(),
-        alt: z.string().optional(),
-        width: z.number().int().positive().optional(),
-        height: z.number().int().positive().optional(),
       },
     },
-    async ({ name, mime, path: file, data, alt, width, height }) => {
+    async ({ mime, url, path: file, data, ...asset }) => {
       try {
-        if ((file === undefined) === (data === undefined))
-          throw new InputError('pass exactly one of path or data')
+        if ([url, file, data].filter((source) => source !== undefined).length !== 1)
+          throw new InputError('pass exactly one of url, path or data')
         let bytes: Uint8Array
-        if (file !== undefined) {
+        if (url !== undefined) {
+          if (!options.fetchUrl) throw new InputError('this server does not download addresses')
+          bytes = await options.fetchUrl(url)
+        } else if (file !== undefined) {
           bytes = new Uint8Array(await readFile(await insideSite(options.siteDir, file)))
         } else {
           bytes = new Uint8Array(Buffer.from(data as string, 'base64'))
         }
-        const maxBytes = 20 * 1024 * 1024
-        if (bytes.byteLength > maxBytes) throw new InputError('asset larger than 20 MB')
-        return ok(
-          await store.importAsset({
-            name,
-            mime,
-            bytes,
-            ...(alt !== undefined ? { alt } : {}),
-            ...(width !== undefined ? { width } : {}),
-            ...(height !== undefined ? { height } : {}),
-          }),
-        )
+        if (options.importAsset) return ok(await options.importAsset({ ...asset, bytes }))
+        if (mime === undefined) throw new InputError("pass the file's mime type")
+        if (bytes.byteLength > 20 * 1024 * 1024) throw new InputError('asset larger than 20 MB')
+        return ok(await store.importAsset({ ...asset, mime, bytes }))
       } catch (e) {
         return fail(e)
       }
     },
   )
+
+  const { uploadUrl } = options
+  if (uploadUrl)
+    server.registerTool(
+      'asset.upload',
+      {
+        description:
+          "For a file on your machine: returns a single-use https address, valid 10 minutes. PUT the file to it, for example `curl -sS -T photo.jpg '<url>'`; the answer is the asset reference.",
+        inputSchema: details,
+      },
+      async (asset) => {
+        try {
+          return ok(uploadUrl(asset))
+        } catch (e) {
+          return fail(e)
+        }
+      },
+    )
 
   const { publish } = options
   if (publish)

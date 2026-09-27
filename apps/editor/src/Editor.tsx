@@ -143,6 +143,7 @@ export function Editor({
       {connectOpen && (
         <ConnectPanel
           siteId={siteId}
+          role={role}
           connections={connections}
           refresh={refreshConnections}
           activity={session.activity}

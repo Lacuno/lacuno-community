@@ -22,10 +22,11 @@ import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { type SiteEvent, siteEvents, summarize } from './events.js'
-import { exportAsset, exportThumbnail } from './export.js'
+import { exportActivity, exportAsset, exportThumbnail } from './export.js'
+import { fetchFile } from './fetch-file.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
-import { createOAuth, gatewayUser, type OAuth, oauthPlugins } from './oauth.js'
+import { createOAuth, gatewayUser, type OAuth, oauthPlugins, relayFetch } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
 import { SqlitePersistence } from './persistence.js'
 import { publishedApp } from './published.js'
@@ -89,7 +90,8 @@ function thumbnailType(image: Buffer) {
 const anonymous = (method: string, path: string) =>
   (method === 'GET' && path.startsWith('/.well-known/')) ||
   (method === 'POST' && /^\/api\/auth\/oauth2\/(register|token|revoke)$/.test(path)) ||
-  (['GET', 'POST', 'DELETE'].includes(method) && /^\/mcp\/[^/]+$/.test(path))
+  (['GET', 'POST', 'DELETE'].includes(method) && /^\/mcp\/[^/]+$/.test(path)) ||
+  (method === 'PUT' && /^\/mcp\/[^/]+\/upload\/[^/]+$/.test(path))
 
 export async function createServer(options: ServerOptions) {
   if (options.secret.length < 32) throw new Error('Auth secret must contain at least 32 characters')
@@ -377,8 +379,21 @@ export async function createServer(options: ServerOptions) {
       if (!site) return c.json({ error: 'Site not found' }, 404)
       await next()
     })
-    const store = (id: string) =>
-      DocumentStore.withPersistence(new SqlitePersistence(db, id, options.dataDir, exportOptions))
+    const persistence = (id: string) =>
+      new SqlitePersistence(db, id, options.dataDir, exportOptions)
+    const store = (id: string) => DocumentStore.withPersistence(persistence(id))
+    const stage = async (id: string, name: string, bytes: Uint8Array) =>
+      stageUpload((await store(id)).read().document, persistence(id), name, bytes)
+    // A gateway runtime has no internet access: it downloads through Cloud's relay, or not at all.
+    const { cimdRelay } = options
+    const download = !options.gateway
+      ? fetchFile
+      : cimdRelay &&
+        ((url: string) =>
+          fetchFile(
+            url,
+            relayFetch(cimdRelay, options.gateway!.secret, origin, 'lacuno-file-relay'),
+          ))
     app.route(
       '/mcp',
       mcpRoutes({
@@ -390,20 +405,43 @@ export async function createServer(options: ServerOptions) {
         origin,
         // Behind a gateway, only the owner's AI apps publish.
         canPublish: (userId) => !gateway || gateway.role(userId) === 'owner',
+        stage,
+        fetchUrl: download || undefined,
+        report:
+          exportOptions && ((site, activity) => void exportActivity(exportOptions, site, activity)),
       }),
     )
+    // Who is asking: behind a gateway its user, otherwise the owner.
+    const caller = (c: { get: (key: 'gatewayUser' | 'userId') => unknown }) =>
+      (c.get('gatewayUser') as { id: string; role: string } | undefined) ?? {
+        id: c.get('userId') as string,
+        role: 'owner',
+      }
     app.get('/api/sites/:id/connections', (c) => {
       const active = activeConnections(c.req.param('id'))
+      const { id } = caller(c)
       return c.json(
-        oauth
-          .connections(c.req.param('id'))
-          .map((connection) => ({ ...connection, active: active.has(connection.id) })),
+        oauth.connections(c.req.param('id')).map(({ clientId: _, userId, ...connection }) => ({
+          ...connection,
+          mine: userId === id,
+          active: active.has(connection.id),
+        })),
       )
     })
+    // Everyone may disconnect the AI apps they connected; only the owner disconnects others'.
     app.delete('/api/sites/:id/connections/:cid', async (c) => {
-      if (!(await oauth.revoke(c.req.param('id'), c.req.param('cid'))))
-        return c.json({ error: 'Connection not found' }, 404)
-      await closeSessions(c.req.param('id'), c.req.param('cid'))
+      const connection = oauth
+        .connections(c.req.param('id'))
+        .find((item) => item.id === c.req.param('cid'))
+      if (!connection) return c.json({ error: 'Connection not found' }, 404)
+      const { id, role } = caller(c)
+      if (role !== 'owner' && connection.userId !== id)
+        return c.json(
+          { error: 'Only the workspace owner can disconnect someone else’s AI app' },
+          403,
+        )
+      await oauth.revoke(c.req.param('id'), connection)
+      await closeSessions(c.req.param('id'), connection.id)
       return c.body(null, 204)
     })
     app.get('/api/sites/:id/releases', (c) =>
@@ -483,10 +521,8 @@ export async function createServer(options: ServerOptions) {
     app.post('/api/sites/:id/assets/upload', async (c) => {
       const input = UploadInput.safeParse(await c.req.json().catch(() => null))
       if (!input.success) return c.json({ error: 'Invalid upload' }, 400)
-      const { document } = (await store(c.req.param('id'))).read()
-      const { status, body } = await stageUpload(
-        document,
-        new SqlitePersistence(db, c.req.param('id'), options.dataDir, exportOptions),
+      const { status, body } = await stage(
+        c.req.param('id'),
         input.data.name,
         Buffer.from(input.data.data, 'base64'),
       )

@@ -10,9 +10,10 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import Database from 'better-sqlite3'
-import { jwtVerify, SignJWT } from 'jose'
+import { decodeJwt, jwtVerify, SignJWT } from 'jose'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createServer } from '../src/app.js'
+import { type SiteEvent, siteEvents } from '../src/events.js'
 
 const root = fileURLToPath(new URL('../../../', import.meta.url))
 const issuer = 'http://cloud.localhost:4000'
@@ -204,21 +205,33 @@ describe('connecting an AI app through the gateway', () => {
   let server: Awaited<ReturnType<typeof createServer>>
   let siteId = ''
   let resource = ''
-  // A fake Cloud relay: it checks the relay token and serves one stored metadata document.
+  // A fake Cloud relay: it checks the relay token and serves one stored metadata document, and
+  // for AI apps' files a redirect to one image.
   const relayCalls: { url: string; valid: boolean }[] = []
+  const fileCalls: string[] = []
+  const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.from('image')])
   const relay = createHttpServer(async (request, response) => {
     let body = ''
     for await (const chunk of request) body += chunk
     const { url } = JSON.parse(body) as { url: string }
-    const valid = await jwtVerify(
-      request.headers.authorization?.replace(/^Bearer /, '') ?? '',
-      new TextEncoder().encode(secret),
-      { algorithms: ['HS256'], issuer: origin, audience: 'lacuno-cimd-relay', maxTokenAge: 30 },
-    ).then(
+    const token = request.headers.authorization?.replace(/^Bearer /, '') ?? ''
+    const audience = String(decodeJwt(token).aud)
+    const valid = await jwtVerify(token, new TextEncoder().encode(secret), {
+      algorithms: ['HS256'],
+      issuer: origin,
+      audience: ['lacuno-cimd-relay', 'lacuno-file-relay'],
+      maxTokenAge: 30,
+    }).then(
       ({ payload }) => payload.url === url && payload.exp! - payload.iat! <= 30,
       () => false,
     )
-    relayCalls.push({ url, valid })
+    if (valid && audience === 'lacuno-file-relay') {
+      fileCalls.push(url)
+      if (url === 'https://images.example/photo')
+        return response.writeHead(302, { location: '/photo.png' }).end()
+      if (url === 'https://images.example/photo.png')
+        return response.writeHead(200, { 'content-type': 'image/png' }).end(png)
+    } else relayCalls.push({ url, valid })
     if (valid && url === documentURL)
       return response
         .writeHead(200, {
@@ -457,6 +470,72 @@ describe('connecting an AI app through the gateway', () => {
     } finally {
       sqlite.close()
     }
+  })
+
+  it('names who connected each AI app, and lets editors disconnect only their own', async () => {
+    const registered = await register('198.51.100.5')
+    const { client_id } = (await registered.json()) as { client_id: string }
+    const redirect = 'http://127.0.0.1:43126/callback'
+    const owner = { sub: 'cloud-owner-5', name: 'Olga Owner', role: 'owner' }
+    const editor = { sub: 'cloud-editor-5', name: 'Anna', role: 'editor' }
+    const session = async (as: object) => {
+      const token = await connect(client_id, redirect, as)
+      const client = new Client({ name: 'Claude Code', version: '1.0.0' })
+      await client.connect(
+        new StreamableHTTPClientTransport(new URL(resource), {
+          requestInit: { headers: { authorization: `Bearer ${token}` } },
+          fetch: async (url, init) => server.app.request(url, init),
+        }) as Transport,
+      )
+      return client
+    }
+    const ownerApp = await session(owner)
+    const editorApp = await session(editor)
+
+    // The editor's app downloads a file through the relay, which it asks for each redirect.
+    const events: SiteEvent[] = []
+    const unsubscribe = siteEvents.subscribe(siteId, (event) => events.push(event))
+    const imported = await editorApp.callTool({
+      name: 'asset.import',
+      arguments: { name: 'photo.png', url: 'https://images.example/photo' },
+    })
+    unsubscribe()
+    expect(JSON.parse((imported.content as { text: string }[])[0]!.text)).toMatchObject({
+      name: 'photo.png',
+      mime: 'image/png',
+      size: png.length,
+    })
+    expect(fileCalls).toEqual(['https://images.example/photo', 'https://images.example/photo.png'])
+    expect(events).toEqual([
+      expect.objectContaining({ actor: { kind: 'agent', app: 'Claude Code', user: 'Anna' } }),
+    ])
+
+    const list = async (as: object) =>
+      (await (await call(`/api/sites/${siteId}/connections`, { as })).json()) as {
+        id: string
+        by: string
+        mine: boolean
+        active: boolean
+      }[]
+    const mine = (await list(editor)).filter((item) => ['Olga Owner', 'Anna'].includes(item.by))
+    expect(mine).toEqual([
+      expect.objectContaining({ by: 'Olga Owner', mine: false, active: true }),
+      expect.objectContaining({ by: 'Anna', mine: true, active: true }),
+    ])
+    const [ownerConnection, editorConnection] = mine
+    const disconnect = (id: string, as: object) =>
+      call(`/api/sites/${siteId}/connections/${id}`, { method: 'DELETE', headers: json, as })
+    expect((await disconnect(ownerConnection!.id, editor)).status).toBe(403)
+    expect((await disconnect(editorConnection!.id, editor)).status).toBe(204)
+    const read = (client: Client) => client.callTool({ name: 'document.read', arguments: {} })
+    await expect(read(editorApp)).rejects.toThrow()
+    expect((await read(ownerApp)).isError).not.toBe(true)
+    // The owner disconnects anyone's.
+    const again = await session(editor)
+    const [renewed] = (await list(owner)).filter((item) => item.by === 'Anna')
+    expect((await disconnect(renewed!.id, owner)).status).toBe(204)
+    await expect(read(again)).rejects.toThrow()
+    await ownerApp.close()
   })
 
   it('gives each Cloud user their own mirror row and consent', async () => {
