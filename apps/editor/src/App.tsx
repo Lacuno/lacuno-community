@@ -3,6 +3,8 @@ import { ApiError, api, message, useConfig } from './api.js'
 import { Consent } from './Consent.js'
 import { Editor } from './Editor.js'
 
+const logo = new URL('./logo.svg', import.meta.url).href
+
 type User = { name: string; email: string }
 type Site = { id: string; name: string; revision: number }
 
@@ -18,7 +20,8 @@ export function SignUpLink() {
 export function Brand() {
   return (
     <span className="brand">
-      <span className="brand-mark">l</span>lacuno<span className="badge">EARLY ACCESS</span>
+      <img className="brand-logo" src={logo} width={123} height={30} alt="Lacuno" />
+      <span className="badge">EARLY ACCESS</span>
     </span>
   )
 }
