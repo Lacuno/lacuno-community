@@ -1,11 +1,17 @@
-import type { State } from '@lacuno/schema'
+import type { Page, State } from '@lacuno/schema'
+import { lazy, Suspense } from 'react'
 import { editingBreakpoint } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { ComponentInstancePanel } from './ComponentsPanel.js'
 import { EditorIcon } from './EditorIcon.js'
+import type { InlineTarget } from './InlineTextEditor.js'
 import { Inspector } from './Inspector.js'
 import type { DocumentSession } from './session.js'
 import type { ComponentEditing } from './useComponentEditing.js'
+
+const InlineTextEditor = lazy(() =>
+  import('./InlineTextEditor.js').then((module) => ({ default: module.InlineTextEditor })),
+)
 
 export function InspectorColumn({
   session,
@@ -14,9 +20,11 @@ export function InspectorColumn({
   selected,
   width,
   state,
-  editingText,
-  ribbonHost,
-  ribbonGroup,
+  inlineTarget,
+  setInlineTarget,
+  page,
+  openPageSettings,
+  clearSelection,
   computed,
   setLivePreview,
 }: {
@@ -26,19 +34,36 @@ export function InspectorColumn({
   selected: string
   width: number
   state: State
-  editingText: boolean
-  ribbonHost: HTMLDivElement | null
-  ribbonGroup: string
+  inlineTarget: InlineTarget | undefined
+  setInlineTarget: (target: InlineTarget | undefined) => void
+  page: Page | undefined
+  openPageSettings: () => void
+  clearSelection: () => void
   computed: { id: string; values: Record<string, string> }
   setLivePreview: (preview: LivePreview) => void
 }) {
   const { doc, busy, conflict, generation, save, registerFlush, setDirty } = session
-  if (editingText)
+  if (inlineTarget && doc)
     return (
-      <aside className="inspector inspector-empty">
-        <h2>Editing text</h2>
-        <p>Select words on the canvas, then use Home to format them or add a link.</p>
-        <p>Done saves your text. Cancel discards this editing session.</p>
+      <aside className="inspector">
+        <div className="selection-heading">
+          <EditorIcon name="text" />
+          <strong>Editing text</strong>
+        </div>
+        <div className="inspector-body">
+          <Suspense fallback={<p className="hint">Opening text editor…</p>}>
+            <InlineTextEditor
+              breakpoint={editingBreakpoint(doc, width)}
+              target={inlineTarget}
+              doc={doc}
+              disabled={busy || conflict}
+              save={save}
+              close={() => setInlineTarget(undefined)}
+              registerFlush={registerFlush}
+              dirtyChanged={setDirty}
+            />
+          </Suspense>
+        </div>
       </aside>
     )
   if (doc && doc.nodes[selected]?.type === 'component')
@@ -66,8 +91,7 @@ export function InspectorColumn({
         key={`${selected}-${generation}-${editingBreakpoint(doc, width)}-${state}`}
         breakpoint={editingBreakpoint(doc, width)}
         state={state}
-        ribbonHost={ribbonHost}
-        ribbonGroup={ribbonGroup}
+        clearSelection={clearSelection}
         doc={doc}
         node={doc.nodes[selected]}
         computed={computed.id === selected ? computed.values : {}}
@@ -81,16 +105,33 @@ export function InspectorColumn({
       />
     )
   return (
-    <aside className="inspector">
+    <aside className="inspector page-inspector">
       <div className="selection-heading">
-        <strong>Design</strong>
+        <EditorIcon name="page" />
+        <strong>{page?.name ?? 'Page'}</strong>
+        <span className="element-badge">PAGE</span>
       </div>
-      <div className="inspector-empty">
-        <span className="empty-selection-icon">
+      <div className="inspector-body">
+        <section className="page-context">
+          <dl>
+            <div>
+              <dt>Path</dt>
+              <dd>{page?.path ?? '/'}</dd>
+            </div>
+            <div>
+              <dt>Language</dt>
+              <dd>{page?.lang ?? doc?.site.locale ?? '—'}</dd>
+            </div>
+          </dl>
+          <button type="button" disabled={!page || session.frozen} onClick={openPageSettings}>
+            <EditorIcon name="settings" />
+            Page settings
+          </button>
+        </section>
+        <p className="selection-hint">
           <EditorIcon name="layer" />
-        </span>
-        <h2>Make it yours.</h2>
-        <p>Select an element on the canvas or in the layers to make it yours.</p>
+          Select an element on the canvas or in Layers to edit its properties.
+        </p>
       </div>
     </aside>
   )

@@ -6,7 +6,7 @@ it('clears the selection on a click in the empty canvas space, not on panel cont
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   const selectedCount = () => canvas.locator('[data-lacuno-selected]').count()
-  const emptyInspector = () => page.locator('.inspector-empty').count()
+  const emptyInspector = () => page.locator('.page-inspector').count()
   // The workspace's left padding is empty canvas space next to the iframe.
   const clickBackground = async () => {
     const box = (await page.locator('.canvas-workspace').boundingBox())!

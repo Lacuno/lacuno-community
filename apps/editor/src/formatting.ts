@@ -64,6 +64,11 @@ export const formattingGroups = [
         label: 'Grid columns',
         hint: 'e.g. repeat(3, minmax(0, 1fr))',
       },
+    ],
+  },
+  {
+    name: 'Size',
+    fields: [
       { property: 'width', label: 'Width', hint: 'auto, 100%, or 320px' },
       { property: 'height', label: 'Height', hint: 'auto or 240px' },
       { property: 'min-width', label: 'Minimum width', hint: 'e.g. 0px' },

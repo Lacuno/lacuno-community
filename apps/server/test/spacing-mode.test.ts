@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor, press } from './harness.js'
+import { editor, openFormatting, press } from './harness.js'
 
 it('switches spacing mode with the chip: nubs, labelled boxes, sidebar focus, text editing', async () => {
   const { page, canvas, saved } = await editor({ width: 1200, height: 1000 })
@@ -80,8 +80,8 @@ it('switches spacing mode with the chip: nubs, labelled boxes, sidebar focus, te
   await chip.click()
   await expect.poll(() => shown('.strip.padding.top')).toBe(false)
   expect(await shown('.handle.padding.top')).toBe(false)
-  await page.getByRole('button', { name: 'Layout', exact: true }).click()
-  const input = page.locator('.ribbon-controls').getByLabel('Inside spacing top', { exact: true })
+  await openFormatting(page, 'Layout')
+  const input = page.locator('aside.inspector').getByLabel('Inside spacing top', { exact: true })
   await input.focus()
   await expect.poll(() => shown('.strip.padding.top')).toBe(true)
   expect(await shown('.handle.padding.top')).toBe(false)

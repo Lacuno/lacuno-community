@@ -68,7 +68,7 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
 - Open **Advanced: shared classes** to create, assign or remove reusable classes. Expand a
   class to see the elements and pages/components using it. These changes save immediately and support
   undo/redo; pending formatting must finish first.
-- Open **Design tokens** from the ribbon to manage the site's tokens. **Colors** works as described
+- Open **Design tokens** from the sidebar rail to manage the site's tokens. **Colors** works as described
   below. **Spacing**, **Size**, **Typography**, **Radius** and **Shadow** list their tokens with
   value, description and how many styles use them; a token's name is prefixed by its group
   (`space.`, `size.`, `font.`, `radius.`, `shadow.`), its value is a length (a font stack for
@@ -85,10 +85,11 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   references, so editing one color updates every use. Variants are independent, editable values;
   they do not automatically derive from the parent color. Existing site modes can have separate
   values. Color edits support undo/redo, draft protection and version-conflict handling.
-- Format the selected element with the contextual ribbon: **Home** for typography, **Layout** for
-  spacing and borders, **Appearance** for colors, and **Effects** for visual treatments, and **Motion** for animation. Other groups stay available in the Design
-  inspector. **Insert** opens the existing element palette. The ribbon and inspector share the same
-  editing state, so changing categories preserves pending edits.
+- Format the selected element in the inspector's groups: **Typography**, **Layout**, **Size**,
+  **Spacing & shape**, **Colors**, **Effects** and **Motion**. Text opens with Typography, other
+  elements with Layout; a group opened or closed by hand stays so for the next selection. The
+  preset and **Reset formatting** follow the groups. With nothing selected the inspector shows
+  the page and its settings. **Add** in the sidebar rail opens the element palette.
   No class setup is required. A private local style is created automatically; shared styles stay
   unchanged. Empty fields show the computed canvas value as a hint and retain the existing style.
   Bare numeric sizes use pixels. Choose **Reset formatting** to clear local adjustments at the active breakpoint;
@@ -101,6 +102,8 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   only that breakpoint. Desktop base edits remain visually neutral. Switching sizes flushes pending edits before changing scope. Text, project
   colors, and preset assignments remain shared. Effects, motion, and preset updates use the same
   breakpoint scope, and all responsive edits support undo/redo.
+- The canvas bar's zoom fits the canvas to the window or sets 50–150%; **Focus canvas** hides the
+  layers and the inspector until pressed again, and editing words brings the inspector back.
 - **Effects** provides opacity and scale percentages, rotation, and X/Y tilt with an 800px
   perspective. Box shadows use a popover with horizontal/vertical offsets, blur, spread, color,
   and inset controls. Existing custom transforms and complex shadows remain editable as CSS.
@@ -152,10 +155,11 @@ navigation, saving, and history. Inline style names and supported values are sha
 compiler through the schema package, so a valid inline draft survives rendering after save.
 
 Select a text element to format the whole text, or double-click it on the canvas and select words.
-Both modes use the same Home toolbar for font, size, bold, italic, color, and links. A scope label
+Both modes use the same text toolbar for font, size, weight, bold, italic, color, and links; while
+editing words it takes the inspector's place. A scope label
 shows whether changes affect selected words or the whole text (including when only a caret is placed).
 Alignment and line height always affect the whole block. Presets remain visible but are disabled
-during an inline editing session. Links open in a popover without expanding the ribbon.
+during an inline editing session. Links open in a popover.
 Link destinations can be a page,
 an HTTP(S) URL, email (`mailto:`), telephone (`tel:`), or section anchor (`#section`). Internal links
 store page IDs and resolve the current path when rendered, including after page URL changes. The

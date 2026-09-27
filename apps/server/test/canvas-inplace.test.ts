@@ -49,7 +49,7 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
 
   // A structural insert commit.
   await heading.click()
-  await page.getByRole('button', { name: 'Insert', exact: true }).click()
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
   await page.getByRole('button', { name: 'Heading', exact: true }).click()
   await page.getByRole('button', { name: 'Insert element', exact: true }).click()
   await canvas.getByRole('heading', { name: 'Your new heading', exact: true }).waitFor()

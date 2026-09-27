@@ -1,6 +1,6 @@
 import type { Locator } from 'playwright'
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, openFormatting } from './harness.js'
 
 it('inserts a list, span, video and embed from the palette and publishes them', async () => {
   const { server, page, canvas, publish, saved } = await editor()
@@ -78,11 +78,8 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
   await saved()
   await canvas.locator('[data-lacuno-placeholder="Embed"] iframe').waitFor({ state: 'attached' })
   // Styling an embed publishes a wrapper that carries its class.
-  await page.getByRole('button', { name: 'Layout', exact: true }).click()
-  await page
-    .locator('.ribbon-controls')
-    .getByLabel('Inside spacing top', { exact: true })
-    .fill('20')
+  await openFormatting(page, 'Layout')
+  await page.locator('aside.inspector').getByLabel('Inside spacing top', { exact: true }).fill('20')
   await expect
     .poll(() =>
       canvas

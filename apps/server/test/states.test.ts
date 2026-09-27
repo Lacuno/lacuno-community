@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, openFormatting } from './harness.js'
 
 it('edits a hover state in the canvas, publishes its rule and undoes it', async () => {
   const { server, page, canvas, publish, saved } = await editor()
@@ -24,7 +24,7 @@ it('edits a hover state in the canvas, publishes its rule and undoes it', async 
     .poll(() => page.getByTitle('Every change here applies to this state').textContent())
     .toBe('Hover')
   await expect.poll(() => cta.getAttribute('data-lc-state')).toBe('hover')
-  await page.getByRole('button', { name: 'Appearance', exact: true }).click()
+  await openFormatting(page, 'Colors')
   await page.getByLabel('Background color', { exact: true }).fill('#ff0000')
   await saved()
   await expect.poll(() => background('n-home-cta')).toBe('rgb(255, 0, 0)')

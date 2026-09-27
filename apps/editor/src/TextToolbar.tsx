@@ -1,7 +1,7 @@
 import type { CssValue, Document } from '@lacuno/schema'
 import type { ReactNode } from 'react'
 import { pickerHex } from './colors.js'
-import { fontChoices } from './fonts.js'
+import { fontChoices, weightName } from './fonts.js'
 import { LinkTarget, type LinkValue } from './LinkTarget.js'
 import { TokenField } from './TokenField.js'
 import './text-toolbar.css'
@@ -17,6 +17,7 @@ export function TextToolbar({
   change,
   link,
   tokens,
+  overridden,
   children,
 }: {
   doc: Document
@@ -33,11 +34,17 @@ export function TextToolbar({
     value: (property: string) => CssValue | null | undefined
     set: (property: string, value: CssValue) => void
   }
+  overridden?: (property: string) => boolean
   children?: ReactNode
 }) {
-  const bold = Number(values['font-weight']) >= 600
-  const italic = values['font-style'] === 'italic'
+  const bold = Number(values['font-weight'] || placeholders['font-weight']) >= 600
+  const italic = (values['font-style'] || placeholders['font-style']) === 'italic'
   const fonts = fontChoices(doc)
+  // Without a value of its own a field shows what it inherits; the canvas value is then that.
+  const inherited = (property: string, name = (value: string) => value) =>
+    values[property] || !placeholders[property]
+      ? 'Inherited'
+      : `Inherited · ${name(placeholders[property])}`
   const tokenField = (property: string, label: string, className: string, field: ReactNode) =>
     tokens ? (
       <TokenField
@@ -65,11 +72,12 @@ export function TextToolbar({
             Font
             <select
               aria-label="Font"
+              data-overridden={overridden?.('font-family')}
               disabled={disabled}
               value={values['font-family'] ?? ''}
               onChange={(event) => change('font-family', event.target.value)}
             >
-              <option value="">Inherited</option>
+              <option value="">{inherited('font-family')}</option>
               {values['font-family'] && !fonts.includes(values['font-family']) && (
                 <option>{values['font-family']}</option>
               )}
@@ -87,6 +95,7 @@ export function TextToolbar({
             Size
             <input
               aria-label="Size"
+              data-overridden={overridden?.('font-size')}
               disabled={disabled}
               value={values['font-size'] ?? ''}
               placeholder={placeholders['font-size'] || 'Inherited'}
@@ -94,9 +103,36 @@ export function TextToolbar({
             />
           </label>,
         )}
+        {tokenField(
+          'font-weight',
+          'Weight',
+          'text-weight',
+          <label className="text-weight">
+            Weight
+            <select
+              aria-label="Weight"
+              data-overridden={overridden?.('font-weight')}
+              disabled={disabled}
+              value={values['font-weight'] ?? ''}
+              onChange={(event) => change('font-weight', event.target.value)}
+            >
+              <option value="">{inherited('font-weight', weightName)}</option>
+              {values['font-weight'] &&
+                !['400', '500', '600', '700', '800'].includes(values['font-weight']) && (
+                  <option value={values['font-weight']}>{values['font-weight']}</option>
+                )}
+              {['400', '500', '600', '700', '800'].map((value) => (
+                <option key={value} value={value}>
+                  {weightName(value)}
+                </option>
+              ))}
+            </select>
+          </label>,
+        )}
         <button
           type="button"
           aria-label="Bold"
+          data-overridden={overridden?.('font-weight')}
           aria-pressed={bold}
           disabled={disabled}
           onMouseDown={(event) => event.preventDefault()}
@@ -107,6 +143,7 @@ export function TextToolbar({
         <button
           type="button"
           aria-label="Italic"
+          data-overridden={overridden?.('font-style')}
           aria-pressed={italic}
           disabled={disabled}
           onMouseDown={(event) => event.preventDefault()}
@@ -119,8 +156,9 @@ export function TextToolbar({
           <input
             type="color"
             aria-label="Text color"
+            data-overridden={overridden?.('color')}
             disabled={disabled}
-            value={pickerHex(values.color ?? '', '#000000')}
+            value={pickerHex(values.color || placeholders.color || '', '#000000')}
             onChange={(event) => change('color', event.target.value)}
           />
         </label>
@@ -139,11 +177,12 @@ export function TextToolbar({
           Alignment
           <select
             aria-label="Alignment"
+            data-overridden={overridden?.('text-align')}
             disabled={disabled}
             value={values['text-align'] ?? ''}
             onChange={(event) => change('text-align', event.target.value)}
           >
-            <option value="">Inherited</option>
+            <option value="">{inherited('text-align')}</option>
             {['start', 'left', 'center', 'right', 'justify'].map((value) => (
               <option key={value}>{value}</option>
             ))}
@@ -157,6 +196,7 @@ export function TextToolbar({
             Line height
             <input
               aria-label="Line height"
+              data-overridden={overridden?.('line-height')}
               disabled={disabled}
               value={values['line-height'] ?? ''}
               placeholder={placeholders['line-height'] || 'Inherited'}

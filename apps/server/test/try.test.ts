@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net'
 import path from 'node:path'
 import { chromium } from 'playwright'
 import { expect, it, onTestFinished } from 'vitest'
-import { root } from './harness.js'
+import { openFormatting, root } from './harness.js'
 
 const types: Record<string, string> = {
   '.html': 'text/html',
@@ -56,13 +56,22 @@ it('edits the template in the browser with a service worker as its server', asyn
   const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   expect(await heading.textContent()).toBe('Your website. Your rules.')
   expect(new URL(page.url()).search).toBe('?site=try')
-  const saved = () =>
-    expect.poll(() => page.locator('.save-state').textContent()).toBe('All changes saved')
+  // Live canvas paint can finish before the worker persists a debounced edit to IndexedDB.
+  let writes = 0
+  let seen = 0
+  page.on('response', (response) => {
+    if (response.url().endsWith('/document/apply') && response.ok()) writes++
+  })
+  const saved = async () => {
+    await expect.poll(() => writes).toBeGreaterThan(seen)
+    await expect.poll(() => page.locator('.save-state').textContent()).toBe('All changes saved')
+    seen = writes
+  }
 
   await heading.click()
   await page.getByLabel('Text', { exact: true }).fill('Made in the browser.')
   await saved()
-  await page.getByRole('button', { name: 'Appearance', exact: true }).click()
+  await openFormatting(page, 'Colors')
   await page.getByLabel('Background color', { exact: true }).fill('#ff0000')
   await saved()
   const background = () => heading.evaluate((element) => getComputedStyle(element).backgroundColor)
@@ -76,6 +85,7 @@ it('edits the template in the browser with a service worker as its server', asyn
   await page.getByLabel('Text', { exact: true }).fill('Undo me')
   await saved()
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await saved()
   await expect.poll(() => heading.textContent()).toBe('Made in the browser.')
 
   // Uploaded bytes live in IndexedDB and reach the canvas through the worker.
@@ -91,6 +101,7 @@ it('edits the template in the browser with a service worker as its server', asyn
     mimeType: 'image/png',
     buffer: Buffer.from(png, 'base64'),
   })
+  await saved()
   await heading.click()
   await page.getByRole('button', { name: 'Insert card.png', exact: true }).click()
   await saved()

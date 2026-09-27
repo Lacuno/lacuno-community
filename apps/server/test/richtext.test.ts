@@ -10,7 +10,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   page.on('pageerror', (error) => errors.push(error.message))
   const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   await heading.click()
-  const toolbarPosition = await page.getByLabel('Font', { exact: true }).boundingBox()
+  const canvasPosition = await page.locator('.canvas-workspace').boundingBox()
   let releasePreview!: () => void
   const heldPreview = new Promise<void>((resolve) => {
     releasePreview = resolve
@@ -57,9 +57,11 @@ it('edits selected canvas words, preserves selection through tools, saves page l
       document.getSelection()!.addRange(range)
       document.dispatchEvent(new Event('selectionchange'))
     }, word)
-  const editingPosition = await page.getByLabel('Font', { exact: true }).boundingBox()
-  expect(editingPosition?.x).toBe(toolbarPosition?.x)
-  expect(editingPosition?.y).toBe(toolbarPosition?.y)
+  // Inline tools stay in the inspector without shifting the canvas.
+  expect(await page.locator('.canvas-workspace').boundingBox()).toEqual(canvasPosition)
+  expect(
+    await page.locator('aside.inspector').getByLabel('Font', { exact: true }).isVisible(),
+  ).toBe(true)
   await selectText(editable, 'Lacuno')
   await expect.poll(() => page.locator('.text-scope').textContent()).toBe('Selected text')
   if (

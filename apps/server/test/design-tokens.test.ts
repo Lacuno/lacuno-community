@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor, press } from './harness.js'
+import { editor, openFormatting, press } from './harness.js'
 
 it('creates a spacing token, binds a field to it, snaps a handle to it, detaches and publishes', async () => {
   const { server, page, canvas, document, publish, saved } = await editor({
@@ -43,13 +43,13 @@ it('creates a spacing token, binds a field to it, snaps a handle to it, detaches
   expect(card).toMatchObject({ group: 'spacing', values: { light: { value: 20, unit: 'px' } } })
   await tokens.getByRole('button', { name: 'Close tokens', exact: true }).click()
 
-  // Bind the top padding from the ribbon: the field shows the token, the canvas its value.
+  // Bind the top padding from the inspector: the field shows the token, the canvas its value.
   await cta.click()
-  await page.getByRole('button', { name: 'Layout', exact: true }).click()
-  const ribbon = page.locator('.ribbon-controls')
-  const top = ribbon.getByLabel('Inside spacing top', { exact: true })
+  await openFormatting(page, 'Layout')
+  const inspector = page.locator('aside.inspector')
+  const top = inspector.getByLabel('Inside spacing top', { exact: true })
   const pickToken = async (side: string, name: string) => {
-    await ribbon.getByRole('button', { name: `Use a token for Inside spacing ${side}` }).click()
+    await inspector.getByRole('button', { name: `Use a token for Inside spacing ${side}` }).click()
     await page
       .getByRole(name === 'Detach' ? 'menuitem' : 'menuitemradio', {
         name: new RegExp(`^${name}`),
@@ -79,7 +79,7 @@ it('creates a spacing token, binds a field to it, snaps a handle to it, detaches
   for (const pair of ['top and bottom', 'left and right'])
     await expect
       .poll(() =>
-        ribbon
+        inspector
           .getByRole('button', { name: `Link inside spacing ${pair}`, exact: true })
           .getAttribute('aria-pressed'),
       )
@@ -145,7 +145,7 @@ it('creates a spacing token, binds a field to it, snaps a handle to it, detaches
   const bodySize = Object.values((await document()).designTokens).find(
     (token) => token.name === 'font.body-size',
   )!
-  await page.getByRole('button', { name: 'Home', exact: true }).click()
+  await openFormatting(page, 'Typography')
   const toolbar = page.getByRole('region', { name: 'Text formatting' })
   await toolbar.getByRole('button', { name: 'Use a token for Size' }).click()
   await page.getByRole('menuitemradio', { name: /^body-size/ }).click()

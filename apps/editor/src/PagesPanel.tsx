@@ -98,7 +98,7 @@ export function PagesPanel({
   )
 }
 
-function PageSettings({
+export function PageSettings({
   doc,
   siteId,
   page,

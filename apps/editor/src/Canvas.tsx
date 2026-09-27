@@ -74,6 +74,7 @@ export function Canvas({
   bindDragSurface,
   html,
   width,
+  scale,
   state,
   states,
   onState,
@@ -95,6 +96,7 @@ export function Canvas({
   livePreview: LivePreview
   html: string
   width: number
+  scale?: number | undefined
   state: State
   states: State[]
   onState: (state: State) => void
@@ -232,7 +234,7 @@ export function Canvas({
   }
   const shell = useRef<HTMLDivElement>(null)
   const [available, setAvailable] = useState(width)
-  const zoom = Math.min(1, available / width)
+  const zoom = scale ?? Math.min(1, available / width)
   const reportStyles = () => {
     const doc = frame.current?.contentDocument
     const element = nodeElement(doc, latest.current.selected)

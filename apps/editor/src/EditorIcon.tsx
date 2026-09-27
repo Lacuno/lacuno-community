@@ -1,4 +1,6 @@
 const paths = {
+  close: 'm6 6 12 12M6 18 18 6',
+  focus: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5',
   image: 'M3 3h18v18H3zM3 18l6-8 5 6 3-4 4 6M16 7h1',
   container: 'M3 3h18v18H3zM7 7h10v10H7z',
   heading: 'M6 4v16M18 4v16M6 12h12',

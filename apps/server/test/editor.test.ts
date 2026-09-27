@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { account, editor } from './harness.js'
+import { account, editor, openFormatting } from './harness.js'
 
 it('edits a real template in the browser, persists changes, and protects drafts on conflict', async () => {
   const { context, page, canvas, origin, siteId, saved } = await editor()
@@ -26,7 +26,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     element.parentElement!.getAttribute('data-lacuno-node'),
   )
   await canvas.locator(`[data-lacuno-node="${selectionParentId}"]`).dispatchEvent('click')
-  await page.getByRole('button', { name: 'Layout', exact: true }).click()
+  await openFormatting(page, 'Layout')
   await page.getByLabel('Inside spacing top', { exact: true }).fill('24')
   await saved()
   await heading.dispatchEvent('click')
@@ -35,7 +35,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await saved()
   await heading.dispatchEvent('click')
-  await page.getByRole('button', { name: 'Home', exact: true }).click()
+  await openFormatting(page, 'Typography')
   await page.getByLabel('Text', { exact: true }).fill('Made with Lacuno.')
   await expect.poll(() => heading.textContent()).toBe('Made with Lacuno.')
   expect(await page.getByRole('button', { name: 'Save changes', exact: true }).count()).toBe(0)
@@ -162,7 +162,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await heading.waitFor()
   await page.getByRole('button', { name: 'Desktop', exact: true }).click()
   await heading.click()
-  await page.getByRole('button', { name: 'Insert', exact: true }).click()
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
   expect(await page.getByRole('region', { name: 'Add panel' }).count()).toBe(1)
   expect(await page.getByRole('region', { name: 'Pages panel' }).count()).toBe(0)
   await page.getByRole('button', { name: 'Heading', exact: true }).click()
@@ -231,7 +231,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await colors.getByRole('button', { name: 'Create color', exact: true }).click()
   await colors.getByRole('heading', { name: 'Ocean test / Light', exact: true }).waitFor()
   await colors.getByRole('button', { name: 'Close tokens', exact: true }).click()
-  await page.getByText('Colors', { exact: true }).click()
+  await openFormatting(page, 'Colors')
   await page
     .getByLabel('Text color source', { exact: true })
     .selectOption({ label: 'Ocean test / Light' })
@@ -243,8 +243,9 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByLabel('Insert style class').selectOption({ label: 'project-color-test' })
   await page.getByRole('button', { name: 'Insert element', exact: true }).click()
   const paragraph = canvas.getByText('Write something worth sharing.', { exact: true })
+  await paragraph.waitFor()
   const paragraphColor = () => paragraph.evaluate((element) => getComputedStyle(element).color)
-  await page.getByText('Colors', { exact: true }).click()
+  await openFormatting(page, 'Colors')
   await page
     .getByLabel('Text color source', { exact: true })
     .selectOption({ label: 'Ocean test / Light' })
@@ -422,16 +423,16 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect.poll(() => heading.textContent()).toBe('Recovered autosave')
   await heading.click()
   expect(await page.getByRole('button', { name: /^Save/ }).count()).toBe(0)
-  // The ribbon moves existing controls between categories without losing an autosave draft.
-  await page.getByRole('button', { name: 'Layout', exact: true }).click()
+  // Opening another inspector section keeps the active autosave draft intact.
+  await openFormatting(page, 'Layout')
   // Each pair is linked by default (its sides equal), so top and left fill all four → padding: 16px.
   for (const side of ['top', 'left'])
     await page
-      .locator('.ribbon-controls')
+      .locator('aside.inspector')
       .getByLabel(`Inside spacing ${side}`, { exact: true })
       .fill('16')
-  await page.getByRole('button', { name: 'Appearance', exact: true }).click()
-  await page.locator('.ribbon-controls').getByLabel('Text color source', { exact: true }).waitFor()
+  await openFormatting(page, 'Colors')
+  await page.locator('aside.inspector').getByLabel('Text color source', { exact: true }).waitFor()
   await saved()
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).padding))
@@ -440,10 +441,10 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).padding))
     .toBe('0px')
-  await page.getByRole('button', { name: 'Home', exact: true }).click()
-  await page.locator('.ribbon-controls').getByLabel('Size', { exact: true }).waitFor()
+  await openFormatting(page, 'Typography')
+  await page.locator('aside.inspector').getByLabel('Size', { exact: true }).waitFor()
   // Effects preview and persist through the same formatting pipeline.
-  await page.getByRole('button', { name: 'Effects', exact: true }).click()
+  await openFormatting(page, 'Effects')
   await page.getByLabel('Opacity (%)', { exact: true }).fill('65')
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).opacity))
@@ -506,7 +507,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).transform))
     .toBe('none')
-  await page.getByRole('button', { name: 'Motion', exact: true }).click()
+  await openFormatting(page, 'Motion')
   await page.getByLabel('Motion duration', { exact: true }).fill('1500')
   await saved()
   await page.getByLabel('Entrance animation', { exact: true }).selectOption('lc-slide-up')
@@ -529,7 +530,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.getByRole('button', { name: 'Reset formatting', exact: true }).click()
   await saved()
-  await page.getByRole('button', { name: 'Home', exact: true }).click()
+  await openFormatting(page, 'Typography')
   // Presets retain shared formatting while ordinary edits remain local.
   await page.getByLabel('Size', { exact: true }).fill('38px')
   await saved()
@@ -590,7 +591,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect.poll(() => lowerHeading.evaluate(() => window.scrollY)).toBeCloseTo(scrollBefore, 0)
   // Responsive edits are isolated, including a pending edit flushed while switching sizes.
   await heading.click()
-  await page.getByRole('button', { name: 'Home', exact: true }).click()
+  await openFormatting(page, 'Typography')
   await page.getByLabel('Size', { exact: true }).fill('60px')
   await saved()
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
@@ -626,7 +627,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
     .toBe('60px')
   // Desktop base edits are neutral; purple marks only a device-specific override.
-  await page.getByRole('button', { name: 'Motion', exact: true }).click()
+  await openFormatting(page, 'Motion')
   await page.getByLabel('Motion delay', { exact: true }).fill('120')
   await page.getByLabel('Motion easing', { exact: true }).selectOption('linear')
   await page.getByLabel('Motion duration', { exact: true }).fill('900')
@@ -670,7 +671,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element.parentElement!).display))
     .toBe('flex')
-  await page.getByRole('button', { name: 'Layout', exact: true }).click()
+  await openFormatting(page, 'Layout')
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
   await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
   await page.getByLabel('Direction', { exact: true }).selectOption('column')

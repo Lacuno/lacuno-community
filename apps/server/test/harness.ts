@@ -169,3 +169,12 @@ export const drag = async (
   modifiers = 0,
   back = false,
 ) => (await press(page, handle, move, modifiers))(back)
+
+/** Opens a contextual formatting section without toggling a section that is already open. */
+export async function openFormatting(page: Page, name: string) {
+  const section = page.locator(`aside.inspector details[data-group="${name}"]`)
+  await section.waitFor({ state: 'attached' })
+  if (!(await section.evaluate((element) => (element as HTMLDetailsElement).open)))
+    await section.locator(':scope > summary').click()
+  return section
+}

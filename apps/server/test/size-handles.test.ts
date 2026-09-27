@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { drag, editor } from './harness.js'
+import { drag, editor, openFormatting } from './harness.js'
 
 it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clears max caps and flex shrink', async () => {
   const { page, canvas, document, saved } = await editor({ width: 1200, height: 1000 })
@@ -138,16 +138,13 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
 
   // A drag out and back still ends the drag, so the panel's autosave is not left switched off.
   await drag(page, '.handle.size.right', { dx: 40 }, 0, true)
-  await page.getByRole('button', { name: 'Layout', exact: true }).click()
+  await openFormatting(page, 'Layout')
   const applied = page.waitForResponse(
     (response) =>
       response.url().endsWith('/document/apply') &&
       !!response.request().postData()?.includes('padding-top'),
   )
-  await page
-    .locator('.ribbon-controls')
-    .getByLabel('Inside spacing top', { exact: true })
-    .fill('30')
+  await page.locator('aside.inspector').getByLabel('Inside spacing top', { exact: true }).fill('30')
   await applied
 
   // A percentage cap, like the image preset's max-width: 100%, is not a px cap to clear.

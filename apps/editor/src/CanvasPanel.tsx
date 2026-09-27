@@ -1,4 +1,5 @@
 import type { Entry, Page, State } from '@lacuno/schema'
+import { useState } from 'react'
 import { editingBreakpoint } from './breakpoints.js'
 import { Canvas, type LivePreview } from './Canvas.js'
 import { colorLabel, colorPreview, projectColors } from './colors.js'
@@ -29,7 +30,8 @@ export function CanvasPanel({
   reveal,
   inlineTarget,
   setInlineTarget,
-  setRibbonTab,
+  focus,
+  setFocus,
   nodeAction,
   bindDragSurface,
   livePreview,
@@ -52,13 +54,15 @@ export function CanvasPanel({
   reveal: () => void
   inlineTarget: InlineTarget | undefined
   setInlineTarget: (target: InlineTarget | undefined) => void
-  setRibbonTab: (tab: string) => void
+  focus: boolean
+  setFocus: (focus: boolean) => void
   nodeAction: (action: 'duplicate' | 'delete', id: string) => void
   bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
   setComputed: (value: { id: string; values: Record<string, string> }) => void
 }) {
   const { doc, error, busy, frozen, leave } = session
+  const [zoom, setZoom] = useState('fit')
   const { editingComponent } = editing
   const snapTokens = (group: 'spacing' | 'size') =>
     doc
@@ -88,11 +92,7 @@ export function CanvasPanel({
         </section>
       )}
       <div className="canvas-toolbar">
-        <div className="row">
-          <span className="canvas-page">
-            <EditorIcon name="page" />
-            {page?.name ?? 'Canvas'}
-          </span>
+        <div className="canvas-viewport">
           {entries.length > 0 && (
             <select
               aria-label="Collection entry"
@@ -109,30 +109,54 @@ export function CanvasPanel({
               ))}
             </select>
           )}
+          <fieldset className="viewport-switch" aria-label="Canvas width">
+            {[
+              [1100, 'Desktop'],
+              [768, 'Tablet'],
+              [390, 'Mobile'],
+            ].map(([size, label]) => (
+              <button
+                type="button"
+                key={size}
+                aria-label={String(label)}
+                title={String(label)}
+                className={width === size ? 'active' : ''}
+                onClick={() => {
+                  if (width !== Number(size)) void leave(() => setWidth(Number(size)))
+                }}
+              >
+                <EditorIcon
+                  name={label === 'Desktop' ? 'desktop' : label === 'Tablet' ? 'tablet' : 'mobile'}
+                />
+              </button>
+            ))}
+          </fieldset>
+          <span className="muted">{width}px</span>
         </div>
-        <fieldset className="viewport-switch" aria-label="Canvas width">
-          {[
-            [1100, 'Desktop'],
-            [768, 'Tablet'],
-            [390, 'Mobile'],
-          ].map(([size, label]) => (
-            <button
-              type="button"
-              key={size}
-              aria-label={String(label)}
-              title={String(label)}
-              className={width === size ? 'active' : ''}
-              onClick={() => {
-                if (width !== Number(size)) void leave(() => setWidth(Number(size)))
-              }}
-            >
-              <EditorIcon
-                name={label === 'Desktop' ? 'desktop' : label === 'Tablet' ? 'tablet' : 'mobile'}
-              />
-            </button>
-          ))}
-        </fieldset>
-        <span className="muted">{width}px</span>
+        <div className="canvas-view-controls">
+          <select
+            aria-label="Canvas zoom"
+            value={zoom}
+            onChange={(event) => setZoom(event.target.value)}
+          >
+            <option value="fit">Fit</option>
+            {[50, 75, 100, 125, 150].map((value) => (
+              <option key={value} value={value}>
+                {value}%
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            aria-label="Focus canvas"
+            aria-pressed={focus}
+            title="Focus canvas"
+            disabled={!!inlineTarget}
+            onClick={() => setFocus(!focus)}
+          >
+            <EditorIcon name="focus" />
+          </button>
+        </div>
       </div>
       {/* biome-ignore lint/a11y: a mouse-only convenience; the empty space is not a control. */}
       <div
@@ -149,7 +173,7 @@ export function CanvasPanel({
               if (node?.type !== 'text' || frozen || !doc || isLocked(doc, id)) return
               if (node.text.type !== 'doc' && node.text.type !== 'static') return
               setSelected(id)
-              setRibbonTab('Home')
+              setFocus(false)
               setInlineTarget({ node, element })
             }}
             onNodeAction={nodeAction}
@@ -159,6 +183,7 @@ export function CanvasPanel({
             onComputed={setComputed}
             html={preview.html}
             width={width}
+            scale={zoom === 'fit' ? undefined : Number(zoom) / 100}
             state={state}
             states={states}
             onState={(next) => void leave(() => setState(next))}

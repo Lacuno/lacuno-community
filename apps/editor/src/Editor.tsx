@@ -8,9 +8,9 @@ import { ConnectPanel, useConnections } from './ConnectPanel.js'
 import { EditorHeader } from './EditorHeader.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { InspectorColumn } from './InspectorColumn.js'
+import { PageSettings } from './PagesPanel.js'
 import { ProjectColors } from './ProjectColors.js'
 import { PublishPanel } from './PublishPanel.js'
-import { Ribbon } from './Ribbon.js'
 import { type Panel, Sidebar } from './Sidebar.js'
 import { useDocumentSession } from './session.js'
 import { applicableStates } from './states.js'
@@ -20,21 +20,13 @@ import { useImageDrop } from './useImageDrop.js'
 import { usePreview } from './usePreview.js'
 import { useStructureDrag } from './useStructureDrag.js'
 
-const ribbonGroups: Record<string, string> = {
-  Layout: 'Spacing & shape',
-  Appearance: 'Colors',
-  Effects: 'Effects',
-  Motion: 'Motion',
-}
-
 export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
-  const [ribbonHost, setRibbonHost] = useState<HTMLDivElement | null>(null)
-  const [ribbonTab, setRibbonTab] = useState('Home')
+  const [focus, setFocus] = useState(false)
+  const [pageSettingsOpen, setPageSettingsOpen] = useState(false)
   const [sidebar, setSidebar] = useState<Panel>('Layers')
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
   const [inlineTarget, setInlineTarget] = useState<InlineTarget>()
   const elementActionsId = useId()
-  const ribbonGroup = ribbonGroups[ribbonTab] ?? 'Typography'
   const [pageId, setPageId] = useState('')
   const [entryId, setEntryId] = useState('')
   const [selected, setSelected] = useState('')
@@ -148,18 +140,6 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           close={() => setPublishOpen(false)}
         />
       )}
-      <Ribbon
-        session={session}
-        tab={ribbonTab}
-        setTab={setRibbonTab}
-        setHost={setRibbonHost}
-        inlineTarget={inlineTarget}
-        setInlineTarget={setInlineTarget}
-        selected={selected}
-        width={width}
-        setSidebar={setSidebar}
-        openColors={() => setColorsOpen(true)}
-      />
       {error && (
         <div className="error-banner" role="alert">
           {error}
@@ -185,13 +165,28 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           registerFlush={session.registerFlush}
         />
       )}
+      {pageSettingsOpen && doc && page && (
+        <PageSettings
+          doc={doc}
+          siteId={siteId}
+          page={page}
+          disabled={frozen}
+          close={() => setPageSettingsOpen(false)}
+          save={save}
+          choose={(id) => {
+            setPageId(id)
+            setSelected('')
+            setEntryId('')
+          }}
+        />
+      )}
       <ComponentDialogs
         session={session}
         editing={editing}
         selected={selected}
         setSelected={setSelected}
       />
-      <div className="editor-body" data-sidebar-expanded={sidebarExpanded}>
+      <div className="editor-body" data-sidebar-expanded={sidebarExpanded} data-focus={focus}>
         <Sidebar
           session={session}
           editing={editing}
@@ -206,6 +201,7 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           selected={selected}
           setSelected={setSelected}
           revealSelection={revealSelection}
+          openColors={() => setColorsOpen(true)}
           elementActionsId={elementActionsId}
           nodeAction={(action, id) => void nodeAction(action, id)}
         />
@@ -227,7 +223,8 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           reveal={() => setRevealSelection((value) => value + 1)}
           inlineTarget={inlineTarget}
           setInlineTarget={setInlineTarget}
-          setRibbonTab={setRibbonTab}
+          focus={focus}
+          setFocus={setFocus}
           nodeAction={(action, id) => void nodeAction(action, id)}
           bindDragSurface={bindDragSurface}
           livePreview={draft}
@@ -240,9 +237,11 @@ export function Editor({ siteId, back }: { siteId: string; back: () => void }) {
           selected={selected}
           width={width}
           state={state}
-          editingText={!!inlineTarget}
-          ribbonHost={ribbonHost}
-          ribbonGroup={ribbonGroup}
+          inlineTarget={inlineTarget}
+          setInlineTarget={setInlineTarget}
+          page={page}
+          openPageSettings={() => setPageSettingsOpen(true)}
+          clearSelection={() => void leave(() => setSelected(''))}
           computed={computed}
           setLivePreview={setLivePreview}
         />

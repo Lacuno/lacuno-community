@@ -97,6 +97,9 @@ face; nothing is requested from a third party (D013)
 comes from, and its jump to that class, preset, token or ancestor, overloaded the ribbon and was
 taken out. The Layout ribbon fits a 1500px window
 ([spec](superpowers/specs/2026-09-23-phase1-closers-design.md)).
+**Ribbon removed (2026-09-27):** formatting lives in the inspector's groups, which remember being
+opened or closed; the canvas bar holds the widths, zoom and focus, and Design tokens moved to the
+sidebar rail. The canvas keeps its place in every selection state.
 **MCP preview, screenshot and diff implemented:** `page.preview` returns a route's published HTML
 without a build, or its text one line per node id; `page.screenshot` returns a PNG of a route or one
 node through Playwright's Chromium, an optional dependency; `document.diff` summarises a dry-run

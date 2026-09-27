@@ -90,12 +90,7 @@
 .embed-code {
   font-family: ui-monospace, monospace;
 }
-.inspector-empty > span {
-  display: block;
-  font-size: 32px;
-  color: #b7aecf;
-  margin-bottom: 25px;
-}
+
 .section-label {
   border-top: 1px solid var(--border);
   padding-top: 24px;
@@ -371,13 +366,6 @@
   margin: 0;
   font-size: 10px;
 }
-.ribbon-formatting .motion-timing {
-  display: flex;
-  align-items: end;
-}
-:where(.ribbon-formatting) .motion-controls :where(label) {
-  width: 114px;
-}
 
 .effects-grid {
   display: grid;
@@ -401,16 +389,8 @@
 .effect-custom {
   grid-column: 1 / -1;
 }
-.ribbon-formatting .effects-grid {
-  display: flex;
-  align-items: start;
-  gap: 14px;
-}
 .effects-grid > :where(label) {
   min-width: 0;
-}
-.ribbon-formatting .effects-grid > :where(label) {
-  width: 94px;
 }
 .effect-shadow-popover {
   position: fixed;
@@ -485,10 +465,6 @@
 .spacing-chain svg {
   width: 14px;
   height: 14px;
-}
-.ribbon-formatting .spacing-controls {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
 }
 
 .pages-toolbar {
@@ -661,13 +637,11 @@
 
 .preset-manager {
   display: grid;
-  grid-template-columns: 150px 30px;
+  grid-template-columns: minmax(0, 1fr) 30px;
   grid-template-rows: 50px auto;
   align-content: start;
   column-gap: 6px;
-  padding-right: 20px;
-  margin-right: 20px;
-  border-right: 1px solid var(--border);
+  margin-block: 16px;
 }
 .preset-manager > label {
   grid-column: 1;
@@ -680,7 +654,7 @@
   color: #686b7a;
 }
 .preset-manager select {
-  width: 150px;
+  width: 100%;
   height: 33px;
   padding: 5px 8px;
   font-size: 12px;
@@ -743,8 +717,99 @@
   display: grid;
   gap: 8px;
 }
+/* The canvas keeps its position as selection changes; focus only hides the mounted panels. */
+.editor-body[data-focus="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.editor-body[data-focus="true"] > :is(.layers-panel, .inspector) {
+  display: none;
+}
+.canvas-viewport,
+.canvas-view-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.canvas-view-controls button,
+.inspector-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.inspector-close {
+  margin-left: auto;
+}
+.canvas-view-controls button:hover,
+.inspector-close:hover {
+  background: #f1ecff;
+  color: var(--accent);
+}
+.canvas-view-controls select {
+  border: 0;
+  padding: 5px;
+  font-size: 11px;
+}
+.inspector-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.inspector-presets {
+  border-top: 1px solid var(--border);
+}
+.formatting-reset,
+.page-context > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.formatting-reset {
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  color: var(--muted);
+}
+.page-context {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.page-context dl {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 20px;
+  font-size: 11px;
+}
+.page-context dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.page-context dt,
+.selection-hint {
+  color: var(--muted);
+}
+.page-context dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.selection-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 22px;
+  font-size: 11px;
+  line-height: 1.6;
+}
 
-/* Editor chrome: contextual ribbon, quiet canvas and categorized inspector. */
+/* Editor shell: one app bar, a quiet canvas and contextual side panels. */
 .editor {
   height: 100dvh;
   display: flex;
@@ -826,193 +891,8 @@
   height: 6px;
   background: #37a66b;
 }
-.editor-ribbon {
-  flex-shrink: 0;
-  background: #fff;
-  border-bottom: 1px solid #dddfe9;
-  /* A group's title sits above its label row, one height for every group so the rows align. */
-  --group-title: 19px;
-}
-.ribbon-tabs {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 38px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--border);
-}
-.ribbon-tabs button {
-  position: relative;
-  align-self: stretch;
-  border: 0;
-  border-radius: 0;
-  padding: 0 13px;
-  background: transparent;
-  color: #575969;
-  font-size: 12px;
-}
-.ribbon-tabs button:hover {
-  background: #f7f5fe;
-  color: var(--accent);
-}
-.ribbon-tabs button.active {
-  color: var(--accent);
-  font-weight: 600;
-}
-.ribbon-tabs button.active::after {
-  content: "";
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: -1px;
-  height: 2px;
-  background: var(--accent);
-}
-.ribbon-tabs .ribbon-insert {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: 10px;
-}
-
-.ribbon-body {
-  display: flex;
-  align-items: stretch;
-  /* One height for every tab and state, so the canvas never moves: the Layout tab's two rows of
-     fields. Wider content scrolls sideways. */
-  height: 153px;
-  overflow-x: auto;
-  padding: 12px 24px;
-  gap: 20px;
-}
-.ribbon-controls {
-  display: flex;
-  align-items: stretch;
-  /* Shorter tabs sit on the ribbon's centre line; Layout fills it. */
-  align-self: center;
-  flex: 0 0 auto;
-  min-width: 0;
-}
-.ribbon-empty {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 500px;
-  padding: 8px 0;
-}
-
-.ribbon-empty strong {
-  display: block;
-  font-size: 12px;
-  font-weight: 550;
-  margin-bottom: 5px;
-}
-.ribbon-empty span {
-  display: block;
-  font-size: 11px;
-  color: #8b8c99;
-}
-.ribbon-formatting {
-  gap: 20px;
-  display: flex;
-  align-items: stretch;
-}
-.ribbon-formatting details {
-  padding: 0;
-  border: 0;
-  display: flex;
-  flex-direction: column;
-}
-.ribbon-formatting details + details {
-  border-left: 1px solid var(--border);
-  padding-left: 16px;
-  margin-left: 8px;
-}
-.ribbon-formatting summary {
-  display: none;
-}
-.ribbon-formatting details::before {
-  content: attr(data-group);
-  display: block;
-  height: var(--group-title);
-  font-size: 10px;
-  line-height: 13px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #777b8c;
-}
-.ribbon-formatting .formatting-grid {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 0;
-}
-.ribbon-formatting
-  :where(details[data-group="Layout"], details[data-group="Spacing & shape"])
-  .formatting-grid {
-  display: grid;
-}
-.ribbon-formatting :where(details[data-group="Layout"]) .formatting-grid {
-  grid-template-columns: repeat(3, 80px) repeat(2, 92px);
-}
-.ribbon-formatting .formatting-grid > div {
-  width: 106px;
-  flex-shrink: 0;
-}
-/* The Layout tab fits a 1500px window: its fields take the width their labels need beside the
-   token button ("Maximum width" and "Outside bottom" need 92px); the selects truncate
-   "From style · …" either way. */
-.ribbon-formatting
-  :where(details[data-group="Layout"], details[data-group="Spacing & shape"])
-  .formatting-grid
-  > div {
-  width: auto;
-}
-/* Spacing & shape: the per-side spacing fills the first column over both rows, and the gap,
-   radius and border fields fill a two-by-two block beside it. */
-.ribbon-formatting :where(details[data-group="Spacing & shape"]) .formatting-grid {
-  grid-template-columns: auto repeat(2, 88px);
-}
-/* A divider between the spacing and the shape fields: inside · outside · shape. */
-.ribbon-formatting .formatting-grid > .spacing-controls {
-  width: auto;
-  grid-column: 1;
-  grid-row: 1 / 3;
-  padding-right: 16px;
-  margin-right: 6px;
-  border-right: 1px solid var(--border);
-}
-.ribbon-formatting .spacing-pair {
-  grid-template-columns: 92px auto 92px;
-}
-.ribbon-formatting .formatting-grid [data-property="font-family"] {
-  width: 175px;
-}
-.ribbon-formatting .formatting-grid [data-property="font-size"] {
-  width: 72px;
-}
-.ribbon-formatting .formatting-grid [data-property="text-align"] {
-  border-left: 1px solid var(--border);
-  padding-left: 20px;
-  width: 130px;
-  margin-left: 8px;
-}
-.ribbon-formatting .formatting-grid [data-property$="color"] {
-  width: 180px;
-}
-.ribbon-formatting .formatting-grid label {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  color: #686b7a;
-  font-size: 10px;
-  font-weight: 450;
-}
 .inspector-body .formatting-grid label {
   margin: 0 0 5px;
-}
-.ribbon-formatting .formatting-grid label + label {
-  margin-top: 5px;
 }
 .editor input,
 .editor select,
@@ -1021,77 +901,11 @@
   border-radius: 6px;
   color: #303342;
 }
-.ribbon-formatting input,
-.ribbon-formatting select {
-  padding: 7px 9px;
-  height: 33px;
-  font-size: 12px;
-  background: #fff;
-}
-.ribbon-reset {
-  display: flex;
-  align-items: flex-start;
-  border-left: 1px solid var(--border);
-  margin-left: 20px;
-  padding-left: 18px;
-}
-.ribbon-reset button {
-  display: grid;
-  justify-items: center;
-  gap: 9px;
-  padding: 9px 12px;
-  border-color: transparent;
-  background: transparent;
-  font-size: 10px;
-  color: #646979;
-}
-.ribbon-reset button:hover:not(:disabled) {
-  color: var(--accent);
-  background: #f4f0ff;
-}
-/* The preset picker and Reset beside the groups start at the groups' label row. */
-.preset-manager:has(+ .ribbon-formatting),
-.ribbon-formatting + .ribbon-reset {
-  padding-top: var(--group-title);
-}
-
-.ribbon-project-colors {
-  margin-left: auto;
-  flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding-left: 20px;
-}
-.ribbon-project-colors button {
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-  border-color: transparent;
-  padding: 8px;
-  background: transparent;
-  font-size: 10px;
-  color: #646979;
-}
-.ribbon-project-colors button:hover:not(:disabled) {
-  background: #f6f3ff;
-  color: var(--accent);
-}
-.ribbon-swatches {
-  display: flex;
-  gap: 9px;
-}
-.ribbon-swatches > span {
-  width: 26px;
-  height: 26px;
-  border: 1px solid #0002;
-  border-radius: 50%;
-}
 .editor-body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: calc(270px + var(--sidebar-extra, 0px)) minmax(350px, 1fr) 294px;
+  grid-template-columns: calc(250px + var(--sidebar-extra, 0px)) minmax(350px, 1fr) 300px;
 }
 .editor-body[data-sidebar-expanded="true"] {
   --sidebar-extra: 96px;
@@ -1203,22 +1017,13 @@
   display: flex;
   align-items: center;
   font-size: 11px;
-  background: transparent;
-  border-bottom: 0;
-  min-height: 57px;
-  justify-content: center;
-  gap: 16px;
-  padding: 10px 18px;
-}
-.canvas-page {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 11px;
-  border: 1px solid #dfe0e9;
   background: #fff;
-  border-radius: 5px;
-  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+  height: 44px;
+  flex-shrink: 0;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 14px;
 }
 
 .editor .viewport-switch {
@@ -1226,8 +1031,8 @@
   display: flex;
   gap: 2px;
   background: #fff;
-  border: 1px solid #dfe0e9;
-  padding: 2px;
+  border: 0;
+  padding: 0;
   border-radius: 6px;
 }
 .editor .viewport-switch button {
@@ -1247,11 +1052,9 @@
   box-shadow: none;
 }
 
-.editor .canvas-toolbar > .muted {
-  border: 1px solid #dfe0e9;
-  padding: 8px 11px;
-  border-radius: 5px;
-  background: #fff;
+.editor .canvas-toolbar .muted {
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
   color: #606477;
 }
 .editor .canvas-workspace {
@@ -1260,7 +1063,7 @@
   overflow: auto;
   display: flex;
   background-size: 12px 12px;
-  padding: 4px 28px 24px;
+  padding: 24px 28px;
   background-image: none;
 }
 .editor .canvas-workspace iframe {
@@ -1309,20 +1112,12 @@
   font-size: 9px;
   border-radius: 4px;
 }
-.inspector-section-name {
-  margin: 0 18px;
-  padding: 0 0 10px;
-  border-bottom: 2px solid var(--accent);
-  width: fit-content;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-}
+
 .editor .inspector-body {
   padding: 0 17px 20px;
   border-top: 1px solid var(--border);
 }
-.editor .inspector-body form > label {
+.editor .inspector-fields > label {
   margin: 15px 0 20px;
   font-size: 11px;
   color: #555b6a;
@@ -1362,33 +1157,18 @@
   font-weight: 500;
   color: #7d8191;
 }
-.editor .inspector-body form > .hint[role="status"] {
+.editor .inspector-fields > .hint[role="status"] {
   font-size: 9px;
   color: #9296a5;
   margin-top: 15px;
 }
-.editor .inspector-empty {
-  padding: 52px 25px;
-}
-.editor .inspector-empty h2 {
-  line-height: 1.35;
-  font-size: 18px;
-  margin-top: 20px;
-}
-.editor .inspector-empty p {
-  color: #8a8a92;
-  font-size: 12px;
-}
 
 @media (max-width: 1150px) {
   .editor-body {
-    grid-template-columns: calc(240px + var(--sidebar-extra, 0px)) minmax(350px, 1fr) 266px;
+    grid-template-columns: calc(220px + var(--sidebar-extra, 0px)) minmax(350px, 1fr) 280px;
   }
   .editor-header .site-name {
     max-width: 230px;
-  }
-  .ribbon-body {
-    padding-inline: 18px;
   }
 }
 
@@ -1414,36 +1194,13 @@
   background: #eeebf8;
   color: var(--accent);
 }
-.ribbon-insert .editor-icon {
-  width: 15px;
-}
-.ribbon-empty > .editor-icon {
-  width: 36px;
-  height: 36px;
-  padding: 8px;
-  border-radius: 8px;
-  background: #f2effd;
-  color: var(--accent);
-}
-.ribbon-reset .editor-icon {
-  width: 20px;
-  height: 20px;
-}
-.canvas-page .editor-icon {
-  width: 14px;
-  height: 14px;
-  color: #7c8090;
-}
+
 .canvas-breadcrumb .editor-icon {
   width: 12px;
   height: 12px;
   color: #adb0bd;
 }
-.empty-selection-icon .editor-icon {
-  width: 36px;
-  height: 36px;
-  color: #a49bc6;
-}
+
 .editor .panel-title .editor-icon {
   width: 15px;
   height: 15px;
@@ -1559,8 +1316,10 @@
   background: #eee7ff;
   color: #693cdd;
 }
-.sidebar-rail .sidebar-expand {
+.sidebar-rail .sidebar-styles {
   margin-top: auto;
+}
+.sidebar-rail .sidebar-expand {
   flex-shrink: 0;
 }
 .sidebar-rail :where(.editor-icon) {

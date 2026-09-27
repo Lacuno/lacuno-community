@@ -49,7 +49,12 @@ it('uploads a font in site settings, picks it in the Font control and publishes 
   const font = page.getByLabel('Font', { exact: true })
   const options = () => font.locator('option').allTextContents()
   await heading.click()
-  expect(await options()).toEqual(['Inherited', 'Arial, Helvetica, sans-serif', value, ...stacks])
+  expect(await options()).toEqual([
+    'Inherited · Arial, Helvetica, sans-serif',
+    'Arial, Helvetica, sans-serif',
+    value,
+    ...stacks,
+  ])
   await font.selectOption(value)
   await saved()
   await expect

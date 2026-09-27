@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor, press } from './harness.js'
+import { editor, openFormatting, press } from './harness.js'
 
 it('binds per-side spacing inputs to the longhands and the handles, with a chain per pair of sides', async () => {
   const { page, canvas, saved } = await editor({ width: 1200, height: 1000 })
@@ -12,9 +12,9 @@ it('binds per-side spacing inputs to the longhands and the handles, with a chain
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
-  await page.getByRole('button', { name: 'Layout', exact: true }).click()
+  await openFormatting(page, 'Layout')
 
-  const ribbon = page.locator('.ribbon-controls')
+  const inspector = page.locator('aside.inspector')
   // Read the four computed sides in one snapshot so a comparison can't catch them mid-commit.
   const padding = () =>
     cta.evaluate((element) => {
@@ -28,7 +28,7 @@ it('binds per-side spacing inputs to the longhands and the handles, with a chain
   // The button's padding is symmetric per pair, so both chains start pressed: editing one side
   // moves the opposite side too, in a single write / undo step.
   const chain = (pair: string) =>
-    ribbon.getByRole('button', { name: `Link inside spacing ${pair}`, exact: true })
+    inspector.getByRole('button', { name: `Link inside spacing ${pair}`, exact: true })
   for (const pair of ['top and bottom', 'left and right'])
     await expect.poll(() => chain(pair).getAttribute('aria-pressed')).toBe('true')
   for (const [side, value, expected] of [
@@ -36,7 +36,7 @@ it('binds per-side spacing inputs to the longhands and the handles, with a chain
     ['left', '40', [initial[0], 40, initial[2], 40]],
   ] as const) {
     const before = writes
-    await ribbon.getByLabel(`Inside spacing ${side}`, { exact: true }).fill(value)
+    await inspector.getByLabel(`Inside spacing ${side}`, { exact: true }).fill(value)
     await expect.poll(padding).toEqual(expected)
     await saved()
     expect(writes).toBe(before + 1)
@@ -47,12 +47,12 @@ it('binds per-side spacing inputs to the longhands and the handles, with a chain
 
   // Chain off: editing one side moves only that side.
   await chain('left and right').click()
-  await ribbon.getByLabel('Inside spacing left', { exact: true }).fill('40')
+  await inspector.getByLabel('Inside spacing left', { exact: true }).fill('40')
   await expect.poll(padding).toEqual([initial[0], initial[1], initial[2], 40])
   await saved()
 
   // Any length keeps its unit: a rem side reads back as rem, not as a bare pixel count.
-  const topInput = ribbon.getByLabel('Inside spacing top', { exact: true })
+  const topInput = inspector.getByLabel('Inside spacing top', { exact: true })
   await topInput.fill('1.5rem')
   await expect.poll(padding).toEqual([24, initial[1], 24, 40])
   await saved()

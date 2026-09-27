@@ -2,7 +2,6 @@ import { classNames, contextFromDocument, selectorFor, serializeValue } from '@l
 import type { Operation } from '@lacuno/document'
 import type { CssValue, Document, Node, State } from '@lacuno/schema'
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { assetUrl } from './AssetsPanel.js'
 import { breakpointMedia } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
@@ -63,14 +62,12 @@ export function Inspector({
   computed,
   previewChanged,
   registerFlush,
-  ribbonHost,
-  ribbonGroup,
+  clearSelection,
 }: {
   siteId: string
   breakpoint: string
   state: State
-  ribbonHost: HTMLDivElement | null
-  ribbonGroup: string
+  clearSelection: () => void
   previewChanged: (preview: LivePreview) => void
   registerFlush: (flush: () => Promise<boolean>) => () => void
   computed: Record<string, string>
@@ -289,84 +286,21 @@ export function Inspector({
     breakpoint,
     state,
   }
-  const { local: current } = useStyleField(controls)
+  const { local: current, overridden } = useStyleField(controls)
   return (
     <aside className="inspector">
-      {ribbonHost &&
-        createPortal(
-          <>
-            {ribbonGroup === 'Typography' && (
-              <PresetManager
-                breakpoint={breakpoint}
-                doc={doc}
-                node={node}
-                computed={computed}
-                disabled={!settled || classDraft}
-                save={save}
-                draftChanged={setPresetDraft}
-              />
-            )}
-            {ribbonGroup === 'Typography' && node.type === 'text' ? (
-              <TextToolbar
-                doc={doc}
-                scope="Whole text"
-                currentLink={textLink(node)}
-                placeholders={computed}
-                disabled={disabled}
-                values={Object.fromEntries(
-                  textProperties.map((property) => {
-                    const value = current(property)
-                    return [
-                      property,
-                      value
-                        ? serializeValue(value, context)
-                        : property in changes ||
-                            property === 'font-size' ||
-                            property === 'line-height'
-                          ? ''
-                          : (computed[property] ?? ''),
-                    ]
-                  }),
-                )}
-                change={(property, value) =>
-                  changeFormatting(property, value ? { type: 'raw', value } : null)
-                }
-                tokens={{ value: current, set: changeFormatting }}
-                linkDisabled={
-                  !settled ||
-                  (node.text.type !== 'doc' && node.text.type !== 'static') ||
-                  node.tag === 'a' ||
-                  hasAnchorParent(doc, node)
-                }
-                link={(attrs) =>
-                  void save([
-                    { type: 'node.update', id: node.id, text: wholeText(node, [], attrs) },
-                  ])
-                }
-              />
-            ) : (
-              <FormattingControls {...controls} groupName={ribbonGroup} ribbon />
-            )}
-            <div className="ribbon-reset">
-              <button
-                type="button"
-                aria-label="Reset formatting"
-                title="Reset local formatting"
-                disabled={disabled || !settled || !overrides.length}
-                onClick={() => void save(clearStyles(doc, node, overrides, breakpoint, state))}
-              >
-                <EditorIcon name="reset" />
-                <span>Reset</span>
-              </button>
-            </div>
-          </>,
-          ribbonHost,
-        )}
       <div className="selection-heading">
         <strong>{nodeLabel(node)}</strong>
         <span className="element-badge">{'tag' in node ? node.tag.toUpperCase() : node.type}</span>
+        <button
+          type="button"
+          className="inspector-close"
+          aria-label="Clear selection"
+          onClick={clearSelection}
+        >
+          <EditorIcon name="close" />
+        </button>
       </div>
-      <div className="inspector-section-name">Design</div>
       <div className="inspector-body">
         <div className="responsive-scope">
           <span>{doc.breakpoints[breakpoint]?.label ?? breakpoint}</span>
@@ -414,10 +348,18 @@ export function Inspector({
             />
           </div>
         )}
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            void autosave.flush()
+        <fieldset
+          aria-label="Element properties"
+          className="inspector-fields"
+          onKeyDown={(event) => {
+            if (
+              event.key === 'Enter' &&
+              event.target instanceof HTMLInputElement &&
+              !event.target.closest('form')
+            ) {
+              event.preventDefault()
+              void autosave.flush()
+            }
           }}
         >
           {'tag' in node && (node.tag === 'ul' || node.tag === 'ol') && (
@@ -480,7 +422,42 @@ export function Inspector({
                 : 'This text is bound to content and cannot be edited directly.'}
             </p>
           ) : null}
-          <FormattingControls {...controls} groupName={ribbonGroup} />
+          <FormattingControls
+            {...controls}
+            typography={
+              node.type === 'text' ? (
+                <TextToolbar
+                  doc={doc}
+                  scope="Whole text"
+                  currentLink={textLink(node)}
+                  placeholders={computed}
+                  disabled={disabled}
+                  values={Object.fromEntries(
+                    textProperties.map((property) => {
+                      const value = current(property)
+                      return [property, value ? serializeValue(value, context) : '']
+                    }),
+                  )}
+                  change={(property, value) =>
+                    changeFormatting(property, value ? { type: 'raw', value } : null)
+                  }
+                  tokens={{ value: current, set: changeFormatting }}
+                  overridden={overridden}
+                  linkDisabled={
+                    !settled ||
+                    (node.text.type !== 'doc' && node.text.type !== 'static') ||
+                    node.tag === 'a' ||
+                    hasAnchorParent(doc, node)
+                  }
+                  link={(attrs) =>
+                    void save([
+                      { type: 'node.update', id: node.id, text: wholeText(node, [], attrs) },
+                    ])
+                  }
+                />
+              ) : undefined
+            }
+          />
           <ErrorNote message={validation || tokenError} />
           <p className="hint" role="status">
             {conflict
@@ -498,7 +475,28 @@ export function Inspector({
               Retry changes
             </button>
           )}
-        </form>
+        </fieldset>
+        <div className="inspector-presets">
+          <PresetManager
+            breakpoint={breakpoint}
+            doc={doc}
+            node={node}
+            computed={computed}
+            disabled={!settled || classDraft}
+            save={save}
+            draftChanged={setPresetDraft}
+          />
+          <button
+            type="button"
+            className="formatting-reset"
+            aria-label="Reset formatting"
+            title="Reset local formatting"
+            disabled={disabled || !settled || !overrides.length}
+            onClick={() => void save(clearStyles(doc, node, overrides, breakpoint, state))}
+          >
+            <EditorIcon name="reset" /> Reset formatting
+          </button>
+        </div>
         <details className="advanced-classes">
           <summary>Advanced: shared classes</summary>
           <p className="hint">

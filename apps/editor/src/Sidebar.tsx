@@ -34,6 +34,7 @@ export function Sidebar({
   revealSelection,
   elementActionsId,
   nodeAction,
+  openColors,
 }: {
   session: DocumentSession
   editing: ComponentEditing
@@ -49,6 +50,7 @@ export function Sidebar({
   setSelected: (id: string) => void
   revealSelection: number
   elementActionsId: string
+  openColors: () => void
   nodeAction: (action: 'duplicate' | 'delete', id: string) => void
 }) {
   const { doc, frozen, save, leave, setError } = session
@@ -69,6 +71,17 @@ export function Sidebar({
             {expanded && <span>{name}</span>}
           </button>
         ))}
+        <button
+          type="button"
+          className="sidebar-styles"
+          aria-label="Design tokens"
+          title="Design tokens"
+          disabled={frozen || !doc}
+          onClick={openColors}
+        >
+          <EditorIcon name="token" />
+          {expanded && <span>Design tokens</span>}
+        </button>
         <button
           type="button"
           className="sidebar-expand"
