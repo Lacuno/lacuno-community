@@ -8,7 +8,8 @@ const logo = new URL('./logo.svg', import.meta.url).href
 /** Behind a gateway, the user's role in the workspace; elsewhere the user owns it. */
 export type Role = 'owner' | 'editor' | 'viewer'
 type User = { name: string; email: string; role?: Role }
-type Site = { id: string; name: string; revision: number }
+/** `thumbnail` is the revision the site's thumbnail shows, when an editor has drawn one. */
+type Site = { id: string; name: string; revision: number; thumbnail?: number | null }
 
 /** Where the try editor sends a visitor for what needs an account. */
 export function SignUpLink() {
@@ -181,9 +182,14 @@ function Sites({
   const trying = useConfig().config?.try
   const creating = !trying && user.role !== 'viewer'
   useEffect(() => {
-    api<{ sites: Site[] }>('/api/sites')
-      .then((data) => setSites(data.sites))
-      .catch((e) => setError(message(e)))
+    const load = () =>
+      api<{ sites: Site[] }>('/api/sites')
+        .then((data) => setSites(data.sites))
+        .catch((e) => setError(message(e)))
+    void load()
+    // A thumbnail the closed editor was still drawing.
+    window.addEventListener('lacuno:thumbnail', load)
+    return () => window.removeEventListener('lacuno:thumbnail', load)
   }, [])
   return (
     <div className="workspace">
@@ -210,13 +216,23 @@ function Sites({
         <div className="site-grid">
           {sites.map((site) => (
             <button type="button" className="site-card" key={site.id} onClick={() => open(site.id)}>
-              <div className="site-art">
-                <span>
-                  {site.name.charAt(0)}
-                  <span className="art-dot">.</span>
-                </span>
-                <div className="art-lines" />
-              </div>
+              {site.thumbnail == null ? (
+                <div className="site-art">
+                  <span>
+                    {site.name.charAt(0)}
+                    <span className="art-dot">.</span>
+                  </span>
+                  <div className="art-lines" />
+                </div>
+              ) : (
+                <img
+                  className="site-thumbnail"
+                  src={`/api/sites/${site.id}/thumbnail?revision=${site.thumbnail}`}
+                  width={640}
+                  height={400}
+                  alt=""
+                />
+              )}
               <div className="site-card-caption">
                 <strong>{site.name}</strong>
                 <span>Open editor ↗</span>

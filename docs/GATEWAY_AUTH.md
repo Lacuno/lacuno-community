@@ -111,8 +111,11 @@ the request that wrote it answers, and a failure fails that request, so a docume
 an asset the sink does not keep. When a save changes the assets a site's document lists (and once
 for every site after the upgrade that added it), `PUT <export>/sites/<site>/assets` sends their
 hashes, sorted, one per line, from an outbox retried with backoff until the sink answers 204; Cloud
-counts the files a site lists as its workspace's storage. Every request carries `authorization: Bearer <jwt>`,
-signed like the relay's with `aud` `lacuno-export` and the claims `site`, `key` (as in the URL) and,
+counts the files a site lists as its workspace's storage. When an editor stores a newer thumbnail
+of a site (its home page's first screen, a 640×400 WebP or JPEG the editor draws in the browser),
+`PUT <export>/sites/<site>/thumbnail` sends the image before the request answers, and a failure
+fails that request, so the editor draws it again later. Every request carries
+`authorization: Bearer <jwt>`, signed like the relay's with `aud` `lacuno-export` and the claims `site`, `key` (as in the URL) and,
 for `PUT`, `sha256` (the body's lowercase hex SHA-256).
 
 The proxy is a full trust boundary: anyone with its signing key can act as the managed owner. Protect

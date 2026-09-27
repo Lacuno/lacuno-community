@@ -1,7 +1,7 @@
 import type { State } from '@lacuno/schema'
 import { useId, useMemo, useState } from 'react'
 import type { Role } from './App.js'
-import { message } from './api.js'
+import { message, useConfig } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
 import { ComponentDialogs } from './ComponentDialogs.js'
@@ -16,6 +16,7 @@ import { type Panel, Sidebar } from './Sidebar.js'
 import { useDocumentSession } from './session.js'
 import { applicableStates } from './states.js'
 import { duplicateSelection, subtreeRestriction } from './structure.js'
+import { useThumbnail } from './thumbnail.js'
 import { useComponentEditing } from './useComponentEditing.js'
 import { useImageDrop } from './useImageDrop.js'
 import { usePreview } from './usePreview.js'
@@ -86,6 +87,9 @@ export function Editor({
     onStale: session.onStale,
     setError,
   })
+  // The try editor keeps its one site in the browser, with no site list to show it in.
+  const { config } = useConfig()
+  useThumbnail(siteId, doc, !!config && !config.try && role !== 'viewer')
   const { uploadingImage, dropImage } = useImageDrop({ siteId, session, setSelected })
   async function nodeAction(action: 'duplicate' | 'delete', id: string) {
     if (!editableDoc || unsettled) return

@@ -134,4 +134,18 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM lacuno_migrations WHERE version = 5').get()) return
+      // Each site's home page as an editor last drew it, for the site list (editor thumbnail.ts).
+      sqlite.exec(`
+      CREATE TABLE site_thumbnail (
+        site_id TEXT PRIMARY KEY NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        revision INTEGER NOT NULL,
+        image BLOB NOT NULL
+      );
+      INSERT INTO lacuno_migrations (version) VALUES (5);
+    `)
+    })
+    .immediate()
 }

@@ -14,7 +14,7 @@ import { renderPreview } from '@lacuno/renderer'
 import { AssetHash, hashAsset, parseDocument } from '@lacuno/schema'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { getMigrations } from 'better-auth/db/migration'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
@@ -22,7 +22,7 @@ import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { type SiteEvent, siteEvents, summarize } from './events.js'
-import { exportAsset } from './export.js'
+import { exportAsset, exportThumbnail } from './export.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
 import { createOAuth, gatewayUser, type OAuth, oauthPlugins } from './oauth.js'
@@ -79,6 +79,12 @@ const BatchInput = z.strictObject({
   patches: z.array(Patch).min(1).max(5000).optional(),
   dryRun: z.boolean().optional(),
 })
+/** A thumbnail's type from its first bytes: WebP, or JPEG where the browser encodes no WebP. */
+function thumbnailType(image: Buffer) {
+  if (image.toString('latin1', 0, 4) === 'RIFF' && image.toString('latin1', 8, 12) === 'WEBP')
+    return 'image/webp'
+  if (image[0] === 0xff && image[1] === 0xd8 && image[2] === 0xff) return 'image/jpeg'
+}
 /** Routes a gateway forwards without a user, since each authenticates itself. */
 const anonymous = (method: string, path: string) =>
   (method === 'GET' && path.startsWith('/.well-known/')) ||
@@ -303,6 +309,10 @@ export async function createServer(options: ServerOptions) {
             workspaceId: sites.workspaceId,
             name: sites.name,
             revision: sites.revision,
+            // The revision the site's thumbnail shows, or null before an editor drew one.
+            thumbnail: sql<
+              number | null
+            >`(SELECT revision FROM site_thumbnail WHERE site_id=${sites.id})`,
           })
           .from(sites)
           .where(eq(sites.workspaceId, c.get('workspaceId')))
@@ -501,6 +511,40 @@ export async function createServer(options: ServerOptions) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return c.notFound()
         throw error
       }
+    })
+    // The home page's first screen as an editor drew it (editor thumbnail.ts), newest revision kept.
+    app.post('/api/sites/:id/thumbnail', async (c) => {
+      const input = z
+        .strictObject({
+          revision: z.number().int().nonnegative(),
+          image: z.base64(),
+        })
+        .safeParse(await c.req.json().catch(() => null))
+      const image = input.success ? Buffer.from(input.data.image, 'base64') : undefined
+      // Cloud's export sink takes up to 256 KB; a drawing is about 20 KB.
+      if (!input.success || !image || image.length > 256 * 1024 || !thumbnailType(image))
+        return c.json({ error: 'Invalid thumbnail' }, 400)
+      const id = c.req.param('id')
+      const kept = sqlite
+        .prepare(
+          'INSERT INTO site_thumbnail(site_id,revision,image) VALUES(?,?,?) ON CONFLICT(site_id) DO UPDATE SET revision=excluded.revision,image=excluded.image WHERE excluded.revision >= site_thumbnail.revision',
+        )
+        .run(id, input.data.revision, image).changes
+      // Cloud shows it on the dashboard without waking this runtime.
+      if (kept && exportOptions) await exportThumbnail(exportOptions, id, image)
+      return c.body(null, 204)
+    })
+    app.get('/api/sites/:id/thumbnail', (c) => {
+      const row = sqlite
+        .prepare('SELECT image FROM site_thumbnail WHERE site_id=?')
+        .get(c.req.param('id')) as { image: Buffer } | undefined
+      if (!row) return c.notFound()
+      // The site list asks for it by revision, so it never changes under the same address.
+      return c.body(new Uint8Array(row.image), 200, {
+        'Content-Type': thumbnailType(row.image)!,
+        'Cache-Control': 'private, max-age=31536000, immutable',
+        'X-Content-Type-Options': 'nosniff',
+      })
     })
     app.post('/api/sites/:id/document/apply', async (c) => {
       const input = BatchInput.safeParse(await c.req.json().catch(() => null))

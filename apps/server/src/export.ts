@@ -58,6 +58,15 @@ export async function exportAsset(
   }
 }
 
+/** Sends a site's thumbnail to Cloud (`PUT <export>/sites/<site>/thumbnail`) for its dashboard. */
+export async function exportThumbnail(options: ExportOptions, site: string, image: Uint8Array) {
+  const response = await send(options, 'PUT', site, 'thumbnail', image).catch(() => undefined)
+  if (response?.status !== 204) {
+    console.error(`Export sink answered ${response?.status ?? 'nothing'} for a thumbnail`)
+    throw new HTTPException(502, { message: 'The thumbnail could not be stored.' })
+  }
+}
+
 /**
  * The hashes of the assets a document lists, sorted, one per line: the body of
  * `PUT <export>/sites/<site>/assets`, which tells Cloud the files the site uses now.

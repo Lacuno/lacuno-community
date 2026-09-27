@@ -231,6 +231,36 @@ describe('export to the edge', () => {
     expect(log.filter((line) => line === 'PUT pointer/production')).toHaveLength(2)
     await expect.poll(() => table('export_pointer')).toEqual([])
   })
+  it('keeps a site’s newest thumbnail and sends it to the sink, failing until the sink has it', async () => {
+    const created = await call('/api/sites', { name: 'Pictured' })
+    const target = `/api/sites/${created.id}/thumbnail`
+    const send = async (revision: number, image: Buffer) => {
+      const body = JSON.stringify({ revision, image: image.toString('base64') })
+      const response = await server.app.request(origin + target, {
+        method: 'POST',
+        headers: {
+          origin,
+          'content-type': 'application/json',
+          'x-lacuno-assertion': await assertion(target, 'POST', body),
+        },
+        body,
+      })
+      return response.status
+    }
+    const webp = () =>
+      Buffer.concat([Buffer.from('RIFF'), randomBytes(4), Buffer.from('WEBP'), randomBytes(32)])
+    const drawn = webp()
+    failures = { match: /^PUT thumbnail$/, status: 503, times: 1 }
+    expect(await send(2, drawn)).toBe(502)
+    expect(await send(2, drawn)).toBe(204)
+    expect(files.get('thumbnail')?.equals(drawn)).toBe(true)
+    // An editor that drew an older revision keeps nothing and sends nothing.
+    expect(await send(1, webp())).toBe(204)
+    expect(files.get('thumbnail')?.equals(drawn)).toBe(true)
+    expect(await send(3, Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'))).toBe(400)
+    const { sites } = await call('/api/sites')
+    expect(sites.find((item: { id: string }) => item.id === created.id).thumbnail).toBe(2)
+  })
   it('keeps template and uploaded assets in the sink before answering', async () => {
     const created = await call('/api/sites', { name: 'Assets' })
     const { document } = await call(`/api/sites/${created.id}/document`)

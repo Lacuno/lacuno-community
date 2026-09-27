@@ -76,6 +76,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Feature | When | Notes |
 | --- | --- | --- |
 | Accounts, workspaces, sites | MVP | |
+| Site thumbnails in the site list | MVP | The editor draws the home page's first screen in the browser, 640×400 WebP, ten seconds after an edit settles and when it closes |
 | Roles: owner, designer, content editor, viewer | MVP | Content editors never see the style panel |
 | Undo and redo across the whole document | MVP | Inverse patches of each committed batch |
 | Realtime multiplayer with presence | Next | Same Yjs document over WebSocket |
