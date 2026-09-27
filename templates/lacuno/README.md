@@ -55,11 +55,11 @@ and `url` fields. Keep `slug` and `url` in sync: for example, the slug `my-artic
 
 The Home preview is the image node `n-home-preview-image` inside `n-home-preview-frame`. Its source
 is a real 1440 × 900 browser capture of this starter's final About page, imported through the MCP
-`asset.import` tool and retaken with Playwright after the rename to Lacuno, keeping its asset ID.
+`asset.import` tool and retaken with Playwright with the Lacuno logo, keeping its asset ID.
 The committed source is
-`assets/04a73eca651ccfccdef441fd46bb2f52c8b973321364947a30fff23819226e1c`: asset ID
-`An41fLkGaH61`, SHA-256 `04a73eca651ccfccdef441fd46bb2f52c8b973321364947a30fff23819226e1c`,
-86,795 bytes and 1440 × 900 pixels. It is project-generated, includes no third-party artwork, and is
+`assets/a04e82d23bf0cece434c8b078a2b8e28f6acde19fffb0ea701a28859f0cfbadb`: asset ID
+`An41fLkGaH61`, SHA-256 `a04e82d23bf0cece434c8b078a2b8e28f6acde19fffb0ea701a28859f0cfbadb`,
+88,291 bytes and 1440 × 900 pixels. It is project-generated, includes no third-party artwork, and is
 distributed with this repository under its AGPL-3.0-or-later license. The starter uses a system font
 stack and has no external font or image attribution requirements.
 
