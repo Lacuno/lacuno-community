@@ -7,6 +7,7 @@ import type {
   Node,
   NodeId,
   RichText,
+  RotatingWords,
 } from '@lacuno/schema'
 import { isImage } from './assets.js'
 import { RenderError } from './errors.js'
@@ -173,7 +174,21 @@ function renderText(
   else if (isAsset(v))
     inner = escapeHtml(isImage(v) ? state.resolveImage(v).src : state.resolveAsset(v))
   else inner = escapeHtml(String(v))
+  if (node.rotatingWords) inner = rotatingWords(inner, node.rotatingWords)
   return `<${node.tag}${renderAttrs(attrs)}>${inner}</${node.tag}>`
+}
+
+/**
+ * The content as the first of the rotating words. Only it stays in the accessibility tree; the
+ * others are hidden from it and read once, in order, from visually hidden text after the list.
+ */
+function rotatingWords(first: string, { words, interval, transition }: RotatingWords): string {
+  const attrs: AttrMap = { 'data-lc-words': String(words.length + 1) }
+  if (transition === 'fade') attrs['data-lc-fade'] = true
+  if (interval !== undefined) attrs.style = `--lc-interval:${interval}ms`
+  const others = words.map((word) => `<span aria-hidden="true">${escapeHtml(word)}</span>`)
+  const said = words.map((word) => `, ${escapeHtml(word)}`).join('')
+  return `<span${renderAttrs(attrs)}><span>${first}</span>${others.join('')}</span><span data-lc-said>${said}</span>`
 }
 
 /** Group an instance's children by the slot named in their static `slot` attribute. */

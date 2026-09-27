@@ -56,6 +56,21 @@ describe('serializeValue', () => {
     ).toBe('repeat(auto-fill, minmax(200px, 1fr))')
     expect(serializeValue(color('oklch(70% 0.1 200)'), ctx)).toBe('oklch(70% 0.1 200)')
   })
+  it('formats linear and radial gradients with tokens and positions', () => {
+    const stops = [
+      { color: { type: 'color' as const, value: '#fff' }, position: 0 },
+      { color: { type: 'designToken' as const, ref: 't-brand' }, position: 62.5 },
+    ]
+    expect(serializeValue({ type: 'gradient', kind: 'linear', angle: 135, stops }, ctx)).toBe(
+      'linear-gradient(135deg, #fff 0%, var(--color-brand) 62.5%)',
+    )
+    expect(serializeValue({ type: 'gradient', kind: 'linear', stops }, ctx)).toBe(
+      'linear-gradient(180deg, #fff 0%, var(--color-brand) 62.5%)',
+    )
+    expect(serializeValue({ type: 'gradient', kind: 'radial', stops }, ctx)).toBe(
+      'radial-gradient(#fff 0%, var(--color-brand) 62.5%)',
+    )
+  })
   it('throws on unknown references', () => {
     expect(() => serializeValue(designToken('nope'), ctx)).toThrow('unknown design token nope')
     expect(() => serializeValue({ type: 'image', asset: 'nope' }, ctx)).toThrow(
@@ -237,4 +252,20 @@ it('places presets above shared styles and below local formatting', () => {
   expect(specificity(local.id)).toBeGreaterThan(specificity('c-preset') + 1)
   for (const cls of Object.values(doc.classes).filter((cls) => cls.kind === 'class' && !cls.preset))
     expect(specificity('c-preset')).toBeGreaterThan(specificity(cls.id) + 1)
+})
+
+it('emits rotating-words rules only for the word counts a document uses', () => {
+  const doc = fixtureDocument()
+  expect(generateStylesheet(doc).css).not.toContain('data-lc-words')
+  const title = doc.nodes['n-hero-title']!
+  if (title.type !== 'text') throw new Error('text expected')
+  title.rotatingWords = { words: ['designer', 'you'] }
+  const { css } = generateStylesheet(doc)
+  expect(css).toContain('[data-lc-words] { --lc-interval: 2200ms;')
+  expect(css).toContain('@keyframes lc-words-3 { 0%, 28.3333% { width: var(--lc-w0); }')
+  expect(css).toContain(
+    '[data-lc-words="3"] > :nth-child(2) { animation-delay: calc(var(--lc-interval) * -2); }',
+  )
+  expect(css).toContain('@media (prefers-reduced-motion: reduce)')
+  expect(css).not.toContain('lc-words-2')
 })

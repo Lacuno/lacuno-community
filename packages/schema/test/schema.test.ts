@@ -125,6 +125,60 @@ describe('document schema', () => {
     }
   })
 
+  it('validates gradients: kind, a linear angle, two or more stops with colours and positions', () => {
+    const style = (value: unknown) => {
+      const doc = fixtureDocument() as unknown as { styles: Record<string, { value: unknown }> }
+      Object.values(doc.styles)[0]!.value = value
+      return () => parseDocument(doc)
+    }
+    const stop = (position: number, color: unknown = { type: 'color', value: '#fff' }) => ({
+      color,
+      position,
+    })
+    const token = { type: 'designToken', ref: 't-brand' }
+    expect(
+      style({ type: 'gradient', kind: 'linear', angle: 90, stops: [stop(0), stop(100, token)] }),
+    ).not.toThrow()
+    expect(
+      style({ type: 'gradient', kind: 'radial', stops: [stop(0), stop(40), stop(100)] }),
+    ).not.toThrow()
+    for (const bad of [
+      { type: 'gradient', kind: 'radial', angle: 90, stops: [stop(0), stop(100)] },
+      { type: 'gradient', kind: 'conic', stops: [stop(0), stop(100)] },
+      { type: 'gradient', kind: 'linear', stops: [stop(0)] },
+      { type: 'gradient', kind: 'linear', stops: [stop(0), stop(120)] },
+      {
+        type: 'gradient',
+        kind: 'linear',
+        stops: [stop(0), stop(100, { type: 'raw', value: 'red' })],
+      },
+    ])
+      expect(style(bad)).toThrow(DocumentError)
+  })
+
+  it('accepts rotating words on text nodes only, with 1 to 12 words and a bounded interval', () => {
+    const words = (node: string, value: unknown) => {
+      const doc = fixtureDocument() as unknown as { nodes: Record<string, Record<string, unknown>> }
+      doc.nodes[node]!.rotatingWords = value
+      return () => parseDocument(doc)
+    }
+    expect(
+      words('n-hero-title', { words: ['designer', 'you'], interval: 3000, transition: 'fade' }),
+    ).not.toThrow()
+    for (const bad of [
+      { words: [] },
+      { words: [' '] },
+      { words: Array(13).fill('word') },
+      { words: ['a'], interval: 100 },
+      { words: ['a'], transition: 'spin' },
+      { words: ['a'], speed: 2 },
+    ])
+      expect(words('n-hero-title', bad)).toThrow(DocumentError)
+    expect(parseDocument(fixtureDocument()).nodes['n-hero-title']).not.toHaveProperty(
+      'rotatingWords',
+    )
+  })
+
   it('accepts entries and exposes them in the fixture', () => {
     const doc = fixtureDocument()
     expect(doc.entries['col-posts']).toHaveLength(3)

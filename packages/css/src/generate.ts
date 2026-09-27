@@ -4,6 +4,7 @@ import { isMotionStyle, MOTION_CSS } from './motion.js'
 import { compareProperties } from './order.js'
 import { type ClassNames, classNames, compareSelectors, selectorFor } from './selector.js'
 import { contextFromDocument, serializeValue, type ValueContext } from './value.js'
+import { wordsCss } from './words.js'
 
 export type GenerateOptions = {
   /** Resolve an asset to a URL for `url()` values. */
@@ -155,6 +156,8 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
   }
 
   if (decls.some(isMotionStyle)) sections.push(MOTION_CSS)
+  const words = wordsCss(doc)
+  if (words) sections.push(words)
   return { css: `${sections.join('\n\n')}\n`, classNames: names }
 }
 

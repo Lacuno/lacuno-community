@@ -161,3 +161,35 @@ theirs. A proposal flow would double the mechanism for little safety, since ever
 version-pinned, logged and undoable by a later batch. Production publishing and site deletion
 remain human-only actions and are not exposed as tools.
 
+
+## D017. Gradients are a structured style value
+
+**Decision.** A gradient is its own `CssValue`, `{ type: 'gradient', kind, angle?, stops }`, set on
+`background-image` per class, breakpoint and state like any value. `kind` is `linear` (with an angle
+in degrees) or `radial`; each of two or more stops is a colour or colour design token at a position
+in percent. Gradient text is the same gradient with `background-clip: text` and `color: transparent`.
+The inspector's Colors section edits it with a stops bar whose stops reuse the colour field.
+
+**Alternatives.** A raw CSS string, or the generic `fn` value holding `linear-gradient(...)`.
+
+**Why.** A string hides token references from validation and from the reference check that keeps a
+used token from deletion, and neither form tells the editor or an agent what it may change. Text
+fill keeps `color` rather than a vendor `-webkit-text-fill-color`, so words with their own colour
+mark keep their colour.
+
+## D018. Rotating words are a text node field that compiles to CSS keyframes
+
+**Decision.** A text node may carry `rotatingWords: { words, interval?, transition? }`. Its own text
+shows first, then each word, looping. The compiler stacks the words in one inline grid cell and
+emits keyframes per word count, only for the counts a site uses; words slide up or fade. A small
+script measures each word once in em and after fonts load, so the width animates to the current
+word; without it the list keeps the widest word's width. Only the first word stays in the
+accessibility tree, the others are `aria-hidden`, and visually hidden text after the list reads the
+rest once, so a screen reader hears "AI, designer, you". With reduced motion only the first word
+shows. The editor runs the same script against the canvas, whose sandbox runs no page scripts.
+
+**Alternatives.** An embed with its own script; a JavaScript timer that swaps the text.
+
+**Why.** A field keeps the words editable in the inspector and through MCP and the markup the same
+on the canvas and the published site. CSS keeps cycling when scripts are off and costs nothing at
+runtime; CSS alone cannot know a word's width, so the script only measures.

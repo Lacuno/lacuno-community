@@ -51,6 +51,13 @@ export function serializeValue(value: CssValue, ctx: ValueContext): string {
       if (!url) throw new Error(`unknown asset ${value.asset}`)
       return `url("${url}")`
     }
+    case 'gradient': {
+      const stops = value.stops.map(
+        (stop) => `${serializeValue(stop.color, ctx)} ${formatNumber(stop.position)}%`,
+      )
+      if (value.kind === 'radial') return `radial-gradient(${stops.join(', ')})`
+      return `linear-gradient(${formatNumber(value.angle ?? 180)}deg, ${stops.join(', ')})`
+    }
     case 'list':
       return value.values.map((v) => serializeValue(v, ctx)).join(value.separator)
     case 'fn':

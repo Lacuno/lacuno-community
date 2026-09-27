@@ -25,6 +25,67 @@ describe('page.preview', () => {
     expect(html).not.toContain('data-lacuno-node')
   })
 
+  it('publishes a gradient headline and rotating words set through document.apply', async () => {
+    const client = await setup()
+    const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))
+    expect(guide).toContain('## Gradients')
+    expect(guide).toContain('rotatingWords')
+    const applied = await client.callTool({
+      name: 'document.apply',
+      arguments: {
+        expectedRevision: 0,
+        operations: [
+          {
+            type: 'style.set',
+            class: 'l-hero-title',
+            breakpoint: 'base',
+            state: 'none',
+            property: 'background-image',
+            value: {
+              type: 'gradient',
+              kind: 'linear',
+              angle: 90,
+              stops: [
+                { color: { type: 'designToken', ref: 't-brand' }, position: 0 },
+                { color: { type: 'color', value: '#e0529c' }, position: 100 },
+              ],
+            },
+          },
+          ...(['background-clip', 'color'] as const).map((property) => ({
+            type: 'style.set',
+            class: 'l-hero-title',
+            breakpoint: 'base',
+            state: 'none',
+            property,
+            value: { type: 'keyword', value: property === 'color' ? 'transparent' : 'text' },
+          })),
+          {
+            type: 'node.update',
+            id: 'n-hero-title',
+            text: { type: 'static', value: 'AI' },
+            rotatingWords: { words: ['designer', 'you'] },
+          },
+        ],
+      },
+    })
+    expect(applied.isError).toBeFalsy()
+    const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    expect(html).toContain(
+      'background-image: linear-gradient(90deg, var(--color-brand) 0%, #e0529c 100%);',
+    )
+    expect(html).toContain('background-clip: text;')
+    expect(html).toContain('<span data-lc-words="3"><span>AI</span>')
+    expect(html).toContain('<span data-lc-said>, designer, you</span>')
+    const bad = await client.callTool({
+      name: 'document.apply',
+      arguments: {
+        expectedRevision: 1,
+        operations: [{ type: 'node.update', id: 'n-hero', rotatingWords: { words: ['x'] } }],
+      },
+    })
+    expect(bad.isError).toBe(true)
+  })
+
   it('lists text nodes with their ids in text mode', async () => {
     const client = await setup()
     const lines = textOf(

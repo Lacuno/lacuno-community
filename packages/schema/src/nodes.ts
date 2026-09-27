@@ -69,11 +69,24 @@ export const ElementNode = z.object({
   tag: Tag,
 })
 
+/**
+ * Words that take turns with a text's own content, in order and looping, such as a headline's
+ * "AI → designer → you". The text shows first and stays the only word with reduced motion.
+ */
+export const RotatingWords = z.strictObject({
+  words: z.array(z.string().trim().min(1)).min(1).max(12),
+  /** Milliseconds each word shows; 2200 when left out. */
+  interval: z.number().int().min(500).max(20000).optional(),
+  transition: z.enum(['slide', 'fade']).optional(),
+})
+export type RotatingWords = z.infer<typeof RotatingWords>
+
 export const TextNode = z.object({
   ...Base,
   type: z.literal('text'),
   tag: Tag,
   text: z.union([RichText, Binding]),
+  rotatingWords: RotatingWords.optional(),
 })
 
 export const ComponentInstanceNode = z.object({

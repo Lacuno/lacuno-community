@@ -1,9 +1,11 @@
 import { contextFromDocument, serializeValue } from '@lacuno/css'
 import type { ReactNode } from 'react'
-import { colorLabel, colorProperties, projectColors } from './colors.js'
+import { ColorField } from './ColorField.js'
+import { colorProperties } from './colors.js'
 import { EffectsControls } from './EffectsControls.js'
 import { fontChoices, weightName } from './fonts.js'
 import { formattingGroups } from './formatting.js'
+import { GradientControls } from './GradientControls.js'
 import { MotionControls } from './MotionControls.js'
 import { SpacingControls } from './SpacingControls.js'
 import { type StyleControls, useStyleField } from './styleField.js'
@@ -35,9 +37,12 @@ const opened = new Map<string, boolean>()
 
 export function FormattingControls({
   typography,
+  words,
   ...controls
 }: StyleControls & {
   typography?: ReactNode
+  /** Rotating words, for a text element, shown above the Motion fields. */
+  words?: ReactNode
 }) {
   const { doc, node, change, disabled, computed } = controls
   const { local, overridden } = useStyleField(controls)
@@ -73,7 +78,7 @@ export function FormattingControls({
               {group.name === 'Typography' && typography ? (
                 typography
               ) : group.name === 'Motion' ? (
-                <MotionControls {...controls} />
+                <MotionControls {...controls}>{words}</MotionControls>
               ) : group.name === 'Effects' ? (
                 <EffectsControls {...controls} />
               ) : (
@@ -95,7 +100,6 @@ export function FormattingControls({
                             ? field.choices
                             : []
                       const value = local(property)
-                      const ref = value?.type === 'designToken' ? value.ref : ''
                       const text = value ? serializeValue(value, contextFromDocument(doc)) : ''
                       const color = colorProperties.has(property)
                       return (
@@ -105,32 +109,18 @@ export function FormattingControls({
                           data-overridden={overridden(property)}
                           className={color || property === 'font-family' ? 'formatting-wide' : ''}
                         >
-                          {color && (
-                            <label>
-                              {label}
-                              <select
-                                aria-label={`${label} source`}
-                                value={ref}
-                                disabled={disabled}
-                                onChange={(event) =>
-                                  change(
-                                    property,
-                                    event.target.value
-                                      ? { type: 'designToken', ref: event.target.value }
-                                      : null,
-                                  )
-                                }
-                              >
-                                <option value="">Custom / inherited</option>
-                                {projectColors(doc).map((token) => (
-                                  <option key={token.id} value={token.id}>
-                                    {colorLabel(token.name)}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          )}
-                          {(!color || !ref) && (
+                          {color ? (
+                            <ColorField
+                              doc={doc}
+                              property={property}
+                              label={label}
+                              id={`format-${property}`}
+                              value={value}
+                              placeholder={computed[property] || 'e.g. #6952d9'}
+                              disabled={disabled}
+                              set={(next) => change(property, next)}
+                            />
+                          ) : (
                             <TokenField
                               doc={doc}
                               property={property}
@@ -140,7 +130,7 @@ export function FormattingControls({
                               set={(next) => change(property, next)}
                             >
                               <label htmlFor={`format-${property}`}>
-                                {color ? 'Custom color' : label}
+                                {label}
                                 {'choices' in field ? (
                                   <select
                                     id={`format-${property}`}
@@ -176,18 +166,14 @@ export function FormattingControls({
                                     aria-label={label}
                                     disabled={disabled}
                                     placeholder={
-                                      computed[property] ||
-                                      ('hint' in field ? field.hint : 'e.g. #6952d9')
+                                      computed[property] || ('hint' in field ? field.hint : '')
                                     }
                                     value={text}
                                     onChange={(event) =>
                                       change(
                                         property,
                                         event.target.value
-                                          ? {
-                                              type: color ? 'color' : 'raw',
-                                              value: event.target.value,
-                                            }
+                                          ? { type: 'raw', value: event.target.value }
                                           : null,
                                       )
                                     }
@@ -199,6 +185,7 @@ export function FormattingControls({
                         </div>
                       )
                     })}
+                  {group.name === 'Colors' && <GradientControls {...controls} />}
                 </div>
               )}
             </details>

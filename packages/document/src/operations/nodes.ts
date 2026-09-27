@@ -8,6 +8,7 @@ import {
   NodeId as NodeIdSchema,
   NodeMeta,
   RichText,
+  RotatingWords,
   Semantic,
   Tag,
 } from '@lacuno/schema'
@@ -45,7 +46,12 @@ type LiteralBase = {
 export type NodeLiteral = LiteralBase &
   (
     | { type: 'element'; tag: string }
-    | { type: 'text'; tag: string; text: RichText | Binding }
+    | {
+        type: 'text'
+        tag: string
+        text: RichText | Binding
+        rotatingWords?: z.infer<typeof RotatingWords>
+      }
     | { type: 'component'; component: string; props?: Record<string, Binding> }
     | { type: 'slot'; name: string }
     | { type: 'collection-list'; tag: string; collection: string; query?: z.infer<typeof Query> }
@@ -65,6 +71,7 @@ export const NodeLiteral: z.ZodType<NodeLiteral> = z.lazy(() =>
       type: z.literal('text'),
       tag: Tag,
       text: z.union([RichText, Binding]),
+      rotatingWords: RotatingWords.optional(),
       children: z.array(NodeLiteral).optional(),
     }),
     z.strictObject({
@@ -136,7 +143,13 @@ export function materialize(
       node = { ...base, type: 'element', tag: literal.tag }
       break
     case 'text':
-      node = { ...base, type: 'text', tag: literal.tag, text: literal.text }
+      node = {
+        ...base,
+        type: 'text',
+        tag: literal.tag,
+        text: literal.text,
+        ...(literal.rotatingWords ? { rotatingWords: literal.rotatingWords } : {}),
+      }
       break
     case 'component':
       ctx.require(
@@ -223,6 +236,7 @@ const nodeUpdate = defineOperation(
     tag: Tag.optional(),
     attrs: z.record(z.string(), Binding).nullable().optional(),
     text: z.union([RichText, Binding]).optional(),
+    rotatingWords: RotatingWords.nullable().optional(),
     html: z.string().optional(),
     props: z.record(z.string(), Binding).nullable().optional(),
     query: Query.nullable().optional(),
@@ -235,6 +249,8 @@ const nodeUpdate = defineOperation(
       ctx.fail('tag applies to tagged nodes only', { id: op.id })
     if (op.text !== undefined && node.type !== 'text')
       ctx.fail('text applies to text nodes only', { id: op.id })
+    if (op.rotatingWords !== undefined && node.type !== 'text')
+      ctx.fail('rotatingWords applies to text nodes only', { id: op.id })
     if (op.html !== undefined && node.type !== 'embed')
       ctx.fail('html applies to embed nodes only', { id: op.id })
     if (op.props !== undefined && node.type !== 'component')

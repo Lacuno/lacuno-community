@@ -49,12 +49,38 @@ export const ImageValue = z.object({ type: z.literal('image'), asset: AssetId })
 /** Escape hatch. Emitted verbatim. The linter flags these so they stay rare. */
 export const RawValue = z.object({ type: z.literal('raw'), value: z.string() })
 
+/** A colour at a position along a gradient, in percent. */
+export const GradientStop = z.strictObject({
+  color: z.discriminatedUnion('type', [ColorValue, DesignTokenRef]),
+  position: z.number().min(0).max(100),
+})
+export type GradientStop = z.infer<typeof GradientStop>
+
+/**
+ * A linear or radial gradient, for `background-image`. Structured rather than raw CSS so stops
+ * can use design tokens and the editor can edit it. `angle` is the linear direction in degrees
+ * (180, top to bottom, when left out).
+ */
+export const GradientValue = z
+  .object({
+    type: z.literal('gradient'),
+    kind: z.enum(['linear', 'radial']),
+    angle: z.number().finite().optional(),
+    stops: z.array(GradientStop).min(2),
+  })
+  .refine((value) => value.kind === 'linear' || value.angle === undefined, {
+    message: 'angle applies to linear gradients only',
+    path: ['angle'],
+  })
+export type GradientValue = z.infer<typeof GradientValue>
+
 export const ScalarValue = z.discriminatedUnion('type', [
   UnitValue,
   KeywordValue,
   ColorValue,
   DesignTokenRef,
   ImageValue,
+  GradientValue,
   RawValue,
 ])
 export type ScalarValue = z.infer<typeof ScalarValue>

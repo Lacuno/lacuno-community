@@ -352,6 +352,9 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
+.motion-wide {
+  grid-column: 1 / -1;
+}
 .motion-controls :where(label) {
   display: grid;
   gap: 5px;
@@ -365,6 +368,60 @@
 .motion-controls .hint {
   margin: 0;
   font-size: 10px;
+}
+
+.gradient-controls,
+.gradient-stop-fields {
+  display: grid;
+  gap: 10px;
+}
+.gradient-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.gradient-row > label {
+  flex: 1;
+  min-width: 0;
+}
+.gradient-remove {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+}
+/* The stops sit on the bar's line; the bar keeps a margin so the end stops stay inside. */
+.gradient-bar {
+  position: relative;
+  height: 24px;
+  margin: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid #80808050;
+  cursor: copy;
+  touch-action: none;
+}
+.gradient-stop {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  translate: -50% -50%;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #25263366;
+  cursor: grab;
+}
+.gradient-stop[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.gradient-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.gradient-text input {
+  width: auto;
 }
 
 .effects-grid {

@@ -93,6 +93,28 @@ describe('styles', () => {
     )
     failing([{ type: 'style.clear', ...base, property: 'nothing-set' }], /no declaration/)
   })
+  it('checks the design tokens a gradient stop uses and keeps them from deletion', () => {
+    const gradient = (ref: string) => ({
+      type: 'style.set' as const,
+      class: 'c-hero',
+      breakpoint: 'base',
+      state: 'none' as const,
+      property: 'background-image',
+      value: {
+        type: 'gradient' as const,
+        kind: 'linear' as const,
+        angle: 90,
+        stops: [
+          { color: { type: 'color' as const, value: '#fff' }, position: 0 },
+          { color: { type: 'designToken' as const, ref }, position: 100 },
+        ],
+      },
+    })
+    failing([gradient('t-nope')], /unknown design token t-nope/)
+    const { document } = run([gradient('t-brand')])
+    const e = failing([{ type: 'designToken.delete', id: 't-brand' }], /referenced/, document)
+    expect(e.referencedBy).toContain('styles.c-hero|base|none|background-image')
+  })
 })
 
 describe('breakpoints', () => {

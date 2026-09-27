@@ -1,4 +1,4 @@
-import { MOTION_CSS } from '@lacuno/css'
+import { MOTION_CSS, WORDS_SCRIPT } from '@lacuno/css'
 import type { State } from '@lacuno/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
@@ -24,6 +24,9 @@ export type LivePreview = {
 function nodeElement(doc: Document | null | undefined, id: string) {
   return doc?.querySelector<HTMLElement>(`[data-lacuno-node="${CSS.escape(id)}"]`) ?? undefined
 }
+
+/** The canvas sandbox runs no scripts, so the editor sizes rotating words the way pages do. */
+const sizeWords = new Function('document', WORDS_SCRIPT) as (doc: Document) => void
 
 /** The selection marker, and the state the picker forces on the selected element. */
 function highlight(frame: HTMLIFrameElement | null, selected: string, state: State) {
@@ -277,6 +280,7 @@ export function Canvas({
   latest.current = current
   const refresh = (doc: Document) => {
     swapPlaceholders(doc)
+    sizeWords(doc)
     for (const element of doc.querySelectorAll<HTMLElement>('[data-lacuno-node]'))
       element.draggable = true
     highlight(frame.current, latest.current.selected, latest.current.state)

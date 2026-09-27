@@ -76,6 +76,9 @@ export function cssValueReferences(value: CssValue, into: Refs): void {
     case 'fn':
       for (const v of value.args) cssValueReferences(v, into)
       return
+    case 'gradient':
+      for (const stop of value.stops) cssValueReferences(stop.color, into)
+      return
     default:
       return
   }

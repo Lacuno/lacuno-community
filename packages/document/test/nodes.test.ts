@@ -155,6 +155,17 @@ describe('node.update', () => {
     expect(title.type === 'text' && title.text).toEqual({ type: 'field', field: 'f-title' })
     expect(title.semantic).toBeUndefined()
   })
+  it('sets and clears rotating words on a text node', () => {
+    const words = { words: ['designer', 'you'], transition: 'fade' as const }
+    const { document } = run([{ type: 'node.update', id: 'n-hero-title', rotatingWords: words }])
+    expect(document.nodes['n-hero-title']).toMatchObject({ rotatingWords: words })
+    const cleared = run(
+      [{ type: 'node.update', id: 'n-hero-title', rotatingWords: null }],
+      document,
+    ).document
+    expect(cleared.nodes['n-hero-title']).not.toHaveProperty('rotatingWords')
+    failing([{ type: 'node.update', id: 'n-hero-title', rotatingWords: { words: [] } }], /words/)
+  })
   it("changes a tag and an embed's html", () => {
     const { document } = run([
       { type: 'node.update', id: 'n-hero', tag: 'article' },
@@ -186,6 +197,10 @@ describe('node.update', () => {
     )
     failing([{ type: 'node.update', id: 'n-hero', query: {} }], /query applies to collection lists/)
     failing([{ type: 'node.update', id: 'n-hero', html: '<b>x</b>' }], /html applies to embed/)
+    failing(
+      [{ type: 'node.update', id: 'n-hero', rotatingWords: { words: ['x'] } }],
+      /rotatingWords applies to text nodes/,
+    )
     failing([{ type: 'node.update', id: 'n-hero', classes: ['c-nope'] }], /unknown class c-nope/)
     failing([{ type: 'node.update', id: 'nope' }], /unknown node nope/)
   })

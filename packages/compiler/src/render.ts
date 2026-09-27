@@ -1,4 +1,4 @@
-import { classNames, MOTION_SCRIPT } from '@lacuno/css'
+import { classNames, MOTION_SCRIPT, WORDS_SCRIPT } from '@lacuno/css'
 import { type AssetRef, type Document, type Entry, type Page, pageLang } from '@lacuno/schema'
 import { publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
@@ -74,6 +74,10 @@ export function render(
     (!ctx.annotateNodes &&
     Object.values(doc.styles).some((style) => style.property === '--lc-entrance')
       ? `<script>${MOTION_SCRIPT}</script>`
+      : '') +
+    (!ctx.annotateNodes &&
+    Object.values(doc.nodes).some((node) => node.type === 'text' && node.rotatingWords)
+      ? `<script>(() => {${WORDS_SCRIPT}})();</script>`
       : '')
   return { htmlAttrs: { lang: pageLang(doc, page) }, head, body, warnings: state.warnings }
 }

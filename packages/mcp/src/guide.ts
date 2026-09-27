@@ -19,6 +19,14 @@ A paragraph with a bold word:
 { "type": "paragraph", "content": [{ "type": "text", "text": "hi " }, { "type": "text", "text": "there", "marks": [{ "type": "bold" }] }] }
 \`\`\`
 
+## Gradients
+
+A gradient is a style value for \`background-image\`, not a CSS string: \`{"type":"gradient","kind":"linear","angle":135,"stops":[{"color":{"type":"color","value":"#6952d9"},"position":0},{"color":{"type":"designToken","ref":"<tokenId>"},"position":100}]}\`. \`kind\` is \`linear\` or \`radial\`; \`angle\` (degrees, 180 when left out) is for linear only; two or more stops, each a colour or colour token at a position from 0 to 100 (percent). Set it with style.set per breakpoint and state like any value. For gradient text, also set \`background-clip\` to the keyword \`text\` and \`color\` to the keyword \`transparent\` on the same class; words with their own colour mark keep that colour.
+
+## Rotating words
+
+A text node may set \`rotatingWords\` (node.create or node.update; \`null\` removes it): \`{"words":["designer","you"],"interval":2200,"transition":"slide"}\`. The node's own text shows first, then each word in turn, looping; \`interval\` is milliseconds per word (500 to 20000, 2200 when left out) and \`transition\` is \`slide\` (up, the default) or \`fade\`. The element resizes to the current word, screen readers hear all words once, and with reduced motion only the first shows. Keep the node's text to one or a few words and style the node (a pill, a colour) as usual.
+
 ## Operations
 `
 

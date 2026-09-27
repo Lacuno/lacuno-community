@@ -16,3 +16,4 @@ export {
   selectorFor,
 } from './selector.js'
 export { contextFromDocument, serializeValue, type ValueContext } from './value.js'
+export { WORDS_SCRIPT, wordsCss } from './words.js'

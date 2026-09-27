@@ -1,15 +1,17 @@
+import type { ReactNode } from 'react'
 import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 
 // The fields count milliseconds; a time set in seconds reads as its milliseconds.
 const ms = (time: string) => (/\ds$/.test(time) ? `${Number.parseFloat(time) * 1000}ms` : time)
 
-export function MotionControls(props: StyleControls) {
+export function MotionControls({ children, ...props }: StyleControls & { children?: ReactNode }) {
   const { disabled, node } = props
   const { overridden, value: read, set } = useStyleField(props)
   const preview = () =>
     window.dispatchEvent(new CustomEvent('lacuno:motion-preview', { detail: { id: node.id } }))
   return (
     <div className="motion-controls">
+      {children}
       <div className="motion-timing">
         {(['duration', 'delay'] as const).map((key) => (
           <NumberField

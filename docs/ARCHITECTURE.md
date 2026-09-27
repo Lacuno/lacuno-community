@@ -82,6 +82,7 @@ type Node = {
   localStyles?: StyleKey[]              // per-instance overrides, discouraged but allowed
   attrs: Record<string, AttrValue>      // static or bound to a CMS field or design token
   text?: RichText                       // for text nodes, Tiptap JSON
+  rotatingWords?: { words: string[]; interval?: number; transition?: 'slide' | 'fade' }  // text only
   component?: { ref: ComponentId; props: Record<string, PropValue>; overrides: NodeId[] }
   semantic?: { role?: string; archetype?: string; constraints?: Constraint[] }  // agent vocabulary
   meta: { label?: string; locked?: boolean; hidden?: boolean }
@@ -92,7 +93,7 @@ type StyleDecl = {
   breakpoint: BreakpointId              // 'base' is desktop-first
   state: State                          // 'none' | 'hover' | 'focus' | ... | '::before'
   property: string                      // real CSS property
-  value: CssValue                       // typed: length, color, design token ref, keyword, raw
+  value: CssValue                       // typed: length, color, design token ref, keyword, gradient, raw
 }
 ```
 

@@ -22,6 +22,7 @@ import {
 import { LinkTarget } from './LinkTarget.js'
 import { MediaControls } from './MediaControls.js'
 import { PresetManager } from './PresetManager.js'
+import { RotatingWordsControls } from './RotatingWordsControls.js'
 import { stateInfo } from './states.js'
 import { hasAnchorParent, isLocked, isShared, nodeLabel } from './structure.js'
 import { useStyleField } from './styleField.js'
@@ -240,7 +241,7 @@ export function Inspector({
       media: breakpointMedia(doc, breakpoint),
       state,
       ...(local ? { selector: selectorFor(doc, classNames(doc), local, state, true) } : {}),
-      ...(originalText !== undefined ? { text } : {}),
+      ...(textDirty ? { text } : {}),
       ...(isImage || isVideo
         ? {
             attrs: {
@@ -424,6 +425,11 @@ export function Inspector({
           ) : null}
           <FormattingControls
             {...controls}
+            words={
+              node.type === 'text' ? (
+                <RotatingWordsControls node={node} disabled={disabled} save={autoSave} />
+              ) : undefined
+            }
             typography={
               node.type === 'text' ? (
                 <TextToolbar
