@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": 12,
+  "revision": 18,
   "site": {
     "name": "Lacuno",
     "locale": "en-US",
@@ -17,7 +17,8 @@
         "source": "system",
         "fallback": "Helvetica, sans-serif"
       }
-    ]
+    ],
+    "favicon": "BT6nNW3cirgz"
   },
   "pages": {
     "p-about": {
@@ -985,7 +986,7 @@
     "n-footer-brand": {
       "id": "n-footer-brand",
       "parent": "n-footer-brand-block",
-      "children": [],
+      "children": ["n-footer-brand-image"],
       "classes": ["c-footer-mark"],
       "attrs": {
         "href": {
@@ -993,12 +994,8 @@
           "value": "/"
         }
       },
-      "type": "text",
-      "tag": "a",
-      "text": {
-        "type": "static",
-        "value": "Lacuno"
-      }
+      "type": "element",
+      "tag": "a"
     },
     "n-footer-brand-block": {
       "id": "n-footer-brand-block",
@@ -1007,6 +1004,32 @@
       "classes": [],
       "type": "element",
       "tag": "div"
+    },
+    "n-footer-brand-image": {
+      "id": "n-footer-brand-image",
+      "parent": "n-footer-brand",
+      "children": [],
+      "classes": ["c-logo-image"],
+      "attrs": {
+        "src": {
+          "type": "asset",
+          "asset": "TZucVfUWPCIo"
+        },
+        "alt": {
+          "type": "static",
+          "value": "Lacuno"
+        },
+        "width": {
+          "type": "static",
+          "value": 410
+        },
+        "height": {
+          "type": "static",
+          "value": 100
+        }
+      },
+      "type": "element",
+      "tag": "img"
     },
     "n-footer-explore": {
       "id": "n-footer-explore",
@@ -1195,7 +1218,7 @@
     "n-header-brand": {
       "id": "n-header-brand",
       "parent": "n-header-inner",
-      "children": [],
+      "children": ["n-header-brand-image"],
       "classes": ["c-wordmark"],
       "attrs": {
         "href": {
@@ -1203,12 +1226,34 @@
           "value": "/"
         }
       },
-      "type": "text",
-      "tag": "a",
-      "text": {
-        "type": "static",
-        "value": "Lacuno"
-      }
+      "type": "element",
+      "tag": "a"
+    },
+    "n-header-brand-image": {
+      "id": "n-header-brand-image",
+      "parent": "n-header-brand",
+      "children": [],
+      "classes": ["c-logo-image"],
+      "attrs": {
+        "src": {
+          "type": "asset",
+          "asset": "jYoXWpQXAXgR"
+        },
+        "alt": {
+          "type": "static",
+          "value": "Lacuno"
+        },
+        "width": {
+          "type": "static",
+          "value": 410
+        },
+        "height": {
+          "type": "static",
+          "value": 100
+        }
+      },
+      "type": "element",
+      "tag": "img"
     },
     "n-header-explore-item": {
       "id": "n-header-explore-item",
@@ -2165,6 +2210,11 @@
       "id": "c-link-arrow",
       "kind": "class",
       "name": "link-arrow"
+    },
+    "c-logo-image": {
+      "id": "c-logo-image",
+      "kind": "class",
+      "name": "logo-image"
     },
     "c-main": {
       "id": "c-main",
@@ -3800,74 +3850,25 @@
         "unit": "px"
       }
     },
-    "c-footer-mark|base|none|color": {
+    "c-footer-mark|base|none|display": {
       "class": "c-footer-mark",
       "breakpoint": "base",
       "state": "none",
-      "property": "color",
+      "property": "display",
       "value": {
-        "type": "designToken",
-        "ref": "t-color-paper"
+        "type": "keyword",
+        "value": "inline-flex"
       }
     },
-    "c-footer-mark|base|none|font-size": {
+    "c-footer-mark|base|none|max-width": {
       "class": "c-footer-mark",
       "breakpoint": "base",
       "state": "none",
-      "property": "font-size",
-      "value": {
-        "type": "fn",
-        "name": "clamp",
-        "args": [
-          {
-            "type": "unit",
-            "value": 2.5,
-            "unit": "rem"
-          },
-          {
-            "type": "unit",
-            "value": 6,
-            "unit": "vw"
-          },
-          {
-            "type": "unit",
-            "value": 5.5,
-            "unit": "rem"
-          }
-        ]
-      }
-    },
-    "c-footer-mark|base|none|font-weight": {
-      "class": "c-footer-mark",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "font-weight",
+      "property": "max-width",
       "value": {
         "type": "unit",
-        "value": 900,
-        "unit": "number"
-      }
-    },
-    "c-footer-mark|base|none|letter-spacing": {
-      "class": "c-footer-mark",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "letter-spacing",
-      "value": {
-        "type": "unit",
-        "value": -0.06,
-        "unit": "em"
-      }
-    },
-    "c-footer-mark|base|none|line-height": {
-      "class": "c-footer-mark",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "line-height",
-      "value": {
-        "type": "unit",
-        "value": 0.9,
-        "unit": "number"
+        "value": 100,
+        "unit": "%"
       }
     },
     "c-footer-mark|base|none|text-decoration": {
@@ -3878,6 +3879,33 @@
       "value": {
         "type": "keyword",
         "value": "none"
+      }
+    },
+    "c-footer-mark|base|none|width": {
+      "class": "c-footer-mark",
+      "breakpoint": "base",
+      "state": "none",
+      "property": "width",
+      "value": {
+        "type": "fn",
+        "name": "clamp",
+        "args": [
+          {
+            "type": "unit",
+            "value": 180,
+            "unit": "px"
+          },
+          {
+            "type": "unit",
+            "value": 24,
+            "unit": "vw"
+          },
+          {
+            "type": "unit",
+            "value": 300,
+            "unit": "px"
+          }
+        ]
       }
     },
     "c-footer-small|base|none|color": {
@@ -4377,6 +4405,37 @@
         "type": "unit",
         "value": 5,
         "unit": "px"
+      }
+    },
+    "c-logo-image|base|none|display": {
+      "class": "c-logo-image",
+      "breakpoint": "base",
+      "state": "none",
+      "property": "display",
+      "value": {
+        "type": "keyword",
+        "value": "block"
+      }
+    },
+    "c-logo-image|base|none|height": {
+      "class": "c-logo-image",
+      "breakpoint": "base",
+      "state": "none",
+      "property": "height",
+      "value": {
+        "type": "keyword",
+        "value": "auto"
+      }
+    },
+    "c-logo-image|base|none|width": {
+      "class": "c-logo-image",
+      "breakpoint": "base",
+      "state": "none",
+      "property": "width",
+      "value": {
+        "type": "unit",
+        "value": 100,
+        "unit": "%"
       }
     },
     "c-main|base|none|display": {
@@ -6046,47 +6105,36 @@
         "unit": "px"
       }
     },
-    "c-wordmark|base|none|color": {
+    "c-wordmark|base|none|display": {
       "class": "c-wordmark",
       "breakpoint": "base",
       "state": "none",
-      "property": "color",
+      "property": "display",
       "value": {
-        "type": "designToken",
-        "ref": "t-color-ink"
+        "type": "keyword",
+        "value": "inline-flex"
       }
     },
-    "c-wordmark|base|none|font-size": {
+    "c-wordmark|base|none|flex-shrink": {
       "class": "c-wordmark",
       "breakpoint": "base",
       "state": "none",
-      "property": "font-size",
+      "property": "flex-shrink",
       "value": {
         "type": "unit",
-        "value": 1.35,
-        "unit": "rem"
-      }
-    },
-    "c-wordmark|base|none|font-weight": {
-      "class": "c-wordmark",
-      "breakpoint": "base",
-      "state": "none",
-      "property": "font-weight",
-      "value": {
-        "type": "unit",
-        "value": 900,
+        "value": 0,
         "unit": "number"
       }
     },
-    "c-wordmark|base|none|letter-spacing": {
+    "c-wordmark|base|none|max-width": {
       "class": "c-wordmark",
       "breakpoint": "base",
       "state": "none",
-      "property": "letter-spacing",
+      "property": "max-width",
       "value": {
         "type": "unit",
-        "value": -0.04,
-        "unit": "em"
+        "value": 100,
+        "unit": "%"
       }
     },
     "c-wordmark|base|none|text-decoration": {
@@ -6097,6 +6145,17 @@
       "value": {
         "type": "keyword",
         "value": "none"
+      }
+    },
+    "c-wordmark|base|none|width": {
+      "class": "c-wordmark",
+      "breakpoint": "base",
+      "state": "none",
+      "property": "width",
+      "value": {
+        "type": "unit",
+        "value": 131,
+        "unit": "px"
       }
     }
   },
@@ -6520,6 +6579,39 @@
       "width": 1440,
       "height": 900,
       "alt": "The Lacuno About page with an editorial headline, black typography and a bold page number on a warm paper background"
+    },
+    "BT6nNW3cirgz": {
+      "id": "BT6nNW3cirgz",
+      "name": "favicon.svg",
+      "kind": "svg",
+      "hash": "2a690fd5506d829e2cf00c7bb98535c3431cad838508a8bb0ff69108709a0075",
+      "mime": "image/svg+xml",
+      "size": 410,
+      "width": 32,
+      "height": 32,
+      "alt": "Lacuno"
+    },
+    "TZucVfUWPCIo": {
+      "id": "TZucVfUWPCIo",
+      "name": "lacuno-logo-white.svg",
+      "kind": "svg",
+      "hash": "b3106b465c8dc3ad66f2ec33fdf663a4dfcc07cf87eaa5a61e0472bf90349531",
+      "mime": "image/svg+xml",
+      "size": 3092,
+      "width": 410,
+      "height": 100,
+      "alt": "Lacuno"
+    },
+    "jYoXWpQXAXgR": {
+      "id": "jYoXWpQXAXgR",
+      "name": "lacuno-logo.svg",
+      "kind": "svg",
+      "hash": "45823e63677345cee685c9eb07027039f4affad81586fc097fe48020bdedfce7",
+      "mime": "image/svg+xml",
+      "size": 3101,
+      "width": 410,
+      "height": 100,
+      "alt": "Lacuno"
     }
   },
   "redirects": []

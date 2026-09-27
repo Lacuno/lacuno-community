@@ -36,6 +36,8 @@ copy, edit and build the starter; no additional package or runtime service is re
 The static pages are Home (`/`), About (`/about`) and Blog (`/blog`). The Article page is the
 template for the `Posts` collection and produces one route for each entry. `Site header` and
 `Site footer` are shared components, so edits to either component affect every page that uses it.
+Both show the Lacuno logo, violet in the header and white in the footer, and the site favicon is
+its mark. The SVGs are native assets and can be replaced in the editor.
 
 The design tokens are:
 

@@ -135,7 +135,14 @@ describe('server foundation', () => {
     const document = { ...template, revision: 7, site: { ...template.site, locale: 'de-AT' } }
     const [asset] = Object.values(template.assets) as { id: string; hash: string }[]
     const png = await readFile(path.join(options.templateDir, 'assets', asset!.hash))
-    const assets = { [asset!.hash]: png.toString('base64') }
+    const assets = Object.fromEntries(
+      await Promise.all(
+        (Object.values(template.assets) as { hash: string }[]).map(async ({ hash }) => [
+          hash,
+          (await readFile(path.join(options.templateDir, 'assets', hash))).toString('base64'),
+        ]),
+      ),
+    )
     const create = (body: object) => request('/api/sites', cookie, { name: 'Moved', ...body })
 
     const other = Buffer.from('not the image').toString('base64')
