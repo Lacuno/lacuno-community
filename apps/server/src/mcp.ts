@@ -19,6 +19,8 @@ export type McpDeps = {
   events: typeof siteEvents
   /** Absent when publishing is not configured; `site.publish` is then not offered. */
   releases: Releases | undefined
+  /** Whether the user who approved a connection may publish, as its session starts. */
+  canPublish: (userId: string) => boolean
   /** The public origin; behind a gateway the request URL is an internal address. */
   origin: string
 }
@@ -137,9 +139,10 @@ export function mcpRoutes(deps: McpDeps): Hono {
             at: Date.now(),
             summary: summarize(batch.operations, result.patches),
           }),
-        ...(releases && {
-          publish: (name) => publishTesting(releases, siteId, created.store.revision, name),
-        }),
+        ...(releases &&
+          deps.canPublish(grant.userId) && {
+            publish: (name) => publishTesting(releases, siteId, created.store.revision, name),
+          }),
       })
       server.server.oninitialized = () => {
         const client = server.server.getClientVersion()

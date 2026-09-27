@@ -121,4 +121,17 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM lacuno_migrations WHERE version = 4').get()) return
+      // Each gateway user's role as last asserted, for the MCP requests that carry none.
+      sqlite.exec(`
+      CREATE TABLE gateway_role (
+        user_id TEXT PRIMARY KEY NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('owner','editor','viewer'))
+      );
+      INSERT INTO lacuno_migrations (version) VALUES (4);
+    `)
+    })
+    .immediate()
 }

@@ -30,6 +30,7 @@ sets that header to an HS256 JWT signed using the UTF-8 gateway secret. Required
 | `target` | Exact URL pathname plus query string |
 | `bodyHash` | Lowercase SHA-256 hex of the exact request-body bytes, including the empty body |
 | `system` | Optional; `true` only on the gateway's own revocation requests (below) |
+| `role` | Optional; `owner`, `editor` or `viewer`, the user's role in the workspace. Absent means `owner` |
 
 Do not send assertions to the browser or place them in URLs. Re-sign retries with a new nonce.
 `GET /health` and `/api/config` are public readiness/configuration endpoints; editor HTML, assets and
@@ -37,6 +38,14 @@ management APIs require assertions. `/api/config` reports `authentication: "gate
 `gatewayProtocol: 1`. `GET /api/auth/get-session` returns the verified identity profile, not a local
 browser session. The gateway owns browser logout and immediate session/membership revocation; AI
 connections outlive both until revoked (below).
+
+**Roles.** The runtime refuses what the asserted role does not allow, with 403: a `viewer` only
+reads (`GET` and `HEAD`) and cannot open the consent flow, an `editor` cannot publish, rename or
+roll back releases (`POST /api/sites/<id>/releases…`). The editor hides Publish from all but the
+owner and Connect from viewers, and opens read-only for a viewer. The runtime keeps each user's
+last asserted role, because MCP requests carry a token and no assertion: `site.publish` is
+offered only in sessions whose approving user was last asserted as `owner`. A gateway that lowers
+a role revokes the user (below), which also forgets the role, and asserts the new one next.
 
 ## Connect your AI
 
@@ -71,8 +80,8 @@ that no browser holds. Every gateway user may connect every site of the instance
 sent. The runtime's OAuth rate limits (register 5, token 20, authorize 30 per minute) key on it.
 
 **Revoking a user.** `POST /api/gateway/revoke-user` with `{"userId":"<sub>"}` deletes that user's
-consents, revokes their tokens, removes their mirror row and anchor session, and closes their open
-MCP sessions. It answers `200 {"consents":n,"tokens":n,"sessions":n}`, with zeros when there is
+consents, revokes their tokens, removes their mirror row, anchor session and remembered role, and
+closes their open MCP sessions. It answers `200 {"consents":n,"tokens":n,"sessions":n}`, with zeros when there is
 nothing left to revoke; 400 for an invalid body; 401 for a missing, invalid or replayed assertion;
 403 for an assertion without `system`. Its assertion is a normal one with `system: true`
 (conventionally `sub` `lacuno-cloud`), sent without an `Origin` header and never on behalf of a

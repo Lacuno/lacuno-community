@@ -32,7 +32,22 @@ const Claims = z.object({
   bodyHash: z.string(),
   /** Cloud's own requests, which only `revoke-user` accepts. */
   system: z.literal(true).optional(),
+  /** The user's role in the workspace; without it, the owner's. */
+  role: z.enum(['owner', 'editor', 'viewer']).optional(),
 })
+export type Role = 'owner' | 'editor' | 'viewer'
+
+/**
+ * Why a role refuses a request, or undefined: viewers read and approve no AI app, editors neither
+ * publish nor roll back.
+ */
+export function refusal(role: Role, method: string, path: string) {
+  const read = method === 'GET' || method === 'HEAD'
+  if (role === 'viewer' && (!read || /^\/(consent|api\/auth\/oauth2)(\/|$)/.test(path)))
+    return 'Viewers can look but not change anything'
+  if (role === 'editor' && !read && /^\/api\/sites\/[^/]+\/releases(\/|$)/.test(path))
+    return 'Only the workspace owner can publish'
+}
 
 /** Generic opt-in authenticated reverse-proxy mode. No browser assertion or cookie is trusted. */
 export class GatewayAuth {
@@ -99,7 +114,28 @@ export class GatewayAuth {
     )
       throw new Error('Invalid gateway request binding')
     rememberNonce(this.sqlite, claims.jti, claims.exp, now)
-    return { id: claims.sub, name: claims.name, email: claims.email, system: claims.system }
+    const role = claims.role ?? 'owner'
+    // The role as last asserted: an MCP request carries a token, not an assertion.
+    if (!claims.system)
+      this.sqlite
+        .prepare(
+          'INSERT INTO gateway_role(user_id,role) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role',
+        )
+        .run(claims.sub, role)
+    return { id: claims.sub, name: claims.name, email: claims.email, role, system: claims.system }
+  }
+
+  /** A user's role as their last assertion said, if the gateway has not revoked them since. */
+  role(userId: string) {
+    return (
+      this.sqlite.prepare('SELECT role FROM gateway_role WHERE user_id=?').get(userId) as
+        | { role: Role }
+        | undefined
+    )?.role
+  }
+
+  forget(userId: string) {
+    this.sqlite.prepare('DELETE FROM gateway_role WHERE user_id=?').run(userId)
   }
 }
 

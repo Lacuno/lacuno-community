@@ -125,6 +125,30 @@ describe('gateway mode', () => {
     expect((await request('/api/sites', 'POST', body, create)).status).toBe(201)
   })
 
+  it('enforces the asserted role: viewers read, editors do not publish, absent is the owner', async () => {
+    const as = async (role: string, target: string, method = 'GET', body = '') =>
+      request(
+        target,
+        method,
+        body,
+        await assertion(target, method, body, { sub: `cloud-${role}`, role }),
+      )
+    expect((await as('viewer', '/api/sites')).status).toBe(200)
+    expect((await as('viewer', '/api/sites', 'POST', '{"name":"Viewer site"}')).status).toBe(403)
+    expect((await as('viewer', '/api/auth/oauth2/authorize?client_id=x')).status).toBe(403)
+    const session = await (await as('editor', '/api/auth/get-session')).json()
+    expect(session.user).toMatchObject({ id: 'cloud-editor', role: 'editor' })
+    expect((await as('editor', '/api/sites/any/releases', 'POST', '{}')).status).toBe(403)
+    expect((await as('editor', '/api/sites/any/releases/r/activate', 'POST', '{}')).status).toBe(
+      403,
+    )
+    // Past the role check, the site is looked up.
+    expect((await as('owner', '/api/sites/any/releases', 'POST', '{}')).status).toBe(404)
+    const owner = await assertion('/api/sites/any/releases', 'POST', '{}')
+    expect((await request('/api/sites/any/releases', 'POST', '{}', owner)).status).toBe(404)
+    expect((await as('admin', '/api/sites')).status).toBe(401)
+  })
+
   it('persists gateway identity and consumed nonces across restarts', async () => {
     server.close()
     const { gateway: _, ...local } = settings(dir)
@@ -295,6 +319,7 @@ describe('connecting an AI app through the gateway', () => {
     server = await createServer({
       ...settings(dir),
       cimdRelay: `http://127.0.0.1:${(relay.address() as AddressInfo).port}/cimd`,
+      publishBaseURL: 'http://sites.localhost',
     })
     const body = JSON.stringify({ name: 'Acme' })
     siteId = (
@@ -379,6 +404,55 @@ describe('connecting an AI app through the gateway', () => {
       }),
     })
     expect(call9.status).toBe(401)
+  })
+
+  it('offers publishing only to AI apps the owner approved, and viewers approve none', async () => {
+    const registered = await register('198.51.100.4')
+    const { client_id } = (await registered.json()) as { client_id: string }
+    const redirect = 'http://127.0.0.1:43125/callback'
+    const tools = async (as: object) => {
+      const token = await connect(client_id, redirect, as)
+      const client = new Client({ name: 'Test Agent', version: '1.0.0' })
+      await client.connect(
+        new StreamableHTTPClientTransport(new URL(resource), {
+          requestInit: { headers: { authorization: `Bearer ${token}` } },
+          fetch: async (url, init) => server.app.request(url, init),
+        }) as Transport,
+      )
+      const names = (await client.listTools()).tools.map((tool) => tool.name)
+      await client.close()
+      return names
+    }
+    expect(await tools({ sub: 'cloud-owner-4', role: 'owner' })).toContain('site.publish')
+    expect(await tools({ sub: 'cloud-editor-4', role: 'editor' })).not.toContain('site.publish')
+    const viewer = await call(authorizeURL(client_id, redirect, 'verifier'), {
+      as: { sub: 'cloud-viewer-4', role: 'viewer' },
+    })
+    expect(viewer.status).toBe(403)
+    // Revoking a user forgets their role: their next connection needs a fresh assertion of it.
+    const sqlite = new Database(path.join(dir, 'lacuno.sqlite'), { readonly: true })
+    const role = (user: string) =>
+      sqlite.prepare('SELECT role FROM gateway_role WHERE user_id = ?').get(user)
+    try {
+      expect(role('cloud-editor-4')).toEqual({ role: 'editor' })
+      const body = JSON.stringify({ userId: 'cloud-editor-4' })
+      const revoked = await call('/api/gateway/revoke-user', {
+        method: 'POST',
+        body,
+        headers: { 'content-type': 'application/json' },
+        as: {
+          sub: 'lacuno-cloud',
+          name: 'Lacuno Cloud',
+          email: 'system@lacuno.invalid',
+          system: true,
+        },
+      })
+      expect(revoked.status).toBe(200)
+      expect(role('cloud-editor-4')).toBeUndefined()
+      expect(role('lacuno-cloud')).toBeUndefined()
+    } finally {
+      sqlite.close()
+    }
   })
 
   it('gives each Cloud user their own mirror row and consent', async () => {

@@ -23,7 +23,7 @@ import { z } from 'zod'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { type SiteEvent, siteEvents, summarize } from './events.js'
 import { exportAsset } from './export.js'
-import { GatewayAuth, type GatewayOptions } from './gateway-auth.js'
+import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
 import { createOAuth, gatewayUser, type OAuth, oauthPlugins } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
@@ -192,6 +192,8 @@ export async function createServer(options: ServerOptions) {
         // Cloud's own assertions are good for revoking access and nothing else.
         if (!user || (user.system && c.req.path !== '/api/gateway/revoke-user'))
           return c.json({ error: 'Authenticated gateway required' }, 401)
+        const refused = refusal(user.role, c.req.method, c.req.path)
+        if (refused) return c.json({ error: refused }, 403)
         c.set('gatewayUser', user)
         await next()
       })
@@ -211,6 +213,7 @@ export async function createServer(options: ServerOptions) {
           .safeParse(await c.req.json().catch(() => null))
         if (!input.success) return c.json({ error: 'Invalid user' }, 400)
         const { userId } = input.data
+        gateway.forget(userId)
         return c.json({
           ...(await provider.revokeUser(userId)),
           sessions: await closeUserSessions(userId),
@@ -368,7 +371,16 @@ export async function createServer(options: ServerOptions) {
       DocumentStore.withPersistence(new SqlitePersistence(db, id, options.dataDir, exportOptions))
     app.route(
       '/mcp',
-      mcpRoutes({ store, dataDir: options.dataDir, oauth, events: siteEvents, releases, origin }),
+      mcpRoutes({
+        store,
+        dataDir: options.dataDir,
+        oauth,
+        events: siteEvents,
+        releases,
+        origin,
+        // Behind a gateway, only the owner's AI apps publish.
+        canPublish: (userId) => !gateway || gateway.role(userId) === 'owner',
+      }),
     )
     app.get('/api/sites/:id/connections', (c) => {
       const active = activeConnections(c.req.param('id'))
