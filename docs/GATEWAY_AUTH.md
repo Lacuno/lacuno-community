@@ -31,6 +31,7 @@ sets that header to an HS256 JWT signed using the UTF-8 gateway secret. Required
 | `bodyHash` | Lowercase SHA-256 hex of the exact request-body bytes, including the empty body |
 | `system` | Optional; `true` only on the gateway's own revocation requests (below) |
 | `role` | Optional; `owner`, `editor` or `viewer`, the user's role in the workspace. Absent means `owner` |
+| `workspace` | Optional; the workspace's name (at most 200 characters), which the editor's site list shows. Absent shows "My workspace" |
 
 Do not send assertions to the browser or place them in URLs. Re-sign retries with a new nonce.
 `GET /health` and `/api/config` are public readiness/configuration endpoints; editor HTML, assets and

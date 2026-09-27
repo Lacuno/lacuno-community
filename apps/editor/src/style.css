@@ -110,6 +110,7 @@ p {
 .eyebrow {
   font-size: 10px;
   letter-spacing: 2px;
+  text-transform: uppercase;
   font-weight: 650;
   margin-bottom: 19px;
 }

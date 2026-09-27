@@ -7,7 +7,8 @@ const logo = new URL('./logo.svg', import.meta.url).href
 
 /** Behind a gateway, the user's role in the workspace; elsewhere the user owns it. */
 export type Role = 'owner' | 'editor' | 'viewer'
-type User = { name: string; email: string; role?: Role }
+/** Behind a gateway, `workspace` is the name of the workspace the editor belongs to. */
+type User = { name: string; email: string; role?: Role; workspace?: string }
 /** `thumbnail` is the revision the site's thumbnail shows, when an editor has drawn one. */
 type Site = { id: string; name: string; revision: number; thumbnail?: number | null }
 
@@ -205,7 +206,7 @@ function Sites({
         </div>
       </header>
       <main className="sites-main">
-        <p className="eyebrow">MY WORKSPACE</p>
+        <p className="eyebrow">{user.workspace ?? 'My workspace'}</p>
         <h1>Your next idea starts here.</h1>
         <p className="muted">Pick up where you left off, or start with a fresh canvas.</p>
         {error && (

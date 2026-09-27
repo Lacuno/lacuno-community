@@ -34,6 +34,8 @@ const Claims = z.object({
   system: z.literal(true).optional(),
   /** The user's role in the workspace; without it, the owner's. */
   role: z.enum(['owner', 'editor', 'viewer']).optional(),
+  /** The workspace's name, which the editor shows. */
+  workspace: z.string().min(1).max(200).optional(),
 })
 export type Role = 'owner' | 'editor' | 'viewer'
 
@@ -122,7 +124,14 @@ export class GatewayAuth {
           'INSERT INTO gateway_role(user_id,role) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role',
         )
         .run(claims.sub, role)
-    return { id: claims.sub, name: claims.name, email: claims.email, role, system: claims.system }
+    return {
+      id: claims.sub,
+      name: claims.name,
+      email: claims.email,
+      role,
+      workspace: claims.workspace,
+      system: claims.system,
+    }
   }
 
   /** A user's role as their last assertion said, if the gateway has not revoked them since. */

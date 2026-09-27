@@ -120,6 +120,10 @@ describe('gateway mode', () => {
     const session = await assertion('/api/auth/get-session')
     const user = await (await request('/api/auth/get-session', 'GET', '', session)).json()
     expect(user.user.id).toBe('cloud-user-1')
+    // The editor shows the workspace's name when the gateway asserts one.
+    const named = await assertion('/api/auth/get-session', 'GET', '', { workspace: 'Studio' })
+    const workspace = await (await request('/api/auth/get-session', 'GET', '', named)).json()
+    expect(workspace.user.workspace).toBe('Studio')
     const body = JSON.stringify({ name: 'Managed site' })
     const create = await assertion('/api/sites', 'POST', body)
     expect((await request('/api/sites', 'POST', body, create)).status).toBe(201)
