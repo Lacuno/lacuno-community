@@ -69,12 +69,45 @@ export const ElementNode = z.object({
   tag: Tag,
 })
 
+/** The icons a rotating word can show before it, drawn from Lucide (see `WORD_ICONS` in css). */
+export const WordIcon = z.enum([
+  'sparkles',
+  'bot',
+  'pen-tool',
+  'brush',
+  'palette',
+  'code',
+  'smile',
+  'user',
+  'users',
+  'hand',
+  'heart',
+  'star',
+  'zap',
+  'rocket',
+  'lightbulb',
+  'globe',
+])
+export type WordIcon = z.infer<typeof WordIcon>
+
+/**
+ * A rotating word: its text, kept as written so it may be empty or end in a space, and optionally
+ * an icon before it. A plain string is a word without an icon.
+ */
+export const RotatingWord = z.union([
+  z.string(),
+  z.strictObject({ text: z.string(), icon: WordIcon.optional() }),
+])
+export type RotatingWord = z.infer<typeof RotatingWord>
+
 /**
  * Words that take turns with a text's own content, in order and looping, such as a headline's
- * "AI → designer → you". The text shows first and stays the only word with reduced motion.
+ * "AI → designer → you". The text shows first and stays the only word with reduced motion; `icon`
+ * goes before it.
  */
 export const RotatingWords = z.strictObject({
-  words: z.array(z.string().trim().min(1)).min(1).max(12),
+  words: z.array(RotatingWord).min(1).max(12),
+  icon: WordIcon.optional(),
   /** Milliseconds each word shows; 2200 when left out. */
   interval: z.number().int().min(500).max(20000).optional(),
   transition: z.enum(['slide', 'fade']).optional(),

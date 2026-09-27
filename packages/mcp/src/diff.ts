@@ -1,7 +1,6 @@
 import { publicAssetPath } from '@lacuno/compiler'
 import { contextFromDocument, serializeValue } from '@lacuno/css'
-import type { Document, NodeId, RichText } from '@lacuno/schema'
-import { plainText } from './preview.js'
+import { type Document, type NodeId, plainText, type RichText } from '@lacuno/schema'
 
 /** One line of a diff. A change names the field that changed, with its value before and after. */
 export type Change = {

@@ -365,6 +365,73 @@
   align-self: end;
   font-size: 11px;
 }
+.rotating-words {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 10px;
+}
+.rotating-words legend {
+  padding: 0 0 5px;
+}
+.rotating-words > button {
+  justify-self: start;
+}
+.rotating-word {
+  display: flex;
+  gap: 6px;
+}
+.rotating-word input {
+  flex: 1;
+  min-width: 0;
+}
+.word-icon {
+  display: grid;
+  flex: none;
+  align-self: stretch;
+  place-items: center;
+  width: 32px;
+  height: auto;
+  padding: 0;
+  color: #6952d9;
+}
+.word-icon[aria-pressed="true"] {
+  background: #efeafe;
+  border-color: #6952d9;
+}
+.word-icon-glyph,
+.word-icon-glyph svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+.word-icon-none {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.word-icon-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 40px #25263324;
+  grid-template-columns: repeat(6, 32px);
+  gap: 4px;
+}
+.word-icon-popover:popover-open {
+  display: grid;
+}
+.word-icon-popover .word-icon {
+  height: 32px;
+}
 .motion-controls .hint {
   margin: 0;
   font-size: 10px;

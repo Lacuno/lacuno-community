@@ -179,17 +179,26 @@ mark keep their colour.
 
 ## D018. Rotating words are a text node field that compiles to CSS keyframes
 
-**Decision.** A text node may carry `rotatingWords: { words, interval?, transition? }`. Its own text
-shows first, then each word, looping. The compiler stacks the words in one inline grid cell and
-emits keyframes per word count, only for the counts a site uses; words slide up or fade. A small
-script measures each word once in em and after fonts load, so the width animates to the current
-word; without it the list keeps the widest word's width. Only the first word stays in the
-accessibility tree, the others are `aria-hidden`, and visually hidden text after the list reads the
-rest once, so a screen reader hears "AI, designer, you". With reduced motion only the first word
-shows. The editor runs the same script against the canvas, whose sandbox runs no page scripts.
+**Decision.** A text node may carry `rotatingWords: { words, icon?, interval?, transition? }`. Its
+own text shows first, then each word, looping. A word is a string or `{ text, icon? }`, kept as
+written: it may be empty or end in a space, so a text can shrink away together with its space. The
+compiler stacks the words in one inline grid cell and emits keyframes per word count and per run
+length, only for those a site uses; words slide up or fade. Equal words in a row are one element
+held for several turns, so "your " can stay put while the pill next to it changes. A small script
+measures each word once in em and after fonts load, so the width animates to the current word;
+without it the list keeps the widest word's width. Texts with as many words and the same interval
+share keyframes and start in the same frame, so they stay in step on one timeline, also after a
+background tab resumes; the editor realigns them after each canvas render. The lists are
+`aria-hidden` and visually hidden text reads every turn once, "AI, designer, you"; texts in step
+that sit next to each other read as one phrase per turn from the last of them, "your AI, your
+designer, you". Icons are a curated set of 16 Lucide icons (ISC), inlined as SVG in
+`currentColor` at 0.8em, so a page carries only those it uses. With reduced motion only the first
+word shows. The editor runs the same sizing function against the canvas, whose sandbox runs no page
+scripts.
 
 **Alternatives.** An embed with its own script; a JavaScript timer that swaps the text.
 
 **Why.** A field keeps the words editable in the inspector and through MCP and the markup the same
 on the canvas and the published site. CSS keeps cycling when scripts are off and costs nothing at
-runtime; CSS alone cannot know a word's width, so the script only measures.
+runtime; CSS alone cannot know a word's width, so the script only measures. Syncing by equal
+timing needs no group key; adjacency is enough to read texts in step as one phrase.

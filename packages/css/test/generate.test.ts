@@ -9,6 +9,7 @@ import {
   px,
   rem,
   styleKey,
+  type TextNode,
 } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import {
@@ -18,6 +19,7 @@ import {
   generateStylesheet,
   selectorFor,
   serializeValue,
+  wordTurns,
 } from '../src/index.js'
 
 const ctx = {
@@ -254,18 +256,56 @@ it('places presets above shared styles and below local formatting', () => {
     expect(specificity('c-preset')).toBeGreaterThan(specificity(cls.id) + 1)
 })
 
-it('emits rotating-words rules only for the word counts a document uses', () => {
+it('emits rotating-words rules only for the word counts and runs a document uses', () => {
   const doc = fixtureDocument()
   expect(generateStylesheet(doc).css).not.toContain('data-lc-words')
   const title = doc.nodes['n-hero-title']!
   if (title.type !== 'text') throw new Error('text expected')
   title.rotatingWords = { words: ['designer', 'you'] }
-  const { css } = generateStylesheet(doc)
+  let { css } = generateStylesheet(doc)
   expect(css).toContain('[data-lc-words] { --lc-interval: 2200ms;')
   expect(css).toContain('@keyframes lc-words-3 { 0%, 28.3333% { width: var(--lc-w0); }')
+  expect(css).toContain('@keyframes lc-slide-3-1 { 0%, 28.3333% {')
   expect(css).toContain(
-    '[data-lc-words="3"] > :nth-child(2) { animation-delay: calc(var(--lc-interval) * -2); }',
+    '[data-lc-words="3"] > [data-lc-at="1"] { animation-delay: calc(var(--lc-interval) * -2); }',
   )
   expect(css).toContain('@media (prefers-reduced-motion: reduce)')
   expect(css).not.toContain('lc-words-2')
+  expect(css).not.toContain('lc-slide-3-2')
+
+  // A word repeated in a row is one run: it gets keyframes that hold it for both turns.
+  title.text = { type: 'static', value: 'your ' }
+  title.rotatingWords = { words: ['your ', ''] }
+  css = generateStylesheet(doc).css
+  expect(css).toContain('@keyframes lc-slide-3-2 { 0%, 61.6667% { translate: 0; opacity: 1; }')
+  expect(css).toContain(
+    '[data-lc-words="3"] > [data-lc-slots="2"] { animation-name: lc-slide-3-2; }',
+  )
+})
+
+it('turns equal words in a row into one run, the content only when written on the node', () => {
+  const node = (text: TextNode['text']) =>
+    ({
+      id: 'n',
+      type: 'text',
+      tag: 'span',
+      text,
+      parent: null,
+      children: [],
+      classes: [],
+    }) as TextNode
+  const words = { icon: 'sparkles' as const, words: ['your ', { text: 'your ' }, ''] }
+  expect(wordTurns(node({ type: 'static', value: 'your ' }), words)).toEqual([
+    { text: 'your ', icon: 'sparkles', at: 0, slots: 1 },
+    { text: 'your ', at: 1, slots: 2 },
+    { text: '', at: 3, slots: 1 },
+  ])
+  expect(wordTurns(node({ type: 'static', value: 'your ' }), { words: ['your ', ''] })).toEqual([
+    { text: 'your ', icon: undefined, at: 0, slots: 2 },
+    { text: '', at: 2, slots: 1 },
+  ])
+  const bound = wordTurns(node({ type: 'field', field: 'title' }), {
+    words: ['a'],
+  })
+  expect(bound.map((turn) => turn.slots)).toEqual([1, 1])
 })

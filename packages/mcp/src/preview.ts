@@ -8,7 +8,14 @@ import {
   routePath,
 } from '@lacuno/compiler'
 import { generateStylesheet, styleElement } from '@lacuno/css'
-import type { Document, Entry, NodeId, Page, RichText } from '@lacuno/schema'
+import {
+  type Document,
+  type Entry,
+  type NodeId,
+  type Page,
+  plainText,
+  type RichText,
+} from '@lacuno/schema'
 import { InputError } from './errors.js'
 
 export type PreviewRoute = { page: Page; entry?: Entry }
@@ -45,14 +52,6 @@ export function previewHtml(doc: Document, route: PreviewRoute, annotateNodes = 
   const { css } = generateStylesheet(doc, { assetUrl: publicAssetPath })
   result.head += `\n${styleElement(css)}`
   return assembleDocument(result)
-}
-
-/** Rich text as plain text: inline content joined, blocks separated by a space. */
-export function plainText(n: unknown): string {
-  const o = n as { type?: string; text?: string; content?: unknown[] }
-  if (typeof o.text === 'string') return o.text
-  const inline = o.type === 'paragraph' || o.type === 'heading' || o.type === 'codeBlock'
-  return (o.content ?? []).map(plainText).join(inline ? '' : ' ')
 }
 
 /** `nodeId<TAB>text` per rendered text node in document order. */

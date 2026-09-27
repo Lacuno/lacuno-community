@@ -80,25 +80,45 @@ it('edits a gradient headline: angle, stops with project colours, and text fill'
   expect(await computed('background-image')).toBe('none')
 }, 60000)
 
-it('rotates words in a headline on the canvas, sized to the current word', async () => {
+it('rotates words with icons in a headline on the canvas, sized to the current word', async () => {
   const { page, canvas, saved, document } = await editor()
   const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
+  const words = async () => (await document()).nodes['n-home-title']
   await heading.click()
   const motion = await openFormatting(page, 'Motion')
-  await motion.getByLabel('Rotating words').fill('designer, you')
-  await motion.getByLabel('Rotating words').press('Enter')
+  for (const [index, word] of ['designer', 'you'].entries()) {
+    await motion.getByRole('button', { name: 'Add word' }).click()
+    await saved()
+    await motion.getByLabel(`Word ${index + 1}`, { exact: true }).fill(word)
+    await motion.getByLabel(`Word ${index + 1}`, { exact: true }).press('Enter')
+    await saved()
+  }
+  expect(await words()).toMatchObject({ rotatingWords: { words: ['designer', 'you'] } })
+
+  // Each word, and the text's own, can take an icon from the set.
+  await motion.getByRole('button', { name: 'Icon for word 1: none' }).click()
+  await page.getByRole('dialog', { name: 'Icon for word 1' }).getByLabel('pen-tool').click()
   await saved()
-  expect((await document()).nodes['n-home-title']).toMatchObject({
-    rotatingWords: { words: ['designer', 'you'] },
+  await motion.getByRole('button', { name: 'Icon for the text: none' }).click()
+  await page.getByRole('dialog', { name: 'Icon for the text' }).getByLabel('sparkles').click()
+  await saved()
+  expect(await motion.getByRole('button', { name: 'Icon for word 1: pen-tool' }).count()).toBe(1)
+  // A word may stay empty: the list then shrinks away on its turn.
+  await motion.getByRole('button', { name: 'Add word' }).click()
+  await saved()
+  expect(await words()).toMatchObject({
+    rotatingWords: {
+      icon: 'sparkles',
+      words: [{ text: 'designer', icon: 'pen-tool' }, 'you', ''],
+    },
   })
-  const list = heading.locator('[data-lc-words="3"]')
+  const list = heading.locator('[data-lc-words="4"]')
   await expect
     .poll(() => list.locator(':scope > span').allTextContents())
-    .toEqual([expect.any(String), 'designer', 'you'])
+    .toEqual([expect.any(String), 'designer', 'you', ''])
+  expect(await list.locator('svg').count()).toBe(2)
   // The editor measures the words, since the canvas sandbox runs no page scripts.
-  await expect
-    .poll(() => list.evaluate((el) => el.style.getPropertyValue('--lc-w2')))
-    .toMatch(/em$/)
+  await expect.poll(() => list.evaluate((el) => el.style.getPropertyValue('--lc-w3'))).toBe('0em')
 
   await motion.getByLabel('Word transition').selectOption('Fade')
   await saved()
@@ -107,13 +127,12 @@ it('rotates words in a headline on the canvas, sized to the current word', async
   await saved()
   await expect.poll(() => list.getAttribute('data-lc-fade')).toBe('')
   expect(await list.getAttribute('style')).toMatch(/--lc-interval: ?3000ms/)
-  expect((await document()).nodes['n-home-title']).toMatchObject({
-    rotatingWords: { words: ['designer', 'you'], interval: 3000, transition: 'fade' },
-  })
+  expect(await words()).toMatchObject({ rotatingWords: { interval: 3000, transition: 'fade' } })
 
-  await motion.getByLabel('Rotating words').fill('')
-  await motion.getByLabel('Rotating words').press('Enter')
-  await saved()
-  expect((await document()).nodes['n-home-title']).not.toHaveProperty('rotatingWords')
+  for (const index of [3, 2, 1]) {
+    await motion.getByRole('button', { name: `Remove word ${index}` }).click()
+    await saved()
+  }
+  expect(await words()).not.toHaveProperty('rotatingWords')
   await expect.poll(() => heading.locator('[data-lc-words]').count()).toBe(0)
 }, 60000)

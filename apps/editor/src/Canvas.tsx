@@ -279,6 +279,9 @@ export function Canvas({
     swapPlaceholders(doc)
     // querySelectorAll types its matches as Element; the rotating-word lists are HTML elements.
     sizeWords(doc as unknown as Parameters<typeof sizeWords>[0])
+    // A re-rendered list restarts its animation; align them all so texts in step stay in step.
+    for (const list of doc.querySelectorAll('[data-lc-words]'))
+      for (const animation of list.getAnimations({ subtree: true })) animation.startTime = 0
     for (const element of doc.querySelectorAll<HTMLElement>('[data-lacuno-node]'))
       element.draggable = true
     highlight(frame.current, latest.current.selected, latest.current.state)

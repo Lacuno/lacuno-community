@@ -1,13 +1,15 @@
-import { type ClassNames, classAttr, isMotionStyle } from '@lacuno/css'
-import type {
-  AssetRef,
-  Binding,
-  Document,
-  ElementNode,
-  Node,
-  NodeId,
-  RichText,
-  RotatingWords,
+import { type ClassNames, classAttr, iconSvg, isMotionStyle, wordTurns } from '@lacuno/css'
+import {
+  type AssetRef,
+  type Binding,
+  type Document,
+  type ElementNode,
+  type Node,
+  type NodeId,
+  plainText,
+  type RichText,
+  type RotatingWords,
+  type TextNode,
 } from '@lacuno/schema'
 import { isImage } from './assets.js'
 import { RenderError } from './errors.js'
@@ -155,40 +157,89 @@ function renderElement(node: ElementNode, scope: Scope, state: RenderState): str
   return `${open}${renderChildren(node.children, scope, state)}</${node.tag}>`
 }
 
-function renderText(
-  node: Extract<Node, { type: 'text' }>,
-  scope: Scope,
-  state: RenderState,
-): string {
+/** A text's content: rich text written on it, or its binding resolved. */
+function textContent(node: TextNode, scope: Scope, state: RenderState): Resolved {
+  return node.text.type === 'doc' ? node.text : resolveBinding(state.doc, node.text, scope, node.id)
+}
+
+function renderText(node: TextNode, scope: Scope, state: RenderState): string {
   const { attrs } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
   if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
   const warn = (message: string) => state.warnings.push({ node: node.id, message })
-  const text = node.text
-  const v = text.type === 'doc' ? text : resolveBinding(state.doc, text, scope, node.id)
+  const v = textContent(node, scope, state)
   state.texts?.push([node.id, v])
   let inner: string
   if (v === undefined || v === null) inner = ''
   // Rich text written on the node renders inline; bound rich text keeps its blocks.
   else if (isRichText(v))
-    inner = (v === text ? richTextInlineHtml : richTextToHtml)(v, warn, state.doc.pages)
+    inner = (v === node.text ? richTextInlineHtml : richTextToHtml)(v, warn, state.doc.pages)
   else if (isAsset(v))
     inner = escapeHtml(isImage(v) ? state.resolveImage(v).src : state.resolveAsset(v))
   else inner = escapeHtml(String(v))
-  if (node.rotatingWords) inner = rotatingWords(inner, node.rotatingWords)
+  if (node.rotatingWords) inner = rotatingWords(node, node.rotatingWords, inner, scope, state)
   return `<${node.tag}${renderAttrs(attrs)}>${inner}</${node.tag}>`
 }
 
 /**
- * The content as the first of the rotating words. Only it stays in the accessibility tree; the
- * others are hidden from it and read once, in order, from visually hidden text after the list.
+ * The content as the first of the rotating words, each with its icon and a word shown several
+ * turns in a row as one element. The list is hidden from assistive tech, which reads visually
+ * hidden text after it instead: every turn once, "AI, designer, you".
  */
-function rotatingWords(first: string, { words, interval, transition }: RotatingWords): string {
-  const attrs: AttrMap = { 'data-lc-words': String(words.length + 1) }
-  if (transition === 'fade') attrs['data-lc-fade'] = true
-  if (interval !== undefined) attrs.style = `--lc-interval:${interval}ms`
-  const others = words.map((word) => `<span aria-hidden="true">${escapeHtml(word)}</span>`)
-  const said = words.map((word) => `, ${escapeHtml(word)}`).join('')
-  return `<span${renderAttrs(attrs)}><span>${first}</span>${others.join('')}</span><span data-lc-said>${said}</span>`
+function rotatingWords(
+  node: TextNode,
+  words: RotatingWords,
+  first: string,
+  scope: Scope,
+  state: RenderState,
+): string {
+  const turns = wordTurns(node, words)
+  if (turns.length < 2) return first
+  const attrs: AttrMap = { 'aria-hidden': 'true', 'data-lc-words': String(words.words.length + 1) }
+  if (words.transition === 'fade') attrs['data-lc-fade'] = true
+  if (words.interval !== undefined) attrs.style = `--lc-interval:${words.interval}ms`
+  const list = turns.map(({ text, icon, at, slots }) => {
+    const turn: AttrMap = {}
+    if (at) turn['data-lc-at'] = String(at)
+    if (slots > 1) turn['data-lc-slots'] = String(slots)
+    return `<span${renderAttrs(turn)}>${icon ? iconSvg(icon) : ''}${at ? escapeHtml(text ?? '') : first}</span>`
+  })
+  return `<span${renderAttrs(attrs)}>${list.join('')}</span>${said(node, words, scope, state)}`
+}
+
+/**
+ * What a screen reader hears for rotating words. Rotating texts right next to each other that
+ * turn in step (as many words, the same interval) read as one phrase per turn, from the last of
+ * them: "your " and "‹AI›" become "your AI, your designer, you".
+ */
+function said(node: TextNode, words: RotatingWords, scope: Scope, state: RenderState): string {
+  const siblings = node.parent ? getNode(state, node.parent).children : [node.id]
+  const index = siblings.indexOf(node.id)
+  const inStep = (id: NodeId | undefined) => {
+    const other = id === undefined ? undefined : state.doc.nodes[id]
+    const rotating = other?.type === 'text' ? other.rotatingWords : undefined
+    return rotating?.words.length === words.words.length &&
+      (rotating.interval ?? 2200) === (words.interval ?? 2200)
+      ? (other as TextNode)
+      : undefined
+  }
+  if (inStep(siblings[index + 1])) return ''
+  const group = [node]
+  for (let i = index - 1, other = inStep(siblings[i]); other; other = inStep(siblings[--i]))
+    group.unshift(other)
+  const phrases = Array.from({ length: words.words.length + 1 }, (_, turn) =>
+    group
+      .map((member) => {
+        if (turn) {
+          const word = member.rotatingWords!.words[turn - 1]!
+          return typeof word === 'string' ? word : word.text
+        }
+        const v = textContent(member, scope, state)
+        return isRichText(v) ? plainText(v) : isAsset(v) ? '' : String(v ?? '')
+      })
+      .join('')
+      .trim(),
+  )
+  return `<span data-lc-said>${escapeHtml(phrases.filter(Boolean).join(', '))}</span>`
 }
 
 /** Group an instance's children by the slot named in their static `slot` attribute. */

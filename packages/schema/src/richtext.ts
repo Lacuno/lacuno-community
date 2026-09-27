@@ -33,3 +33,11 @@ export function safeLinkHref(value: unknown): string | undefined {
     return
   if (/^(https?:\/\/|mailto:|tel:)/i.test(href) || /^(\/(?!\/)|#)/.test(href)) return href
 }
+
+/** Rich text as plain text: inline content joined, blocks separated by a space. */
+export function plainText(n: unknown): string {
+  const o = n as { type?: string; text?: string; content?: unknown[] }
+  if (typeof o.text === 'string') return o.text
+  const inline = o.type === 'paragraph' || o.type === 'heading' || o.type === 'codeBlock'
+  return (o.content ?? []).map(plainText).join(inline ? '' : ' ')
+}

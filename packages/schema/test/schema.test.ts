@@ -156,7 +156,7 @@ describe('document schema', () => {
       expect(style(bad)).toThrow(DocumentError)
   })
 
-  it('accepts rotating words on text nodes only, with 1 to 12 words and a bounded interval', () => {
+  it('accepts rotating words on text nodes only: strings or words with icons, empty words kept', () => {
     const words = (node: string, value: unknown) => {
       const doc = fixtureDocument() as unknown as { nodes: Record<string, Record<string, unknown>> }
       doc.nodes[node]!.rotatingWords = value
@@ -165,13 +165,23 @@ describe('document schema', () => {
     expect(
       words('n-hero-title', { words: ['designer', 'you'], interval: 3000, transition: 'fade' }),
     ).not.toThrow()
+    const hero = {
+      icon: 'sparkles',
+      words: [{ text: 'designer', icon: 'pen-tool' }, { text: 'you' }, 'your ', ''],
+    }
+    // Old string lists still parse; an empty word and a trailing space are kept as written.
+    expect(words('n-hero-title', hero)().nodes['n-hero-title']).toMatchObject({
+      rotatingWords: hero,
+    })
     for (const bad of [
       { words: [] },
-      { words: [' '] },
       { words: Array(13).fill('word') },
       { words: ['a'], interval: 100 },
       { words: ['a'], transition: 'spin' },
       { words: ['a'], speed: 2 },
+      { words: [{ text: 'a', icon: 'unicorn' }] },
+      { words: [{ icon: 'star' }] },
+      { words: ['a'], icon: 'unicorn' },
     ])
       expect(words('n-hero-title', bad)).toThrow(DocumentError)
     expect(parseDocument(fixtureDocument()).nodes['n-hero-title']).not.toHaveProperty(

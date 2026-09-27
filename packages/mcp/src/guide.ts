@@ -1,4 +1,5 @@
 import { OPERATIONS, type OperationDef } from '@lacuno/document'
+import { WordIcon } from '@lacuno/schema'
 import { z } from 'zod'
 import { InputError } from './errors.js'
 
@@ -25,7 +26,9 @@ A gradient is a style value for \`background-image\`, not a CSS string: \`{"type
 
 ## Rotating words
 
-A text node may set \`rotatingWords\` (node.create or node.update; \`null\` removes it): \`{"words":["designer","you"],"interval":2200,"transition":"slide"}\`. The node's own text shows first, then each word in turn, looping; \`interval\` is milliseconds per word (500 to 20000, 2200 when left out) and \`transition\` is \`slide\` (up, the default) or \`fade\`. The element resizes to the current word, screen readers hear all words once, and with reduced motion only the first shows. Keep the node's text to one or a few words and style the node (a pill, a colour) as usual.
+A text node may set \`rotatingWords\` (node.create or node.update; \`null\` removes it): \`{"icon":"sparkles","words":[{"text":"designer","icon":"pen-tool"},"you"],"interval":2200,"transition":"slide"}\`. The node's own text shows first, then each word in turn, looping; \`interval\` is milliseconds per word (500 to 20000, 2200 when left out) and \`transition\` is \`slide\` (up, the default) or \`fade\`. A word is a string, or \`{"text","icon"}\` for an icon before it; the top-level \`icon\` goes before the node's own text. Icons (Lucide, drawn in the text colour at 0.8em): ${WordIcon.options.join(', ')}. Words are kept as written: a word may be empty, and spaces count. The element resizes to the current word, screen readers hear all words once, and with reduced motion only the first shows. Keep the node's text to one or a few words and style the node (a pill, a colour) as usual; an icon replaces a decoration such as a dot, so remove that (e.g. set \`display\` to \`none\` in the class's \`before\` state).
+
+Texts in step: rotating texts with as many words and the same interval turn together on the page, so several can form one phrase. For "your AI, your designer, you" make "your " its own text node right before the pill, with \`{"words":["your ",""]}\` (the same word twice holds still; the empty word shrinks it away, space included), and the pill \`{"icon":"sparkles","words":[{"text":"designer","icon":"pen-tool"},{"text":"you","icon":"smile"}]}\`. Keep the texts next to each other in one parent: siblings in step are read as one phrase per turn ("your AI, your designer, you"), from the last of them. Put the spaces inside the texts, in normal text flow; a flex \`gap\` between them stays when a word empties.
 
 ## Operations
 `

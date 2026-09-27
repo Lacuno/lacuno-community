@@ -30,6 +30,7 @@ describe('page.preview', () => {
     const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))
     expect(guide).toContain('## Gradients')
     expect(guide).toContain('rotatingWords')
+    expect(guide).toContain('pen-tool')
     const applied = await client.callTool({
       name: 'document.apply',
       arguments: {
@@ -63,7 +64,10 @@ describe('page.preview', () => {
             type: 'node.update',
             id: 'n-hero-title',
             text: { type: 'static', value: 'AI' },
-            rotatingWords: { words: ['designer', 'you'] },
+            rotatingWords: {
+              icon: 'sparkles',
+              words: [{ text: 'designer', icon: 'pen-tool' }, 'you'],
+            },
           },
         ],
       },
@@ -74,8 +78,11 @@ describe('page.preview', () => {
       'background-image: linear-gradient(90deg, var(--color-brand) 0%, #e0529c 100%);',
     )
     expect(html).toContain('background-clip: text;')
-    expect(html).toContain('<span data-lc-words="3"><span>AI</span>')
-    expect(html).toContain('<span data-lc-said>, designer, you</span>')
+    expect(html).toMatch(
+      /<span aria-hidden="true" data-lc-words="3"><span><svg [^>]+>.+?<\/svg>AI<\/span>/,
+    )
+    expect(html.match(/<svg /g)).toHaveLength(2)
+    expect(html).toContain('<span data-lc-said>AI, designer, you</span>')
     const bad = await client.callTool({
       name: 'document.apply',
       arguments: {
