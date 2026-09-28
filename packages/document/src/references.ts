@@ -1,4 +1,4 @@
-import type { CssValue, Document, Node, NodeId } from '@lacuno/schema'
+import type { CssValue, Document, FieldDef, Node, NodeId } from '@lacuno/schema'
 import { nodeBindings } from '@lacuno/schema'
 
 export function subtreeIds(doc: Document, rootId: NodeId): NodeId[] {
@@ -123,6 +123,44 @@ export function referencesToAsset(doc: Document, id: string): string[] {
   if (doc.site.favicon === id) out.push('site.favicon')
   for (const page of Object.values(doc.pages))
     if (page.seo?.ogImage === id) out.push(`pages.${page.id}.seo.ogImage`)
+  out.push(...entriesWith(doc, (f) => f.type === 'image' || f.type === 'file', id))
+  return out.sort()
+}
+
+/** The entries (`entries.<collection>.<index>`) whose value of a matching field is or lists `id`. */
+function entriesWith(doc: Document, match: (field: FieldDef) => boolean, id: string): string[] {
+  const out: string[] = []
+  for (const col of Object.values(doc.collections)) {
+    const fields = col.fields.filter(match).map((f) => f.id)
+    if (!fields.length) continue
+    doc.entries[col.id]?.forEach((entry, index) => {
+      if (
+        fields.some((f) => {
+          const value = entry.fields[f]
+          return value === id || (Array.isArray(value) && value.includes(id))
+        })
+      )
+        out.push(`entries.${col.id}.${index}`)
+    })
+  }
+  return out
+}
+
+/** Where an entry is used: reference fields of other entries and list filters that name it. */
+export function referencesToEntry(doc: Document, collection: string, id: string): string[] {
+  const out = entriesWith(
+    doc,
+    (f) => (f.type === 'reference' || f.type === 'multi-reference') && f.reference === collection,
+    id,
+  )
+  for (const node of Object.values(doc.nodes))
+    if (
+      node.type === 'collection-list' &&
+      node.query?.filter?.some(
+        (f) => f.value === id || (Array.isArray(f.value) && f.value.includes(id)),
+      )
+    )
+      out.push(`nodes.${node.id}`)
   return out.sort()
 }
 

@@ -1,20 +1,22 @@
 import type { CollectionSchema, Entry, FieldDef } from '@lacuno/schema'
-import { CollectionId, EntryId, FieldId, OptionChoice } from '@lacuno/schema'
+import { CollectionId, EntryId, FieldId, OptionChoice, RichText } from '@lacuno/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
-import { referencesToCollection, referencesToField } from '../references.js'
+import { referencesToCollection, referencesToEntry, referencesToField } from '../references.js'
 
 // Mirrors packages/schema/src/collections.ts's FieldDef, with `id` optional: the discriminated
 // union built from FieldDef.options.map((o) => o.extend({ id: FieldId.optional() })) loses its
 // per-branch literal types under Zod 4 (z.infer collapses to `unknown` on type-specific
 // properties), so the four strict variants are spelled out explicitly here instead, keeping the
 // same runtime behavior as the brief's fallback describes.
+const FieldName = z.string().regex(/^[a-z][a-zA-Z0-9]*$/)
+
 const FieldLiteralBase = {
   id: FieldId.optional(),
-  name: z.string().regex(/^[a-z][a-zA-Z0-9]*$/),
+  name: FieldName,
   label: z.string().min(1),
   required: z.boolean().optional(),
   help: z.string().optional(),
@@ -111,12 +113,29 @@ const collectionUpdate = defineOperation(
     id: CollectionId,
     name: z.string().min(1).optional(),
     slug: Slug.optional(),
+    /** The id of the slug field that builds entry addresses. */
+    slugField: FieldId.optional(),
   }),
   (op, ctx) => {
-    requireCollection(ctx, op.id)
+    const col = requireCollection(ctx, op.id)
     if (op.slug !== undefined)
       ctx.unique(Object.values(ctx.doc.collections), 'slug', op.slug, (c) => c.slug, op.id)
-    return partialPatches(['collections', op.id], { name: op.name, slug: op.slug })
+    if (op.slugField !== undefined) {
+      const field = ctx.require(
+        col.fields.find((f) => f.id === op.slugField),
+        `unknown field ${op.slugField}`,
+        op.slugField,
+      )
+      if (field.type !== 'slug') ctx.fail(`slug field ${field.name} must have type slug`)
+      // Every entry needs an address from the new field before it can build routes.
+      for (const entry of ctx.doc.entries[op.id] ?? [])
+        checkSlug(ctx, { ...col, slugField: field.id }, entry.fields, entry.id)
+    }
+    return partialPatches(['collections', op.id], {
+      name: op.name,
+      slug: op.slug,
+      slugField: op.slugField,
+    })
   },
 )
 
@@ -147,6 +166,8 @@ const fieldAdd = defineOperation(
     checkFieldTarget(ctx, op.field)
     const index = op.index ?? col.fields.length
     ctx.inRange(index, col.fields.length)
+    for (const entry of ctx.doc.entries[op.collection] ?? [])
+      checkValue(ctx, op.field as FieldDef, undefined, entry.id)
     return [
       {
         op: 'insert',
@@ -163,6 +184,8 @@ const fieldUpdate = defineOperation(
     type: z.literal('field.update'),
     collection: CollectionId,
     id: FieldId,
+    /** Renaming keeps bindings, which point at the field id. */
+    name: FieldName.optional(),
     label: z.string().min(1).optional(),
     required: z.boolean().nullable().optional(),
     help: z.string().nullable().optional(),
@@ -173,6 +196,8 @@ const fieldUpdate = defineOperation(
     const col = requireCollection(ctx, op.collection)
     const index = ctx.indexOf(col.fields, (f) => f.id === op.id, `unknown field ${op.id}`, op.id)
     const field = col.fields[index] as FieldDef
+    if (op.name !== undefined && col.fields.some((f) => f.id !== op.id && f.name === op.name))
+      ctx.fail(`field name ${op.name} is already used`)
     if (op.options !== undefined && field.type !== 'option')
       ctx.fail('options applies to option fields only', { id: op.id })
     if (op.reference !== undefined) {
@@ -184,9 +209,10 @@ const fieldUpdate = defineOperation(
         op.reference,
       )
     }
-    return partialPatches(
+    const patches = partialPatches(
       ['collections', op.collection, 'fields', index],
       {
+        name: op.name,
         label: op.label,
         required: op.required,
         help: op.help,
@@ -195,6 +221,31 @@ const fieldUpdate = defineOperation(
       },
       field,
     )
+    // The entries must still fit the field: a new requirement, fewer options, another target.
+    const updated = { ...field } as Record<string, unknown>
+    for (const patch of patches)
+      if (patch.op === 'set') updated[patch.path.at(-1) as string] = patch.value
+      else delete updated[patch.path.at(-1) as string]
+    for (const entry of ctx.doc.entries[op.collection] ?? [])
+      checkValue(ctx, updated as FieldDef, entry.fields[op.id], entry.id)
+    return patches
+  },
+)
+
+const fieldMove = defineOperation(
+  z.strictObject({
+    type: z.literal('field.move'),
+    collection: CollectionId,
+    id: FieldId,
+    index: z.number().int().nonnegative(),
+  }),
+  (op, ctx) => {
+    const col = requireCollection(ctx, op.collection)
+    const from = ctx.indexOf(col.fields, (f) => f.id === op.id, `unknown field ${op.id}`, op.id)
+    ctx.inRange(op.index, col.fields.length - 1)
+    return from === op.index
+      ? []
+      : [{ op: 'move', path: ['collections', op.collection, 'fields'], from, to: op.index }]
   },
 )
 
@@ -225,8 +276,79 @@ function checkEntryFieldKeys(
     if (!col.fields.some((f) => f.id === key)) ctx.fail(`unknown field ${key}`, { id: key })
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/
+
+/** Whether `id` is an entry of `collection`. */
+const isEntry = (ctx: PlanContext, collection: string, id: unknown) =>
+  typeof id === 'string' && (ctx.doc.entries[collection] ?? []).some((e) => e.id === id)
+
 /**
- * Checks one entry's field values against the collection: required, slug, options. The caller
+ * Checks one value against its field: presence when required, then the shape its type stores.
+ * Images and files hold an asset id, references an entry id of the target collection, a
+ * multi-reference a list of them, dates an ISO date, rich text a document.
+ */
+function checkValue(ctx: PlanContext, f: FieldDef, value: unknown, entry?: string): void {
+  const at = entry ? ` in entry ${entry}` : ''
+  if (value === undefined) {
+    if (f.required) ctx.fail(`missing required field ${f.name}${at}`)
+    return
+  }
+  const bad = (expected: string) =>
+    ctx.fail(`field ${f.name} expects ${expected}, got ${JSON.stringify(value)}${at}`)
+  switch (f.type) {
+    case 'text':
+    case 'slug':
+    case 'link':
+    case 'color':
+      if (typeof value !== 'string') bad('a string')
+      return
+    case 'date':
+      if (typeof value !== 'string' || !ISO_DATE.test(value)) bad('a date such as 2026-09-28')
+      return
+    case 'number':
+      if (typeof value !== 'number' || !Number.isFinite(value)) bad('a number')
+      return
+    case 'boolean':
+      if (typeof value !== 'boolean') bad('true or false')
+      return
+    case 'richtext':
+      if (!RichText.safeParse(value).success) bad('rich text')
+      return
+    case 'image':
+    case 'file': {
+      const asset = typeof value === 'string' ? ctx.doc.assets[value] : undefined
+      if (!asset || (f.type === 'image' && asset.kind !== 'image' && asset.kind !== 'svg'))
+        bad(f.type === 'image' ? 'the id of an image asset' : 'an asset id')
+      return
+    }
+    case 'option':
+      if (!f.options.some((o) => o.value === value))
+        ctx.fail(`${JSON.stringify(value)} is not an option of field ${f.name}${at}`)
+      return
+    case 'reference':
+      if (!isEntry(ctx, f.reference, value)) bad(`an entry id of ${f.reference}`)
+      return
+    case 'multi-reference':
+      if (!Array.isArray(value) || !value.every((id) => isEntry(ctx, f.reference, id)))
+        bad(`a list of entry ids of ${f.reference}`)
+      return
+  }
+}
+
+function checkSlug(
+  ctx: PlanContext,
+  col: CollectionSchema,
+  fields: Record<string, unknown>,
+  except?: string,
+): void {
+  const slug = fields[col.slugField]
+  if (typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug))
+    ctx.fail(`slug must be lower-case letters, digits and dashes, got ${JSON.stringify(slug)}`)
+  ctx.unique(ctx.doc.entries[col.id] ?? [], 'slug', slug, (e) => e.fields[col.slugField], except)
+}
+
+/**
+ * Checks one entry's field values against the collection: types, required, slug. The caller
  * checks the keys, because only it knows whether a null value still counts as one.
  */
 function checkEntryFields(
@@ -235,16 +357,8 @@ function checkEntryFields(
   fields: Record<string, unknown>,
   except?: string,
 ): void {
-  for (const f of col.fields) {
-    const value = fields[f.id]
-    if (f.required && value === undefined) ctx.fail(`missing required field ${f.name}`)
-    if (f.type === 'option' && value !== undefined && !f.options.some((o) => o.value === value))
-      ctx.fail(`${JSON.stringify(value)} is not an option of field ${f.name}`)
-  }
-  const slug = fields[col.slugField]
-  if (typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug))
-    ctx.fail(`slug must be lower-case letters, digits and dashes, got ${JSON.stringify(slug)}`)
-  ctx.unique(ctx.doc.entries[col.id] ?? [], 'slug', slug, (e) => e.fields[col.slugField], except)
+  for (const f of col.fields) checkValue(ctx, f, fields[f.id])
+  checkSlug(ctx, col, fields, except)
 }
 
 function entryIndex(
@@ -317,6 +431,8 @@ const entryDelete = defineOperation(
   (op, ctx) => {
     requireCollection(ctx, op.collection)
     const { index } = entryIndex(ctx, op.collection, op.id)
+    const referencedBy = referencesToEntry(ctx.doc, op.collection, op.id)
+    if (referencedBy.length) ctx.fail(`entry ${op.id} is referenced`, { id: op.id, referencedBy })
     return [{ op: 'remove', path: ['entries', op.collection], index }]
   },
 )
@@ -344,6 +460,7 @@ export const collectionOperations = [
   collectionDelete,
   fieldAdd,
   fieldUpdate,
+  fieldMove,
   fieldRemove,
   entryCreate,
   entryUpdate,

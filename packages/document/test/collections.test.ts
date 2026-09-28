@@ -287,3 +287,162 @@ describe('entries', () => {
     failing([{ type: 'entry.delete', collection: 'col-posts', id: 'nope' }], /unknown entry nope/)
   })
 })
+
+describe('editing collections by hand', () => {
+  const author = (fields: Record<string, unknown> = {}): Operation[] => [
+    {
+      type: 'collection.create',
+      id: 'col-authors',
+      name: 'Authors',
+      slug: 'authors',
+      fields: [
+        { id: 'f-name', name: 'name', label: 'Name', type: 'text', required: true },
+        { id: 'f-handle', name: 'handle', label: 'Handle', type: 'slug', required: true },
+        { id: 'f-alias', name: 'alias', label: 'Alias', type: 'slug' },
+      ],
+      slugField: 'handle',
+    },
+    {
+      type: 'entry.create',
+      collection: 'col-authors',
+      id: 'e-ada',
+      fields: { 'f-name': 'Ada', 'f-handle': 'ada', ...fields },
+    },
+    {
+      type: 'field.add',
+      collection: 'col-posts',
+      field: {
+        id: 'f-author',
+        name: 'author',
+        label: 'Author',
+        type: 'reference',
+        reference: 'col-authors',
+      },
+    },
+  ]
+
+  it('renames and moves fields, keeping bindings on the field id', () => {
+    const { document } = run([
+      { type: 'field.update', collection: 'col-posts', id: 'f-title', name: 'headline' },
+      { type: 'field.move', collection: 'col-posts', id: 'f-status', index: 0 },
+    ])
+    const col = document.collections['col-posts']!
+    expect(col.fields.map((f) => f.name)).toEqual(['status', 'headline', 'slug', 'date', 'body'])
+    failing(
+      [{ type: 'field.update', collection: 'col-posts', id: 'f-title', name: 'slug' }],
+      /field name slug is already used/,
+    )
+    failing(
+      [{ type: 'field.move', collection: 'col-posts', id: 'f-title', index: 5 }],
+      /index 5 out of range/,
+    )
+  })
+
+  it('switches the slug field only when every entry has an address in it', () => {
+    failing(
+      [...author(), { type: 'collection.update', id: 'col-authors', slugField: 'f-alias' }],
+      /slug must be lower-case/,
+    )
+    failing(
+      [...author(), { type: 'collection.update', id: 'col-authors', slugField: 'f-name' }],
+      /must have type slug/,
+    )
+    const { document } = run([
+      ...author({ 'f-alias': 'countess' }),
+      { type: 'collection.update', id: 'col-authors', slugField: 'f-alias' },
+    ])
+    expect(document.collections['col-authors']!.slugField).toBe('f-alias')
+  })
+
+  it('checks values by field type', () => {
+    const post = (fields: Record<string, unknown>): Operation => ({
+      type: 'entry.create',
+      collection: 'col-posts',
+      fields: { 'f-title': 'T', 'f-slug': 'typed', ...fields },
+    })
+    failing([post({ 'f-date': 'next tuesday' })], /field date expects a date/)
+    failing([post({ 'f-body': 'plain' })], /field body expects rich text/)
+    failing([post({ 'f-title': 3 })], /field title expects a string/)
+    failing(
+      [
+        {
+          type: 'field.add',
+          collection: 'col-posts',
+          field: { id: 'f-cover', name: 'cover', label: 'Cover', type: 'image' },
+        },
+        post({ 'f-cover': 'a-clip' }),
+      ],
+      /field cover expects the id of an image asset/,
+    )
+    failing(
+      [...author(), post({ 'f-author': 'e-1' })],
+      /field author expects an entry id of col-authors/,
+    )
+    const { document } = run([
+      ...author(),
+      {
+        type: 'field.add',
+        collection: 'col-posts',
+        field: { id: 'f-cover', name: 'cover', label: 'Cover', type: 'image' },
+      },
+      post({ 'f-date': '2026-09-28', 'f-author': 'e-ada', 'f-cover': 'a-hero' }),
+    ])
+    expect(document.entries['col-posts']!.at(-1)!.fields['f-author']).toBe('e-ada')
+  })
+
+  it('refuses changes existing entries would break', () => {
+    failing(
+      [{ type: 'field.update', collection: 'col-posts', id: 'f-body', required: true }],
+      /missing required field body in entry e-2/,
+    )
+    failing(
+      [
+        {
+          type: 'field.update',
+          collection: 'col-posts',
+          id: 'f-status',
+          options: [{ value: 'published' }],
+        },
+      ],
+      /"draft" is not an option of field status in entry e-3/,
+    )
+    failing(
+      [
+        {
+          type: 'field.add',
+          collection: 'col-posts',
+          field: { name: 'teaser', label: 'Teaser', type: 'text', required: true },
+        },
+      ],
+      /missing required field teaser in entry e-1/,
+    )
+  })
+
+  it('refuses deleting an entry another entry references, and an asset an entry uses', () => {
+    const doc = run([
+      ...author(),
+      { type: 'entry.update', collection: 'col-posts', id: 'e-2', fields: { 'f-author': 'e-ada' } },
+      {
+        type: 'field.add',
+        collection: 'col-posts',
+        field: { id: 'f-cover', name: 'cover', label: 'Cover', type: 'image' },
+      },
+      { type: 'entry.update', collection: 'col-posts', id: 'e-1', fields: { 'f-cover': 'a-hero' } },
+    ]).document
+    const e = failing(
+      [{ type: 'entry.delete', collection: 'col-authors', id: 'e-ada' }],
+      /referenced/,
+      doc,
+    )
+    expect(e.referencedBy).toEqual(['entries.col-posts.1'])
+    const asset = failing([{ type: 'asset.delete', id: 'a-hero' }], /referenced/, doc)
+    expect(asset.referencedBy).toContain('entries.col-posts.0')
+    run(
+      [
+        { type: 'entry.update', collection: 'col-posts', id: 'e-2', fields: { 'f-author': null } },
+        { type: 'entry.delete', collection: 'col-authors', id: 'e-ada' },
+      ],
+      doc,
+    )
+  })
+})
