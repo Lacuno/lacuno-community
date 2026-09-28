@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AssetId, CollectionId, FolderId, NodeId, PageId } from './ids.js'
+import { AssetId, CollectionId, FieldId, FolderId, NodeId, PageId } from './ids.js'
 
 /** Strict: a typo such as `descripton` must be an error, not silent data loss. */
 export const Seo = z.strictObject({
@@ -8,6 +8,14 @@ export const Seo = z.strictObject({
   canonical: z.string().optional(),
   noindex: z.boolean().optional(),
   ogImage: AssetId.optional(),
+  /** On a collection page: entry fields that give the title, description and social image. */
+  fields: z
+    .strictObject({
+      title: FieldId.optional(),
+      description: FieldId.optional(),
+      ogImage: FieldId.optional(),
+    })
+    .optional(),
 })
 export type Seo = z.infer<typeof Seo>
 

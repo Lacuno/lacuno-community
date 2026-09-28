@@ -204,7 +204,12 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
       const entry = route.entry
         ? (doc.entries[page.collection ?? ''] ?? []).find((e) => e.id === route.entry)
         : undefined
-      warnings.push(...render(doc, page, entry, { resolveImage: plainImageResolver }).warnings)
+      warnings.push(
+        ...render(doc, page, entry, {
+          resolveImage: plainImageResolver,
+          ...(route.listPage ? { listPage: route.listPage } : {}),
+        }).warnings,
+      )
     }
   } catch (e) {
     if (e instanceof RenderError) throw new BuildError('render', renderMessage(e))

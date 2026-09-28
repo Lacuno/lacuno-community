@@ -138,6 +138,14 @@ describe('fields', () => {
       /referenced/,
     )
     expect(e.referencedBy).toEqual(['nodes.n-post-card', 'nodes.n-post-title'])
+    const seo = failing(
+      [
+        { type: 'page.update', id: 'p-post', seo: { fields: { description: 'f-date' } } },
+        { type: 'field.remove', collection: 'col-posts', id: 'f-date' },
+      ],
+      /referenced/,
+    )
+    expect(seo.referencedBy).toEqual(['nodes.n-posts', 'pages.p-post'])
     failing(
       [{ type: 'field.update', collection: 'col-posts', id: 'f-title', options: [{ value: 'x' }] }],
       /options applies to option fields/,

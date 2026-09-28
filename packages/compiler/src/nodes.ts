@@ -17,6 +17,7 @@ import { type AttrMap, escapeHtml, renderAttrs, VOID_TAGS } from './html.js'
 import type { ImageResolver } from './images.js'
 import { applyQuery } from './query.js'
 import { richTextInlineHtml, richTextToHtml } from './richtext.js'
+import { listPagePath, listPages } from './routes.js'
 import type { Frame } from './scope.js'
 import { type Resolved, resolveBinding, type Scope } from './scope.js'
 
@@ -33,6 +34,8 @@ export type RenderState = {
   warnings: Warning[]
   annotateNodes?: boolean
   editingComponent?: string
+  /** The page of the paginated list being rendered, 1 when left out. */
+  listPage?: number
   /** Collects each rendered text node's content, for a plain-text view of the page. */
   texts?: [NodeId, Resolved][]
 }
@@ -83,7 +86,7 @@ function resolveAttrs(
   let imageAsset: AssetRef | undefined
   for (const [name, binding] of Object.entries(attrs ?? {})) {
     if (name === 'slot') continue
-    const v = resolveBinding(state.doc, binding, scope, nodeId)
+    const v = resolveBinding(state.doc, binding, scope, nodeId, name)
     if (v === undefined || v === false) continue
     if (v === true) {
       out[name] = true
@@ -303,11 +306,38 @@ function renderList(
   const collection = state.doc.collections[node.collection]!
   const { attrs } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
   if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
-  const entries = applyQuery(state.doc.entries[node.collection] ?? [], node.query)
+  const listPage = node.query?.paginate ? (state.listPage ?? 1) : 1
+  const query =
+    listPage > 1 && node.query?.limit
+      ? { ...node.query, offset: (node.query.offset ?? 0) + (listPage - 1) * node.query.limit }
+      : node.query
+  const entries = applyQuery(state.doc.entries[node.collection] ?? [], query)
   const items = entries
     .map((entry) => renderChildren(node.children, { ...scope, entry, collection }, state))
     .join('')
-  return `<${node.tag}${renderAttrs(attrs)}>${items}</${node.tag}>`
+  const list = `<${node.tag}${renderAttrs(attrs)}>${items}</${node.tag}>`
+  return node.query?.paginate ? list + pagination(node, listPage, state) : list
+}
+
+/**
+ * Previous and next links after a paginated list, with where the reader is: "Page 2 of 5".
+ * Nothing when everything fits on one page.
+ */
+function pagination(
+  node: Extract<Node, { type: 'collection-list' }>,
+  current: number,
+  state: RenderState,
+): string {
+  const pages = listPages(state.doc, node)
+  if (pages < 2) return ''
+  const path = state.doc.pages[state.page]!.path
+  const link = (n: number, rel: string, text: string) =>
+    `<a${renderAttrs({ href: listPagePath(path, n), rel })}>${text}</a>`
+  return `<nav${renderAttrs({ class: 'lc-pagination', 'aria-label': 'Pagination' })}>${
+    current > 1 ? link(current - 1, 'prev', '← Previous') : ''
+  }<span>Page ${current} of ${pages}</span>${
+    current < pages ? link(current + 1, 'next', 'Next →') : ''
+  }</nav>`
 }
 
 export function renderChildren(ids: readonly NodeId[], scope: Scope, state: RenderState): string {

@@ -195,7 +195,10 @@ describe('node.update', () => {
       [{ type: 'node.update', id: 'n-hero', props: {} }],
       /props applies to component instances/,
     )
-    failing([{ type: 'node.update', id: 'n-hero', query: {} }], /query applies to collection lists/)
+    failing(
+      [{ type: 'node.update', id: 'n-hero', query: {} }],
+      /query and collection apply to collection lists/,
+    )
     failing([{ type: 'node.update', id: 'n-hero', html: '<b>x</b>' }], /html applies to embed/)
     failing(
       [{ type: 'node.update', id: 'n-hero', rotatingWords: { words: ['x'] } }],

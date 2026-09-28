@@ -75,8 +75,11 @@ export function renderPreview(
   | { status: 400 | 404; body: { error: string } } {
   const page = doc.pages[query.page ?? '']
   if (!page) return { status: 404, body: { error: 'Page not found' } }
+  // A collection without entries yet previews its page with every field empty.
+  const entries = page.collection ? (doc.entries[page.collection] ?? []) : []
   const entry = page.collection
-    ? doc.entries[page.collection]?.find((item) => item.id === query.entry)
+    ? (entries.find((item) => item.id === query.entry) ??
+      (entries.length ? undefined : { id: '', fields: {} }))
     : undefined
   if (page.collection && !entry)
     return { status: 400, body: { error: 'Choose a collection entry to preview' } }

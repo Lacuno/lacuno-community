@@ -5,6 +5,7 @@ import type {
   Component,
   Document,
   Entry,
+  FieldDef,
   NodeId,
   RichText,
 } from '@lacuno/schema'
@@ -24,11 +25,61 @@ export type Scope = {
   entry?: Entry
   collection?: CollectionSchema
   frames: Frame[]
+  /** The page's language, for dates. */
+  lang?: string
+}
+
+/** The address of an entry's page: its collection's page with the entry's slug in the path. */
+export function entryPath(doc: Document, collection: string, entry: Entry): string | undefined {
+  const page = Object.values(doc.pages).find((p) => p.collection === collection)
+  const col = doc.collections[collection]
+  const slug = col ? entry.fields[col.slugField] : undefined
+  return page && typeof slug === 'string' ? page.path.replace(/\[[a-z0-9-]+\]/g, slug) : undefined
+}
+
+/**
+ * A field's value as a binding reads it. Images and files become their asset; a date with a
+ * format reads in the page's language. For `href`, a slug is the entry's own page and a reference
+ * the page of the entry it points at.
+ */
+function fieldValue(
+  doc: Document,
+  field: FieldDef,
+  entry: Entry,
+  b: Extract<Binding, { type: 'field' }>,
+  scope: Scope,
+  attr?: string,
+): Resolved {
+  const value = entry.fields[field.id]
+  if (value === undefined) return undefined
+  if (attr === 'href' && field.type === 'slug') return entryPath(doc, scope.collection!.id, entry)
+  if (attr === 'href' && field.type === 'reference') {
+    const target = doc.entries[field.reference]?.find((e) => e.id === value)
+    return target && entryPath(doc, field.reference, target)
+  }
+  if (field.type === 'image' || field.type === 'file') return doc.assets[String(value)]
+  if (field.type === 'date' && b.format) {
+    const date = new Date(String(value).length === 10 ? `${value}T12:00:00Z` : String(value))
+    if (!Number.isNaN(date.getTime()))
+      return new Intl.DateTimeFormat(scope.lang, { dateStyle: b.format, timeZone: 'UTC' }).format(
+        date,
+      )
+  }
+  if (field.type === 'option')
+    return field.options.find((o) => o.value === value)?.label ?? String(value)
+  return value as Resolved
 }
 
 export type Resolved = string | number | boolean | RichText | AssetRef | undefined
 
-export function resolveBinding(doc: Document, b: Binding, scope: Scope, nodeId: string): Resolved {
+export function resolveBinding(
+  doc: Document,
+  b: Binding,
+  scope: Scope,
+  nodeId: string,
+  /** The attribute the binding fills, when it fills one. */
+  attr?: string,
+): Resolved {
   switch (b.type) {
     case 'static':
       return b.value
@@ -45,9 +96,9 @@ export function resolveBinding(doc: Document, b: Binding, scope: Scope, nodeId: 
     case 'field': {
       if (!scope.entry || !scope.collection)
         throw new RenderError(`field binding ${b.field} outside a collection`, nodeId)
-      if (!scope.collection.fields.some((f) => f.id === b.field))
-        throw new RenderError(`unknown field ${b.field}`, nodeId)
-      return scope.entry.fields[b.field] as Resolved
+      const field = scope.collection.fields.find((f) => f.id === b.field)
+      if (!field) throw new RenderError(`unknown field ${b.field}`, nodeId)
+      return fieldValue(doc, field, scope.entry, b, scope, attr)
     }
     case 'page': {
       const p = doc.pages[b.page]

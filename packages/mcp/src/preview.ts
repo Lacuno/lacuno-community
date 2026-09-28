@@ -18,7 +18,7 @@ import {
 } from '@lacuno/schema'
 import { InputError } from './errors.js'
 
-export type PreviewRoute = { page: Page; entry?: Entry }
+export type PreviewRoute = { page: Page; entry?: Entry; listPage?: number }
 
 /** A page id, a page path or a route path; a collection page also needs an entry id or slug. */
 export function resolveRoute(doc: Document, page: string, entry?: string): PreviewRoute {
@@ -37,7 +37,11 @@ export function resolveRoute(doc: Document, page: string, entry?: string): Previ
     )
   const p = doc.pages[route.page]!
   const e = doc.entries[p.collection ?? '']?.find((e) => e.id === route.entry)
-  return e ? { page: p, entry: e } : { page: p }
+  return {
+    page: p,
+    ...(e ? { entry: e } : {}),
+    ...(route.listPage ? { listPage: route.listPage } : {}),
+  }
 }
 
 /**
@@ -48,6 +52,7 @@ export function previewHtml(doc: Document, route: PreviewRoute, annotateNodes = 
   const result = render(doc, route.page, route.entry, {
     resolveImage: plainImageResolver,
     ...(annotateNodes ? { annotateNodes } : {}),
+    ...(route.listPage ? { listPage: route.listPage } : {}),
   })
   const { css } = generateStylesheet(doc, { assetUrl: publicAssetPath })
   result.head += `\n${styleElement(css)}`
@@ -57,7 +62,11 @@ export function previewHtml(doc: Document, route: PreviewRoute, annotateNodes = 
 /** `nodeId<TAB>text` per rendered text node in document order. */
 export function previewText(doc: Document, route: PreviewRoute): string[] {
   const texts: [NodeId, Resolved][] = []
-  render(doc, route.page, route.entry, { resolveImage: plainImageResolver, texts })
+  render(doc, route.page, route.entry, {
+    resolveImage: plainImageResolver,
+    texts,
+    ...(route.listPage ? { listPage: route.listPage } : {}),
+  })
   return texts.flatMap(([id, v]) => {
     // Rich text becomes plain text, an asset has no text, anything else reads as a string.
     const s = (

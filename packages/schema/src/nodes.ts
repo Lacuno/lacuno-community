@@ -22,7 +22,12 @@ export const Tag = z.string().regex(/^[a-z][a-z0-9-]*$/, 'tag must be a lower-ca
 /** A value that can be static or bound to content. */
 export const Binding = z.discriminatedUnion('type', [
   z.object({ type: z.literal('static'), value: z.union([z.string(), z.number(), z.boolean()]) }),
-  z.object({ type: z.literal('field'), field: FieldId }),
+  z.object({
+    type: z.literal('field'),
+    field: FieldId,
+    /** How a date field reads, in the page's language; the ISO date when left out. */
+    format: z.enum(['short', 'medium', 'long', 'full']).optional(),
+  }),
   z.object({ type: z.literal('designToken'), designToken: DesignTokenId }),
   z.object({ type: z.literal('asset'), asset: AssetId }),
   z.object({ type: z.literal('prop'), prop: z.string().min(1) }),
@@ -158,6 +163,11 @@ export const CollectionListNode = z.object({
         .optional(),
       limit: z.number().int().positive().optional(),
       offset: z.number().int().nonnegative().optional(),
+      /**
+       * Pages of `limit` entries: the page shows the first, and `<path>/page/2` onwards the rest,
+       * with previous and next links after the list. One per page, not on collection pages.
+       */
+      paginate: z.boolean().optional(),
     })
     .optional(),
 })
