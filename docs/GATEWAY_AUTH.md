@@ -35,7 +35,9 @@ sets that header to an HS256 JWT signed using the UTF-8 gateway secret. Required
 
 Do not send assertions to the browser or place them in URLs. Re-sign retries with a new nonce.
 `GET /health` and `/api/config` are public readiness/configuration endpoints; editor HTML, assets and
-management APIs require assertions. `/api/config` reports `authentication: "gateway"` and
+management APIs require assertions. `/health` also reports `busy: true` while a build is queued or
+running, or, with the export sink, a publication or asset list waits to be sent: a gateway that
+stops idle runtimes waits for it. `/api/config` reports `authentication: "gateway"` and
 `gatewayProtocol: 1`. `GET /api/auth/get-session` returns the verified identity profile, not a local
 browser session. The gateway owns browser logout and immediate session/membership revocation; AI
 connections outlive both until revoked (below).

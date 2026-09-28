@@ -270,6 +270,16 @@ describe('export to the edge', () => {
     expect(log.filter((line) => line === 'PUT pointer/production')).toHaveLength(2)
     await expect.poll(() => table('export_pointer')).toEqual([])
   })
+  it('reports itself busy while a publication waits for the sink', async () => {
+    const busy = async () =>
+      (await (await server.app.request(`${origin}/health`)).json()).busy as boolean
+    await expect.poll(busy).toBe(false)
+    failures = { match: /^PUT pointer\/testing$/, status: 503, times: 1 }
+    const { testingId } = await call(`/api/sites/${site}/releases`)
+    await activate(testingId, testingId, 'testing')
+    expect(await busy()).toBe(true)
+    await expect.poll(busy, { timeout: 5000 }).toBe(false)
+  })
   it('keeps a site’s newest thumbnail and sends it to the sink, failing until the sink has it', async () => {
     const created = await call('/api/sites', { name: 'Pictured' })
     const target = `/api/sites/${created.id}/thumbnail`

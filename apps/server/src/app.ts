@@ -168,7 +168,18 @@ export async function createServer(options: ServerOptions) {
       console.error(error)
       return c.json({ error: 'Internal server error' }, 500)
     })
-    app.get('/health', (c) => c.json({ status: 'ok' }))
+    // Busy while work no request shows waits here: a build, or a publication or asset list for
+    // Cloud's export sink. Cloud does not stop an idle runtime that is busy.
+    const busy = sqlite.prepare(
+      `SELECT EXISTS(SELECT 1 FROM releases WHERE status IN ('queued','building'))${
+        exportOptions
+          ? ' OR EXISTS(SELECT 1 FROM export_pointer) OR EXISTS(SELECT 1 FROM export_assets)'
+          : ''
+      } AS busy`,
+    )
+    app.get('/health', (c) =>
+      c.json({ status: 'ok', busy: !!(busy.get() as { busy: number }).busy }),
+    )
     app.route('/.well-known', provider.routes)
     app.get('/api/config', (c) =>
       c.json({
