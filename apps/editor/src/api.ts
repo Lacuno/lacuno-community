@@ -13,6 +13,11 @@ export class ApiError extends Error {
 export const message = (error: unknown, fallback = 'Something went wrong') =>
   error instanceof Error ? error.message : fallback
 
+export const unreachable = 'Lacuno cannot be reached right now. Please try again in a moment.'
+
+/** No answer, or a server or proxy error: worth asking again later. */
+export const transient = (error: unknown) => !(error instanceof ApiError) || error.status >= 500
+
 export async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const send = () =>
     fetch(path, {
@@ -43,7 +48,12 @@ export async function api<T>(path: string, body?: unknown, signal?: AbortSignal)
   if (!response.ok) {
     const failure = data as { error?: string; message?: string } | undefined
     throw new ApiError(
-      failure?.error ?? failure?.message ?? (response.statusText || 'Request failed'),
+      failure?.error ??
+        failure?.message ??
+        // A proxy's own answer while the server restarts, such as "Bad Gateway".
+        ([502, 503, 504].includes(response.status)
+          ? unreachable
+          : response.statusText || 'Request failed'),
       response.status,
     )
   }
