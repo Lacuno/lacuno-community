@@ -50,6 +50,7 @@ export function winningStyles(
     .filter(
       (style) =>
         classes.includes(style.class) &&
+        !style.tag &&
         scopes.includes(style.breakpoint) &&
         states.includes(style.state),
     )
@@ -177,6 +178,7 @@ export function createPreset(
             .filter(
               (style) =>
                 node.classes.includes(style.class) &&
+                !style.tag &&
                 style.breakpoint === bp &&
                 style.state === 'none',
             )

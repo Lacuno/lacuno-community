@@ -127,6 +127,7 @@ const tagLabels: Record<string, string> = {
 /** The name shown for an element in the layers, breadcrumbs, drag labels and the inspector. */
 export function nodeLabel(node: Node) {
   if (node.meta?.label) return node.meta.label
+  if (node.type === 'text' && node.tag === 'div') return 'Rich text'
   return 'tag' in node ? (tagLabels[node.tag] ?? node.tag) : node.type
 }
 

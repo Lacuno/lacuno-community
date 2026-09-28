@@ -1,4 +1,4 @@
-import { classNames, compareSelectors } from '@lacuno/css'
+import { classNames, compareSelectors, contextFromDocument, serializeValue } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
 import { nodesUsingClass } from '@lacuno/document/references'
 import type { CssValue, Document, Node, State, StyleDecl } from '@lacuno/schema'
@@ -20,6 +20,11 @@ export const formattingGroups = [
         choices: ['left', 'center', 'right', 'justify'],
       },
       { property: 'line-height', label: 'Line height', hint: 'e.g. 1.5' },
+      {
+        property: 'text-decoration-line',
+        label: 'Decoration',
+        choices: ['none', 'underline', 'line-through'],
+      },
     ],
   },
   {
@@ -212,7 +217,11 @@ export function formattingOperations(
 /** Whether any of the element's classes sets this property !important. */
 export const important = (doc: Document, node: Node, property: string) =>
   Object.values(doc.styles).some(
-    (style) => node.classes.includes(style.class) && style.property === property && style.important,
+    (style) =>
+      node.classes.includes(style.class) &&
+      !style.tag &&
+      style.property === property &&
+      style.important,
   )
 
 /** Operations that clear these local declarations, restoring what they override. */
@@ -250,3 +259,49 @@ export function normalizeFormatting(
     ),
   )
 }
+
+/** Each drafted property as CSS text, and whether the browser accepts it. */
+export function draftCss(doc: Document, normalized: Record<string, CssValue | null>) {
+  const context = contextFromDocument(doc)
+  const serialized = Object.fromEntries(
+    Object.entries(normalized).map(([property, value]) => [
+      property,
+      value && serializeValue(value, context),
+    ]),
+  )
+  const supported = Object.fromEntries(
+    Object.entries(serialized).map(([property, text]) => [
+      property,
+      !text || CSS.supports(property, text),
+    ]),
+  )
+  return { serialized, supported }
+}
+
+/** What to fix before a draft saves: the first value the browser would not accept. */
+export function invalidChange(
+  pending: Record<string, CssValue | null>,
+  supported: Record<string, boolean>,
+): string {
+  const invalid = Object.entries(pending).find(
+    ([property, value]) => value && value.type !== 'designToken' && !supported[property],
+  )
+  return invalid ? `Enter a valid value for ${invalid[0]}, such as 24px or #334155.` : ''
+}
+
+/** The line under a panel's fields that says whether its edits are saved. */
+export const saveStatus = (status: {
+  conflict: boolean
+  validation: string
+  busy: boolean
+  pending: boolean
+}) =>
+  status.conflict
+    ? 'Changes paused. Reload to resolve the conflict.'
+    : status.validation
+      ? 'Waiting for a valid value.'
+      : status.busy
+        ? 'Saving…'
+        : status.pending
+          ? 'Changes pending…'
+          : 'All changes saved'

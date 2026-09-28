@@ -328,6 +328,31 @@ describe('renderNode: components, slots, lists, embeds', () => {
     )
   })
 
+  it('marks texts that hold blocks on the canvas, so their tags can be selected', () => {
+    const text = (id: string, content: unknown[]): Node => ({
+      id,
+      type: 'text',
+      tag: 'div',
+      parent: null,
+      children: [],
+      classes: [],
+      text: { type: 'doc', content: content as never },
+    })
+    const paragraph = { type: 'paragraph', content: [{ type: 'text', text: 'Hi' }] }
+    const heading = {
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: 'Hi' }],
+    }
+    const doc = withNodes([text('inline', [paragraph]), text('blocks', [heading, paragraph])])
+    const canvas = { ...state(doc), annotateNodes: true }
+    expect(renderNode('inline', empty, canvas)).toBe('<div data-lacuno-node="inline">Hi</div>')
+    expect(renderNode('blocks', empty, canvas)).toBe(
+      '<div data-lacuno-node="blocks" data-lacuno-rich><h2>Hi</h2><p>Hi</p></div>',
+    )
+    expect(renderNode('blocks', empty, state(doc))).toBe('<div><h2>Hi</h2><p>Hi</p></div>')
+  })
+
   it('publishes a styled embed in a wrapper that carries its classes', () => {
     const doc = fixtureDocument()
     doc.classes['l-embed'] = { id: 'l-embed', kind: 'local' }

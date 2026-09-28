@@ -9,6 +9,7 @@ import { colorLabel, colorPreview, projectColors } from './colors.js'
 import { componentUsage } from './components.js'
 import { EditorIcon } from './EditorIcon.js'
 import type { InlineTarget } from './InlineTextEditor.js'
+import { type InnerTag, RICH_TAG_NAMES, richClassName } from './richTags.js'
 import type { DocumentSession } from './session.js'
 import { isLocked, nodeLabel } from './structure.js'
 import { tokensOfGroup, tokenValue } from './tokens.js'
@@ -30,6 +31,7 @@ export function CanvasPanel({
   states,
   setState,
   selected,
+  inner,
   setSelected,
   reveal,
   inlineTarget,
@@ -55,7 +57,8 @@ export function CanvasPanel({
   states: State[]
   setState: (state: State) => void
   selected: string
-  setSelected: (id: string) => void
+  inner: InnerTag | undefined
+  setSelected: (id: string, inner?: InnerTag) => void
   reveal: () => void
   inlineTarget: InlineTarget | undefined
   setInlineTarget: (target: InlineTarget | undefined) => void
@@ -69,6 +72,13 @@ export function CanvasPanel({
   const { doc, error, busy, frozen, leave } = session
   const [zoom, setZoom] = useState('fit')
   const { editingComponent } = editing
+  const node = doc?.nodes[selected]
+  const selectedName =
+    node && doc
+      ? inner
+        ? `${RICH_TAG_NAMES[inner.tag]} in ${richClassName(doc, node)}`
+        : nodeLabel(node)
+      : ''
   const collection =
     page?.collection && !editingComponent ? doc?.collections[page.collection] : undefined
   const snapTokens = (group: 'spacing' | 'size') =>
@@ -226,11 +236,13 @@ export function CanvasPanel({
               size: snapTokens('size'),
             }}
             selected={selected}
-            selectedName={doc?.nodes[selected] ? nodeLabel(doc.nodes[selected]!) : ''}
-            selectedField={doc?.nodes[selected] ? boundFieldLabel(doc, doc.nodes[selected]!) : ''}
-            select={(id) => {
+            inner={inner}
+            selectedName={selectedName}
+            selectedField={node && doc && !inner ? boundFieldLabel(doc, node) : ''}
+            select={(id, tag) => {
               reveal()
-              if (id !== selected) void leave(() => setSelected(id))
+              if (id !== selected || JSON.stringify(tag) !== JSON.stringify(inner))
+                void leave(() => setSelected(id, tag))
             }}
           />
         ) : (
@@ -243,7 +255,7 @@ export function CanvasPanel({
         <span className="canvas-breadcrumb">
           {editingComponent?.name ?? page?.name ?? 'Page'}
           <EditorIcon name="chevron" />
-          {selected && doc?.nodes[selected] ? nodeLabel(doc.nodes[selected]) : 'Select an element'}
+          {selectedName || 'Select an element'}
         </span>
         <span>
           {preview?.warnings.length

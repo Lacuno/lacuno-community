@@ -1,4 +1,4 @@
-import type { Page, State } from '@lacuno/schema'
+import type { Page, RichTag, State } from '@lacuno/schema'
 import { lazy, Suspense } from 'react'
 import { editingBreakpoint } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
@@ -6,6 +6,8 @@ import { ComponentInstancePanel } from './ComponentsPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { Inspector } from './Inspector.js'
+import { RichTagInspector } from './RichTagInspector.js'
+import type { InnerTag } from './richTags.js'
 import type { DocumentSession } from './session.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 
@@ -18,6 +20,8 @@ export function InspectorColumn({
   editing,
   siteId,
   selected,
+  inner,
+  selectTag,
   width,
   state,
   inlineTarget,
@@ -32,6 +36,8 @@ export function InspectorColumn({
   editing: ComponentEditing
   siteId: string
   selected: string
+  inner: InnerTag | undefined
+  selectTag: (tag?: RichTag) => void
   width: number
   state: State
   inlineTarget: InlineTarget | undefined
@@ -85,9 +91,31 @@ export function InspectorColumn({
         detach={() => editing.setComponentDialog('detach')}
       />
     )
+  if (doc && !readOnly && inner && doc.nodes[selected])
+    return (
+      <RichTagInspector
+        key={`${selected}-${inner.tag}-${generation}-${editingBreakpoint(doc, width)}-${state}`}
+        doc={doc}
+        node={doc.nodes[selected]}
+        tag={inner.tag}
+        breakpoint={editingBreakpoint(doc, width)}
+        state={state}
+        computed={computed.id === `${selected}|${inner.tag}` ? computed.values : {}}
+        busy={busy}
+        conflict={conflict}
+        autoSave={(operations) => save(operations, 'auto')}
+        dirtyChanged={setDirty}
+        registerFlush={registerFlush}
+        previewChanged={setLivePreview}
+        selectBlock={() => selectTag()}
+        selectTag={selectTag}
+        clearSelection={clearSelection}
+      />
+    )
   if (doc && !readOnly && selected && doc.nodes[selected])
     return (
       <Inspector
+        selectTag={selectTag}
         siteId={siteId}
         key={`${selected}-${generation}-${editingBreakpoint(doc, width)}-${state}`}
         breakpoint={editingBreakpoint(doc, width)}

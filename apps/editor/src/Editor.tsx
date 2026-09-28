@@ -1,5 +1,5 @@
 import type { State } from '@lacuno/schema'
-import { useId, useMemo, useState } from 'react'
+import { useCallback, useId, useMemo, useState } from 'react'
 import type { Role } from './App.js'
 import { message, useConfig } from './api.js'
 import type { LivePreview } from './Canvas.js'
@@ -13,6 +13,7 @@ import { InspectorColumn } from './InspectorColumn.js'
 import { PageSettings } from './PagesPanel.js'
 import { ProjectColors } from './ProjectColors.js'
 import { PublishPanel } from './PublishPanel.js'
+import { type InnerTag, tagStates } from './richTags.js'
 import { type Panel, Sidebar } from './Sidebar.js'
 import { useDocumentSession } from './session.js'
 import { applicableStates } from './states.js'
@@ -41,7 +42,13 @@ export function Editor({
   const elementActionsId = useId()
   const [pageId, setPageId] = useState('')
   const [entryId, setEntryId] = useState('')
-  const [selected, setSelected] = useState('')
+  const [selected, setSelectedNode] = useState('')
+  // A tag inside the selected rich-text block, styled for every block with the block's class.
+  const [inner, setInner] = useState<InnerTag>()
+  const setSelected = useCallback((id: string, tag?: InnerTag) => {
+    setSelectedNode(id)
+    setInner(tag)
+  }, [])
   const [revealSelection, setRevealSelection] = useState(0)
   const [width, setWidth] = useState(1100)
   const [picked, setState] = useState<State>('none')
@@ -68,7 +75,8 @@ export function Editor({
   const page = doc?.pages[pageId]
   // A picked state only stays active while the selection can be in it.
   const node = doc?.nodes[selected]
-  const states = doc && node ? applicableStates(doc, node) : ['none' as const]
+  const states =
+    doc && node ? (inner ? tagStates(inner.tag) : applicableStates(doc, node)) : ['none' as const]
   const state = states.includes(picked) ? picked : 'none'
   const editing = useComponentEditing({
     session,
@@ -262,6 +270,7 @@ export function Editor({
           states={states}
           setState={setState}
           selected={selected}
+          inner={inner}
           setSelected={setSelected}
           reveal={() => setRevealSelection((value) => value + 1)}
           inlineTarget={inlineTarget}
@@ -278,6 +287,8 @@ export function Editor({
           editing={editing}
           siteId={siteId}
           selected={selected}
+          inner={inner}
+          selectTag={(tag) => void leave(() => setSelected(selected, tag && { tag, index: 0 }))}
           width={width}
           state={state}
           inlineTarget={inlineTarget}

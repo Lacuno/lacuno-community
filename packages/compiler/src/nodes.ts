@@ -174,9 +174,12 @@ function renderText(node: TextNode, scope: Scope, state: RenderState): string {
   let inner: string
   if (v === undefined || v === null) inner = ''
   // Rich text written on the node renders inline; bound rich text keeps its blocks.
-  else if (isRichText(v))
+  else if (isRichText(v)) {
     inner = (v === node.text ? richTextInlineHtml : richTextToHtml)(v, warn, state.doc.pages)
-  else if (isAsset(v))
+    // The canvas selects the tags inside blocks one by one, to style them per class.
+    const blocks = v !== node.text || v.content?.length !== 1 || v.content[0]?.type !== 'paragraph'
+    if (state.annotateNodes && blocks && v.content?.length) attrs['data-lacuno-rich'] = true
+  } else if (isAsset(v))
     inner = escapeHtml(isImage(v) ? state.resolveImage(v).src : state.resolveAsset(v))
   else inner = escapeHtml(String(v))
   if (node.rotatingWords) inner = rotatingWords(node, node.rotatingWords, inner, scope, state)

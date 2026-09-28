@@ -1,6 +1,6 @@
 import { classNames, contextFromDocument, selectorFor, serializeValue } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
-import type { CssValue, Document, Node, State } from '@lacuno/schema'
+import type { CssValue, Document, Node, RichTag, State } from '@lacuno/schema'
 import { useEffect, useRef, useState } from 'react'
 import { assetUrl } from './AssetsPanel.js'
 import { BindingControls, ListSettings } from './BindingControls.js'
@@ -16,15 +16,20 @@ import { EditorIcon } from './EditorIcon.js'
 import { FormattingControls } from './FormattingControls.js'
 import {
   clearStyles,
+  draftCss,
   formattingOperations,
+  invalidChange,
   localClass,
   localValue,
   normalizeFormatting,
+  saveStatus,
 } from './formatting.js'
 import { LinkTarget } from './LinkTarget.js'
 import { MediaControls } from './MediaControls.js'
 import { PresetManager } from './PresetManager.js'
+import { TagPicker } from './RichTagInspector.js'
 import { RotatingWordsControls } from './RotatingWordsControls.js'
+import { isRichBlock } from './richTags.js'
 import { stateInfo } from './states.js'
 import { hasAnchorParent, isLocked, isShared, nodeLabel } from './structure.js'
 import { useStyleField } from './styleField.js'
@@ -66,11 +71,13 @@ export function Inspector({
   previewChanged,
   registerFlush,
   clearSelection,
+  selectTag,
 }: {
   siteId: string
   breakpoint: string
   state: State
   clearSelection: () => void
+  selectTag: (tag: RichTag) => void
   previewChanged: (preview: LivePreview) => void
   registerFlush: (flush: () => Promise<boolean>) => () => void
   computed: Record<string, string>
@@ -110,18 +117,7 @@ export function Inspector({
   const classId = useRef(`c-${crypto.randomUUID()}`)
   const normalized = normalizeFormatting(changes)
   const context = contextFromDocument(doc)
-  const serialized = Object.fromEntries(
-    Object.entries(normalized).map(([property, value]) => [
-      property,
-      value && serializeValue(value, context),
-    ]),
-  )
-  const supported = Object.fromEntries(
-    Object.entries(serialized).map(([property, text]) => [
-      property,
-      !text || CSS.supports(property, text),
-    ]),
-  )
+  const { serialized, supported } = draftCss(doc, normalized)
   const hasInlineOverride = (property: string) =>
     node.type === 'text' &&
     node.text.type === 'doc' &&
@@ -134,12 +130,8 @@ export function Inspector({
         hasInlineOverride(property),
     ),
   )
-  const invalid = Object.entries(pending).find(
-    ([property, value]) => value && value.type !== 'designToken' && !supported[property],
-  )
-  const validation = invalid
-    ? `Enter a valid value for ${invalid[0]}, such as 24px or #334155.`
-    : ''
+  const validation = invalidChange(pending, supported)
+  const invalid = !!validation
   const textDirty = originalText !== undefined && text !== originalText
   const styleDirty = Object.keys(pending).length > 0
   const edits = textDirty || styleDirty || imageDirty
@@ -367,6 +359,7 @@ export function Inspector({
           disabled={disabled || !settled}
           save={save}
         />
+        {isRichBlock(doc, node) && <TagPicker disabled={disabled || !settled} choose={selectTag} />}
         {node.type === 'collection-list' && (
           <ListSettings doc={doc} node={node} disabled={disabled || !settled} save={save} />
         )}
@@ -487,15 +480,7 @@ export function Inspector({
           />
           <ErrorNote message={validation || tokenError} />
           <p className="hint" role="status">
-            {conflict
-              ? 'Changes paused. Reload to resolve the conflict.'
-              : validation
-                ? 'Waiting for a valid value.'
-                : busy
-                  ? 'Saving…'
-                  : edits
-                    ? 'Changes pending…'
-                    : 'All changes saved'}
+            {saveStatus({ conflict, validation, busy, pending: edits })}
           </p>
           {autosave.hasFailed && !conflict && (
             <button type="button" onClick={autosave.retry}>

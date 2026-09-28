@@ -863,13 +863,15 @@
   text-overflow: ellipsis;
 }
 .binding-controls,
-.list-settings {
+.list-settings,
+.tag-picker {
   display: grid;
   gap: 12px;
   padding: 4px 0 16px;
   border-bottom: 1px solid var(--border);
 }
-.editor .inspector-body :is(.binding-controls, .list-settings) label {
+.editor .inspector-body :is(.binding-controls, .list-settings) label,
+.editor .inspector-body label.tag-picker {
   margin: 0;
   color: #555b6a;
 }

@@ -1327,6 +1327,23 @@
   flex-shrink: 0;
   max-width: 50%;
 }
+.selection-heading .inspector-parent {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.selection-heading .inspector-parent:hover {
+  color: var(--accent);
+}
+.inspector-parent ~ strong {
+  flex-shrink: 1;
+  max-width: none;
+}
 .element-badge {
   background: #eee8ff;
   color: var(--accent);

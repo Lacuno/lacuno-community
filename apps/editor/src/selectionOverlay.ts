@@ -34,6 +34,8 @@ export type Selection = {
   spacingFocus: { kind: 'padding' | 'margin'; side: Side } | null
   /** Nodes an agent batch just changed, outlined briefly whether or not anything is selected. */
   flash: string[]
+  /** A tag inside rich text is selected: its styles live in the inspector, so no handles. */
+  inner: boolean
 }
 
 const svg = (icon: string) =>
@@ -85,7 +87,7 @@ export function selectionOverlay(
     .field:empty { display:none; }
     .scope { padding:4px 8px;border-left:1px solid #ffffff55;color:#ffffffcc;font-weight:500;white-space:nowrap; }
     .bar button { pointer-events:auto;display:flex;align-items:center;gap:5px;padding:4px 8px;border:0;border-left:1px solid #ffffff55;background:#ffffff22;color:inherit;font:inherit;cursor:pointer;white-space:nowrap; }
-    .bar button[hidden] { display:none; }
+    .bar[hidden], .bar button[hidden] { display:none; }
     .bar-bottom button { border-left:0; }
     .bar-bottom button + button { border-left:1px solid #ffffff55; }
     .bar button:hover, .bar button[aria-expanded="true"] { background:#ffffff44; }
@@ -732,9 +734,10 @@ export function selectionOverlay(
       // Spacing nubs show in spacing mode; the boxes also while a sidebar spacing input has focus
       // or Alt is held over the element.
       const editing = !!doc.querySelector('[data-lacuno-editing]')
-      handlesLayer.hidden = editing
-      spacingChip.hidden = editing
-      if (!editing) {
+      handlesLayer.hidden = editing || selection.inner
+      spacingChip.hidden = editing || selection.inner
+      bottomBar.hidden = selection.inner
+      if (!editing && !selection.inner) {
         const showStrips =
           spacingMode || !!selection.spacingFocus || (altHeld && selected!.matches(':hover'))
         handlesLayer.classList.toggle('spacing-mode', spacingMode)

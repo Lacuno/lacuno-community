@@ -50,6 +50,8 @@ export function FormattingControls({
     <div className="formatting-controls inspector-formatting">
       {formattingGroups
         .filter((group) => node.type !== 'embed' || group.name !== 'Typography')
+        // A tag rule styles many elements; entrances belong to the element around them.
+        .filter((group) => !controls.read || group.name !== 'Motion')
         .toSorted((a, b) => {
           const order =
             node.type === 'text'

@@ -1,10 +1,11 @@
 import { MOTION_CSS, sizeWords, TABLE_CSS } from '@lacuno/css'
-import type { State } from '@lacuno/schema'
+import { RichTag, type State } from '@lacuno/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
 import type { StyleEdit, Swatch } from './colorWheel.js'
 import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
+import { type InnerTag, richTagAt, tagElements } from './richTags.js'
 import { type Selection, selectionOverlay } from './selectionOverlay.js'
 
 /** The unsaved edit a panel paints into the canvas before it is committed. */
@@ -18,6 +19,8 @@ export type LivePreview = {
     state?: string
     styles: Record<string, string | null>
   }
+  /** Rules painted over the stylesheet, for tag styles that apply to many elements. */
+  rule?: string
   colors?: Record<string, string>
 }
 
@@ -25,13 +28,22 @@ function nodeElement(doc: Document | null | undefined, id: string) {
   return doc?.querySelector<HTMLElement>(`[data-lacuno-node="${CSS.escape(id)}"]`) ?? undefined
 }
 
-/** The selection marker, and the state the picker forces on the selected element. */
-function highlight(frame: HTMLIFrameElement | null, selected: string, state: State) {
+/**
+ * The selection marker, and the state the picker forces on the selected element: a tag inside a
+ * rich-text block when one is picked, else the block while its content holds none of that tag.
+ */
+function highlight(
+  frame: HTMLIFrameElement | null,
+  selected: string,
+  state: State,
+  inner: InnerTag | undefined,
+) {
   const doc = frame?.contentDocument
   if (!doc) return
   doc.querySelector('[data-lacuno-selected]')?.removeAttribute('data-lacuno-selected')
   doc.querySelector('[data-lc-state]')?.removeAttribute('data-lc-state')
-  const element = nodeElement(doc, selected)
+  const block = nodeElement(doc, selected)
+  const element = (block && inner && tagElements(block, inner.tag)[inner.index]) || block
   element?.setAttribute('data-lacuno-selected', '')
   if (state !== 'none') element?.setAttribute('data-lc-state', state)
 }
@@ -83,6 +95,7 @@ export function Canvas({
   swatches,
   tokens,
   selected,
+  inner,
   selectedName,
   selectedField,
   select,
@@ -106,9 +119,10 @@ export function Canvas({
   swatches: Swatch[]
   tokens: Selection['tokens']
   selected: string
+  inner: InnerTag | undefined
   selectedName: string
   selectedField: string
-  select: (id: string) => void
+  select: (id: string, inner?: InnerTag) => void
   onHistory: (direction: 'undo' | 'redo') => void
   onComputed: (value: { id: string; values: Record<string, string> }) => void
 }) {
@@ -222,6 +236,12 @@ export function Canvas({
         }
       }
     }
+    if (draft.rule) {
+      const sheet = doc.createElement('style')
+      sheet.textContent = draft.rule
+      doc.head.append(sheet)
+      undo.push(() => sheet.remove())
+    }
     for (const [name, value] of Object.entries(draft.colors ?? {})) {
       const before = doc.documentElement.style.getPropertyValue(name)
       undo.push(() => {
@@ -239,10 +259,15 @@ export function Canvas({
   const zoom = scale ?? Math.min(1, available / width)
   const reportStyles = () => {
     const doc = frame.current?.contentDocument
-    const element = nodeElement(doc, latest.current.selected)
-    const styles = element && doc?.defaultView?.getComputedStyle(element)
+    const { selected, inner } = latest.current
+    const element = doc?.querySelector('[data-lacuno-selected]')
+    // A tag the content lacks has no values of its own; the block stands in only on the canvas.
+    const styles =
+      element &&
+      !(inner && element.hasAttribute('data-lacuno-node')) &&
+      doc?.defaultView?.getComputedStyle(element)
     latest.current.onComputed({
-      id: latest.current.selected,
+      id: inner ? `${selected}|${inner.tag}` : selected,
       values: styles
         ? Object.fromEntries(
             formattingGroups.flatMap((group) =>
@@ -263,6 +288,7 @@ export function Canvas({
     onEditText,
     livePreview,
     selected,
+    inner,
     state,
     states,
     onState,
@@ -287,7 +313,7 @@ export function Canvas({
       for (const animation of list.getAnimations({ subtree: true })) animation.startTime = 0
     for (const element of doc.querySelectorAll<HTMLElement>('[data-lacuno-node]'))
       element.draggable = true
-    highlight(frame.current, latest.current.selected, latest.current.state)
+    highlight(frame.current, latest.current.selected, latest.current.state, latest.current.inner)
     latest.current.paint()
     latest.current.reportStyles()
   }
@@ -324,9 +350,9 @@ export function Canvas({
   }, [livePreview])
   // biome-ignore lint/correctness/useExhaustiveDependencies: width and state change the element's computed styles.
   useEffect(() => {
-    highlight(frame.current, selected, state)
+    highlight(frame.current, selected, state, inner)
     latest.current.reportStyles()
-  }, [selected, width, state])
+  }, [selected, inner?.tag, inner?.index, width, state])
   useEffect(() => {
     const workspace = shell.current?.parentElement
     if (!workspace) return
@@ -423,6 +449,7 @@ export function Canvas({
               swatches: latest.current.swatches,
               tokens: latest.current.tokens,
               spacingFocus: spacingFocus.current,
+              inner: !!latest.current.inner,
               flash: Date.now() < flash.current.until ? flash.current.ids : [],
             }),
             (next) => latest.current.onState(next),
@@ -436,8 +463,9 @@ export function Canvas({
           dragCleanup.current?.()
           dragCleanup.current = bindDragSurface(doc)
           const style = doc.createElement('style')
-          style.textContent =
-            'div[data-lacuno-node]:empty, section[data-lacuno-node]:empty { min-height: 48px; min-width: 48px; } [data-lacuno-node]:not([data-lacuno-selected]):hover:not(:has([data-lacuno-node]:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }'
+          // Inside a rich-text block the hovered tag is outlined, since a click selects it.
+          const tags = `:is(${RichTag.options.join()}):not(:is(li, th, td) > p, pre > code)`
+          style.textContent = `div[data-lacuno-node]:empty, section[data-lacuno-node]:empty { min-height: 48px; min-width: 48px; } [data-lacuno-node]:not([data-lacuno-selected], [data-lacuno-rich]):hover:not(:has([data-lacuno-node]:hover)), [data-lacuno-rich]:not([data-lacuno-selected]):hover:not(:has(${tags}:hover)), [data-lacuno-rich]:not([data-lacuno-editing]) ${tags}:not([data-lacuno-selected]):hover:not(:has(${tags}:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }`
           style.textContent += `[data-lacuno-image-placeholder] { min-height:160px !important; min-width:80px; background: #f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; position:relative; } [data-lacuno-image-placeholder]::after { content:""; display:block; width:40px; height:40px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%239187aa' stroke-width='1.5'%3E%3Cpath d='M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8'/%3E%3Ccircle cx='22' cy='10' r='2'/%3E%3C/svg%3E"); }`
           style.textContent +=
             '[data-lacuno-placeholder] { display:grid; place-items:center; min-height:120px !important; padding:12px; background:#f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; font:12px/1.4 system-ui, sans-serif; color:#6f6787; text-align:center; } [data-lacuno-placeholder]::before { content:attr(data-lacuno-placeholder); } [data-lacuno-placeholder="Embed"]::before { content:"Embed. Scripts and iframes run on the published site."; } [data-lacuno-placeholder] iframe { display:none; }'
@@ -455,7 +483,11 @@ export function Canvas({
             const target = event.target as Element | null
             const element = target?.closest?.('[data-lacuno-node]')
             const id = element?.getAttribute('data-lacuno-node')
-            if (id) latest.current.select(id)
+            const inner =
+              target && element?.hasAttribute('data-lacuno-rich')
+                ? richTagAt(element, target)
+                : undefined
+            if (id) latest.current.select(id, inner)
           }
           doc.addEventListener('click', pick, true)
           doc.addEventListener('auxclick', pick, true)

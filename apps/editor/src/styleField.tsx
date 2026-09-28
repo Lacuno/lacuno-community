@@ -12,6 +12,8 @@ export type StyleControls = {
   changes: Record<string, CssValue | null>
   change: (property: string, value: CssValue | null) => void
   disabled: boolean
+  /** Where the values live instead of the element's own formatting: a tag rule of its class. */
+  read?: (property: string) => CssValue | undefined
 }
 
 /** Read and write the effective value of one style property at the edited breakpoint and state. */
@@ -23,11 +25,17 @@ export function useStyleField({
   computed,
   changes,
   change,
+  read,
 }: StyleControls) {
-  const inherited = presetValues(doc, node, computed, breakpoint, state)
-  /** The draft value, else the one set locally at this breakpoint and state. */
-  const local = (property: string) =>
-    property in changes ? changes[property] : localValue(doc, node, property, breakpoint, state)
+  // A tag rule inherits what the canvas shows; the element's own classes do not apply to it.
+  const inherited: Record<string, CssValue> = read
+    ? Object.fromEntries(
+        Object.entries(computed).map(([property, value]) => [property, { type: 'raw', value }]),
+      )
+    : presetValues(doc, node, computed, breakpoint, state)
+  const own = read ?? ((property: string) => localValue(doc, node, property, breakpoint, state))
+  /** The draft value, else the one set at this breakpoint and state. */
+  const local = (property: string) => (property in changes ? changes[property] : own(property))
   return {
     local,
     overridden: (property: string) =>

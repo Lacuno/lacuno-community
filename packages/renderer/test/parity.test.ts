@@ -69,7 +69,7 @@ it.each([
           // Neither fixture embed nests a div.
           // An unstyled embed's wrapper is canvas-only; a styled one publishes without the marker.
           .replace(/<div data-lacuno-embed[^>]*>([\s\S]*?)<\/div>/g, '$1')
-          .replace(/ data-lacuno-embed/g, '')
+          .replace(/ data-lacuno-(embed|rich)/g, '')
           .replace(/ data-lacuno-node="[^"]*"/g, '')
           // Structural states emit both forms in the canvas: drop the forced sibling.
           .replace(/, \S+\[data-lc-state="[^"]*"\]/g, '')
