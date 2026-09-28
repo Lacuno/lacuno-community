@@ -128,6 +128,15 @@ describe('read tools', () => {
           value: { type: 'color', value: 'red' },
           important: true,
         },
+        {
+          type: 'style.set',
+          class: 'c-button',
+          tag: 'strong',
+          breakpoint: 'base',
+          state: 'none',
+          property: 'font-weight',
+          value: { type: 'keyword', value: '800' },
+        },
       ],
     })
     const withImportant = jsonOf<
@@ -136,6 +145,9 @@ describe('read tools', () => {
     expect(withImportant['c-button']!.base!.none!.color).toEqual({
       value: { type: 'color', value: 'red' },
       important: true,
+    })
+    expect(withImportant['c-button strong']!.base!.none!['font-weight']).toEqual({
+      value: { type: 'keyword', value: '800' },
     })
     const all = jsonOf<Record<string, unknown>>(
       await client.callTool({ name: 'styles.get', arguments: {} }),

@@ -90,7 +90,10 @@ const SECTIONS: [string, string, (d: Document, other: Document) => Record<string
           const state = s.state === 'none' ? '' : `:${s.state}`
           const value = serializeValue(s.value, ctx)
           const fields: Fields = s.important ? { value, important: 'true' } : { value }
-          return [`.${s.class} ${s.breakpoint}${state} ${s.property}`, { fields, value }]
+          return [
+            `.${s.class}${s.tag ? ` ${s.tag}` : ''} ${s.breakpoint}${state} ${s.property}`,
+            { fields, value },
+          ]
         }),
       )
     },

@@ -52,6 +52,54 @@ describe('classes', () => {
 })
 
 describe('styles', () => {
+  it('sets and clears a rich-text tag inside a class, and refuses tags off the list', () => {
+    const coords = {
+      class: 'c-hero',
+      tag: 'h2' as const,
+      breakpoint: 'base',
+      state: 'none' as const,
+    }
+    const { document } = run([
+      { type: 'style.set', ...coords, property: 'font-size', value: px(20) },
+      {
+        type: 'style.set',
+        ...coords,
+        tag: 'a',
+        state: 'hover',
+        property: 'color',
+        value: color('red'),
+      },
+    ])
+    expect(document.styles['c-hero|h2|base|none|font-size']).toEqual({
+      ...coords,
+      property: 'font-size',
+      value: px(20),
+    })
+    expect(document.styles['c-hero|a|base|hover|color']?.tag).toBe('a')
+    const cleared = run(
+      [{ type: 'style.clear', ...coords, property: 'font-size' }],
+      document,
+    ).document
+    expect(cleared.styles['c-hero|h2|base|none|font-size']).toBeUndefined()
+    expect(() =>
+      run([
+        {
+          type: 'style.set',
+          ...coords,
+          tag: 'div' as never,
+          property: 'color',
+          value: color('red'),
+        },
+      ]),
+    ).toThrow()
+    // Deleting the class takes its tag rules with it.
+    const deleted = run([
+      { type: 'class.create', id: 'c-rich', name: 'rich' },
+      { type: 'style.set', ...coords, class: 'c-rich', property: 'margin-top', value: px(0) },
+      { type: 'class.delete', id: 'c-rich' },
+    ]).document
+    expect(Object.keys(deleted.styles).some((key) => key.startsWith('c-rich|'))).toBe(false)
+  })
   it('sets and clears declarations by their derived key', () => {
     const coords = {
       class: 'c-hero',

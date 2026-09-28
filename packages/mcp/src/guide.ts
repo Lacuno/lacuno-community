@@ -1,5 +1,5 @@
 import { OPERATIONS, type OperationDef } from '@lacuno/document'
-import { WordIcon } from '@lacuno/schema'
+import { RichTag, WordIcon } from '@lacuno/schema'
 import { z } from 'zod'
 import { InputError } from './errors.js'
 
@@ -30,6 +30,8 @@ Tables: a \`table\` holds \`tableRow\`s, a row holds \`tableHeader\` or \`tableC
     { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Email" }] }] },
     { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "To sign in", "marks": [{ "type": "bold" }] }] }] }] }] }
 \`\`\`
+
+Rich text renders plain tags, styled per class rather than per element: style.set with a \`tag\` sets the rule for that tag inside every element carrying the class, compiled to \`.legal h2\`, per breakpoint and state like any declaration: \`{"type":"style.set","class":"<classId>","tag":"a","breakpoint":"base","state":"hover","property":"text-decoration-line","value":{"type":"keyword","value":"underline"}}\`. Put the class on the text that holds the rich text, a bound rich-text field or a text node's own blocks, and every block with that class follows. Tags: ${RichTag.options.join(', ')}. The table is \`table\`, its header cells \`th\` and other cells \`td\`; their built-in borders, padding and 8em minimum width lose to these rules, so \`min-width\` on \`td\` lets a table fit a phone. style.clear takes the same \`tag\`, and styles.get lists these rules under "<class> <tag>".
 
 ## Collections
 

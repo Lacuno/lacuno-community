@@ -1,5 +1,10 @@
 import type { AssetRef, Breakpoint, Document, State, StyleDecl } from '@lacuno/schema'
-import { BASE_BREAKPOINT_ID, designTokenCssName, State as StateSchema } from '@lacuno/schema'
+import {
+  BASE_BREAKPOINT_ID,
+  designTokenCssName,
+  RichTag,
+  State as StateSchema,
+} from '@lacuno/schema'
 import { isMotionStyle, MOTION_CSS } from './motion.js'
 import { compareProperties } from './order.js'
 import { type ClassNames, classNames, compareSelectors, selectorFor } from './selector.js'
@@ -90,7 +95,10 @@ function mediaQuery(b: Breakpoint): string | undefined {
   return parts.length ? `@media ${parts.join(' and ')}` : undefined
 }
 
-/** Rules for one breakpoint: grouped by class (in first-use order), then state, sorted properties. */
+/**
+ * Rules for one breakpoint: grouped by class, the class's own rules before its rich-text tags,
+ * then by state, with sorted properties.
+ */
 function generateRules(
   doc: Document,
   names: ClassNames,
@@ -101,12 +109,17 @@ function generateRules(
 ): string {
   // Class emission order: sorted by output selector so combos come after their parents
   // (".a.b" > ".a") and the cascade is predictable.
-  const byClass = new Map<string, Map<State, StyleDecl[]>>()
+  const byClass = new Map<string, Map<RichTag | '', Map<State, StyleDecl[]>>>()
   for (const d of decls) {
-    let states = byClass.get(d.class)
+    let tags = byClass.get(d.class)
+    if (!tags) {
+      tags = new Map()
+      byClass.set(d.class, tags)
+    }
+    let states = tags.get(d.tag ?? '')
     if (!states) {
       states = new Map()
-      byClass.set(d.class, states)
+      tags.set(d.tag ?? '', states)
     }
     let list = states.get(d.state)
     if (!list) {
@@ -119,19 +132,22 @@ function generateRules(
 
   const rules: string[] = []
   for (const classId of classIds) {
-    const states = byClass.get(classId) as Map<State, StyleDecl[]>
-    for (const state of STATE_ORDER) {
-      const list = states.get(state)
-      if (!list) continue
-      const lines = [...list]
-        .sort((a, b) => compareProperties(a.property, b.property))
-        .map(
-          (d) =>
-            `${indent}  ${d.property}: ${serializeValue(d.value, ctx)}${d.important ? ' !important' : ''};`,
-        )
-      rules.push(
-        `${indent}${selectorFor(doc, names, classId, state, previewStates)} {\n${lines.join('\n')}\n${indent}}`,
-      )
+    const tags = byClass.get(classId) as Map<RichTag | '', Map<State, StyleDecl[]>>
+    for (const tag of ['', ...RichTag.options] as const) {
+      const states = tags.get(tag)
+      if (!states) continue
+      for (const state of STATE_ORDER) {
+        const list = states.get(state)
+        if (!list) continue
+        const lines = [...list]
+          .sort((a, b) => compareProperties(a.property, b.property))
+          .map(
+            (d) =>
+              `${indent}  ${d.property}: ${serializeValue(d.value, ctx)}${d.important ? ' !important' : ''};`,
+          )
+        const selector = selectorFor(doc, names, classId, state, previewStates, tag || undefined)
+        rules.push(`${indent}${selector} {\n${lines.join('\n')}\n${indent}}`)
+      }
     }
   }
   return rules.join('\n')

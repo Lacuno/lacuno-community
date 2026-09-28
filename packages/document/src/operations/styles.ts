@@ -4,6 +4,7 @@ import {
   BreakpointId,
   ClassId,
   CssValue as CssValueSchema,
+  RichTag,
   State,
   StyleDecl,
   styleKey,
@@ -105,6 +106,7 @@ const classDelete = defineOperation(
 
 const coordinates = {
   class: ClassId,
+  tag: RichTag.optional(),
   breakpoint: BreakpointId,
   state: State,
   property: StyleDecl.shape.property,
@@ -129,9 +131,9 @@ const styleSet = defineOperation(
   (op, ctx) => {
     checkCoordinates(ctx, op)
     checkCssValue(ctx, op.value)
-    const { type: _type, important, ...coords } = op
-    const decl = { ...coords, ...(important ? { important: true } : {}) }
-    return [{ op: 'set', path: ['styles', styleKey(coords)], value: decl }]
+    const { type: _type, important, tag, ...coords } = op
+    const decl = { ...coords, ...(tag ? { tag } : {}), ...(important ? { important: true } : {}) }
+    return [{ op: 'set', path: ['styles', styleKey(decl)], value: decl }]
   },
 )
 

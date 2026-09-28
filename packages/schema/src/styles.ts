@@ -66,9 +66,41 @@ export type Breakpoint = z.infer<typeof Breakpoint>
 
 export const BASE_BREAKPOINT_ID = 'base'
 
-/** One declaration. The map key is derived from the four coordinates, see styleKey(). */
+/**
+ * The tags rich text renders, which a class may style inside the blocks that carry it: `h2` on
+ * the class `legal` compiles to `.legal h2`. A fixed list, so no declaration becomes an arbitrary
+ * selector.
+ */
+export const RichTag = z.enum([
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'p',
+  'a',
+  'strong',
+  'em',
+  'code',
+  'pre',
+  'blockquote',
+  'ul',
+  'ol',
+  'li',
+  'hr',
+  'table',
+  'tr',
+  'th',
+  'td',
+])
+export type RichTag = z.infer<typeof RichTag>
+
+/** One declaration. The map key is derived from its coordinates, see styleKey(). */
 export const StyleDecl = z.object({
   class: ClassId,
+  /** A rich-text tag inside the elements carrying the class, instead of those elements. */
+  tag: RichTag.optional(),
   breakpoint: BreakpointId,
   state: State,
   property: z.string().regex(/^(-{2})?[a-z][a-z0-9-]*$/, 'property must be kebab-case'),
@@ -79,8 +111,11 @@ export type StyleDecl = z.infer<typeof StyleDecl>
 
 export const STYLE_KEY_SEPARATOR = '|'
 
+/** `class|breakpoint|state|property`, with the tag after the class when there is one. */
 export function styleKey(
-  d: Pick<StyleDecl, 'class' | 'breakpoint' | 'state' | 'property'>,
+  d: Pick<StyleDecl, 'class' | 'tag' | 'breakpoint' | 'state' | 'property'>,
 ): string {
-  return [d.class, d.breakpoint, d.state, d.property].join(STYLE_KEY_SEPARATOR)
+  return [d.class, ...(d.tag ? [d.tag] : []), d.breakpoint, d.state, d.property].join(
+    STYLE_KEY_SEPARATOR,
+  )
 }

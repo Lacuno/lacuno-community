@@ -19,6 +19,7 @@ import {
   generateStylesheet,
   selectorFor,
   serializeValue,
+  TABLE_CSS,
   wordTurns,
 } from '../src/index.js'
 
@@ -217,6 +218,47 @@ describe('generateStylesheet', () => {
     const entries = createEmptyDocument()
     entries.entries.c = [{ id: 'e', values: { body: { type: 'doc', content: [table] } } }] as never
     expect(generateStylesheet(entries).css).toContain(':where(.lc-table th)')
+  })
+
+  it('styles rich-text tags inside a class, per breakpoint and state, over the table defaults', () => {
+    const doc = createEmptyDocument()
+    doc.classes.legal = { id: 'legal', kind: 'class', name: 'Legal body' }
+    const set = (
+      tag: 'h2' | 'a' | 'td' | undefined,
+      breakpoint: string,
+      state: 'none' | 'hover',
+      property: string,
+    ) => {
+      const d = {
+        class: 'legal',
+        ...(tag ? { tag } : {}),
+        breakpoint,
+        state,
+        property,
+        value: px(1),
+      }
+      doc.styles[styleKey(d)] = d
+    }
+    set(undefined, 'base', 'none', 'margin-top')
+    set('h2', 'base', 'none', 'font-size')
+    set('a', 'base', 'hover', 'outline-width')
+    set('td', 'mobile', 'none', 'min-width')
+    doc.breakpoints.mobile = { id: 'mobile', label: 'Mobile', maxWidth: 479 }
+    expect(
+      styleKey({ class: 'legal', tag: 'h2', breakpoint: 'base', state: 'none', property: 'x' }),
+    ).toBe('legal|h2|base|none|x')
+    const { css } = generateStylesheet(doc, { reset: false })
+    expect(css).toContain('.legal-body h2 {\n  font-size: 1px;\n}')
+    expect(css).toContain('.legal-body a:hover {')
+    expect(css).toContain('@media (max-width: 479px) {\n  .legal-body td {\n    min-width: 1px;')
+    // The class's own rule comes first.
+    expect(css.indexOf('.legal-body {')).toBeLessThan(css.indexOf('.legal-body h2 {'))
+    // The forced state lands on the tag, where the canvas marks the clicked link.
+    const forced = generateStylesheet(doc, { reset: false, previewStates: true }).css
+    expect(forced).toContain('.legal-body a[data-lc-state="hover"] {')
+    // Every table default has zero specificity, so a class's cell rule wins wherever it sits.
+    expect(TABLE_CSS.split('\n').every((rule) => rule.startsWith(':where('))).toBe(true)
+    expect(TABLE_CSS).toContain('min-width: 8em')
   })
 
   it('drives states through the forced attribute when previewing states', () => {

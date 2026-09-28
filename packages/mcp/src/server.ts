@@ -412,7 +412,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'styles.get',
     {
       description:
-        'Style declarations grouped by class, breakpoint and state. All classes when class is omitted.',
+        'Style declarations by class (tag rules under "<class> <tag>"), breakpoint and state. All when class is omitted.',
       inputSchema: { class: z.string().optional() },
     },
     async ({ class: cls }) => {
@@ -421,7 +421,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       const out: Record<string, Record<string, Record<string, Record<string, unknown>>>> = {}
       for (const decl of Object.values(d.styles)) {
         if (cls !== undefined && decl.class !== cls) continue
-        const byClass = out[decl.class] ?? {}
+        const group = decl.tag ? `${decl.class} ${decl.tag}` : decl.class
+        const byClass = out[group] ?? {}
         const byBreakpoint = byClass[decl.breakpoint] ?? {}
         const byState = byBreakpoint[decl.state] ?? {}
         byState[decl.property] = decl.important
@@ -429,7 +430,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           : { value: decl.value }
         byBreakpoint[decl.state] = byState
         byClass[decl.breakpoint] = byBreakpoint
-        out[decl.class] = byClass
+        out[group] = byClass
       }
       return ok(out)
     },

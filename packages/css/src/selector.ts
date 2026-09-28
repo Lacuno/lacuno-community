@@ -1,4 +1,4 @@
-import type { Class, Document, State } from '@lacuno/schema'
+import type { Class, Document, RichTag, State } from '@lacuno/schema'
 
 /**
  * Class names as they appear in the output. Named classes keep their user-facing name, made
@@ -105,7 +105,8 @@ function paddingFor(doc: Document, names: ClassNames): { shared: number; presets
 }
 
 /**
- * `.button.primary:hover` for a combo class with a state. In the canvas (`forced`) the state
+ * `.button.primary:hover` for a combo class with a state, `.legal a:hover` for links inside the
+ * elements carrying `legal`. In the canvas (`forced`) the state
  * picker drives styles through `.button.primary[data-lc-state="hover"]`: interaction states
  * emit only that form so the live pointer can't trigger them, structural states emit both, and
  * pseudo-elements, which the picker cannot force onto the element itself, emit only their own.
@@ -116,6 +117,7 @@ export function selectorFor(
   classId: string,
   state: State,
   forced = false,
+  tag?: RichTag,
 ): string {
   const cls = doc.classes[classId]
   if (!cls) throw new Error(`unknown class ${classId}`)
@@ -131,7 +133,7 @@ export function selectorFor(
     const specificity = pad.shared + (cls.kind === 'local' && pad.presets ? 3 : 1)
     while (chain.length < specificity) chain.push(`.${names.get(classId)}`)
   }
-  const base = chain.join('')
+  const base = chain.join('') + (tag ? ` ${tag}` : '')
   const real = `${base}${STATE_SELECTOR[state]}`
   if (!forced || state === 'none' || STATE_SELECTOR[state].startsWith('::')) return real
   const picked = `${base}[data-lc-state="${state}"]`
