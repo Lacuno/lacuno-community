@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, pageSettings } from './harness.js'
 
 it('inserts a button, points it at a page and follows the page through a path change', async () => {
   const { server, page, canvas, publish, saved } = await editor()
@@ -39,7 +39,7 @@ it('inserts a button, points it at a page and follows the page through a path ch
 
   // Renaming the path moves the link with it; the binding never held the old path.
   await page.getByRole('button', { name: 'Pages', exact: true }).click()
-  await page.getByRole('button', { name: 'Settings for About', exact: true }).click()
+  await pageSettings(page, 'About')
   await page.getByLabel('URL path', { exact: true }).fill('/company')
   await page.getByRole('button', { name: 'Save page', exact: true }).click()
   await saved()

@@ -5,6 +5,7 @@ import { collectionPageCreation, freePath } from './binding.js'
 import { CodeField } from './CodeField.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
+import { Menu, type MenuPoint, menuPoint } from './Menu.js'
 import { canonicalError, duplicatePage, langError, pagePathError, pageSeo } from './pages.js'
 import { codeInfo, ImageChoice, SiteSettings } from './SiteSettings.js'
 
@@ -26,6 +27,13 @@ export function PagesPanel({
   autoSave: (operations: Operation[]) => Promise<boolean>
 }) {
   const [editing, setEditing] = useState<Page | 'new' | 'site'>()
+  const [menu, setMenu] = useState<{ page: Page; at: MenuPoint }>()
+  const [deleting, setDeleting] = useState<Page>()
+  const protectedPage = (page: Page) => page.path === '/' || Object.keys(doc.pages).length <= 1
+  const openMenu = (page: Page, event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault()
+    setMenu(menu?.page.id === page.id ? undefined : { page, at: menuPoint(event) })
+  }
   return (
     <>
       <div className="panel-title">
@@ -33,11 +41,18 @@ export function PagesPanel({
       </div>
       <div className="pages-toolbar">
         <button type="button" disabled={disabled} onClick={() => setEditing('new')}>
+          <EditorIcon name="plus" />
           New page
         </button>
-        <button type="button" disabled={disabled} onClick={() => setEditing('site')}>
+        <button
+          type="button"
+          className="pages-site-settings"
+          aria-label="Site settings"
+          title="Site settings"
+          disabled={disabled}
+          onClick={() => setEditing('site')}
+        >
           <EditorIcon name="settings" />
-          Site settings
         </button>
       </div>
       <div className="page-list">
@@ -51,31 +66,84 @@ export function PagesPanel({
               <button
                 type="button"
                 className={`page-link ${selected === page.id ? 'active' : ''}`}
+                onContextMenu={(event) => !disabled && openMenu(page, event)}
+                title={`${page.name}\n${page.path}`}
                 onClick={() => choose(page.id)}
               >
-                <EditorIcon name="page" />
-                {page.name}
-                {page.path === '/404' ? (
-                  <span className="badge">Not found</span>
-                ) : (
-                  <span className="page-path">{page.collection ? 'CMS' : page.path}</span>
-                )}
+                <EditorIcon name={page.collection ? 'database' : 'page'} />
+                <span className="page-name">
+                  {page.name}
+                  <small className="page-path">{page.path}</small>
+                </span>
               </button>
               <button
                 type="button"
                 className="page-settings-trigger"
-                aria-label={`Settings for ${page.name}`}
-                title="Page settings"
+                aria-label={`Actions for ${page.name}`}
+                aria-haspopup="menu"
+                aria-expanded={menu?.page.id === page.id}
+                title="Page actions"
                 disabled={disabled}
-                onClick={() => {
-                  setEditing(page)
-                }}
+                onClick={(event) => openMenu(page, event)}
               >
                 •••
               </button>
             </div>
           ))}
       </div>
+      {menu && (
+        <Menu
+          key={menu.page.id}
+          at={menu.at}
+          label={`${menu.page.name} actions`}
+          close={() => setMenu(undefined)}
+          items={[
+            { label: 'Open', run: () => choose(menu.page.id) },
+            { label: 'Page settings', run: () => setEditing(menu.page) },
+            {
+              label: 'Duplicate',
+              run: async () => {
+                const copy = duplicatePage(doc, menu.page.id)
+                if (await save(copy.operations)) choose(copy.id)
+              },
+            },
+            {
+              label: 'Delete…',
+              danger: true,
+              disabled: protectedPage(menu.page),
+              run: () => setDeleting(menu.page),
+            },
+          ]}
+        />
+      )}
+      {deleting && (
+        <Dialog
+          title="Delete page"
+          className="page-settings-dialog delete-page-dialog"
+          disabled={disabled}
+          close={() => setDeleting(undefined)}
+        >
+          <p>
+            Delete “{deleting.name}” and all its content? Existing links to this page may stop
+            working. You can undo this during this session.
+          </p>
+          <div className="row">
+            <button
+              type="button"
+              className="danger"
+              disabled={disabled}
+              onClick={async () => {
+                if (await save([{ type: 'page.delete', id: deleting.id }])) setDeleting(undefined)
+              }}
+            >
+              Delete page
+            </button>
+            <button type="button" onClick={() => setDeleting(undefined)}>
+              Keep page
+            </button>
+          </div>
+        </Dialog>
+      )}
       {editing === 'site' && (
         <SiteSettings
           doc={doc}

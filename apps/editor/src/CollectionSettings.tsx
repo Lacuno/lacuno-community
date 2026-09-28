@@ -2,7 +2,7 @@ import type { Operation } from '@lacuno/document'
 import { referencesToCollection, referencesToField } from '@lacuno/document/references'
 import type { CollectionSchema, Document, FieldDef, OptionChoice } from '@lacuno/schema'
 import { useState } from 'react'
-import { collectionPage, collectionPageCreation } from './binding.js'
+import { collectionPage, collectionPageCreation, listPage, listPageCreation } from './binding.js'
 import { FIELD_TYPES, type FieldType, fieldTypeLabel, newField, slugify } from './cms.js'
 import { ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
@@ -29,6 +29,7 @@ export function CollectionSettings({
   showPage,
 }: Props) {
   const page = collectionPage(doc, col.id)
+  const list = listPage(doc, col.id)
   const [name, setName] = useState(col.name)
   const [slug, setSlug] = useState(col.slug)
   const [error, setError] = useState('')
@@ -108,27 +109,48 @@ export function CollectionSettings({
         </label>
       </section>
       <ErrorNote message={error} />
-      <div className="cms-entry-pages">
+      <div className="cms-pages">
         <span>Entry pages</span>
         {page ? (
           <button type="button" className="text-button" onClick={() => showPage(page.id)}>
             {page.name} <code>{page.path}</code>
           </button>
+        ) : readOnly ? (
+          <em>None</em>
         ) : (
-          !readOnly && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={async () => {
-                const created = collectionPageCreation(doc, col)
-                if (await run(created.operations)) showPage(created.id)
-              }}
-            >
-              Create a page for each entry
-            </button>
-          )
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={async () => {
+              const created = collectionPageCreation(doc, col)
+              if (await run(created.operations)) showPage(created.id)
+            }}
+          >
+            Create a page for each entry
+          </button>
         )}
-        {!page && readOnly && <em>None</em>}
+        <span>List page</span>
+        {list ? (
+          <button type="button" className="text-button" onClick={() => showPage(list.id)}>
+            {list.name} <code>{list.path}</code>
+          </button>
+        ) : readOnly ? (
+          <em>None</em>
+        ) : (
+          <button
+            type="button"
+            disabled={disabled}
+            // The list links each entry to its page, so it brings one along when there is none.
+            onClick={() =>
+              void run([
+                ...(page ? [] : collectionPageCreation(doc, col).operations),
+                ...listPageCreation(doc, col).operations,
+              ])
+            }
+          >
+            Create a list page
+          </button>
+        )}
       </div>
       <h4 className="cms-heading">
         Fields <span>{col.fields.length}</span>

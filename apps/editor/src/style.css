@@ -44,6 +44,18 @@ summary:focus-visible {
   outline: 3px solid #b6a9ff;
   outline-offset: 2px;
 }
+/* Scrolling a control into view keeps its focus ring in view too. */
+:is(button, input, select, textarea, summary) {
+  scroll-margin: 8px;
+}
+/* A field fills its column, so its ring sits on its border, where no scrolling edge cuts it off. */
+:is(
+  input:not([type="checkbox"], [type="radio"], [type="color"], [type="range"], [type="file"]),
+  textarea,
+  select
+):focus-visible {
+  outline-offset: -3px;
+}
 input,
 textarea,
 select {

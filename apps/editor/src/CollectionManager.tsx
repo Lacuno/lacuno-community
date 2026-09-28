@@ -11,7 +11,8 @@ import { Entries } from './Entries.js'
 import './assets.css'
 import './cms.css'
 
-export type CmsView = { collection: string; tab: 'entries' | 'fields'; entry: string }
+/** Without a tab, a collection opens on its entries, or on its fields while it has none. */
+export type CmsView = { collection: string; tab?: 'entries' | 'fields'; entry: string }
 
 /** Collections, their fields and their entries in one large dialog, like the asset manager. */
 export function CollectionManager({
@@ -48,7 +49,12 @@ export function CollectionManager({
   const col =
     view.collection === 'new' ? undefined : (doc.collections[view.collection] ?? collections[0])
   const entryCount = Object.values(doc.entries).reduce((sum, list) => sum + list.length, 0)
-  const show = (next: Partial<CmsView>) => setView({ ...view, entry: '', ...next })
+  const tabFor = (id = '') => (doc.entries[id]?.length ? 'entries' : 'fields')
+  const tab = view.tab ?? tabFor(col?.id)
+  const show = (next: Partial<CmsView>) => {
+    const collection = next.collection ?? view.collection
+    setView({ collection, tab: next.tab ?? tabFor(collection), entry: '' })
+  }
   const upload = async (file: File) => {
     setError('')
     try {
@@ -65,10 +71,7 @@ export function CollectionManager({
     if (await save([operation])) {
       setCreating(undefined)
       setError('')
-      show({
-        collection: operation.type === 'collection.create' ? operation.id! : '',
-        tab: 'fields',
-      })
+      show({ collection: operation.type === 'collection.create' ? operation.id! : '' })
     }
   }
   return (
@@ -90,7 +93,7 @@ export function CollectionManager({
                   type="button"
                   className="cms-collection"
                   aria-current={item === col ? 'page' : undefined}
-                  onClick={() => leave() && show({ collection: item.id, tab: 'entries' })}
+                  onClick={() => leave() && show({ collection: item.id })}
                 >
                   <EditorIcon name="database" />
                   <span>{item.name}</span>
@@ -144,20 +147,20 @@ export function CollectionManager({
               <div className="cms-main-header">
                 <h3>{col.name}</h3>
                 <div className="cms-tabs" role="tablist" aria-label={`${col.name} views`}>
-                  {(['entries', 'fields'] as const).map((tab) => (
+                  {(['fields', 'entries'] as const).map((name) => (
                     <button
-                      key={tab}
+                      key={name}
                       type="button"
                       role="tab"
-                      aria-selected={view.tab === tab}
-                      onClick={() => leave() && show({ collection: col.id, tab })}
+                      aria-selected={tab === name}
+                      onClick={() => leave() && show({ collection: col.id, tab: name })}
                     >
-                      {tab === 'entries' ? 'Entries' : 'Fields and settings'}
+                      {name === 'entries' ? 'Entries' : 'Fields and settings'}
                     </button>
                   ))}
                 </div>
               </div>
-              {view.tab === 'entries' ? (
+              {tab === 'entries' ? (
                 <Entries
                   siteId={siteId}
                   doc={doc}
@@ -182,7 +185,7 @@ export function CollectionManager({
                   showPage={(id) => leave() && showPage(id)}
                   removed={(name) => {
                     setStatus(`Deleted ${name}.`)
-                    show({ collection: '', tab: 'entries' })
+                    show({ collection: '' })
                   }}
                 />
               )}

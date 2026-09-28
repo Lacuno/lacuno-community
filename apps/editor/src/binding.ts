@@ -10,6 +10,7 @@ import {
   plainText,
 } from '@lacuno/schema'
 import { newCollection, titleField } from './cms.js'
+import { pageOf } from './structure.js'
 
 /** The collection whose entry the node's bindings read, if any. */
 export function scopeCollection(doc: Document, nodeId: string): CollectionSchema | undefined {
@@ -301,6 +302,67 @@ export function collectionPageCreation(
   return { id, operations }
 }
 
+/** A page, not an entry page, that lists the collection's entries, if there is one. */
+export const listPage = (doc: Document, collection: string) =>
+  Object.values(doc.nodes)
+    .filter((node) => node.type === 'collection-list' && node.collection === collection)
+    .map((node) => doc.pages[pageOf(doc, node.id)])
+    .find((page) => page && !page.collection)
+
+/**
+ * A page at /<collection> with the collection's name as its heading and a list of its entries,
+ * each card linking to the entry's page.
+ */
+export function listPageCreation(
+  doc: Document,
+  col: CollectionSchema,
+  name = col.name,
+  path = freePath(doc, `/${col.slug}`),
+) {
+  const id = `p-${crypto.randomUUID()}`
+  const rootId = `n-${crypto.randomUUID()}`
+  const shell = `c-${crypto.randomUUID()}`
+  const list = listInsertion(doc, col, { parent: rootId, index: 1 }, true)
+  return {
+    id,
+    list: list.node,
+    operations: [
+      ...styles(shell, {
+        display: 'flex',
+        'flex-direction': 'column',
+        gap: '32px',
+        width: '100%',
+        'max-width': '1120px',
+        margin: '0 auto',
+        padding: '64px 24px',
+        'box-sizing': 'border-box',
+      }),
+      {
+        type: 'page.create',
+        id,
+        name,
+        path,
+        root: {
+          id: rootId,
+          type: 'element',
+          tag: 'main',
+          classes: [shell],
+          children: [
+            {
+              type: 'text',
+              tag: 'h1',
+              classes: [],
+              text: { type: 'static', value: name },
+              meta: { label: 'Heading' },
+            },
+          ],
+        },
+      },
+      ...list.operations,
+    ] satisfies Operation[],
+  }
+}
+
 /**
  * A blog in one step: a Posts collection with a first post, a page per post and a /blog page
  * listing them newest first, ten to a page.
@@ -333,14 +395,12 @@ export function blogStarter(doc: Document) {
     entries: { ...doc.entries, [col.id]: [] },
   }
   const page = collectionPageCreation(draft, col, '/blog/[slug]')
-  const listPageId = `p-${crypto.randomUUID()}`
-  const rootId = `n-${crypto.randomUUID()}`
-  const list = listInsertion(draft, col, { parent: rootId, index: 1 }, true)
-  if (list.node.type === 'collection-list')
-    list.node.query = { sort: [{ field: date.id, direction: 'desc' }], limit: 10, paginate: true }
+  const list = listPageCreation(draft, col, 'Blog', freePath(doc, '/blog'))
+  if (list.list.type === 'collection-list')
+    list.list.query = { sort: [{ field: date.id, direction: 'desc' }], limit: 10, paginate: true }
   const today = new Date().toISOString().slice(0, 10)
   return {
-    listPageId,
+    listPageId: list.id,
     operations: [
       create,
       {
@@ -363,27 +423,6 @@ export function blogStarter(doc: Document) {
         },
       },
       ...page.operations,
-      {
-        type: 'page.create',
-        id: listPageId,
-        name: 'Blog',
-        path: freePath(doc, '/blog'),
-        root: {
-          id: rootId,
-          type: 'element',
-          tag: 'main',
-          classes: [],
-          children: [
-            {
-              type: 'text',
-              tag: 'h1',
-              classes: [],
-              text: { type: 'static', value: 'Blog' },
-              meta: { label: 'Heading' },
-            },
-          ],
-        },
-      },
       ...list.operations,
     ] satisfies Operation[],
   }

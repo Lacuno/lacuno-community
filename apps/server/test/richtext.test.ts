@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import type { Locator } from 'playwright'
 import { expect, it } from 'vitest'
-import { editor, root } from './harness.js'
+import { editor, pageSettings, root } from './harness.js'
 
 it('edits selected canvas words, preserves selection through tools, saves page links and restores history', async () => {
   const { page, canvas, saved } = await editor()
@@ -116,7 +116,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
   await expect.poll(() => heading.locator('strong').textContent()).toBe('Lacuno')
   await page.getByRole('button', { name: 'Pages', exact: true }).click()
-  await page.getByRole('button', { name: 'Settings for About', exact: true }).click()
+  await pageSettings(page, 'About')
   await page.getByLabel('URL path', { exact: true }).fill('/our-story')
   await page.getByRole('button', { name: 'Save page', exact: true }).click()
   await expect.poll(() => heading.locator('a').getAttribute('href')).toBe('/our-story')

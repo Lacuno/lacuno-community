@@ -11,7 +11,9 @@
   flex-direction: column;
   gap: 8px;
   overflow: auto;
-  padding: 16px 16px 16px 0;
+  /* Room for focus rings at the scrolling edges. */
+  margin-left: -6px;
+  padding: 16px 16px 16px 6px;
   border-right: 1px solid var(--border);
 }
 .cms-collections ul {
@@ -189,6 +191,9 @@
   color: var(--muted);
   text-align: left;
 }
+.cms-sort:focus-visible {
+  outline-offset: -3px;
+}
 .cms-sort:hover {
   color: inherit;
 }
@@ -291,7 +296,8 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 4px 16px 24px 2px;
+  margin-left: -6px;
+  padding: 6px 16px 24px 6px;
 }
 .cms-field {
   display: grid;
@@ -526,9 +532,14 @@
   border-radius: 6px;
   background: white;
 }
-.rich-field:focus-within {
+/* One ring, like a text field's, while the text has the focus; the tools ring themselves. */
+.rich-field:has(.ProseMirror:focus) {
   outline: 3px solid #b6a9ff;
-  outline-offset: 2px;
+  outline-offset: -3px;
+}
+.rich-field-tools > button:focus-visible {
+  outline-width: 2px;
+  outline-offset: -2px;
 }
 .rich-field-tools {
   display: flex;
@@ -568,6 +579,8 @@
   font-size: 14px;
   line-height: 1.6;
   outline: none;
+  /* Scrolled to, the text brings its tools and the field's ring into view. */
+  scroll-margin: 48px 8px 8px;
 }
 .rich-field-body .ProseMirror > :first-child {
   margin-top: 0;
@@ -603,7 +616,8 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0 16px 24px 2px;
+  margin-left: -6px;
+  padding: 0 16px 24px 6px;
 }
 .cms-settings-row {
   display: grid;
@@ -780,7 +794,7 @@
   .cms-collections {
     flex-direction: row;
     align-items: center;
-    padding: 8px 0;
+    padding: 8px 6px;
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
@@ -937,30 +951,32 @@
   padding: 7px 10px;
   font-size: 12px;
 }
-.cms-entry-pages {
-  display: flex;
+.cms-pages {
+  display: grid;
+  grid-template-columns: max-content auto;
   align-items: center;
-  gap: 12px;
+  justify-items: start;
+  gap: 10px 16px;
   max-width: 760px;
   margin-bottom: 20px;
   font-size: 12px;
 }
-.cms-entry-pages > span {
+.cms-pages > span {
   font-weight: 550;
 }
-.cms-manager .cms-entry-pages .text-button {
+.cms-manager .cms-pages .text-button {
   width: auto;
   margin: 0;
   padding: 0;
   color: var(--accent);
   font-size: 12px;
 }
-.cms-entry-pages code {
+.cms-pages code {
   margin-left: 4px;
   color: var(--muted);
   font-size: 11px;
 }
-.cms-manager .cms-entry-pages button:not(.text-button) {
+.cms-manager .cms-pages button:not(.text-button) {
   padding: 6px 11px;
   font-size: 12px;
 }

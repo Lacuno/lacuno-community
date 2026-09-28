@@ -43,7 +43,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Feature | When | Notes |
 | --- | --- | --- |
 | Collections with typed fields: text, rich text, number, boolean, date, image, file, color, option, reference, multi-reference, slug | MVP | Native, in the document for now. In: the CMS dialog from the rail manages collections, fields and entries with an input per type, a sortable, searchable, paged entry table, and refusals that list what uses a collection, field or entry |
-| Collection templates and collection lists with filter, sort, limit, pagination | MVP | Built into the data model, compiled to `getStaticPaths`. In: lists from the Add panel with list settings in the inspector, field bindings for text, dates, images, alt text and links with a field chip, a page per entry from New page with an entry switcher on the canvas, SEO from fields, `<path>/page/N` pagination, and a one-step blog starter |
+| Collection templates and collection lists with filter, sort, limit, pagination | MVP | Built into the data model, compiled to `getStaticPaths`. In: lists from the Add panel with list settings in the inspector, field bindings for text, dates, images, alt text and links with a field chip, a page per entry from New page or the collection settings with an entry switcher on the canvas, a list page from the collection settings, links to pages and entries from the link picker, SEO from fields, `<path>/page/N` pagination, and a one-step blog starter |
 | Content editor mode: edit text and CMS fields on canvas without touching design | MVP | Role gated |
 | Draft, scheduled and published states | Next | |
 | Markdown and MDX folder as a collection backend | Next | Git-native content for developers |

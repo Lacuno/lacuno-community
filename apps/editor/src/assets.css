@@ -124,7 +124,8 @@
   align-content: start;
   gap: 12px;
   overflow: auto;
-  padding: 16px 16px 16px 0;
+  margin-left: -6px;
+  padding: 16px 16px 16px 6px;
 }
 .asset-tiles:focus {
   outline: none;
@@ -252,7 +253,7 @@
 
 .asset-details {
   overflow: auto;
-  padding: 16px 0 16px 24px;
+  padding: 16px 6px 16px 24px;
   border-left: 1px solid var(--border);
   font-size: 12px;
 }

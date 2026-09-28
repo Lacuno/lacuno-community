@@ -1,6 +1,6 @@
 import type { CollectionListNode } from '@lacuno/schema'
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, pageSettings } from './harness.js'
 
 it('lists, binds and publishes collection content on the canvas', async () => {
   const { page, canvas, document: site, saved, api, siteId, server, publish } = await editor()
@@ -130,7 +130,7 @@ it('lists, binds and publishes collection content on the canvas', async () => {
   await saved()
   await page.keyboard.press('Escape')
   await expect.poll(() => heading.textContent()).toBe('Two ways to own it')
-  await page.getByRole('button', { name: 'Settings for Article' }).click()
+  await pageSettings(page, 'Article')
   await page.getByLabel('SEO title from').selectOption({ label: 'Posts · Title' })
   await page.getByRole('button', { name: 'Save page' }).click()
   await saved()

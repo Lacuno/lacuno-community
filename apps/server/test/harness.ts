@@ -178,3 +178,64 @@ export async function openFormatting(page: Page, name: string) {
     await section.locator(':scope > summary').click()
   return section
 }
+
+/**
+ * Focuses every control inside `scope` in turn and lists the ones whose focus ring, on the control
+ * or the ancestor that draws it, reaches past what a scrolling or clipping ancestor shows.
+ */
+export async function clippedFocusRings(page: Page, scope: string) {
+  // A key press first, so the focus that follows is shown as keyboard focus.
+  await page.keyboard.press('Shift')
+  return page.locator(scope).evaluate((root) => {
+    const clipped: string[] = []
+    const controls = Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'button:enabled, input:enabled, select:enabled, textarea:enabled, summary, [contenteditable="true"], [tabindex="0"]',
+      ),
+    )
+    for (const control of controls) {
+      if (!control.checkVisibility()) continue
+      control.focus()
+      if (document.activeElement !== control) continue
+      // As moving the focus with the keyboard does.
+      control.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      for (let ring: Element | null = control; ring && ring !== root; ring = ring.parentElement) {
+        const style = getComputedStyle(ring)
+        if (style.outlineStyle === 'none' || !Number.parseFloat(style.outlineWidth)) continue
+        const grow = Number.parseFloat(style.outlineWidth) + Number.parseFloat(style.outlineOffset)
+        const box = ring.getBoundingClientRect()
+        for (let clip = ring.parentElement; clip; clip = clip.parentElement) {
+          const { overflowX, overflowY } = getComputedStyle(clip)
+          const edge = clip.getBoundingClientRect()
+          const left = edge.left + clip.clientLeft
+          const top = edge.top + clip.clientTop
+          const cut =
+            (overflowX !== 'visible' &&
+              (box.left - grow < left - 0.5 || box.right + grow > left + clip.clientWidth + 0.5)) ||
+            (overflowY !== 'visible' &&
+              (box.top - grow < top - 0.5 || box.bottom + grow > top + clip.clientHeight + 0.5))
+          if (cut) {
+            const name =
+              control.getAttribute('aria-label') ||
+              control.textContent?.trim() ||
+              control.getAttribute('placeholder') ||
+              control.tagName
+            clipped.push(
+              `${control.tagName.toLowerCase()} "${name.slice(0, 40)}" in .${clip.className.split(' ')[0]}`,
+            )
+            break
+          }
+          // The top layer is not clipped by what it sits in.
+          if (clip.matches(':modal, :popover-open')) break
+        }
+      }
+    }
+    return [...new Set(clipped)]
+  })
+}
+
+/** Opens a page's settings from its actions menu in the Pages panel. */
+export async function pageSettings(page: Page, name: string) {
+  await page.getByRole('button', { name: `Actions for ${name}`, exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Page settings' }).click()
+}

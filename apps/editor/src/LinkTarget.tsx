@@ -1,5 +1,6 @@
 import { type Document, safeLinkHref } from '@lacuno/schema'
 import { useId, useRef, useState } from 'react'
+import { entryTitle } from './cms.js'
 import { ErrorNote } from './Dialog.js'
 import { placePopover } from './popover.js'
 import './text-toolbar.css'
@@ -28,6 +29,22 @@ export function LinkTarget({
   const [pageId, setPageId] = useState('')
   const [url, setUrl] = useState('')
   const [error, setError] = useState('')
+  const pages = Object.values(doc.pages).sort(
+    (a, b) => Number(b.path === '/') - Number(a.path === '/') || a.name.localeCompare(b.name),
+  )
+  // An entry page links to one entry at its current address.
+  const entryGroups = pages.flatMap((page) => {
+    const col = page.collection ? doc.collections[page.collection] : undefined
+    if (!col) return []
+    const links = (doc.entries[col.id] ?? []).flatMap((entry) => {
+      const slug = entry.fields[col.slugField]
+      return typeof slug === 'string' && slug
+        ? [{ href: page.path.replace(/\[[a-z0-9-]+\]/g, slug), title: entryTitle(col, entry) }]
+        : []
+    })
+    return links.length ? [{ page, col, links }] : []
+  })
+  const entry = !pageId && entryGroups.some((group) => group.links.some((l) => l.href === url))
   return (
     <>
       <button
@@ -69,21 +86,36 @@ export function LinkTarget({
             Link to page
             <select
               aria-label="Link to page"
-              value={pageId}
+              value={pageId || (entry ? url : '')}
               disabled={disabled}
-              onChange={(event) => setPageId(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value
+                setPageId(doc.pages[value] ? value : '')
+                if (!doc.pages[value]) setUrl(value || (entry ? '' : url))
+              }}
             >
               <option value="">URL or email</option>
-              {Object.values(doc.pages)
-                .filter((page) => !page.collection)
-                .map((page) => (
-                  <option key={page.id} value={page.id}>
-                    {page.name}
-                  </option>
-                ))}
+              <optgroup label="Pages">
+                {pages
+                  .filter((page) => !page.collection)
+                  .map((page) => (
+                    <option key={page.id} value={page.id}>
+                      {page.name}
+                    </option>
+                  ))}
+              </optgroup>
+              {entryGroups.map(({ page, col, links }) => (
+                <optgroup key={page.id} label={col.name}>
+                  {links.map((link) => (
+                    <option key={link.href} value={link.href}>
+                      {link.title}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
             </select>
           </label>
-          {!pageId && (
+          {!pageId && !entry && (
             <label>
               Destination
               <input

@@ -224,8 +224,10 @@ field chip in the inspector and on the canvas selection label shows what is boun
 make a page for each entry of a collection (`/<collection>/[slug]`, with the title, image and text
 bound), the canvas bar switches the previewed entry and opens it in the CMS, and SEO title,
 description and social image can come from fields. Paginated lists publish `<path>/page/2` onwards.
-With no collections, the CMS panel starts a blog in one step (D020). Content editor mode, drafts
-and scheduling, and CSV import remain.
+With no collections, the CMS panel starts a blog in one step (D020). A collection's settings also
+create a list page at `/<collection>` whose cards link to the entry pages, and the link picker
+offers every page and each entry of an entry page. Content editor mode, drafts and scheduling, and
+CSV import remain.
 
 ## Phase 5. Collaboration and scale
 

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, pageSettings } from './harness.js'
 
 it('sets site and page SEO in the editor and publishes it with a not-found page and a redirect', async () => {
   const { server, page, publish, saved } = await editor()
@@ -41,7 +41,7 @@ it('sets site and page SEO in the editor and publishes it with a not-found page 
   await site.getByRole('button', { name: 'Close', exact: true }).click()
 
   // Page settings carry the rest of the page's SEO and its code.
-  await page.getByRole('button', { name: 'Settings for About', exact: true }).click()
+  await pageSettings(page, 'About')
   const settings = page.getByRole('dialog', { name: 'Page settings' })
   await settings.getByLabel('SEO description', { exact: true }).fill('About this site.')
   const lang = settings.getByLabel('Language', { exact: true })
@@ -69,7 +69,7 @@ it('sets site and page SEO in the editor and publishes it with a not-found page 
   // Creating a page opens it, so the list's active page is the signal, not the save state.
   const active = page.locator('.page-link.active')
   await expect.poll(() => active.textContent()).toContain('Not found')
-  await active.locator('.badge').waitFor()
+  expect(await active.locator('.page-path').textContent()).toBe('/404')
   await page.getByRole('button', { name: 'New page', exact: true }).click()
   expect(await create.getByLabel('Not found page', { exact: true }).isDisabled()).toBe(true)
   await create.getByRole('button', { name: 'Close', exact: true }).click()

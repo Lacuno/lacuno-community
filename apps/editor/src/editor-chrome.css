@@ -626,7 +626,7 @@
 .pages-toolbar {
   display: flex;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 12px 10px;
 }
 .pages-toolbar button {
   display: inline-flex;
@@ -636,22 +636,77 @@
   font-size: 12px;
   white-space: nowrap;
 }
-.page-link .badge {
+.pages-toolbar .pages-site-settings {
   margin-left: auto;
-  white-space: nowrap;
+  padding: 7px;
 }
 .page-row {
   display: flex;
   align-items: center;
-  padding-right: 8px;
+  gap: 2px;
 }
-.page-row .page-link {
-  flex: 1;
+.page-name {
+  display: grid;
   min-width: 0;
+  line-height: 1.35;
+}
+.page-name,
+.page-name .page-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .page-settings-trigger {
-  padding: 4px 6px;
+  flex: none;
+  padding: 4px;
   border: 0;
+}
+.delete-page-dialog .danger {
+  border-color: #c43d4f;
+  background: #c43d4f;
+  color: white;
+}
+
+/* A menu of actions, like the page menu: opened at the pointer or below its trigger. */
+.menu {
+  position: fixed;
+  inset: auto;
+  min-width: 168px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 12px 32px #26203b29;
+}
+.menu [role="menuitem"] {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  font-size: 12px;
+  text-align: left;
+}
+.menu [role="menuitem"]:is(:hover, :focus-visible):not(:disabled) {
+  outline: none;
+  background: #f1ecff;
+  color: #4b2fae;
+}
+.menu [data-danger] {
+  color: #a03240;
+}
+.menu [data-danger]:not(:first-child) {
+  position: relative;
+  margin-top: 9px;
+}
+.menu [data-danger]:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  inset-inline: 6px;
+  border-top: 1px solid var(--border);
 }
 :is(.page-settings-dialog, .site-settings-dialog) {
   width: 480px;
@@ -1080,7 +1135,7 @@
 
 .editor .page-list {
   border-bottom: 1px solid var(--border);
-  padding: 0 14px 16px;
+  padding: 0 10px 16px;
 }
 .editor .page-link {
   width: 100%;
@@ -1103,12 +1158,21 @@
 }
 
 .editor .page-path {
-  margin-left: auto;
-  max-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 9px;
+  font-size: 10px;
   color: #8e91a1;
+}
+.editor .page-link > .page-path {
+  margin-left: auto;
+}
+.editor .page-row .page-link {
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+  padding: 7px 8px;
+}
+.pages-toolbar .editor-icon {
+  width: 15px;
+  height: 15px;
 }
 .editor .layer-list {
   overflow: auto;
@@ -1552,7 +1616,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 4px;
-  padding: 0 8px 8px;
+  padding: 6px 8px 8px;
 }
 .navigator-tools :where(button) {
   border: 0;

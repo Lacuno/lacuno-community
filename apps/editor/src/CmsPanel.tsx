@@ -27,7 +27,7 @@ export function CmsPanel({
           <button
             type="button"
             disabled={frozen}
-            onClick={() => open({ collection: 'new', tab: 'fields', entry: '' })}
+            onClick={() => open({ collection: 'new', entry: '' })}
           >
             <EditorIcon name="plus" />
             New collection
@@ -41,7 +41,7 @@ export function CmsPanel({
             key={col.id}
             className="page-link"
             aria-haspopup="dialog"
-            onClick={() => open({ collection: col.id, tab: 'entries', entry: '' })}
+            onClick={() => open({ collection: col.id, entry: '' })}
           >
             <EditorIcon name="database" />
             {col.name}

@@ -2,8 +2,9 @@ import type { Operation } from '@lacuno/document'
 import type { Document } from '@lacuno/schema'
 import { useEffect, useRef, useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
+import { Menu, type MenuPoint, menuPoint } from './Menu.js'
 import { presetValues } from './presets.js'
-import { nodeLabel, structureRestriction } from './structure.js'
+import { nodeLabel, structureRestriction, subtreeRestriction } from './structure.js'
 
 /** The layer icon for an element's tag; other elements show their layout. */
 const tagKinds: Record<string, 'image' | 'video' | 'list' | 'section'> = {
@@ -53,6 +54,7 @@ export function Navigator({
   )
   const autoOpened = useRef(new Set<string>())
   const [renaming, setRenaming] = useState('')
+  const [menu, setMenu] = useState<{ id: string; at: MenuPoint }>()
   const panel = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const childrenOf = (id: string) => {
@@ -184,12 +186,14 @@ export function Navigator({
               onDoubleClick={() => rename(id)}
               onContextMenu={(event) => {
                 event.preventDefault()
-                actions(id)
+                select(id)
+                setMenu({ id, at: menuPoint(event) })
               }}
               onKeyDown={(event) => {
                 if (event.shiftKey && event.key === 'F10') {
                   event.preventDefault()
-                  actions(id)
+                  select(id)
+                  setMenu({ id, at: menuPoint(event) })
                 } else if (event.key === 'F2') {
                   event.preventDefault()
                   rename(id)
@@ -251,6 +255,33 @@ export function Navigator({
         </button>
       </div>
       {render(root, 0, [])}
+      {menu && (
+        <Menu
+          key={menu.id}
+          at={menu.at}
+          label="Layer actions"
+          close={() => setMenu(undefined)}
+          items={[
+            { label: 'Element actions…', run: () => actions(menu.id) },
+            {
+              label: 'Rename',
+              disabled: disabled || !!structureRestriction(doc, menu.id),
+              run: () => rename(menu.id),
+            },
+            {
+              label: 'Duplicate',
+              disabled: disabled || !!subtreeRestriction(doc, menu.id),
+              run: () => nodeAction('duplicate', menu.id),
+            },
+            {
+              label: 'Delete',
+              danger: true,
+              disabled: disabled || !!subtreeRestriction(doc, menu.id),
+              run: () => nodeAction('delete', menu.id),
+            },
+          ]}
+        />
+      )}
     </div>
   )
 }
