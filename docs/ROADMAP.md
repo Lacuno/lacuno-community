@@ -232,7 +232,14 @@ CSV import remain.
 an image, its alt text or a link to a field of an entry picked by collection, search and field,
 with a chip such as "Legal › Privacy › Body"; rich text renders its headings, lists and links as
 blocks, page settings read the SEO title, description and social image from a chosen entry, and a
-used entry, field or collection cannot be deleted (D021). Rich text has no tables yet.
+used entry, field or collection cannot be deleted (D021). Rich text holds tables (D022).
+**Styling rich text implemented (2026-09-28):** a click on a heading, paragraph, link, list item,
+cell or table inside a text that holds blocks, written or bound, selects "H2 in Legal body" and the
+inspector styles that tag for every block with the class, per breakpoint and state; a list reaches
+tags the content lacks, and a block without a class gets a preset on the first change (D023). A
+bound date reads long, medium, numeric or ISO in the page's language or its own, a field can sit
+inside a text ("Last updated: {date}"), and Site settings take a title template that every page's
+title goes into unless it opts out (D024).
 
 ## Phase 5. Collaboration and scale
 

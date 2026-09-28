@@ -304,3 +304,47 @@ the CMS and agents already edit, and one shape keeps the canvas, the CMS and MCP
 Tiptap already parses pasted tables and handles cell selection, so the editor adds tools rather than
 a table engine. Refusing malformed tables on write keeps agents honest the way other operations do.
 Zero-specificity defaults give a readable table on any site without fighting its design.
+
+## D023. Rich text is styled per class and tag, by clicking the tag on the canvas
+
+**Decision.** A style declaration may name a `tag` from a fixed list of what rich text renders (h1
+to h6, p, a, strong, em, code, pre, blockquote, ul, ol, li, hr, table, tr, th, td). It styles that
+tag inside every element carrying the class and compiles to `.legal h2` or `.legal a:hover`, per
+breakpoint and state; the key reads `class|tag|breakpoint|state|property`, and one without a tag is
+unchanged. On the canvas a click inside a text that holds blocks, its own or a bound rich-text
+field, selects the tag under the pointer: a list item or cell stands for the paragraph it holds, and
+the table for its gaps. The inspector reads "H2 in Legal body" with the usual sections, the state
+chip and breakpoints as for elements, and a "Style other tags" list for tags the content lacks; the
+breadcrumb returns to the block. The block's class is its first named class; a block without one
+gets a preset named after its page ("Privacy rich text") with the first change, which other blocks
+can then take from the Preset menu. The table's defaults stay in `:where()` and put their spacing
+on the table, so these rules override all of them, the 8em cell width included.
+
+**Alternatives.** Styles on each element of the content; classes stored in the rich text; arbitrary
+descendant selectors; asking for a class name before the first change.
+
+**Why.** The content stays plain HTML that the CMS, agents and pasted text all produce, and the look
+belongs to the place it is shown, so one class restyles every legal page at once. A fixed tag list
+keeps rules predictable for the editor, validation and agents, and no selector can reach outside
+the block. Creating the preset on the first change keeps the click-and-style flow uninterrupted;
+naming it after the page tells the designer where it came from, and renaming stays possible.
+
+## D024. Date formats, fields inside text and a title template
+
+**Decision.** A date binding's `format` is `long`, `medium`, `numeric` (two-digit day and month,
+full year) or the older `short` and `full`, read in the page's language unless the binding sets
+`locale`; without one it reads as stored. A text's own rich text may hold a field as an inline
+node `{"type":"field","attrs":{"field","entry"?,"format"?,"locale"?}}`, which reads like a field
+binding: the entry around the node, or the one it names. It counts as one of the node's bindings,
+so the scope check and the refusal to remove a used field cover it. `site.titleTemplate` holds
+`{page}`, the page's SEO title, entry title or name, and wraps every title and og:title; a page's
+`seo.titleTemplate` sets its own pattern, or `false` to leave its title alone.
+
+**Alternatives.** A free date pattern such as `dd.MM.yyyy`; template strings such as `{author}` in
+text; a title suffix instead of a pattern; per-page titles written out in full.
+
+**Why.** Named formats cover what sites use and stay correct in every language, where a pattern
+would need one per locale. An inline node keeps the field id visible to validation and the
+reference check, which a string placeholder would hide (D020). One pattern with `{page}` covers
+suffixes and prefixes alike, and `false` gives the home page its own title without a second
+setting.
