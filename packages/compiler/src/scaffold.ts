@@ -47,7 +47,10 @@ const page = doc.pages[route.page]
 const entry = route.entry
   ? (doc.entries[page.collection] ?? []).find((e) => e.id === route.entry)
   : undefined
-const result = render(doc, page, entry, { resolveImage: imageResolverFrom(images) })
+const result = render(doc, page, entry, {
+  resolveImage: imageResolverFrom(images),
+  listPage: route.listPage,
+})
 ---
 <html {...result.htmlAttrs}>
   <head><Fragment set:html={result.head} /></head>

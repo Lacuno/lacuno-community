@@ -1,4 +1,11 @@
-import { type AssetRef, type Document, type Page, pageLang } from '@lacuno/schema'
+import {
+  type AssetRef,
+  type Document,
+  type Entry,
+  type Page,
+  pageLang,
+  plainText,
+} from '@lacuno/schema'
 import { extensionForMime, isImage, publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { escapeAttr, escapeHtml } from './html.js'
@@ -13,6 +20,8 @@ export type HeadInput = {
   siteUrl?: string
   resolveImage: ImageResolver
   resolveAsset?: (asset: AssetRef) => string
+  /** A collection page's entry, whose fields may give the title, description and image. */
+  entry?: Entry
 }
 
 const FONT_FORMAT: Record<string, string> = {
@@ -81,17 +90,31 @@ export function renderHead(input: HeadInput): string {
   const { doc, page, path } = input
   const resolveAsset = input.resolveAsset ?? publicAssetPath
   const siteUrl = input.siteUrl ? input.siteUrl.replace(/\/+$/, '') : undefined
-  const seo = page.seo
-  const title = seo?.title ?? page.name
+  // Entry fields named in seo.fields stand in for the page's own values.
+  const fromEntry = (key: 'title' | 'description' | 'ogImage') => {
+    const field = page.seo?.fields?.[key]
+    const value = field ? input.entry?.fields[field] : undefined
+    if (value === undefined) return undefined
+    return typeof value === 'object' ? plainText(value) : String(value)
+  }
+  const seo = {
+    ...page.seo,
+    ...Object.fromEntries(
+      (['title', 'description', 'ogImage'] as const)
+        .map((key) => [key, fromEntry(key)])
+        .filter(([, value]) => value),
+    ),
+  }
+  const title = seo.title ?? page.name
   const absolute = (p: string) => (siteUrl ? `${siteUrl}${p}` : p)
   const parts: string[] = [
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${escapeHtml(title)}</title>`,
   ]
-  if (seo?.description) parts.push(meta('description', seo.description))
-  if (seo?.noindex) parts.push(meta('robots', 'noindex'))
-  const canonical = seo?.canonical ?? (siteUrl ? absolute(path) : undefined)
+  if (seo.description) parts.push(meta('description', seo.description))
+  if (seo.noindex) parts.push(meta('robots', 'noindex'))
+  const canonical = seo.canonical ?? (siteUrl ? absolute(path) : undefined)
   if (canonical) parts.push(`<link rel="canonical" href="${escapeAttr(canonical)}">`)
   const favicon = doc.site.favicon ? doc.assets[doc.site.favicon] : undefined
   if (favicon)
@@ -104,15 +127,15 @@ export function renderHead(input: HeadInput): string {
   // Open Graph wants language_TERRITORY (`en_US`); a bare language has no valid form.
   const locale = pageLang(doc, page).match(/^([a-z]{2,3})(?:-\w+)*-([a-z]{2})$/i)
   if (locale) parts.push(og('og:locale', `${locale[1]}_${locale[2]!.toUpperCase()}`))
-  if (seo?.description) parts.push(og('og:description', seo.description))
+  if (seo.description) parts.push(og('og:description', seo.description))
   if (siteUrl) parts.push(og('og:url', absolute(path)))
-  if (seo?.ogImage) {
+  if (seo.ogImage) {
     const asset = doc.assets[seo.ogImage]
     if (!asset) throw new RenderError(`unknown og image ${seo.ogImage}`, undefined, page.id)
     const src = isImage(asset) ? input.resolveImage(asset).src : resolveAsset(asset)
     parts.push(og('og:image', absolute(src)))
   }
-  parts.push(meta('twitter:card', seo?.ogImage ? 'summary_large_image' : 'summary'))
+  parts.push(meta('twitter:card', seo.ogImage ? 'summary_large_image' : 'summary'))
   parts.push(...renderFonts(doc, page, resolveAsset))
   if (doc.site.headCode) parts.push(doc.site.headCode)
   if (page.headCode) parts.push(page.headCode)

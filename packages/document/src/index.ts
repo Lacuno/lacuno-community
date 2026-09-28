@@ -10,6 +10,7 @@ export {
 export { deepFreeze } from './freeze.js'
 export { allIds } from './ids.js'
 export { OPERATIONS, OPERATIONS_BY_TYPE, Operation } from './operations/index.js'
+export type { NodeLiteral } from './operations/nodes.js'
 export { partialPatches } from './partial.js'
 export { applyPatches, invertPatches, Patch, type Path, type PathSegment } from './patch.js'
 export { MemoryPersistence, type Persistence } from './persistence.js'

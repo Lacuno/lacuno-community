@@ -3,13 +3,16 @@ import { type Document, Page, type Seo } from '@lacuno/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type PageTree, pageTree } from './structure.js'
 
-export function pagePathError(doc: Document, path: string, except?: string) {
+export function pagePathError(
+  doc: Document,
+  path: string,
+  except?: string,
+  collection = !!(except && doc.pages[except]?.collection),
+) {
   if (!Page.shape.path.safeParse(path).success)
     return 'Use a path such as /about or /company/team, with lowercase letters, numbers and hyphens.'
-  const page = except ? doc.pages[except] : undefined
-  if (!page?.collection && path.includes('['))
-    return 'Only collection pages can use path parameters.'
-  if (page?.collection && !path.includes('['))
+  if (!collection && path.includes('[')) return 'Only collection pages can use path parameters.'
+  if (collection && !path.includes('['))
     return 'Keep the collection parameter, such as [slug], in the path.'
   if (Object.values(doc.pages).some((other) => other.id !== except && other.path === path))
     return 'Another page already uses this path.'
@@ -53,9 +56,14 @@ export function redirectError(doc: Document, from: string, to: string) {
 }
 
 /** The page's SEO with the form's values over it and every cleared field removed. */
-export function pageSeo(page: Page | undefined, form: Required<Seo>): Seo {
-  const seo: Record<string, unknown> = { ...page?.seo, ...form }
-  for (const key in seo) if (!seo[key]) delete seo[key]
+export function pageSeo(
+  page: Page | undefined,
+  form: Required<Omit<Seo, 'fields'>> & { fields?: Seo['fields'] },
+): Seo {
+  const fields = Object.fromEntries(Object.entries(form.fields ?? {}).filter(([, id]) => id))
+  const seo: Record<string, unknown> = { ...page?.seo, ...form, fields }
+  for (const key in seo)
+    if (!seo[key] || (key === 'fields' && !Object.keys(fields).length)) delete seo[key]
   return seo
 }
 

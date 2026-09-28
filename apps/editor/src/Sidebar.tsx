@@ -2,6 +2,7 @@ import { AssetsPanel } from './AssetsPanel.js'
 import { message } from './api.js'
 import { nodeHome } from './assets.js'
 import { CmsPanel } from './CmsPanel.js'
+import type { CmsView } from './CollectionManager.js'
 import { ComponentsPanel } from './ComponentsPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import { LayersPanel } from './LayersPanel.js'
@@ -38,6 +39,7 @@ export function Sidebar({
   elementActionsId,
   nodeAction,
   openColors,
+  openCms,
 }: {
   session: DocumentSession
   editing: ComponentEditing
@@ -54,6 +56,7 @@ export function Sidebar({
   revealSelection: number
   elementActionsId: string
   openColors: () => void
+  openCms: (view: CmsView) => void
   nodeAction: (action: 'duplicate' | 'delete', id: string) => void
 }) {
   const { doc, frozen, save, leave, setError } = session
@@ -117,7 +120,20 @@ export function Sidebar({
             }
           />
         )}
-        {sidebar === 'CMS' && doc && <CmsPanel siteId={siteId} session={session} />}
+        {sidebar === 'CMS' && doc && (
+          <CmsPanel
+            session={session}
+            open={openCms}
+            showPage={(id) =>
+              void leave(() => {
+                setPageId(id)
+                editing.setComponentId('')
+                setSelected('')
+                setEntryId('')
+              })
+            }
+          />
+        )}
         {editableDoc && editingRoot && (
           <div hidden={sidebar !== 'Assets'}>
             <AssetsPanel

@@ -218,6 +218,8 @@ export function referencesToField(doc: Document, fieldId: string): string[] {
     )
       out.push(`nodes.${node.id}`)
   }
+  for (const page of Object.values(doc.pages))
+    if (Object.values(page.seo?.fields ?? {}).includes(fieldId)) out.push(`pages.${page.id}`)
   return out.sort()
 }
 

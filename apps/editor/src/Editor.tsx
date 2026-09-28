@@ -4,6 +4,7 @@ import type { Role } from './App.js'
 import { message, useConfig } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
+import { type CmsView, CollectionManager } from './CollectionManager.js'
 import { ComponentDialogs } from './ComponentDialogs.js'
 import { ConnectPanel, useConnections } from './ConnectPanel.js'
 import { EditorHeader } from './EditorHeader.js'
@@ -47,6 +48,7 @@ export function Editor({
   const [colorsOpen, setColorsOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [connectOpen, setConnectOpen] = useState(false)
+  const [cmsView, setCmsView] = useState<CmsView>()
   const { connections, refresh: refreshConnections } = useConnections(siteId, connectOpen)
   const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
     id: '',
@@ -182,6 +184,28 @@ export function Editor({
           registerFlush={session.registerFlush}
         />
       )}
+      {cmsView && doc && (
+        <CollectionManager
+          siteId={siteId}
+          doc={doc}
+          readOnly={session.readOnly}
+          disabled={session.conflict}
+          save={save}
+          undo={() => session.travel('undo')}
+          view={cmsView}
+          setView={setCmsView}
+          close={() => setCmsView(undefined)}
+          showPage={(id) =>
+            void leave(() => {
+              setCmsView(undefined)
+              editing.setComponentId('')
+              setPageId(id)
+              setSelected('')
+              setEntryId('')
+            })
+          }
+        />
+      )}
       {pageSettingsOpen && doc && page && (
         <PageSettings
           doc={doc}
@@ -219,6 +243,7 @@ export function Editor({
           setSelected={setSelected}
           revealSelection={revealSelection}
           openColors={() => setColorsOpen(true)}
+          openCms={setCmsView}
           elementActionsId={elementActionsId}
           nodeAction={(action, id) => void nodeAction(action, id)}
         />
@@ -229,6 +254,7 @@ export function Editor({
           entries={entries}
           activeEntry={activeEntry}
           setEntryId={setEntryId}
+          openCms={setCmsView}
           preview={preview}
           width={width}
           setWidth={setWidth}

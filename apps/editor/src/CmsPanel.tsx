@@ -1,29 +1,39 @@
-import { useState } from 'react'
-import { type CmsView, CollectionManager } from './CollectionManager.js'
+import { blogStarter } from './binding.js'
+import type { CmsView } from './CollectionManager.js'
 import { EditorIcon } from './EditorIcon.js'
 import type { DocumentSession } from './session.js'
 
 /** The rail's CMS panel: the site's collections, each opening the CMS dialog on its entries. */
-export function CmsPanel({ siteId, session }: { siteId: string; session: DocumentSession }) {
-  const [view, setView] = useState<CmsView>()
+export function CmsPanel({
+  session,
+  open,
+  showPage,
+}: {
+  session: DocumentSession
+  open: (view: CmsView) => void
+  /** Opens a page on the canvas. */
+  showPage: (id: string) => void
+}) {
   const { doc, frozen, readOnly } = session
   if (!doc) return null
   const collections = Object.values(doc.collections)
-  const open = (collection: string, tab: CmsView['tab'] = 'entries') =>
-    setView({ collection, tab, entry: '' })
   return (
     <>
       <div className="panel-title">
         Collections<span>{collections.length}</span>
       </div>
-      <div className="pages-toolbar">
-        {!readOnly && (
-          <button type="button" disabled={frozen} onClick={() => open('new', 'fields')}>
+      {!readOnly && (
+        <div className="pages-toolbar">
+          <button
+            type="button"
+            disabled={frozen}
+            onClick={() => open({ collection: 'new', tab: 'fields', entry: '' })}
+          >
             <EditorIcon name="plus" />
             New collection
           </button>
-        )}
-      </div>
+        </div>
+      )}
       <div className="page-list">
         {collections.map((col) => (
           <button
@@ -31,7 +41,7 @@ export function CmsPanel({ siteId, session }: { siteId: string; session: Documen
             key={col.id}
             className="page-link"
             aria-haspopup="dialog"
-            onClick={() => open(col.id)}
+            onClick={() => open({ collection: col.id, tab: 'entries', entry: '' })}
           >
             <EditorIcon name="database" />
             {col.name}
@@ -39,25 +49,26 @@ export function CmsPanel({ siteId, session }: { siteId: string; session: Documen
           </button>
         ))}
         {!collections.length && (
-          <p className="cms-panel-empty">
-            Collections hold content such as blog posts or team members, for pages and lists to
-            show.
-          </p>
+          <div className="cms-panel-empty">
+            <p>
+              Collections hold content such as blog posts or team members, for pages and lists to
+              show.
+            </p>
+            {!readOnly && (
+              <button
+                type="button"
+                disabled={frozen}
+                onClick={async () => {
+                  const starter = blogStarter(doc)
+                  if (await session.save(starter.operations)) showPage(starter.listPageId)
+                }}
+              >
+                Start a blog
+              </button>
+            )}
+          </div>
         )}
       </div>
-      {view && (
-        <CollectionManager
-          siteId={siteId}
-          doc={doc}
-          readOnly={readOnly}
-          disabled={session.conflict}
-          save={session.save}
-          undo={() => session.travel('undo')}
-          view={view}
-          setView={setView}
-          close={() => setView(undefined)}
-        />
-      )}
     </>
   )
 }

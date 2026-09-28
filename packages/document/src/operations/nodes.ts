@@ -240,6 +240,8 @@ const nodeUpdate = defineOperation(
     html: z.string().optional(),
     props: z.record(z.string(), Binding).nullable().optional(),
     query: Query.nullable().optional(),
+    /** The collection a list shows; field bindings inside must be fields of it. */
+    collection: CollectionId.optional(),
     semantic: Semantic.nullable().optional(),
     meta: NodeMeta.nullable().optional(),
   }),
@@ -255,8 +257,14 @@ const nodeUpdate = defineOperation(
       ctx.fail('html applies to embed nodes only', { id: op.id })
     if (op.props !== undefined && node.type !== 'component')
       ctx.fail('props applies to component instances only', { id: op.id })
-    if (op.query !== undefined && node.type !== 'collection-list')
-      ctx.fail('query applies to collection lists only', { id: op.id })
+    if ((op.query !== undefined || op.collection !== undefined) && node.type !== 'collection-list')
+      ctx.fail('query and collection apply to collection lists only', { id: op.id })
+    if (op.collection)
+      ctx.require(
+        ctx.doc.collections[op.collection],
+        `unknown collection ${op.collection}`,
+        op.collection,
+      )
     if (op.classes) requireClasses(ctx, op.classes)
     const { type: _type, id: _id, ...values } = op
     return partialPatches(['nodes', op.id], values, node)

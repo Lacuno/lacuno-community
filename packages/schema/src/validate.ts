@@ -72,6 +72,25 @@ export function checkReferences(doc: Document): Issue[] {
       add(`nodes.${id}`, `unknown collection ${node.collection}`)
   }
 
+  const paginated = new Map<string, string>()
+  for (const [id, node] of Object.entries(doc.nodes)) {
+    const scope = bindingScope(doc, id)
+    if (!scope) continue
+    for (const b of nodeBindings(node)) {
+      if (b.type !== 'field') continue
+      const col = scope.collection ? doc.collections[scope.collection] : undefined
+      if (!scope.collection) add(`nodes.${id}`, `field binding ${b.field} outside a collection`)
+      else if (col && !col.fields.some((f) => f.id === b.field))
+        add(`nodes.${id}`, `field ${b.field} is not a field of ${scope.collection}`)
+    }
+    if (node.type !== 'collection-list' || !node.query?.paginate) continue
+    if (node.query.limit === undefined) add(`nodes.${id}`, 'a paginated list needs a limit')
+    if (scope.page?.collection) add(`nodes.${id}`, 'a collection page cannot paginate a list')
+    const other = scope.page && paginated.get(scope.page.id)
+    if (other) add(`nodes.${id}`, `page ${scope.page!.id} already paginates list ${other}`)
+    if (scope.page) paginated.set(scope.page.id, id)
+  }
+
   const paths = new Map<string, string>()
   for (const [id, page] of Object.entries(doc.pages)) {
     const root = doc.nodes[page.root]
@@ -81,6 +100,12 @@ export function checkReferences(doc: Document): Issue[] {
       add(`pages.${id}`, `unknown collection ${page.collection}`)
     if (page.collection && !page.path.includes('['))
       add(`pages.${id}`, 'collection page path needs a [param]')
+    for (const [key, field] of Object.entries(page.seo?.fields ?? {})) {
+      const col = page.collection ? doc.collections[page.collection] : undefined
+      if (!page.collection) add(`pages.${id}`, `seo.fields.${key} needs a collection page`)
+      else if (col && !col.fields.some((f) => f.id === field))
+        add(`pages.${id}`, `seo.fields.${key}: ${field} is not a field of ${page.collection}`)
+    }
     if (page.folder && !doc.folders[page.folder])
       add(`pages.${id}`, `unknown folder ${page.folder}`)
     const prev = paths.get(page.path)
@@ -136,6 +161,31 @@ export function checkReferences(doc: Document): Issue[] {
   }
 
   return issues
+}
+
+/**
+ * The collection whose entry a node's field bindings read: the nearest collection list around it,
+ * else its page's collection. A list's own attributes read the scope around the list. Undefined
+ * for nodes of a component, whose scope depends on where it is used.
+ */
+export function bindingScope(
+  doc: Document,
+  nodeId: string,
+): { collection?: string; page?: Document['pages'][string] } | undefined {
+  let id = doc.nodes[nodeId]?.parent ?? null
+  let root = nodeId
+  let collection: string | undefined
+  while (id !== null) {
+    const node = doc.nodes[id]
+    if (!node) return undefined
+    if (node.type === 'collection-list' && collection === undefined) collection = node.collection
+    root = id
+    id = node.parent
+  }
+  const page = Object.values(doc.pages).find((p) => p.root === root)
+  if (!page) return undefined
+  collection ??= page.collection
+  return collection ? { collection, page } : { page }
 }
 
 export class DocumentError extends Error {

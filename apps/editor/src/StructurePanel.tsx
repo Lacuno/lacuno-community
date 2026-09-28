@@ -1,6 +1,7 @@
 import type { Operation } from '@lacuno/document'
 import type { Document } from '@lacuno/schema'
 import { useState } from 'react'
+import { listInsertion } from './binding.js'
 import { EditorIcon } from './EditorIcon.js'
 import {
   actions,
@@ -36,7 +37,10 @@ export function InsertPanel({
   save,
   select,
 }: Props & { root: string }) {
-  const [preset, setPreset] = useState<Preset>('heading')
+  const [preset, setPreset] = useState<Preset | 'collection'>('heading')
+  const collections = Object.values(doc.collections)
+  const [collection, setCollection] = useState('')
+  const listOf = doc.collections[collection] ?? collections[0]
   const [placement, setPlacement] = useState<Placement>('page')
   const [classId, setClassId] = useState('')
   let target: ReturnType<typeof insertionTarget> | undefined
@@ -79,6 +83,41 @@ export function InsertPanel({
             </div>
           </section>
         ))}
+        <section className="insert-category">
+          <h3>CMS</h3>
+          <div className="insert-tiles">
+            <button
+              type="button"
+              title={
+                collections.length
+                  ? 'A list of entries, designed once'
+                  : 'Create a collection in the CMS first'
+              }
+              aria-pressed={preset === 'collection'}
+              disabled={!collections.length}
+              onClick={() => setPreset('collection')}
+            >
+              <EditorIcon name="database" />
+              Collection list
+            </button>
+          </div>
+        </section>
+        {preset === 'collection' && collections.length > 1 && (
+          <label>
+            Collection
+            <select
+              aria-label="Collection to list"
+              value={listOf?.id}
+              onChange={(event) => setCollection(event.target.value)}
+            >
+              {collections.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           Position
           <select
@@ -120,6 +159,12 @@ export function InsertPanel({
           disabled={disabled || !target}
           onClick={async () => {
             if (!target) return
+            if (preset === 'collection') {
+              if (!listOf) return
+              const { node, operations } = listInsertion(doc, listOf, target)
+              if (await save(operations)) select(node.id!)
+              return
+            }
             const { node, operations } = structureInsertion(
               preset,
               target,

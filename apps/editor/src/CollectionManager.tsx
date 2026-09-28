@@ -24,6 +24,7 @@ export function CollectionManager({
   view,
   setView,
   close,
+  showPage,
 }: {
   siteId: string
   doc: Document
@@ -34,6 +35,8 @@ export function CollectionManager({
   view: CmsView
   setView: (view: CmsView) => void
   close: () => void
+  /** Closes the dialog and opens a page on the canvas. */
+  showPage: (id: string) => void
 }) {
   const [creating, setCreating] = useState(view.collection === 'new' ? '' : undefined)
   const [status, setStatus] = useState('')
@@ -176,6 +179,7 @@ export function CollectionManager({
                   readOnly={readOnly}
                   disabled={disabled}
                   save={save}
+                  showPage={(id) => leave() && showPage(id)}
                   removed={(name) => {
                     setStatus(`Deleted ${name}.`)
                     show({ collection: '', tab: 'entries' })

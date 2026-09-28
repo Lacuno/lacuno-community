@@ -6,7 +6,7 @@ import { renderHead } from './head.js'
 import { renderAttrs } from './html.js'
 import type { ImageResolver } from './images.js'
 import { motionClasses, type RenderState, renderNode, type Warning } from './nodes.js'
-import { entrySlug, routePath } from './routes.js'
+import { entrySlug, listPagePath, routePath } from './routes.js'
 import type { Scope } from './scope.js'
 
 export type RenderContext = {
@@ -16,6 +16,8 @@ export type RenderContext = {
   editingComponent?: string
   resolveAsset?: (asset: AssetRef) => string
   texts?: RenderState['texts']
+  /** Which page of the page's paginated list to render. */
+  listPage?: number
 }
 
 export type RenderResult = {
@@ -32,7 +34,7 @@ export function render(
   entry: Entry | undefined,
   ctx: RenderContext,
 ): RenderResult {
-  const scope: Scope = { frames: [] }
+  const scope: Scope = { frames: [], lang: pageLang(doc, page) }
   let slug: string | undefined
   if (page.collection) {
     // parseDocument has already checked that the page's collection exists.
@@ -58,11 +60,13 @@ export function render(
     ...(ctx.annotateNodes ? { annotateNodes: true } : {}),
     ...(ctx.editingComponent ? { editingComponent: ctx.editingComponent } : {}),
     ...(ctx.texts ? { texts: ctx.texts } : {}),
+    ...(ctx.listPage ? { listPage: ctx.listPage } : {}),
   }
   const headInput = {
     doc,
     page,
-    path: routePath(page.path, slug),
+    path: listPagePath(routePath(page.path, slug), ctx.listPage ?? 1),
+    ...(entry ? { entry } : {}),
     resolveImage: ctx.resolveImage,
     resolveAsset: state.resolveAsset,
   }

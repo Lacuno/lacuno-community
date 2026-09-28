@@ -19,6 +19,8 @@ type Side = 'top' | 'right' | 'bottom' | 'left'
 
 export type Selection = {
   name: string
+  /** The CMS field the element shows, if it is bound to one. */
+  field: string
   /** The breakpoint being edited, as shown to the designer. */
   scope: string
   state: State
@@ -79,6 +81,8 @@ export function selectionOverlay(
     .selection-dashes { stroke:#6434d9;stroke-width:2;stroke-dasharray:5 5;animation:selection-march 1.2s linear infinite; }
     .bar { position:absolute;display:flex;align-items:stretch;max-width:420px;border:1px solid white;border-radius:6px;background:#6434d9;color:white;box-shadow:0 2px 8px #0004;overflow:hidden; }
     .name { padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .field { margin:3px 0;padding:1px 7px;border-radius:999px;background:#ffffff2e;white-space:nowrap;font-weight:500; }
+    .field:empty { display:none; }
     .scope { padding:4px 8px;border-left:1px solid #ffffff55;color:#ffffffcc;font-weight:500;white-space:nowrap; }
     .bar button { pointer-events:auto;display:flex;align-items:center;gap:5px;padding:4px 8px;border:0;border-left:1px solid #ffffff55;background:#ffffff22;color:inherit;font:inherit;cursor:pointer;white-space:nowrap; }
     .bar button[hidden] { display:none; }
@@ -139,7 +143,7 @@ export function selectionOverlay(
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
   </style><svg class="frame"><rect class="selection-base"/><rect class="selection-dashes"/></svg>
-  <div class="bar bar-top selection-label"><span class="name"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button></div>
+  <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button></div>
   <div class="bar bar-bottom"><button class="swatch text" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(TEXT_ICON)}<i></i></button><button class="swatch background" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(BACKGROUND_ICON)}<i></i></button></div>
   <div class="menu state-menu" role="menu" aria-label="Element state" hidden>${Object.entries(
     STATES,
@@ -176,6 +180,7 @@ export function selectionOverlay(
   const bottomBar = shadow.querySelector<HTMLElement>('.bar-bottom')!
   const name = shadow.querySelector<HTMLElement>('.name')!
   const scope = shadow.querySelector<HTMLElement>('.scope')!
+  const field = shadow.querySelector<HTMLElement>('.field')!
   const chip = shadow.querySelector<HTMLButtonElement>('.state')!
   const textSwatch = shadow.querySelector<HTMLButtonElement>('.swatch.text')!
   const bgSwatch = shadow.querySelector<HTMLButtonElement>('.swatch.background')!
@@ -675,10 +680,11 @@ export function selectionOverlay(
     host.toggleAttribute('data-idle', !visible)
     if (visible) {
       const info = stateInfo(selection.state)
-      const key = `${selection.name}|${selection.scope}|${selection.state}|${selection.states.join()}`
+      const key = `${selection.name}|${selection.field}|${selection.scope}|${selection.state}|${selection.states.join()}`
       if (key !== shown) {
         shown = key
         name.textContent = selection.name || selected!.tagName.toLowerCase()
+        field.textContent = selection.field
         scope.textContent = selection.scope
         chip.innerHTML = `${svg(info.icon)}${info.label}`
         chip.setAttribute('aria-label', `State: ${info.label}`)
