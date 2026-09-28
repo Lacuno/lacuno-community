@@ -1,18 +1,22 @@
 import { createHash } from 'node:crypto'
-import { constants, createReadStream } from 'node:fs'
+import { constants, createReadStream, createWriteStream } from 'node:fs'
 import {
   copyFile,
   lstat,
   mkdir,
+  mkdtemp,
   readdir,
   readFile,
   realpath,
   rm,
   writeFile,
 } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
+import { pipeline } from 'node:stream/promises'
 import { parseDocument } from '@lacuno/schema'
 import Database from 'better-sqlite3'
+import yauzl from 'yauzl'
 import { z } from 'zod'
 
 const Manifest = z.strictObject({
@@ -207,4 +211,79 @@ export async function restoreWorkspace(source: string, destination: string) {
   await fill(destination, async () => {
     for (const file of manifest.files) await copy(source, destination, file.name)
   })
+}
+
+/** Lacuno's content, which importing a managed workspace keeps. */
+const content = [
+  'workspaces',
+  'sites',
+  'releases',
+  'publications',
+  'site_thumbnail',
+  'lacuno_migrations',
+]
+
+/**
+ * Imports a Lacuno Cloud export, a zip with a backup under `backup/`, into an empty data
+ * directory: unpacks it into a temporary directory, restores it with every check of
+ * `restoreWorkspace` and makes the managed workspace self-hosted. Returns the number of sites.
+ */
+export async function importExport(zip: string, destination: string) {
+  const work = await mkdtemp(path.join(os.tmpdir(), 'lacuno-import-'))
+  try {
+    const archive = await yauzl.openPromise(zip, { lazyEntries: true })
+    try {
+      // yauzl refuses absolute names, backslashes and `..`, so no entry leaves `work`.
+      for await (const entry of archive.eachEntry()) {
+        if (entry.fileName.endsWith('/') || !entry.fileName.startsWith('backup/')) continue
+        const target = path.join(work, entry.fileName)
+        await mkdir(path.dirname(target), { recursive: true, mode: 0o700 })
+        await pipeline(
+          await archive.openReadStreamPromise(entry),
+          createWriteStream(target, { flags: 'wx', mode: 0o600 }),
+        )
+      }
+    } finally {
+      archive.close()
+    }
+    await restoreWorkspace(path.join(work, 'backup'), destination)
+  } finally {
+    await rm(work, { recursive: true, force: true })
+  }
+  const sqlite = new Database(path.join(destination, 'lacuno.sqlite'))
+  try {
+    // Cloud keeps the files of live and testing releases only: any other release stays in the
+    // history as failed, published again rather than rolled back to. So does an unfinished one.
+    const releases = sqlite
+      .prepare("SELECT id,site_id FROM releases WHERE status IN ('queued','building','ready')")
+      .all() as { id: string; site_id: string }[]
+    const fail = sqlite.prepare(
+      "UPDATE releases SET status='failed',error='Not part of the export. Publish again to rebuild it.',owner=NULL,lease_until=NULL WHERE id=?",
+    )
+    for (const { id, site_id } of releases) {
+      z.uuid().parse(id)
+      z.uuid().parse(site_id)
+      const built = await lstat(path.join(destination, 'builds', site_id, id, 'dist')).catch(
+        () => undefined,
+      )
+      if (!built?.isDirectory()) fail.run(id)
+    }
+    // A managed workspace signed in through Cloud: its accounts, sessions, AI connections and
+    // Cloud's bookkeeping go, and its workspace waits for the owner that setup creates
+    // (owner-setup.ts).
+    if (sqlite.prepare('SELECT 1 FROM gateway_mode').get()) {
+      sqlite.pragma('foreign_keys = OFF')
+      const tables = sqlite
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+        .pluck()
+        .all() as string[]
+      sqlite.transaction(() => {
+        for (const table of tables)
+          if (!content.includes(table)) sqlite.prepare(`DELETE FROM "${table}"`).run()
+      })()
+    }
+    return sqlite.prepare('SELECT count(*) FROM sites').pluck().get() as number
+  } finally {
+    sqlite.close()
+  }
 }

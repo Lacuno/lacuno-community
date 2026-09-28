@@ -14,12 +14,12 @@
     "@astrojs/sitemap": "^3.7.4",
     "@better-auth/cimd": "1.7.5",
     "@better-auth/oauth-provider": "1.7.5",
+    "@hono/node-server": "^2.1.1",
     "@lacuno/compiler": "workspace:*",
     "@lacuno/document": "workspace:*",
     "@lacuno/mcp": "workspace:*",
     "@lacuno/renderer": "workspace:*",
     "@lacuno/schema": "workspace:*",
-    "@hono/node-server": "^2.1.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "astro": "^7.3.2",
     "better-auth": "^1.7.5",
@@ -28,15 +28,19 @@
     "hono": "^4.13.8",
     "jose": "6.2.12",
     "sharp": "^0.35.4",
+    "yauzl": "^3.4.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@lacuno/editor": "workspace:*",
     "@types/better-sqlite3": "^9.6.0",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
     "playwright": "^1.63.0",
     "tsdown": "^0.23.0",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "yazl": "^3.3.1"
   }
 }

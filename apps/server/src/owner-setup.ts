@@ -52,5 +52,11 @@ export class OwnerSetup {
 
   complete() {
     this.sqlite.prepare('UPDATE owner_setup SET token=NULL WHERE id=1').run()
+    // A workspace imported from Lacuno Cloud (backup.ts) goes to the owner.
+    this.sqlite
+      .prepare(
+        'UPDATE workspaces SET owner_id=(SELECT id FROM user LIMIT 1) WHERE owner_id NOT IN (SELECT id FROM user)',
+      )
+      .run()
   }
 }

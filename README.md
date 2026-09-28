@@ -57,7 +57,11 @@ stopping the editor or published-site listener:
 node apps/server/dist/backup-cli.js backup /absolute/live-data /absolute/new-backup
 node apps/server/dist/backup-cli.js verify /absolute/new-backup
 node apps/server/dist/backup-cli.js restore /absolute/new-backup /absolute/empty-restored-data
+node apps/server/dist/backup-cli.js import /absolute/lacuno-export.zip /absolute/empty-data
 ```
+
+`import` reads a workspace exported from Lacuno Cloud, a zip with such a backup, with the same
+checks as `restore` ([Moving from Lacuno Cloud](docs/SELF_HOSTING.md#moving-from-lacuno-cloud)).
 
 The SQLite online snapshot contains drafts, accounts, release history and publication pointers.
 The tool copies referenced immutable assets and every ready release's published output, then writes

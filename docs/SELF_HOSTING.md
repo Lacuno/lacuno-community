@@ -137,6 +137,58 @@ docker compose --env-file .env.docker -p lacuno-restore up -d
 Verify login, draft content, asset previews, live pages and release history before switching traffic.
 Retain the original volume until recovery is confirmed. Do not import archives from untrusted sources.
 
+## Moving from Lacuno Cloud
+
+In Lacuno Cloud, open the workspace's menu → **Export** → **Export workspace**. You get an email
+when the export is ready and download it from the same page, as the workspace's owner, for 24 hours.
+It is a zip with a `README.txt` and, under `backup/`, a backup in the format above: the database with
+every site, page, style, CMS collection and entry and the release history, the uploaded files, the
+files of each site's live and testing release, and `backup.json` with each file's size and SHA-256.
+
+What stays behind: Cloud accounts and sessions (you create a new owner), AI app connections
+(connect your apps again), custom domains (point them at your server), and the files of older
+releases, which show as failed in the release history and cannot be rolled back to.
+
+1. Set up Community as in [Local container setup](#local-container-setup), but do not start it and
+   do not create an owner: `.env.docker` with its secret, nothing else.
+2. Put the zip in the repository directory and import it into the instance's new, empty volume:
+
+   ```sh
+   docker compose --env-file .env.docker build
+   docker compose --env-file .env.docker run --rm --no-deps -T \
+     -v "$PWD/lacuno-export.zip:/import/export.zip:ro" \
+     --entrypoint node lacuno apps/server/dist/backup-cli.js import /import/export.zip /data
+   ```
+
+   It checks every file against its checksum and the database's integrity, copies the backup into
+   `/data` and removes what belonged to Cloud. It refuses a volume that is not empty and a damaged
+   or altered zip, and changes nothing then. The zip is unpacked in the container's `/tmp` first,
+   so the import needs free disk space of about twice the zip's size.
+3. Start Lacuno, get a setup token and create the owner account at `http://localhost:3000`:
+
+   ```sh
+   docker compose --env-file .env.docker up -d
+   docker compose --env-file .env.docker exec lacuno node apps/server/dist/setup-token.js
+   ```
+
+   The owner gets the imported workspace with all its sites. Their live and testing releases are
+   served as they were, at the addresses of [Public deployment](#public-deployment-operator-managed);
+   publishing again builds the same site on your server.
+4. Point your own domains at your server, reconnect your AI apps, and delete the workspace in
+   Lacuno Cloud when you no longer need it.
+
+Without Docker, build the server (`pnpm install && pnpm --filter @lacuno/editor build && pnpm
+--filter @lacuno/server build`) and run
+`node apps/server/dist/backup-cli.js import lacuno-export.zip data` into an empty `data` directory
+before the first start.
+
+A published site alone needs no Lacuno at all: the Export page's **Download live** (or **Download
+testing**) gives its files as a zip for any web server or static host. Serve them from the root of a
+domain or subdomain, with a folder's `index.html` as its page: pages link to each other and to
+`/assets/` and `/_astro/` from the root, so they do not work from a subdirectory or opened straight
+from disk. The zip has the files every release of the site shared, so it may hold a few that only
+earlier releases used.
+
 ## Updates and troubleshooting
 
 Back up first. Check out the intended release/commit, review migration notes, then run
