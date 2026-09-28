@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { mkdtemp, rm, symlink } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -30,6 +31,7 @@ describe('publishing', () => {
   let secondId = ''
   let liveURL = ''
   let originalHtml = ''
+  let testedId = ''
   const request = (path: string, cookie = '', body?: unknown, requestOrigin = origin) =>
     server.app.request(origin + path, {
       method: body === undefined ? 'GET' : 'POST',
@@ -362,15 +364,43 @@ describe('publishing', () => {
 
         const failed = (await history()).releases.find((row) => row.status === 'failed')!
         expect((await activate(failed.id, sent, 'testing')).status).toBe(404)
-        const next = await toTesting(sent)
+        const changed = await edit(163, {
+          type: 'node.update',
+          id: 'n-home-title',
+          text: { type: 'static', value: 'Tested before it goes live' },
+        })
+        expect(changed.status).toBe(200)
+        const next = await request(`${route}/releases`, cookie, {
+          expectedRevision: 164,
+          expectedId: sent,
+          target: 'testing',
+        })
         const building = ((await next.json()) as { id: string }).id
         expect((await activate(building, production, 'production')).status).toBe(409)
         await waitFor(building, 'ready')
         expect(await history()).toMatchObject({ publishedId: production, testingId: building })
+        testedId = building
       } finally {
         sqlite.close()
       }
     },
     build,
   )
+
+  it('publishes a draft already built for testing to production from that build', async () => {
+    const reused = await publish(164, (await history()).publishedId)
+    await waitFor(reused, 'ready')
+    const builds = path.join(dir, 'builds', route.slice('/api/sites/'.length))
+    const files = async (id: string) => {
+      const root = path.join(builds, id, 'dist')
+      const names = (await readdir(root, { recursive: true })).sort()
+      return Promise.all(
+        names.map(async (name) => [name, await readFile(path.join(root, name)).catch(() => 'dir')]),
+      )
+    }
+    expect(await files(reused)).toEqual(await files(testedId))
+    // Copied, not built: the snapshot a build starts from is not there.
+    expect(existsSync(path.join(builds, reused, 'lacuno.json'))).toBe(false)
+    expect(await (await live()).text()).toContain('Tested before it goes live')
+  })
 })

@@ -172,6 +172,11 @@ the editor origin. This milestone does not provision DNS, TLS or external hostin
 
 Each release stores the exact document and revision in SQLite and copies hash-verified assets into
 `data/builds/<site-id>/<release-id>/`. A child process runs the compiler with a five-minute timeout.
+Optimized images carry over between a site's builds in `data/builds/<site-id>/images/`, keyed by
+source hash and transform, so a publish re-encodes only new or changed images. A successful build
+leaves exactly the images it output there; backups leave the cache out, since any build refills it.
+Publishing a document that already has a successful release, such as the draft just sent to testing,
+copies that release's output instead of building again.
 Only a successful build atomically updates the SQLite live-release pointer. Failed builds leave
 the previous site available; rollback changes this pointer, not the draft. Requests include the
 expected current pointer for their target as `expectedId` (initially `null`) to prevent stale

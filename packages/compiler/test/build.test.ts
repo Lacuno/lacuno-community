@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, rm, symlink, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { hashAsset } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { build } from '../src/build.js'
 import { writeFixtureSite } from '../src/fixture-site.js'
@@ -66,6 +67,58 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     expect(await readFile(path.join(dir, 'dist/robots.txt'), 'utf8')).toContain(
       'Sitemap: https://own.example/sitemap-index.xml',
     )
+  })
+
+  it('reuses optimized images from an image cache, with the same output, and keeps only what it used', async () => {
+    const files = async (dir: string) => {
+      const names = (await readdir(dir, { recursive: true, withFileTypes: true }))
+        .filter((entry) => entry.isFile())
+        .map((entry) => path.relative(dir, path.join(entry.parentPath, entry.name)))
+        .sort()
+      return Object.fromEntries(
+        await Promise.all(names.map(async (name) => [name, await readFile(path.join(dir, name))])),
+      )
+    }
+    const plain = await tmp()
+    await writeFixtureSite(plain)
+    await build(plain, { quiet: true })
+    const cache = path.join(await tmp(), 'images')
+
+    const cold = await tmp()
+    await writeFixtureSite(cold)
+    await build(cold, { quiet: true, imageCache: cache })
+    const optimized = (await readdir(path.join(cold, 'dist/_astro'))).filter((name) =>
+      /\.(avif|webp)$/.test(name),
+    )
+    expect(optimized.length).toBeGreaterThan(0)
+    expect((await readdir(cache)).sort()).toEqual(optimized.sort())
+    expect(await files(path.join(cold, 'dist'))).toEqual(await files(path.join(plain, 'dist')))
+
+    // A hit copies the cached file: a marked one shows up in the next site's output.
+    const marked = optimized[0]!
+    await writeFile(path.join(cache, marked), 'cached')
+    await writeFile(path.join(cache, 'stale.webp'), 'no build outputs this')
+    const warm = await tmp()
+    await writeFixtureSite(warm)
+    await build(warm, { quiet: true, imageCache: cache })
+    expect(await readFile(path.join(warm, 'dist/_astro', marked), 'utf8')).toBe('cached')
+    expect((await readdir(cache)).sort()).toEqual(optimized.sort())
+    await writeFile(
+      path.join(cache, marked),
+      await readFile(path.join(cold, 'dist/_astro', marked)),
+    )
+
+    // A failed build leaves the cache as it was.
+    const broken = await tmp()
+    const doc = await writeFixtureSite(broken)
+    const garbage = Buffer.from('not a png')
+    doc.assets['a-hero']!.hash = await hashAsset(garbage)
+    await writeFile(path.join(broken, 'assets', doc.assets['a-hero']!.hash), garbage)
+    await writeFile(path.join(broken, 'lacuno.json'), JSON.stringify(doc))
+    await expect(build(broken, { quiet: true, imageCache: cache })).rejects.toMatchObject({
+      kind: 'engine',
+    })
+    expect(await files(cache)).toEqual(await files(path.join(cold, '.lacuno/cache/assets')))
   })
 
   it('classifies document and render errors before running Astro', async () => {
