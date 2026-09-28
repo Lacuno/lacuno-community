@@ -131,6 +131,42 @@ describe('fields', () => {
     expect(col.fields.find((f) => f.id === 'f-status')).toMatchObject({ label: 'State' })
     expect(document.entries['col-posts']![0]!.fields['f-tags']).toBeUndefined()
   })
+  it('refuses removing a field shown inside a text, and a field inside text outside a collection', () => {
+    const written = (field: string) => ({
+      type: 'doc' as const,
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: 'Published ' },
+            { type: 'field', attrs: { field, format: 'long' } },
+          ],
+        },
+      ],
+    })
+    const e = failing(
+      [
+        { type: 'node.update', id: 'n-post-title', text: written('f-date') },
+        { type: 'field.remove', collection: 'col-posts', id: 'f-date' },
+      ],
+      /referenced/,
+    )
+    expect(e.referencedBy).toContain('nodes.n-post-title')
+    const outside = run([{ type: 'node.update', id: 'n-hero-title', text: written('f-date') }])
+    expect(checkReferences(outside.document).map((issue) => issue.message)).toContain(
+      'field binding f-date outside a collection',
+    )
+    failing(
+      [
+        {
+          type: 'node.update',
+          id: 'n-post-title',
+          text: { type: 'doc', content: [{ type: 'field', attrs: { format: 'long' } }] },
+        },
+      ],
+      /attrs.field/,
+    )
+  })
   it('refuses removing the slug field, a bound field, or type-mismatched updates', () => {
     failing([{ type: 'field.remove', collection: 'col-posts', id: 'f-slug' }], /slug field/)
     const e = failing(

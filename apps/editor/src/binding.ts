@@ -4,6 +4,7 @@ import {
   type Binding,
   bindingScope,
   type CollectionSchema,
+  type DateFormat,
   type Document,
   type FieldDef,
   findEntry,
@@ -25,7 +26,8 @@ export function scopeCollection(doc: Document, nodeId: string): CollectionSchema
 export const collectionPage = (doc: Document, collection: string) =>
   Object.values(doc.pages).find((page) => page.collection === collection)
 
-export type BindingSlot = 'text' | 'src' | 'alt' | 'href'
+/** Where a field shows: a text, an image, its alt text, a link, or inside written text. */
+export type BindingSlot = 'text' | 'src' | 'alt' | 'href' | 'inline'
 
 /** The fields a binding slot can show: text reads most, an image an image, a link an address. */
 export function bindableFields(doc: Document, col: CollectionSchema, slot: BindingSlot) {
@@ -39,6 +41,8 @@ export function bindableFields(doc: Document, col: CollectionSchema, slot: Bindi
         (field.type === 'slug' && !!collectionPage(doc, col.id)) ||
         (field.type === 'reference' && !!collectionPage(doc, field.reference))
       )
+    if (slot === 'inline')
+      return ['text', 'number', 'date', 'option', 'slug', 'link'].includes(field.type)
     return ['text', 'richtext', 'number', 'date', 'option', 'slug', 'link'].includes(field.type)
   })
 }
@@ -77,11 +81,17 @@ export function nearbyEntry(doc: Document, nodeId: string): string | undefined {
     .at(-1)
 }
 
-export const fieldBinding = (field: string, format?: string, entry?: string): Binding => ({
+export const fieldBinding = (
+  field: string,
+  format?: DateFormat,
+  entry?: string,
+  locale?: string,
+): Binding => ({
   type: 'field',
   ...(entry ? { entry } : {}),
   field,
-  ...(format ? { format: format as 'short' | 'medium' | 'long' | 'full' } : {}),
+  ...(format ? { format } : {}),
+  ...(locale ? { locale } : {}),
 })
 
 /**
@@ -287,7 +297,7 @@ export function collectionPageCreation(
   const nodeId = () => `n-${crypto.randomUUID()}`
   const shell = `c-${crypto.randomUUID()}`
   const title = titleField(col)
-  const bound = (tag: string, field: FieldDef, format?: string): NodeLiteral => ({
+  const bound = (tag: string, field: FieldDef, format?: DateFormat): NodeLiteral => ({
     id: nodeId(),
     type: 'text',
     tag,

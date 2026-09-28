@@ -870,7 +870,7 @@
   padding: 4px 0 16px;
   border-bottom: 1px solid var(--border);
 }
-.editor .inspector-body :is(.binding-controls, .list-settings) label,
+.editor .inspector-body :is(.binding-controls, .list-settings, .insert-field) label,
 .editor .inspector-body label.tag-picker {
   margin: 0;
   color: #555b6a;

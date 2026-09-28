@@ -67,6 +67,54 @@ describe('field bindings', () => {
     expect(html).toContain('<a href="/blog/second-post">published</a>')
   })
 
+  it('formats a date as long, medium, numeric or ISO, in the page language or its own', () => {
+    const read = (format?: string, locale?: string) => {
+      const doc = blog()
+      doc.nodes['n-date'] = {
+        ...doc.nodes['n-date']!,
+        text: {
+          type: 'field',
+          field: 'f-date',
+          ...(format ? { format } : {}),
+          ...(locale ? { locale } : {}),
+        },
+      } as never
+      return body(parseDocument(doc), 'p-post').body.match(/<p>([^<]*2026[^<]*)<\/p>/)?.[1]
+    }
+    expect(read('long')).toBe('1 September 2026')
+    expect(read('medium', 'en-US')).toBe('Sep 1, 2026')
+    expect(read('numeric', 'de-AT')).toBe('01.09.2026')
+    expect(read('long', 'de')).toBe('1. September 2026')
+    expect(read()).toBe('2026-09-01')
+    expect(() => read('long', 'not a language')).toThrow()
+  })
+
+  it('shows fields inside written text with the marks around them', () => {
+    const doc = blog()
+    doc.nodes['n-date'] = {
+      ...doc.nodes['n-date']!,
+      text: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', text: 'Written ' },
+              { type: 'field', attrs: { field: 'f-date', format: 'numeric', locale: 'de' } },
+              { type: 'text', text: ' · ' },
+              { type: 'field', attrs: { field: 'f-title' }, marks: [{ type: 'bold' }] },
+              { type: 'text', text: ' · ' },
+              { type: 'field', attrs: { entry: 'e-2', field: 'f-title' } },
+            ],
+          },
+        ],
+      },
+    } as never
+    expect(body(parseDocument(doc), 'p-post').body).toContain(
+      '<p>Written 01.09.2026 · <strong>Hello world</strong> · Second post</p>',
+    )
+  })
+
   it('fills the title, description and social image from entry fields', () => {
     const doc = blog()
     doc.pages['p-post']!.seo = {

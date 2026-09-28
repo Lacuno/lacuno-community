@@ -9,7 +9,7 @@ import type {
   NodeId,
   RichText,
 } from '@lacuno/schema'
-import { designTokenCssName, findEntry } from '@lacuno/schema'
+import { designTokenCssName, findEntry, formatDate } from '@lacuno/schema'
 import { RenderError } from './errors.js'
 
 /** One component instance being rendered. Slot children render in the outer scope. */
@@ -39,7 +39,7 @@ export function entryPath(doc: Document, collection: string, entry: Entry): stri
 
 /**
  * A field's value as a binding reads it. Images and files become their asset; a date with a
- * format reads in the page's language. For `href`, a slug is the entry's own page and a reference
+ * format reads in the binding's language, else the page's. For `href`, a slug is the entry's own page and a reference
  * the page of the entry it points at.
  */
 function fieldValue(
@@ -60,11 +60,8 @@ function fieldValue(
   }
   if (field.type === 'image' || field.type === 'file') return doc.assets[String(value)]
   if (field.type === 'date' && b.format) {
-    const date = new Date(String(value).length === 10 ? `${value}T12:00:00Z` : String(value))
-    if (!Number.isNaN(date.getTime()))
-      return new Intl.DateTimeFormat(scope.lang, { dateStyle: b.format, timeZone: 'UTC' }).format(
-        date,
-      )
+    const date = formatDate(String(value), b.format, b.locale ?? scope.lang ?? 'en')
+    if (date) return date
   }
   if (field.type === 'option')
     return field.options.find((o) => o.value === value)?.label ?? String(value)

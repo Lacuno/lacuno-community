@@ -14,6 +14,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useRef, useState } from 'react'
 import { colorPreview, colorToken } from './colors.js'
 import type { StyleEdit } from './colorWheel.js'
+import { fieldTokenNode, InsertField, storedText } from './FieldTokens.js'
 import { formattingOperations, normalizeFormatting } from './formatting.js'
 import { PresetManager } from './PresetManager.js'
 import { TextToolbar } from './TextToolbar.js'
@@ -117,6 +118,7 @@ export function InlineTextEditor({
       Color,
       FontSize,
       Link,
+      fieldTokenNode(doc, target.node),
       ...tableExtensions,
     ]
     try {
@@ -186,7 +188,7 @@ export function InlineTextEditor({
         !Object.keys(blockChanges.current).length
       )
         return true
-      const text = instance.getJSON() as RichText
+      const text = storedText(instance.getJSON() as RichText)
       // A table is a block, so a text holding one becomes a div unless its tag already holds blocks.
       const block =
         text.content?.some((node) => node.type === 'table') && !BLOCK_TAGS.test(target.node.tag)
@@ -424,6 +426,7 @@ export function InlineTextEditor({
           </span>
         )}
       </TextToolbar>
+      {editor && <InsertField doc={doc} node={target.node} editor={editor} disabled={disabled} />}
       {editor &&
         (editor.isActive('table') ? (
           <TableTools editor={editor} disabled={disabled} />

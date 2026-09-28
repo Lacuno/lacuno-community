@@ -473,7 +473,7 @@ export function Canvas({
           // A table inserted while editing looks as it will publish; selected cells are tinted.
           style.textContent += `${TABLE_CSS} [data-lacuno-editing] .selectedCell { background: #8775ed26; }`
           style.textContent +=
-            '[data-lacuno-editing] .tiptap {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;cursor:text;user-select:text;} [data-lacuno-editing] .tiptap p {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;margin:0;} [data-lacuno-editing] .tiptap strong {font-weight:bold;} [data-lacuno-editing] .tiptap em {font-style:italic;}'
+            '[data-lacuno-editing] .tiptap {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;cursor:text;user-select:text;} [data-lacuno-editing] .tiptap p {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;margin:0;} [data-lacuno-editing] .tiptap strong {font-weight:bold;} [data-lacuno-editing] .tiptap em {font-style:italic;} [data-lacuno-editing] [data-lacuno-field] {padding:0 .25em;border-radius:4px;background:#8775ed26;box-shadow:inset 0 0 0 1px #8775ed66;} [data-lacuno-editing] [data-lacuno-field].ProseMirror-selectednode {background:#8775ed55;}'
           doc.head.append(style)
           const chrome = '[data-lacuno-editing], [data-lacuno-selection-overlay]'
           const pick = (event: Event) => {

@@ -20,6 +20,7 @@ import {
   unboundText,
 } from './binding.js'
 import { entryTitle } from './cms.js'
+import { DateFormatControls, nodeLang } from './DateFormatControls.js'
 import { ReferenceInput } from './EntryFields.js'
 
 type Props = {
@@ -28,14 +29,6 @@ type Props = {
   disabled: boolean
   save: (operations: Operation[]) => Promise<boolean>
 }
-
-const FORMATS = [
-  ['', 'As stored (2026-09-28)'],
-  ['short', 'Short'],
-  ['medium', 'Medium'],
-  ['long', 'Long'],
-  ['full', 'Full'],
-] as const
 
 /** Phrasing tags cannot hold the blocks of rich text, so a text bound to it becomes a div. */
 const PHRASING = new Set(['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
@@ -57,7 +50,7 @@ export function BindingControls({ doc, node, disabled, save }: Props) {
   if (!slots.length) return null
   const current = (slot: BindingSlot) =>
     slot === 'text' ? (node.type === 'text' ? node.text : undefined) : node.attrs?.[slot]
-  const bind = (slot: BindingSlot, field: string, format?: string, entry?: string) => {
+  const bind = (slot: BindingSlot, field: string, entry?: string) => {
     setPicking(undefined)
     const attrs = { ...node.attrs }
     if (slot === 'text' && node.type === 'text') {
@@ -70,7 +63,7 @@ export function BindingControls({ doc, node, disabled, save }: Props) {
           id: node.id,
           ...(rich && PHRASING.has(node.tag) ? { tag: 'div' } : {}),
           text: field
-            ? fieldBinding(field, format, entry)
+            ? fieldBinding(field, undefined, entry)
             : was && from
               ? unboundText(doc, from, was.field, was.entry)
               : node.text,
@@ -122,26 +115,26 @@ export function BindingControls({ doc, node, disabled, save }: Props) {
                 slot={slot}
                 start={bound?.entry ?? nearbyEntry(doc, node.id)}
                 disabled={disabled}
-                choose={(entry, field) => void bind(slot, field, undefined, entry)}
+                choose={(entry, field) => void bind(slot, field, entry)}
                 cancel={() => setPicking(undefined)}
               />
             )}
-            {field?.type === 'date' && bound && (
-              <label>
-                Date format
-                <select
-                  aria-label="Date format"
-                  value={bound.format ?? ''}
-                  disabled={disabled}
-                  onChange={(event) => void bind(slot, field.id, event.target.value, bound.entry)}
-                >
-                  {FORMATS.map(([value, text]) => (
-                    <option key={value} value={value}>
-                      {text}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            {field?.type === 'date' && bound && node.type === 'text' && (
+              <DateFormatControls
+                format={bound.format}
+                locale={bound.locale}
+                lang={nodeLang(doc, node)}
+                disabled={disabled}
+                change={(value) =>
+                  void save([
+                    {
+                      type: 'node.update',
+                      id: node.id,
+                      text: fieldBinding(bound.field, value.format, bound.entry, value.locale),
+                    },
+                  ])
+                }
+              />
             )}
           </div>
         )
@@ -157,7 +150,7 @@ function findField(doc: Document, field: string, entry?: string, col?: Collectio
 }
 
 /** Choosing a collection, then one of its entries by searching, then the field to show. */
-function EntryPicker({
+export function EntryPicker({
   doc,
   slot,
   start,

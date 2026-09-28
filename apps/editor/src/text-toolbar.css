@@ -101,8 +101,12 @@
   flex-wrap: wrap;
   gap: 6px;
 }
-.inspector-body > :is(.insert-table, .table-tools) {
+.inspector-body > :is(.insert-table, .table-tools, .insert-field) {
   margin-top: 12px;
+}
+.inspector-body > .insert-field {
+  display: grid;
+  gap: 8px;
 }
 .inspector-body > .insert-table {
   font-size: 12px;

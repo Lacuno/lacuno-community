@@ -1,5 +1,6 @@
 import {
   type Document,
+  type FieldToken,
   type RichText,
   safeLinkHref,
   safeTextStyleValue,
@@ -14,6 +15,9 @@ type PmNode = {
   marks?: { type?: string; attrs?: Record<string, unknown> }[]
   content?: PmNode[]
 }
+
+/** The text of a field shown inside a text, `{Author}`; left out, such a field is unknown. */
+export type FieldText = (token: FieldToken) => string
 
 const BLOCK_TAGS: Record<string, string> = {
   paragraph: 'p',
@@ -79,14 +83,29 @@ function renderMarks(
   return out
 }
 
-function renderProseChildren(node: PmNode, warn: OnWarn, pages?: Document['pages']): string {
-  return (node.content ?? []).map((c) => renderProseNode(c, warn, pages)).join('')
+function renderProseChildren(
+  node: PmNode,
+  warn: OnWarn,
+  pages?: Document['pages'],
+  field?: FieldText,
+): string {
+  return (node.content ?? []).map((c) => renderProseNode(c, warn, pages, field)).join('')
 }
 
-function renderProseNode(node: PmNode, warn: OnWarn, pages?: Document['pages']): string {
+function renderProseNode(
+  node: PmNode,
+  warn: OnWarn,
+  pages?: Document['pages'],
+  field?: FieldText,
+): string {
   switch (node.type) {
     case 'text':
       return renderMarks(escapeHtml(node.text ?? ''), node.marks, warn, pages)
+    case 'field':
+      if (field)
+        return renderMarks(escapeHtml(field(node.attrs as FieldToken)), node.marks, warn, pages)
+      warn('a field inside text is only shown in a text on a page')
+      return ''
     case 'hardBreak':
       return '<br>'
     case 'horizontalRule':
@@ -94,17 +113,17 @@ function renderProseNode(node: PmNode, warn: OnWarn, pages?: Document['pages']):
     case 'heading': {
       const raw = Number(node.attrs?.level)
       const level = Number.isFinite(raw) ? Math.min(6, Math.max(1, Math.trunc(raw))) : 2
-      return `<h${level}>${renderProseChildren(node, warn, pages)}</h${level}>`
+      return `<h${level}>${renderProseChildren(node, warn, pages, field)}</h${level}>`
     }
     case 'codeBlock':
-      return `<pre><code>${renderProseChildren(node, warn, pages)}</code></pre>`
+      return `<pre><code>${renderProseChildren(node, warn, pages, field)}</code></pre>`
     case 'table':
-      return renderTable(node, warn, pages)
+      return renderTable(node, warn, pages, field)
     default: {
       const tag = node.type ? BLOCK_TAGS[node.type] : undefined
-      if (tag) return `<${tag}>${renderProseChildren(node, warn, pages)}</${tag}>`
+      if (tag) return `<${tag}>${renderProseChildren(node, warn, pages, field)}</${tag}>`
       warn(`unknown rich text node ${node.type}`)
-      return renderProseChildren(node, warn, pages)
+      return renderProseChildren(node, warn, pages, field)
     }
   }
 }
@@ -114,7 +133,12 @@ function renderProseNode(node: PmNode, warn: OnWarn, pages?: Document['pages']):
  * the head, its cells headers of their columns; a header cell further down heads its row. A cell
  * holding one paragraph renders its text without the paragraph.
  */
-function renderTable(node: PmNode, warn: OnWarn, pages?: Document['pages']): string {
+function renderTable(
+  node: PmNode,
+  warn: OnWarn,
+  pages?: Document['pages'],
+  field?: FieldText,
+): string {
   const [first, ...rest] = node.content ?? []
   const head = first?.content?.every((cell) => cell.type === 'tableHeader')
   const row = (row: PmNode, scope: string) =>
@@ -128,7 +152,7 @@ function renderTable(node: PmNode, warn: OnWarn, pages?: Document['pages']): str
         }
         const align = cell.attrs?.align
         if (align === 'center' || align === 'right') attrs += ` style="text-align:${align}"`
-        return `<${tag}${attrs}>${richTextInlineHtml(cell as RichText, warn, pages)}</${tag}>`
+        return `<${tag}${attrs}>${richTextInlineHtml(cell as RichText, warn, pages, field)}</${tag}>`
       })
       .join('')}</tr>`
   const body = (head ? rest : (node.content ?? [])).map((r) => row(r, 'row')).join('')
@@ -136,15 +160,25 @@ function renderTable(node: PmNode, warn: OnWarn, pages?: Document['pages']): str
 }
 
 /** Tiptap JSON to HTML. Unknown nodes render their children and warn. */
-export function richTextToHtml(rt: RichText, warn: OnWarn, pages?: Document['pages']): string {
-  return (rt.content ?? []).map((c) => renderProseNode(c as PmNode, warn, pages)).join('')
+export function richTextToHtml(
+  rt: RichText,
+  warn: OnWarn,
+  pages?: Document['pages'],
+  field?: FieldText,
+): string {
+  return (rt.content ?? []).map((c) => renderProseNode(c as PmNode, warn, pages, field)).join('')
 }
 
 /** A document that is exactly one paragraph renders without the wrapper, for headings and links. */
-export function richTextInlineHtml(rt: RichText, warn: OnWarn, pages?: Document['pages']): string {
+export function richTextInlineHtml(
+  rt: RichText,
+  warn: OnWarn,
+  pages?: Document['pages'],
+  field?: FieldText,
+): string {
   const content = rt.content ?? []
   const only = content[0] as PmNode | undefined
   if (content.length === 1 && only?.type === 'paragraph')
-    return renderProseChildren(only, warn, pages)
-  return richTextToHtml(rt, warn, pages)
+    return renderProseChildren(only, warn, pages, field)
+  return richTextToHtml(rt, warn, pages, field)
 }

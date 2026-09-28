@@ -4,6 +4,7 @@ import {
   type Binding,
   type Document,
   type ElementNode,
+  type FieldToken,
   type Node,
   type NodeId,
   plainText,
@@ -175,7 +176,15 @@ function renderText(node: TextNode, scope: Scope, state: RenderState): string {
   if (v === undefined || v === null) inner = ''
   // Rich text written on the node renders inline; bound rich text keeps its blocks.
   else if (isRichText(v)) {
-    inner = (v === node.text ? richTextInlineHtml : richTextToHtml)(v, warn, state.doc.pages)
+    // Fields inside written text read the entry around the node, or the one they name.
+    const field = (token: FieldToken) => {
+      const value = resolveBinding(state.doc, { type: 'field', ...token }, scope, node.id)
+      return isRichText(value) ? plainText(value) : isAsset(value) ? '' : String(value ?? '')
+    }
+    inner =
+      v === node.text
+        ? richTextInlineHtml(v, warn, state.doc.pages, field)
+        : richTextToHtml(v, warn, state.doc.pages)
     // The canvas selects the tags inside blocks one by one, to style them per class.
     const blocks = v !== node.text || v.content?.length !== 1 || v.content[0]?.type !== 'paragraph'
     if (state.annotateNodes && blocks && v.content?.length) attrs['data-lacuno-rich'] = true

@@ -10,6 +10,7 @@ import {
   NodeId,
   PageId,
 } from './ids.js'
+import { Page } from './pages.js'
 import { tableProblem } from './richtext.js'
 
 /**
@@ -21,26 +22,53 @@ import { tableProblem } from './richtext.js'
 /** Every element-bearing node carries a tag, and they all accept the same names. */
 export const Tag = z.string().regex(/^[a-z][a-z0-9-]*$/, 'tag must be a lower-case html tag')
 
+const FieldBinding = z.object({
+  type: z.literal('field'),
+  field: FieldId,
+  /**
+   * A chosen entry to read, on any page; when left out, the entry around the node: the nearest
+   * collection list, else the collection page.
+   */
+  entry: EntryId.optional(),
+  /** How a date field reads, see formatDate(); the ISO date as stored when left out. */
+  format: z.enum(['long', 'medium', 'numeric', 'short', 'full']).optional(),
+  /** The language a formatted date reads in, instead of the page's. */
+  locale: Page.shape.lang,
+})
+
+/**
+ * A field shown inside a text's rich text, "Written by {Author}": an inline node
+ * `{"type":"field","attrs":{…}}` whose attrs read like a field binding.
+ */
+export const FieldToken = FieldBinding.omit({ type: true }).strict()
+export type FieldToken = z.infer<typeof FieldToken>
+
 /** A value that can be static or bound to content. */
 export const Binding = z.discriminatedUnion('type', [
   z.object({ type: z.literal('static'), value: z.union([z.string(), z.number(), z.boolean()]) }),
-  z.object({
-    type: z.literal('field'),
-    field: FieldId,
-    /**
-     * A chosen entry to read, on any page; when left out, the entry around the node: the nearest
-     * collection list, else the collection page.
-     */
-    entry: EntryId.optional(),
-    /** How a date field reads, in the page's language; the ISO date when left out. */
-    format: z.enum(['short', 'medium', 'long', 'full']).optional(),
-  }),
+  FieldBinding,
   z.object({ type: z.literal('designToken'), designToken: DesignTokenId }),
   z.object({ type: z.literal('asset'), asset: AssetId }),
   z.object({ type: z.literal('prop'), prop: z.string().min(1) }),
   z.object({ type: z.literal('page'), page: PageId }),
 ])
 export type Binding = z.infer<typeof Binding>
+export type DateFormat = NonNullable<Extract<Binding, { type: 'field' }>['format']>
+
+/**
+ * A date in one of the formats a binding names, in a language: `long` reads "28 September 2026"
+ * in en-GB, `medium` "Sep 28, 2026" in en-US, `numeric` "28.09.2026" in de; `short` and `full`
+ * are the language's own. Undefined for a value that is not a date.
+ */
+export function formatDate(value: string, format: DateFormat, locale: string): string | undefined {
+  const date = new Date(value.length === 10 ? `${value}T12:00:00Z` : value)
+  if (Number.isNaN(date.getTime())) return undefined
+  const style: Intl.DateTimeFormatOptions =
+    format === 'numeric'
+      ? { day: '2-digit', month: '2-digit', year: 'numeric' }
+      : { dateStyle: format }
+  return new Intl.DateTimeFormat(locale, { ...style, timeZone: 'UTC' }).format(date)
+}
 
 /** Rich text stored as a Tiptap/ProseMirror JSON document. Kept opaque here but for tables. */
 export const RichText = z
@@ -51,6 +79,9 @@ export const RichText = z
   .superRefine((doc, ctx) => {
     const problem = tableProblem(doc)
     if (problem) ctx.addIssue({ code: 'custom', message: problem })
+    for (const token of fieldTokens(doc))
+      if (!FieldToken.safeParse(token).success)
+        ctx.addIssue({ code: 'custom', message: 'a field in rich text needs attrs.field' })
   })
 export type RichText = z.infer<typeof RichText>
 
@@ -214,11 +245,28 @@ export type TextNode = z.infer<typeof TextNode>
 export type CollectionListNode = z.infer<typeof CollectionListNode>
 export type ComponentInstanceNode = z.infer<typeof ComponentInstanceNode>
 
-/** Every binding a node carries: its attrs, a bound text value, and a component's props. */
+/** The attrs of every field shown inside a rich text, in order. */
+export function fieldTokens(node: unknown): unknown[] {
+  const o = node as { type?: unknown; attrs?: unknown; content?: unknown }
+  if (o.type === 'field') return [o.attrs]
+  return Array.isArray(o.content) ? o.content.flatMap(fieldTokens) : []
+}
+
+/**
+ * Every binding a node carries: its attrs, a bound text value or the fields inside its rich text,
+ * and a component's props.
+ */
 export function nodeBindings(node: Node): Binding[] {
   return [
     ...Object.values(node.attrs ?? {}),
-    ...(node.type === 'text' && node.text.type !== 'doc' ? [node.text] : []),
+    ...(node.type === 'text'
+      ? node.text.type === 'doc'
+        ? fieldTokens(node.text).map((token) => ({
+            type: 'field' as const,
+            ...(token as FieldToken),
+          }))
+        : [node.text]
+      : []),
     ...(node.type === 'component' || node.type === 'code-component'
       ? Object.values(node.props ?? {})
       : []),
