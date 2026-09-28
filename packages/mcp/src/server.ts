@@ -7,6 +7,7 @@ import {
   type Batch,
   type DocumentStore,
   type Operation,
+  referencesToAsset,
 } from '@lacuno/document'
 import { type AssetRef, Document, type Node, parseDocument } from '@lacuno/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -267,7 +268,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'document.read',
     {
       description:
-        'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, components, collections, assets. No nodes, styles or entries.',
+        'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, components, collections, assets. No nodes, styles or entries. Each asset lists `usedBy`, the places that reference it (empty when unused, so asset.delete can remove it).',
     },
     async () => {
       const { document, revision } = store.read()
@@ -277,9 +278,16 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         nodes: _n,
         styles: _s,
         entries: _e,
+        assets,
         ...overview
       } = document
-      return ok({ revision, ...overview })
+      const withUses = Object.fromEntries(
+        Object.entries(assets).map(([id, asset]) => [
+          id,
+          { ...asset, usedBy: referencesToAsset(document, id) },
+        ]),
+      )
+      return ok({ revision, ...overview, assets: withUses })
     },
   )
 

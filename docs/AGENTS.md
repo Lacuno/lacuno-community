@@ -60,7 +60,9 @@ from a repository without a server, and for building templates.
   valid 10 minutes, that an app with a shell PUTs the file to (`curl -T`). The connected endpoint
   checks every file like an editor upload (type by its first bytes, 10 MB) and registers it as a
   batch the canvas shows. `site.build` builds a folder over stdio, and over the connected endpoint
-  `site.publish` builds to the testing origin so the agent can show its result.
+  `site.publish` builds to the testing origin so the agent can show its result. `document.read`
+  lists each asset with `usedBy`, the places that reference it, so an agent can clean up with
+  `asset.delete`, which refuses an asset that is still used.
 - **Bindings.** A node attribute, a bound text value and a component prop each hold a binding:
   `static`, `field`, `designToken`, `asset`, `prop` or `page`. A `page` binding names a page id and
   compiles to that page's path, so a link survives a path change; deleting a referenced page is

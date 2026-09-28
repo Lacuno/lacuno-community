@@ -36,6 +36,40 @@ describe('read tools', () => {
     ])
   })
 
+  it('document.read lists where each asset is used, so an unused one can be deleted', async () => {
+    const { client, store } = await setup()
+    await store.apply({
+      expectedRevision: store.revision,
+      operations: [
+        {
+          type: 'asset.create',
+          id: 'a-spare',
+          name: 'spare.png',
+          kind: 'image',
+          hash: 'c'.repeat(64),
+          mime: 'image/png',
+          size: 1,
+        },
+      ],
+    })
+    const read = async () =>
+      jsonOf<{ revision: number; assets: Record<string, { usedBy: string[] }> }>(
+        await client.callTool({ name: 'document.read', arguments: {} }),
+      )
+    const { revision, assets } = await read()
+    expect(assets['a-hero']!.usedBy).toEqual(['nodes.n-hero-image'])
+    expect(assets['a-sans']!.usedBy).toEqual(['site.fonts.1'])
+    expect(assets['a-spare']!.usedBy).toEqual([])
+    const apply = (id: string) =>
+      client.callTool({
+        name: 'document.apply',
+        arguments: { expectedRevision: revision, operations: [{ type: 'asset.delete', id }] },
+      })
+    expect((await apply('a-hero')).isError).toBe(true)
+    expect((await apply('a-spare')).isError).toBeFalsy()
+    expect(Object.keys((await read()).assets)).not.toContain('a-spare')
+  })
+
   it('page.outline renders an indented tree with classes and text snippets', async () => {
     const { client } = await setup()
     const out = textOf(

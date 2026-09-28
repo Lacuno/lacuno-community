@@ -155,7 +155,11 @@ function createController(getOptions: () => Options) {
       )
         return { element, id }
     }
+    // A drop zone of its own, such as the asset manager, takes its files itself.
+    const ownDropZone = (event: DragEvent) =>
+      event.target instanceof Element && !!event.target.closest('[data-file-drop]')
     const over = (event: DragEvent) => {
+      if (ownDropZone(event)) return
       if (isFileDrop(event)) {
         event.preventDefault()
         clear()
@@ -206,6 +210,7 @@ function createController(getOptions: () => Options) {
       label.textContent = `${position === 'inside' ? 'Inside' : position === 'before' ? 'Before' : 'After'} ${node.meta?.label ?? ('tag' in node ? node.tag : node.type)}`
     }
     const drop = (event: DragEvent) => {
+      if (ownDropZone(event)) return
       if (isFileDrop(event)) {
         event.preventDefault()
         event.stopPropagation()

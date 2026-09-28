@@ -1,5 +1,6 @@
 import { AssetsPanel } from './AssetsPanel.js'
 import { message } from './api.js'
+import { nodeHome } from './assets.js'
 import { ComponentsPanel } from './ComponentsPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import { LayersPanel } from './LayersPanel.js'
@@ -116,12 +117,19 @@ export function Sidebar({
         )}
         {editableDoc && editingRoot && (
           <div hidden={sidebar !== 'Assets'}>
-            <div className="panel-title">Assets</div>
             <AssetsPanel
               siteId={siteId}
-              doc={editableDoc}
-              disabled={frozen}
-              save={save}
+              session={session}
+              show={(id) =>
+                void leave(() => {
+                  const { page, component } = nodeHome(doc!, id)
+                  editing.setComponentId(component?.id ?? '')
+                  if (page) setPageId(page.id)
+                  setEntryId('')
+                  setSelected(id)
+                  setSidebar('Layers')
+                })
+              }
               insert={async (preset, assetId) => {
                 let target: ReturnType<typeof insertionTarget> | undefined
                 let refused = ''

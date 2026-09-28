@@ -113,6 +113,22 @@ it('opens the editor read-only for a viewer, whose writes the runtime refuses', 
   expect(await page.getByRole('button', { name: 'Page settings' }).isDisabled()).toBe(true)
   expect(await canvas.getByLabel('Canvas text editor').count()).toBe(0)
 
+  // The asset manager shows every file and where it is used, and changes nothing.
+  await page.getByRole('button', { name: 'Assets', exact: true }).click()
+  await page.getByRole('button', { name: 'Manage', exact: true }).click()
+  const assets = page.getByRole('dialog', { name: 'Assets' })
+  await assets.getByRole('option', { name: /^lacuno-logo\.svg,/ }).click()
+  await assets.getByText('Used in 1', { exact: true }).waitFor()
+  expect(await assets.getByLabel('Default alt text').getAttribute('readonly')).toBe('')
+  for (const control of [
+    assets.getByLabel('Upload files'),
+    assets.getByRole('button', { name: 'Select unused' }),
+    assets.getByRole('button', { name: /^Delete/ }),
+  ])
+    expect(await control.count()).toBe(0)
+  await page.keyboard.press('Escape')
+  await assets.waitFor({ state: 'detached' })
+
   // Writes sent straight to the API are refused, whatever the editor shows.
   const write = async (method: 'post' | 'delete', route: string, data: unknown = {}) =>
     (await page.request[method](origin + route, { data, headers: { origin } })).status()

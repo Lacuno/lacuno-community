@@ -120,6 +120,8 @@ const tagLabels: Record<string, string> = {
   ul: 'List',
   ol: 'List',
   li: 'Item',
+  img: 'Image',
+  video: 'Video',
 }
 
 /** The name shown for an element in the layers, breadcrumbs, drag labels and the inspector. */
