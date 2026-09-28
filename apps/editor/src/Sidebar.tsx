@@ -1,6 +1,7 @@
 import { AssetsPanel } from './AssetsPanel.js'
 import { message } from './api.js'
 import { nodeHome } from './assets.js'
+import { CmsPanel } from './CmsPanel.js'
 import { ComponentsPanel } from './ComponentsPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import { LayersPanel } from './LayersPanel.js'
@@ -15,6 +16,7 @@ export const sidebars = {
   Layers: 'layers',
   Components: 'component',
   Pages: 'page',
+  CMS: 'database',
   Assets: 'image',
 } as const
 export type Panel = keyof typeof sidebars
@@ -115,6 +117,7 @@ export function Sidebar({
             }
           />
         )}
+        {sidebar === 'CMS' && doc && <CmsPanel siteId={siteId} session={session} />}
         {editableDoc && editingRoot && (
           <div hidden={sidebar !== 'Assets'}>
             <AssetsPanel

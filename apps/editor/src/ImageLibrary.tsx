@@ -13,16 +13,22 @@ export function ImageLibrary({
   siteId: string
   doc: Document
   selected: string
-  kind?: 'image' | 'video'
+  /** `file` offers every asset. */
+  kind?: 'image' | 'video' | 'file'
   choose: (id: string) => void
   close: () => void
 }) {
-  const assets = assetsOfKind(doc, kind)
+  const assets = kind === 'file' ? Object.values(doc.assets) : assetsOfKind(doc, kind)
+  const noun = {
+    image: ['an image', 'Image', 'photos'],
+    video: ['a video', 'Video', 'videos'],
+    file: ['a file', 'File', 'files'],
+  }[kind]
   return (
     <Dialog
-      title={`Choose ${kind === 'video' ? 'a video' : 'an image'}`}
-      label={kind === 'video' ? 'Video library' : 'Image library'}
-      description={`Your uploaded ${kind === 'video' ? 'videos' : 'photos'}, ready to reuse.`}
+      title={`Choose ${noun[0]}`}
+      label={`${noun[1]} library`}
+      description={`Your uploaded ${noun[2]}, ready to reuse.`}
       className="image-library-dialog"
       close={close}
     >
@@ -30,7 +36,9 @@ export function ImageLibrary({
         <p className="hint">
           {kind === 'video'
             ? 'No videos yet. Upload an MP4 or WebM in Assets.'
-            : 'No images yet. Drop a photo onto the placeholder, or upload one in Assets.'}
+            : kind === 'file'
+              ? 'No files yet. Upload one in Assets.'
+              : 'No images yet. Drop a photo onto the placeholder, or upload one in Assets.'}
         </p>
       )}
       <div className="asset-grid">

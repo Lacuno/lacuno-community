@@ -1,5 +1,6 @@
 import { nodesUsingClass, referencesToAsset } from '@lacuno/document/references'
 import type { AssetRef, Document } from '@lacuno/schema'
+import { uses as describeUses } from './cms.js'
 import { faceLabel } from './fonts.js'
 import { nodeLabel } from './structure.js'
 
@@ -16,7 +17,7 @@ export function nodeHome(doc: Document, id: string) {
   }
 }
 
-function nodeUse(doc: Document, id: string, detail = ''): AssetUse {
+export function nodeUse(doc: Document, id: string, detail = ''): AssetUse {
   const { page, component } = nodeHome(doc, id)
   return {
     label: `${nodeLabel(doc.nodes[id]!)}${detail}`,
@@ -44,6 +45,7 @@ export function assetUses(doc: Document, id: string): AssetUse[] {
     }
     if (kind === 'designTokens')
       return [{ label: doc.designTokens[key]?.name ?? key, place: 'Design tokens' }]
+    if (kind === 'entries') return describeUses(doc, [ref])
     if (ref === 'site.favicon') return [{ label: 'Favicon', place: 'Site settings' }]
     if (ref.startsWith('site.fonts.')) {
       const font = doc.site.fonts[Number(ref.split('.')[2])]!

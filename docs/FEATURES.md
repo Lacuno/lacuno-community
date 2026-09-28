@@ -42,7 +42,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 
 | Feature | When | Notes |
 | --- | --- | --- |
-| Collections with typed fields: text, rich text, number, boolean, date, image, file, color, option, reference, multi-reference, slug | MVP | Native. SQLite storage |
+| Collections with typed fields: text, rich text, number, boolean, date, image, file, color, option, reference, multi-reference, slug | MVP | Native, in the document for now. In: the CMS dialog from the rail manages collections, fields and entries with an input per type, a sortable, searchable, paged entry table, and refusals that list what uses a collection, field or entry |
 | Collection templates and collection lists with filter, sort, limit, pagination | MVP | Built into the data model, compiled to `getStaticPaths` |
 | Content editor mode: edit text and CMS fields on canvas without touching design | MVP | Role gated |
 | Draft, scheduled and published states | Next | |
