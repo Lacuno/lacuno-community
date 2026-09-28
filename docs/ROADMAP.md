@@ -216,6 +216,16 @@ Tiptap, an image or file chosen from the assets or uploaded in place, a date, a 
 a colour, an option, and reference pickers that search the target collection; a new entry's slug
 follows its title and must be unique. Deleting what is used is refused with the places that use it;
 deletes can be undone. Viewers see everything read-only (D019).
+**Binding on the canvas implemented (2026-09-28):** the Add panel inserts a collection list whose
+card (image, title, summary and a link to the entry's page) is designed once; the inspector sets
+its collection, filters, sort, limit, skip and pagination. Texts, images with their alt text and
+links inside a list or on a collection page read an entry field, with a date format for dates; a
+field chip in the inspector and on the canvas selection label shows what is bound. New page can
+make a page for each entry of a collection (`/<collection>/[slug]`, with the title, image and text
+bound), the canvas bar switches the previewed entry and opens it in the CMS, and SEO title,
+description and social image can come from fields. Paginated lists publish `<path>/page/2` onwards.
+With no collections, the CMS panel starts a blog in one step (D020). Content editor mode, drafts
+and scheduling, and CSV import remain.
 
 ## Phase 5. Collaboration and scale
 

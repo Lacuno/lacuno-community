@@ -230,3 +230,27 @@ loaded. Explicit saves match how people write an entry. Type checks in the opera
 compiler and agents alike. Refusing a delete in use is how pages, assets and tokens already work;
 a silent cleanup would break a required reference. Changing a field's type would need a value
 conversion per pair of types, so a new field is the way until someone needs it.
+
+## D020. Bindings are chosen per slot in the inspector, and pagination is part of the list
+
+**Decision.** An element binds to the entry around it: the nearest collection list, else the
+collection page. The inspector offers, per slot, the fields that fit it: a text shows text, rich
+text, numbers, dates, options, slugs or links; an image its image field; alt text a text field; a
+link a link or file, a slug (the entry's own page) or a reference (the referenced entry's page),
+when those pages exist. Dates take an optional format and read in the page's language. A bound
+element shows a field chip in the inspector heading and on the canvas selection label; choosing
+"Written text" unbinds and keeps what the first entry said. Validation refuses a field binding
+with no collection around it or naming a field of another collection, so a move or an agent batch
+cannot publish a broken page; a list switching collections rebinds by field name and writes the
+rest out. A collection page's `seo.fields` names the entry fields for its title, description and
+social image. `query.paginate` with a `limit` builds `<path>/page/2` onwards, one paginated list
+per page, with previous and next links the compiler adds after the list.
+
+**Alternatives.** A binding mode on the canvas where clicking a field inserts it; template strings
+such as `{title}` in SEO text; pagination as its own node the designer places and styles.
+
+**Why.** Per-slot choices only offer what can render, so there is no invalid state to explain, and
+they reuse the inspector people already know. Structured `seo.fields` keeps field ids visible to the
+reference check that refuses deleting a used field; template strings would hide them. A generated
+pagination nav is a few lines and covers the common blog; a designable pagination node can follow
+when someone needs to style it beyond the site's link styles.
