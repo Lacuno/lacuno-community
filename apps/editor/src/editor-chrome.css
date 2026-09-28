@@ -481,6 +481,38 @@
 .gradient-stop[aria-pressed="true"] {
   box-shadow: 0 0 0 2px var(--accent);
 }
+/* A small preview of the radial gradient; its nine dots set the centre. */
+.gradient-centre {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  flex: none;
+  width: 54px;
+  height: 36px;
+  margin: 0;
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid #80808050;
+}
+.gradient-centre button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.gradient-centre button::after {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #25263366;
+}
+.gradient-centre button[aria-pressed="true"]::after {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px #fff;
+}
 .gradient-text {
   display: flex;
   align-items: center;

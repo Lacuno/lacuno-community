@@ -80,6 +80,43 @@ it('edits a gradient headline: angle, stops with project colours, and text fill'
   expect(await computed('background-image')).toBe('none')
 }, 60000)
 
+it('shapes and places a radial gradient: circle, a preset centre and a typed one', async () => {
+  const { page, canvas, saved, document } = await editor()
+  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
+  const computed = () =>
+    heading.evaluate((el) => getComputedStyle(el).getPropertyValue('background-image'))
+  const gradient = async () => (await localStyles(document))['background-image']
+  await heading.click()
+  const colors = await openFormatting(page, 'Colors')
+  await colors.getByRole('button', { name: 'Add gradient' }).click()
+  await saved()
+  await colors.getByLabel('Gradient type').selectOption('radial')
+  await saved()
+  expect(await computed()).toMatch(/^radial-gradient\(rgb/)
+  expect(
+    await colors.getByRole('button', { name: 'Centre at 50% 50%' }).getAttribute('aria-pressed'),
+  ).toBe('true')
+
+  await colors.getByLabel('Gradient shape').selectOption('circle')
+  await saved()
+  await colors.getByRole('button', { name: 'Centre at 50% 0%' }).click()
+  await saved()
+  expect(await computed()).toMatch(/^radial-gradient\(circle at 50% 0%, /)
+  await colors.getByLabel('Centre x').fill('20')
+  await saved()
+  expect(await gradient()).toMatchObject({ kind: 'radial', shape: 'circle', at: { x: 20, y: 0 } })
+  expect(
+    await colors.getByRole('button', { name: 'Centre at 50% 0%' }).getAttribute('aria-pressed'),
+  ).toBe('false')
+
+  // Back to linear drops the radial fields and hides their controls.
+  await colors.getByLabel('Gradient type').selectOption('linear')
+  await saved()
+  expect(await gradient()).not.toHaveProperty('at')
+  expect(await gradient()).not.toHaveProperty('shape')
+  expect(await colors.getByLabel('Gradient shape').count()).toBe(0)
+}, 60000)
+
 it('rotates words with icons in a headline on the canvas, sized to the current word', async () => {
   const { page, canvas, saved, document } = await editor()
   const heading = canvas.locator('[data-lacuno-node="n-home-title"]')

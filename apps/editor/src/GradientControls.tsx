@@ -4,17 +4,25 @@ import { ColorField } from './ColorField.js'
 import { EditorIcon } from './EditorIcon.js'
 import {
   addStop,
+  clamp,
+  defaultCentre,
   defaultGradient,
   moveStop,
+  radialBackground,
   removeStop,
+  schemaOrder,
   stopColor,
   stopsBackground,
 } from './gradient.js'
 import { type StyleControls, useStyleField } from './styleField.js'
 
 const TEXT_FILL = ['background-clip', 'color'] as const
+const PRESETS = [0, 50, 100]
 
-/** The background gradient: type, angle and a stops bar; optionally clipped to the text. */
+/**
+ * The background gradient: type, a linear angle or a radial shape and centre, and a stops bar;
+ * optionally clipped to the text.
+ */
 export function GradientControls(props: StyleControls) {
   const { doc, change, disabled } = props
   const { local, overridden } = useStyleField(props)
@@ -42,9 +50,10 @@ export function GradientControls(props: StyleControls) {
   const gradient = value
   const index = Math.min(selected, gradient.stops.length - 1)
   const stop = gradient.stops[index]!
+  const centre = gradient.at ?? defaultCentre
   const set = (next: GradientValue, stopIndex = index) => {
     setSelected(stopIndex)
-    change('background-image', next)
+    change('background-image', schemaOrder(next))
   }
   const position = (clientX: number) => {
     const rect = bar.current!.getBoundingClientRect()
@@ -64,7 +73,7 @@ export function GradientControls(props: StyleControls) {
             value={gradient.kind}
             disabled={disabled}
             onChange={(event) => {
-              const { angle: _angle, ...rest } = gradient
+              const { angle: _angle, shape: _shape, at: _at, ...rest } = gradient
               set(
                 event.target.value === 'linear'
                   ? { ...rest, kind: 'linear', angle: 180 }
@@ -89,6 +98,22 @@ export function GradientControls(props: StyleControls) {
             />
           </label>
         )}
+        {gradient.kind === 'radial' && (
+          <label>
+            Shape
+            <select
+              aria-label="Gradient shape"
+              value={gradient.shape ?? 'ellipse'}
+              disabled={disabled}
+              onChange={(event) =>
+                set({ ...gradient, shape: event.target.value as 'ellipse' | 'circle' })
+              }
+            >
+              <option value="ellipse">Ellipse</option>
+              <option value="circle">Circle</option>
+            </select>
+          </label>
+        )}
         <button
           type="button"
           className="gradient-remove"
@@ -103,6 +128,46 @@ export function GradientControls(props: StyleControls) {
           <EditorIcon name="close" />
         </button>
       </div>
+      {gradient.kind === 'radial' && (
+        <div className="gradient-row">
+          {/* The gradient itself, with a preset centre at each corner, edge and the middle. */}
+          <fieldset
+            className="gradient-centre"
+            aria-label="Gradient centre"
+            style={{ backgroundImage: radialBackground(doc, gradient) }}
+          >
+            {PRESETS.flatMap((y) =>
+              PRESETS.map((x) => (
+                <button
+                  key={`${x} ${y}`}
+                  type="button"
+                  aria-label={`Centre at ${x}% ${y}%`}
+                  title={`${x}% ${y}%`}
+                  aria-pressed={centre.x === x && centre.y === y}
+                  disabled={disabled}
+                  onClick={() => set({ ...gradient, at: { x, y } })}
+                />
+              )),
+            )}
+          </fieldset>
+          {(['x', 'y'] as const).map((axis) => (
+            <label key={axis}>
+              {axis.toUpperCase()} (%)
+              <input
+                aria-label={`Centre ${axis}`}
+                type="number"
+                min={0}
+                max={100}
+                disabled={disabled}
+                value={centre[axis]}
+                onChange={(event) =>
+                  set({ ...gradient, at: { ...centre, [axis]: clamp(Number(event.target.value)) } })
+                }
+              />
+            </label>
+          ))}
+        </div>
+      )}
       {/* Pressing the bar adds a stop there; the stops themselves are buttons. */}
       <div
         ref={bar}

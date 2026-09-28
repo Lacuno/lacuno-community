@@ -164,11 +164,16 @@ remain human-only actions and are not exposed as tools.
 
 ## D017. Gradients are a structured style value
 
-**Decision.** A gradient is its own `CssValue`, `{ type: 'gradient', kind, angle?, stops }`, set on
-`background-image` per class, breakpoint and state like any value. `kind` is `linear` (with an angle
-in degrees) or `radial`; each of two or more stops is a colour or colour design token at a position
-in percent. Gradient text is the same gradient with `background-clip: text` and `color: transparent`.
-The inspector's Colors section edits it with a stops bar whose stops reuse the colour field.
+**Decision.** A gradient is its own `CssValue`, `{ type: 'gradient', kind, angle?, shape?, at?,
+stops }`, set on `background-image` per class, breakpoint and state like any value. `kind` is
+`linear` (with an angle in degrees) or `radial`; a radial gradient may set its `shape`, `ellipse` or
+`circle`, and its centre `at: { x, y }` in percent of the box, and compiles to
+`radial-gradient(circle at 50% 0%, …)` with the defaults (ellipse, 50% 50%) left out. Each of two or
+more stops is a colour or colour design token at a position in percent. Gradient text is the same gradient with `background-clip: text` and `color: transparent`.
+The inspector's Colors section edits it with a stops bar whose stops reuse the colour field, and
+for a radial gradient a shape select, X and Y fields and a small preview whose nine dots set the
+centre to a corner, an edge or the middle. The keyword `size` (closest-side and the rest) is left
+out: the stop positions cover what it would, without another control.
 
 **Alternatives.** A raw CSS string, or the generic `fn` value holding `linear-gradient(...)`.
 

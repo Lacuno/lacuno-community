@@ -59,18 +59,25 @@ export type GradientStop = z.infer<typeof GradientStop>
 /**
  * A linear or radial gradient, for `background-image`. Structured rather than raw CSS so stops
  * can use design tokens and the editor can edit it. `angle` is the linear direction in degrees
- * (180, top to bottom, when left out).
+ * (180, top to bottom, when left out). A radial gradient may set its `shape` (an ellipse when left
+ * out) and the centre `at`, x and y in percent of the box (50/50 when left out).
  */
 export const GradientValue = z
   .object({
     type: z.literal('gradient'),
     kind: z.enum(['linear', 'radial']),
     angle: z.number().finite().optional(),
+    shape: z.enum(['ellipse', 'circle']).optional(),
+    at: z.strictObject({ x: z.number().min(0).max(100), y: z.number().min(0).max(100) }).optional(),
     stops: z.array(GradientStop).min(2),
   })
   .refine((value) => value.kind === 'linear' || value.angle === undefined, {
     message: 'angle applies to linear gradients only',
     path: ['angle'],
+  })
+  .refine((value) => value.kind === 'radial' || (!value.shape && !value.at), {
+    message: 'shape and at apply to radial gradients only',
+    path: ['kind'],
   })
 export type GradientValue = z.infer<typeof GradientValue>
 

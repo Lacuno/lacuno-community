@@ -73,6 +73,22 @@ describe('serializeValue', () => {
       'radial-gradient(#fff 0%, var(--color-brand) 62.5%)',
     )
   })
+  it('formats a radial shape and centre, leaving the defaults out', () => {
+    const stops = [
+      { color: { type: 'color' as const, value: '#ece4ff' }, position: 0 },
+      { color: { type: 'color' as const, value: '#fff' }, position: 75 },
+    ]
+    const radial = (extra: object) =>
+      serializeValue({ type: 'gradient', kind: 'radial', stops, ...extra }, ctx)
+    expect(radial({ shape: 'ellipse', at: { x: 50, y: 50 } })).toBe(
+      'radial-gradient(#ece4ff 0%, #fff 75%)',
+    )
+    expect(radial({ at: { x: 50, y: 0 } })).toBe('radial-gradient(at 50% 0%, #ece4ff 0%, #fff 75%)')
+    expect(radial({ shape: 'circle' })).toBe('radial-gradient(circle, #ece4ff 0%, #fff 75%)')
+    expect(radial({ shape: 'circle', at: { x: 12.5, y: 100 } })).toBe(
+      'radial-gradient(circle at 12.5% 100%, #ece4ff 0%, #fff 75%)',
+    )
+  })
   it('throws on unknown references', () => {
     expect(() => serializeValue(designToken('nope'), ctx)).toThrow('unknown design token nope')
     expect(() => serializeValue({ type: 'image', asset: 'nope' }, ctx)).toThrow(

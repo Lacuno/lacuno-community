@@ -15,11 +15,42 @@ export const defaultGradient: GradientValue = {
 export const stopColor = (doc: Document, stop: GradientStop) =>
   stop.color.type === 'designToken' ? colorPreview(doc, stop.color.ref) : stop.color.value
 
+const stopList = (doc: Document, gradient: GradientValue) =>
+  gradient.stops.map((stop) => `${stopColor(doc, stop)} ${stop.position}%`).join(', ')
+
 /** The stops left to right, as the editor chrome paints them on the stops bar. */
 export const stopsBackground = (doc: Document, gradient: GradientValue) =>
-  `linear-gradient(90deg, ${gradient.stops.map((stop) => `${stopColor(doc, stop)} ${stop.position}%`).join(', ')})`
+  `linear-gradient(90deg, ${stopList(doc, gradient)})`
 
-const clamp = (position: number) => Math.round(Math.min(100, Math.max(0, position)))
+/**
+ * The gradient's fields in the order the document keeps them, so an edit compares equal to the
+ * saved value once it lands and the draft settles.
+ */
+export const schemaOrder = ({
+  type,
+  kind,
+  angle,
+  shape,
+  at,
+  stops,
+}: GradientValue): GradientValue => ({
+  type,
+  kind,
+  ...(angle !== undefined && { angle }),
+  ...(shape && { shape }),
+  ...(at && { at }),
+  stops,
+})
+
+export const defaultCentre = { x: 50, y: 50 }
+
+/** A radial gradient as the editor chrome paints it behind the centre presets. */
+export const radialBackground = (doc: Document, gradient: GradientValue) => {
+  const { x, y } = gradient.at ?? defaultCentre
+  return `radial-gradient(${gradient.shape ?? 'ellipse'} at ${x}% ${y}%, ${stopList(doc, gradient)})`
+}
+
+export const clamp = (percent: number) => Math.round(Math.min(100, Math.max(0, percent)))
 
 /** Moves stop `index` and keeps the stops in order; returns the gradient and the stop's new index. */
 export function moveStop(

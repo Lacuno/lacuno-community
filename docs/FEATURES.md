@@ -19,7 +19,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Components with props, slots and variants | Phase 4 | Props are in. Slots and visible instance overrides are built with the CMS |
 | Rich text editing on canvas | MVP | Tiptap. Same editor used in CMS rich fields |
 | Copy and paste of HTML plus CSS, Tailwind HTML, Webflow clipboard, Webstudio JSON, SVG, images | Next | Import is how people switch. Tailwind paste is how AI output gets in |
-| Gradients: linear and radial backgrounds and gradient text | MVP | A structured value with colour or token stops, edited with a stops bar in Colors, see D017 |
+| Gradients: linear and radial backgrounds and gradient text | MVP | A structured value with colour or token stops, edited with a stops bar in Colors; a radial gradient takes a shape and a centre, see D017 |
 | Rotating words in a text, such as a headline's "AI → designer → you" | MVP | Slide or fade, CSS keyframes, per-word icons, empty words, texts in step read as one phrase, accessible and reduced-motion aware, edited in Motion, see D018 |
 | Scroll-driven and view-timeline animations, transitions | Next | Native CSS. No engine of our own |
 | View transitions between pages | Next | Astro ships this |

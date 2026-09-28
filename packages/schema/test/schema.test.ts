@@ -125,7 +125,7 @@ describe('document schema', () => {
     }
   })
 
-  it('validates gradients: kind, a linear angle, two or more stops with colours and positions', () => {
+  it('validates gradients: kind, a linear angle, a radial shape and centre, two or more stops', () => {
     const style = (value: unknown) => {
       const doc = fixtureDocument() as unknown as { styles: Record<string, { value: unknown }> }
       Object.values(doc.styles)[0]!.value = value
@@ -142,7 +142,18 @@ describe('document schema', () => {
     expect(
       style({ type: 'gradient', kind: 'radial', stops: [stop(0), stop(40), stop(100)] }),
     ).not.toThrow()
+    const radial = { type: 'gradient', kind: 'radial', stops: [stop(0), stop(100)] }
+    expect(style({ ...radial, shape: 'circle', at: { x: 0, y: 100 } })).not.toThrow()
+    // Shape and centre are optional, so gradients without them parse unchanged.
+    expect(Object.values(style(radial)().styles)[0]!.value).toEqual(radial)
     for (const bad of [
+      { ...radial, shape: 'square' },
+      { ...radial, at: { x: 50 } },
+      { ...radial, at: { x: -1, y: 0 } },
+      { ...radial, at: { x: 50, y: 101 } },
+      { ...radial, at: { x: 50, y: 0, z: 1 } },
+      { type: 'gradient', kind: 'linear', shape: 'circle', stops: [stop(0), stop(100)] },
+      { type: 'gradient', kind: 'linear', at: { x: 50, y: 0 }, stops: [stop(0), stop(100)] },
       { type: 'gradient', kind: 'radial', angle: 90, stops: [stop(0), stop(100)] },
       { type: 'gradient', kind: 'conic', stops: [stop(0), stop(100)] },
       { type: 'gradient', kind: 'linear', stops: [stop(0)] },

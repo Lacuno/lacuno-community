@@ -55,7 +55,14 @@ export function serializeValue(value: CssValue, ctx: ValueContext): string {
       const stops = value.stops.map(
         (stop) => `${serializeValue(stop.color, ctx)} ${formatNumber(stop.position)}%`,
       )
-      if (value.kind === 'radial') return `radial-gradient(${stops.join(', ')})`
+      if (value.kind === 'radial') {
+        // Defaults are left out, so a gradient without shape or centre compiles as it always did.
+        const { shape, at } = value
+        const centre =
+          at && (at.x !== 50 || at.y !== 50) && `at ${formatNumber(at.x)}% ${formatNumber(at.y)}%`
+        const head = [shape === 'circle' && 'circle', centre].filter(Boolean).join(' ')
+        return `radial-gradient(${[head, ...stops].filter(Boolean).join(', ')})`
+      }
       return `linear-gradient(${formatNumber(value.angle ?? 180)}deg, ${stops.join(', ')})`
     }
     case 'list':

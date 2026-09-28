@@ -93,6 +93,37 @@ describe('page.preview', () => {
     expect(bad.isError).toBe(true)
   })
 
+  it('publishes a radial glow from the top and refuses a centre on a linear gradient', async () => {
+    const client = await setup()
+    const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))
+    expect(guide).toContain('"kind":"radial","at":{"x":50,"y":0}')
+    const stops = [
+      { color: { type: 'color', value: '#ece4ff' }, position: 0 },
+      { color: { type: 'color', value: '#ffffff' }, position: 75 },
+    ]
+    const apply = (expectedRevision: number, value: object) =>
+      client.callTool({
+        name: 'document.apply',
+        arguments: {
+          expectedRevision,
+          operations: [
+            {
+              type: 'style.set',
+              class: 'l-hero-title',
+              breakpoint: 'base',
+              state: 'none',
+              property: 'background-image',
+              value: { type: 'gradient', stops, ...value },
+            },
+          ],
+        },
+      })
+    expect((await apply(0, { kind: 'radial', at: { x: 50, y: 0 } })).isError).toBeFalsy()
+    const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    expect(html).toContain('background-image: radial-gradient(at 50% 0%, #ece4ff 0%, #ffffff 75%);')
+    expect((await apply(1, { kind: 'linear', at: { x: 50, y: 0 } })).isError).toBe(true)
+  })
+
   it('lists text nodes with their ids in text mode', async () => {
     const client = await setup()
     const lines = textOf(
