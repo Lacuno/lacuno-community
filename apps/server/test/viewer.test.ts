@@ -129,6 +129,23 @@ it('opens the editor read-only for a viewer, whose writes the runtime refuses', 
   await page.keyboard.press('Escape')
   await assets.waitFor({ state: 'detached' })
 
+  // The CMS shows collections, fields and entries, and changes nothing.
+  await page.getByRole('button', { name: 'CMS', exact: true }).click()
+  expect(await page.getByRole('button', { name: 'New collection' }).count()).toBe(0)
+  await page.getByRole('button', { name: /^Posts/ }).click()
+  const cms = page.getByRole('dialog', { name: 'CMS' })
+  expect(await cms.getByRole('button', { name: 'New entry' }).count()).toBe(0)
+  await cms.getByRole('button', { name: 'Your website should belong to you' }).click()
+  expect(await cms.getByLabel('Title').isDisabled()).toBe(true)
+  for (const name of ['Save', 'Delete', 'Duplicate'])
+    expect(await cms.getByRole('button', { name, exact: true }).count()).toBe(0)
+  await cms.getByRole('tab', { name: 'Fields and settings' }).click()
+  expect(await cms.getByLabel('Collection name').getAttribute('readonly')).toBe('')
+  for (const name of ['Add field', 'Delete collection'])
+    expect(await cms.getByRole('button', { name }).count()).toBe(0)
+  await page.keyboard.press('Escape')
+  await cms.waitFor({ state: 'detached' })
+
   // Writes sent straight to the API are refused, whatever the editor shows.
   const write = async (method: 'post' | 'delete', route: string, data: unknown = {}) =>
     (await page.request[method](origin + route, { data, headers: { origin } })).status()
