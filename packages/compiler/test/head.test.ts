@@ -33,6 +33,23 @@ describe('renderHead', () => {
     expect(head).toContain('<meta name="twitter:card" content="summary">')
   })
 
+  it('puts every title into the site title template unless a page sets its own or opts out', () => {
+    const input = base()
+    input.doc.site.titleTemplate = '{page} — Fixture'
+    const title = () => {
+      const head = renderHead(input)
+      return [
+        head.match(/<title>(.*)<\/title>/)?.[1],
+        head.match(/og:title" content="([^"]*)"/)?.[1],
+      ]
+    }
+    expect(title()).toEqual(['Fixture Co — Fixture', 'Fixture Co — Fixture'])
+    input.page.seo = { ...input.page.seo, titleTemplate: 'Welcome · {page}' }
+    expect(title()[0]).toBe('Welcome · Fixture Co')
+    input.page.seo.titleTemplate = false
+    expect(title()).toEqual(['Fixture Co', 'Fixture Co'])
+  })
+
   it('adds canonical, open graph url and image, and robots when configured', () => {
     const input = base()
     input.page.seo = { ...input.page.seo, noindex: true, ogImage: 'a-hero' }

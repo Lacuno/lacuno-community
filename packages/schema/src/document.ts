@@ -16,7 +16,7 @@ import {
   PageId,
 } from './ids.js'
 import { Node } from './nodes.js'
-import { Folder, Page, Redirect } from './pages.js'
+import { Folder, Page, Redirect, TitleTemplate } from './pages.js'
 import { Breakpoint, Class, StyleDecl } from './styles.js'
 
 export const DOCUMENT_VERSION = 1
@@ -28,6 +28,8 @@ export const SiteSettings = z.object({
   fonts: z.array(Font).default([]),
   favicon: AssetId.optional(),
   url: z.url().optional(),
+  /** Every page's title and social title, "{page} — Lacuno", unless a page sets its own. */
+  titleTemplate: TitleTemplate.optional(),
   headCode: z.string().optional(),
   bodyCode: z.string().optional(),
 })

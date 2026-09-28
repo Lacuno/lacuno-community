@@ -58,7 +58,7 @@ export function redirectError(doc: Document, from: string, to: string) {
 /** The page's SEO with the form's values over it and every cleared field removed. */
 export function pageSeo(
   page: Page | undefined,
-  form: Required<Omit<Seo, 'fields' | 'entry'>> & Pick<Seo, 'fields' | 'entry'>,
+  form: Required<Omit<Seo, 'fields' | 'entry' | 'titleTemplate'>> & Pick<Seo, 'fields' | 'entry'>,
 ): Seo {
   const fields = Object.fromEntries(Object.entries(form.fields ?? {}).filter(([, id]) => id))
   const seo: Record<string, unknown> = { ...page?.seo, ...form, fields }

@@ -65,7 +65,7 @@ export function ImageChoice({
   )
 }
 
-type SiteField = 'name' | 'url' | 'locale' | 'headCode' | 'bodyCode'
+type SiteField = 'name' | 'url' | 'locale' | 'titleTemplate' | 'headCode' | 'bodyCode'
 
 export function SiteSettings({
   doc,
@@ -83,6 +83,7 @@ export function SiteSettings({
     name: site.name,
     url: site.url ?? '',
     locale: site.locale,
+    titleTemplate: site.titleTemplate ?? '',
     headCode: site.headCode ?? '',
     bodyCode: site.bodyCode ?? '',
   })
@@ -131,6 +132,15 @@ export function SiteSettings({
             ? langError(form.locale.trim())
             : 'Enter a language code such as en or de-AT.',
         'en',
+      )}
+      {field(
+        'titleTemplate',
+        'Title template',
+        () =>
+          !form.titleTemplate.trim() || form.titleTemplate.includes('{page}')
+            ? ''
+            : 'Put {page} where each page’s title goes.',
+        `{page} — ${site.name}`,
       )}
       <ImageChoice
         label="Favicon"

@@ -108,7 +108,11 @@ export function renderHead(input: HeadInput): string {
         .filter(([, value]) => value),
     ),
   }
-  const title = seo.title ?? page.name
+  // The page's own title, or its entry's, inside the site's template unless the page has its own.
+  const template = page.seo?.titleTemplate ?? doc.site.titleTemplate
+  const title = template
+    ? template.replaceAll('{page}', seo.title ?? page.name)
+    : (seo.title ?? page.name)
   const absolute = (p: string) => (siteUrl ? `${siteUrl}${p}` : p)
   const parts: string[] = [
     '<meta charset="utf-8">',

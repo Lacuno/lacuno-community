@@ -192,6 +192,10 @@ export function PageSettings({
   const [description, setDescription] = useState(page?.seo?.description ?? '')
   const [canonical, setCanonical] = useState(page?.seo?.canonical ?? '')
   const [noindex, setNoindex] = useState(page?.seo?.noindex ?? false)
+  const [template, setTemplate] = useState(page?.seo?.titleTemplate !== false)
+  // The template this page's title goes into: its own, else the site's.
+  const own = page?.seo?.titleTemplate
+  const siteTitle = typeof own === 'string' ? own : (doc.site.titleTemplate ?? '')
   const [ogImage, setOgImage] = useState(page?.seo?.ogImage ?? '')
   const [headCode, setHeadCode] = useState(page?.headCode ?? '')
   const [bodyCode, setBodyCode] = useState(page?.bodyCode ?? '')
@@ -240,6 +244,8 @@ export function PageSettings({
             fields: seoCol ? seoFields : {},
             entry: col ? '' : seoEntry,
           })
+          // pageSeo drops false values, so a page that opts out says so again.
+          if (!template) seo.titleTemplate = false
           if (page)
             void run([
               {
@@ -384,6 +390,17 @@ export function PageSettings({
             onChange={(event) => setTitle(event.target.value)}
           />
         </label>
+        {doc.site.titleTemplate && (
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={template}
+              disabled={disabled}
+              onChange={(event) => setTemplate(event.target.checked)}
+            />
+            Title template · {siteTitle.replaceAll('{page}', title.trim() || name.trim())}
+          </label>
+        )}
         <label>
           SEO description
           <textarea

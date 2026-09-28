@@ -25,6 +25,55 @@ describe('page.preview', () => {
     expect(html).not.toContain('data-lacuno-node')
   })
 
+  it('publishes tag rules, a field inside text and the title template set through document.apply', async () => {
+    const client = await setup()
+    const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))
+    expect(guide).toContain('"tag":"a"')
+    expect(guide).toContain('titleTemplate')
+    const applied = await client.callTool({
+      name: 'document.apply',
+      arguments: {
+        expectedRevision: 0,
+        operations: [
+          {
+            type: 'style.set',
+            class: 'c-hero',
+            tag: 'h2',
+            breakpoint: 'base',
+            state: 'none',
+            property: 'font-size',
+            value: { type: 'unit', value: 1.35, unit: 'rem' },
+          },
+          { type: 'site.update', titleTemplate: '{page} — Fixture' },
+          {
+            type: 'node.update',
+            id: 'n-post-title',
+            text: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [
+                    { type: 'text', text: 'Updated ' },
+                    { type: 'field', attrs: { field: 'f-date', format: 'numeric', locale: 'de' } },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    })
+    expect(applied.isError).toBeFalsy()
+    const home = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    expect(home).toContain('<title>Fixture Co — Fixture</title>')
+    expect(home).toMatch(/\.hero h2 \{\s*font-size: 1\.35rem;/)
+    const post = textOf(
+      await client.callTool({ name: 'page.preview', arguments: { page: '/blog/hello-world' } }),
+    )
+    expect(post).toContain('Updated 01.09.2026')
+  })
+
   it('publishes a gradient headline and rotating words set through document.apply', async () => {
     const client = await setup()
     const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))

@@ -126,6 +126,8 @@ describe('field bindings', () => {
     expect(head).toContain('<meta name="description" content="The first post.">')
     expect(head).toMatch(/og:image" content="\/assets\/0123456789abcdef/)
     expect(body(doc, 'p-post', post(doc, 1)).head).toContain('<title>Second post</title>')
+    doc.site.titleTemplate = '{page} | Journal'
+    expect(body(doc, 'p-post').head).toContain('<title>Hello world | Journal</title>')
   })
 
   it('checks that a field binding has a collection around it', () => {

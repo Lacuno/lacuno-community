@@ -1,12 +1,19 @@
 import { z } from 'zod'
 import { AssetId, CollectionId, EntryId, FieldId, FolderId, NodeId, PageId } from './ids.js'
 
+/** A title with `{page}` where each page's own title goes: "{page} — Lacuno". */
+export const TitleTemplate = z.string().includes('{page}', {
+  message: 'a title template needs {page} where the page title goes',
+})
+
 /** Strict: a typo such as `descripton` must be an error, not silent data loss. */
 export const Seo = z.strictObject({
   title: z.string().optional(),
   description: z.string().optional(),
   canonical: z.string().optional(),
   noindex: z.boolean().optional(),
+  /** This page's own title template instead of the site's, or false for its title alone. */
+  titleTemplate: z.union([TitleTemplate, z.literal(false)]).optional(),
   ogImage: AssetId.optional(),
   /** On another page: the entry whose fields `fields` reads. */
   entry: EntryId.optional(),
