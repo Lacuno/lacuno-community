@@ -1,4 +1,4 @@
-import { MOTION_CSS, sizeWords } from '@lacuno/css'
+import { MOTION_CSS, sizeWords, TABLE_CSS } from '@lacuno/css'
 import type { State } from '@lacuno/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
@@ -442,6 +442,8 @@ export function Canvas({
           style.textContent +=
             '[data-lacuno-placeholder] { display:grid; place-items:center; min-height:120px !important; padding:12px; background:#f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; font:12px/1.4 system-ui, sans-serif; color:#6f6787; text-align:center; } [data-lacuno-placeholder]::before { content:attr(data-lacuno-placeholder); } [data-lacuno-placeholder="Embed"]::before { content:"Embed. Scripts and iframes run on the published site."; } [data-lacuno-placeholder] iframe { display:none; }'
           style.textContent += MOTION_CSS
+          // A table inserted while editing looks as it will publish; selected cells are tinted.
+          style.textContent += `${TABLE_CSS} [data-lacuno-editing] .selectedCell { background: #8775ed26; }`
           style.textContent +=
             '[data-lacuno-editing] .tiptap {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;cursor:text;user-select:text;} [data-lacuno-editing] .tiptap p {font:inherit;color:inherit;line-height:inherit;letter-spacing:inherit;margin:0;} [data-lacuno-editing] .tiptap strong {font-weight:bold;} [data-lacuno-editing] .tiptap em {font-style:italic;}'
           doc.head.append(style)

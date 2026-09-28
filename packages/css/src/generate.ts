@@ -3,6 +3,7 @@ import { BASE_BREAKPOINT_ID, designTokenCssName, State as StateSchema } from '@l
 import { isMotionStyle, MOTION_CSS } from './motion.js'
 import { compareProperties } from './order.js'
 import { type ClassNames, classNames, compareSelectors, selectorFor } from './selector.js'
+import { hasTable, TABLE_CSS } from './table.js'
 import { contextFromDocument, serializeValue, type ValueContext } from './value.js'
 import { wordsCss } from './words.js'
 
@@ -158,6 +159,7 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
   if (decls.some(isMotionStyle)) sections.push(MOTION_CSS)
   const words = wordsCss(doc)
   if (words) sections.push(words)
+  if (hasTable(doc)) sections.push(TABLE_CSS)
   return { css: `${sections.join('\n\n')}\n`, classNames: names }
 }
 

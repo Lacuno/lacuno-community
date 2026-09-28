@@ -994,3 +994,40 @@
   padding: 6px 11px;
   font-size: 12px;
 }
+
+/* Tables in rich text, as sites show them by default. */
+.rich-field-tools .table-tools {
+  margin-left: 4px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+.rich-field-tools .table-tools > button {
+  min-width: 30px;
+  border: 0;
+  font-weight: 600;
+}
+.rich-field-body .lc-table {
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+.rich-field-body .lc-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.rich-field-body .lc-table :is(th, td) {
+  min-width: 6em;
+  padding: 6px 10px;
+  border: 1px solid #d9dcdf;
+  text-align: start;
+  vertical-align: top;
+}
+.rich-field-body .lc-table th {
+  background: #f6f6f9;
+  font-weight: 600;
+}
+.rich-field-body .lc-table p {
+  margin: 0;
+}
+.rich-field-body .selectedCell {
+  background: #eee7ff;
+}

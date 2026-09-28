@@ -16,5 +16,6 @@ export {
   LIVE_STATES,
   selectorFor,
 } from './selector.js'
+export { TABLE_CSS } from './table.js'
 export { contextFromDocument, serializeValue, type ValueContext } from './value.js'
 export { sizeWords, WORDS_SCRIPT, type WordTurn, wordsCss, wordTurns } from './words.js'

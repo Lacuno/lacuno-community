@@ -17,6 +17,7 @@ import type { StyleEdit } from './colorWheel.js'
 import { formattingOperations, normalizeFormatting } from './formatting.js'
 import { PresetManager } from './PresetManager.js'
 import { TextToolbar } from './TextToolbar.js'
+import { enterAddsRow, insertTable, TableTools, tableExtensions } from './tables.js'
 import { textDocument, textProperties, textStyleAttributes } from './textFormatting.js'
 
 export type InlineTarget = { node: TextNode; element: HTMLElement }
@@ -116,6 +117,7 @@ export function InlineTextEditor({
       Color,
       FontSize,
       Link,
+      ...tableExtensions,
     ]
     try {
       getSchema(extensions).nodeFromJSON(content).check()
@@ -151,6 +153,7 @@ export function InlineTextEditor({
         handleKeyDown: (_view, event) => {
           // Keep text nodes inline: Enter inserts a line break, not nested paragraphs in headings.
           if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey) {
+            if (!event.shiftKey && enterAddsRow(instance)) return true
             instance.commands.setHardBreak()
             return true
           }
@@ -183,8 +186,12 @@ export function InlineTextEditor({
         !Object.keys(blockChanges.current).length
       )
         return true
+      const text = instance.getJSON() as RichText
+      // A table is a block, so a text holding one becomes a div unless its tag already holds blocks.
+      const block =
+        text.content?.some((node) => node.type === 'table') && !BLOCK_TAGS.test(target.node.tag)
       const ok = await latest.current.save([
-        { type: 'node.update', id: target.node.id, text: instance.getJSON() as RichText },
+        { type: 'node.update', id: target.node.id, text, ...(block ? { tag: 'div' } : {}) },
         ...formattingOperations(
           doc,
           target.node,
@@ -417,7 +424,25 @@ export function InlineTextEditor({
           </span>
         )}
       </TextToolbar>
+      {editor &&
+        (editor.isActive('table') ? (
+          <TableTools editor={editor} disabled={disabled} />
+        ) : (
+          <button
+            type="button"
+            className="insert-table"
+            // Not in a heading or a link, which cannot hold a table.
+            disabled={disabled || /^h[1-6]$/.test(target.node.tag) || !!target.element.closest('a')}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => insertTable(editor)}
+          >
+            Insert table
+          </button>
+        ))}
     </>
   )
 }
 const ignoreDraft = () => {}
+/** Tags whose content may be blocks, such as a table. */
+const BLOCK_TAGS =
+  /^(div|section|article|aside|main|header|footer|nav|li|dd|blockquote|figure|figcaption|td|th)$/

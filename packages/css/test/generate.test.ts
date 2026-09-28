@@ -204,6 +204,21 @@ describe('generateStylesheet', () => {
     expect(css).toContain('[data-lacuno-motion] { animation: none !important')
   })
 
+  it('emits the table rules only when a text or an entry holds a table', () => {
+    const table = {
+      type: 'table',
+      content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [] }] }],
+    }
+    const doc = fixtureDocument()
+    expect(generateStylesheet(doc).css).not.toContain('.lc-table')
+    const text = Object.values(doc.nodes).find((node) => node.type === 'text') as TextNode
+    text.text = { type: 'doc', content: [table] }
+    expect(generateStylesheet(doc).css).toContain(':where(.lc-table) { overflow-x: auto;')
+    const entries = createEmptyDocument()
+    entries.entries.c = [{ id: 'e', values: { body: { type: 'doc', content: [table] } } }] as never
+    expect(generateStylesheet(entries).css).toContain(':where(.lc-table th)')
+  })
+
   it('drives states through the forced attribute when previewing states', () => {
     const doc = fixtureDocument()
     const forced = generateStylesheet(doc, { reset: false, previewStates: true }).css

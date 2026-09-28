@@ -2,6 +2,7 @@ import { type RichText, safeLinkHref } from '@lacuno/schema'
 import { Editor, type JSONContent } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { useEffect, useRef, useState } from 'react'
+import { insertTable, TableTools, tableExtensions } from './tables.js'
 
 const EMPTY: RichText = { type: 'doc', content: [{ type: 'paragraph' }] }
 
@@ -54,6 +55,7 @@ export function RichTextField({
           trailingNode: false,
           link: { openOnClick: false, autolink: false, isAllowedUri: (url) => !!safeLinkHref(url) },
         }),
+        ...tableExtensions,
       ],
       content: (value ?? EMPTY) as JSONContent,
       editable: !disabled,
@@ -67,6 +69,7 @@ export function RichTextField({
     return () => instance.destroy()
   }, [])
   useEffect(() => editor?.setEditable(!disabled), [editor, disabled])
+  const inTable = !!editor?.isActive('table')
   const applyLink = () => {
     if (!editor || href === undefined) return
     const safe = safeLinkHref(href)
@@ -79,7 +82,8 @@ export function RichTextField({
     <div className="rich-field" data-disabled={disabled}>
       {!disabled && (
         <div className="rich-field-tools" role="toolbar" aria-label={`${label} formatting`}>
-          {TOOLS.map(([name, text, [mark, attrs], run]) => (
+          {/* In a table, its tools take the place of the blocks'. */}
+          {(inTable ? TOOLS.slice(0, 2) : TOOLS).map(([name, text, [mark, attrs], run]) => (
             <button
               type="button"
               key={name}
@@ -102,6 +106,18 @@ export function RichTextField({
           >
             Link
           </button>
+          {!inTable && (
+            <button
+              type="button"
+              title="Table"
+              aria-label="Insert table"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => editor && insertTable(editor)}
+            >
+              Table
+            </button>
+          )}
+          {editor && <TableTools editor={editor} disabled={false} />}
           {href !== undefined && (
             <span className="rich-field-link">
               <input

@@ -214,4 +214,71 @@ describe('richTextToHtml', () => {
     expect(richTextInlineHtml(two, noWarn)).toBe('<p>a</p><p>b</p>')
     expect(richTextInlineHtml({ type: 'doc' }, noWarn)).toBe('')
   })
+
+  it('renders tables with a head, header scopes, spans and a scrolling region', () => {
+    const text = (value: string, marks?: object[]) => ({ type: 'text', text: value, marks })
+    const cell = (type: string, content: object[], attrs?: object) => ({
+      type,
+      attrs: { colspan: 1, rowspan: 1, colwidth: null, ...attrs },
+      content: [{ type: 'paragraph', content }],
+    })
+    const rt: RichText = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [cell('tableHeader', [text('What')]), cell('tableHeader', [text('Why')])],
+            },
+            {
+              type: 'tableRow',
+              content: [
+                cell('tableHeader', [text('Email')]),
+                cell('tableCell', [text('To sign in', [{ type: 'bold' }])], { align: 'center' }),
+              ],
+            },
+            {
+              type: 'tableRow',
+              content: [cell('tableCell', [text('Both <columns>')], { colspan: 2 })],
+            },
+          ],
+        },
+      ],
+    }
+    expect(richTextInlineHtml(rt, noWarn)).toBe(
+      '<div class="lc-table" role="region" aria-label="Table" tabindex="0"><table>' +
+        '<thead><tr><th scope="col">What</th><th scope="col">Why</th></tr></thead><tbody>' +
+        '<tr><th scope="row">Email</th><td style="text-align:center"><strong>To sign in</strong></td></tr>' +
+        '<tr><td colspan="2">Both &lt;columns&gt;</td></tr></tbody></table></div>',
+    )
+    // Without a header row every row is in the body; a cell with two paragraphs keeps them.
+    const body = richTextToHtml(
+      {
+        type: 'doc',
+        content: [
+          {
+            type: 'table',
+            content: [
+              {
+                type: 'tableRow',
+                content: [
+                  {
+                    type: 'tableCell',
+                    content: [
+                      { type: 'paragraph', content: [text('a')] },
+                      { type: 'paragraph', content: [text('b')] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      noWarn,
+    )
+    expect(body).toContain('<table><tbody><tr><td><p>a</p><p>b</p></td></tr></tbody></table>')
+  })
 })

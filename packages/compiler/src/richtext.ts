@@ -98,6 +98,8 @@ function renderProseNode(node: PmNode, warn: OnWarn, pages?: Document['pages']):
     }
     case 'codeBlock':
       return `<pre><code>${renderProseChildren(node, warn, pages)}</code></pre>`
+    case 'table':
+      return renderTable(node, warn, pages)
     default: {
       const tag = node.type ? BLOCK_TAGS[node.type] : undefined
       if (tag) return `<${tag}>${renderProseChildren(node, warn, pages)}</${tag}>`
@@ -105,6 +107,32 @@ function renderProseNode(node: PmNode, warn: OnWarn, pages?: Document['pages']):
       return renderProseChildren(node, warn, pages)
     }
   }
+}
+
+/**
+ * A table in a region that scrolls sideways on narrow screens. A first row of header cells becomes
+ * the head, its cells headers of their columns; a header cell further down heads its row. A cell
+ * holding one paragraph renders its text without the paragraph.
+ */
+function renderTable(node: PmNode, warn: OnWarn, pages?: Document['pages']): string {
+  const [first, ...rest] = node.content ?? []
+  const head = first?.content?.every((cell) => cell.type === 'tableHeader')
+  const row = (row: PmNode, scope: string) =>
+    `<tr>${(row.content ?? [])
+      .map((cell) => {
+        const tag = cell.type === 'tableHeader' ? 'th' : 'td'
+        let attrs = tag === 'th' ? ` scope="${scope}"` : ''
+        for (const span of ['colspan', 'rowspan']) {
+          const value = Number(cell.attrs?.[span])
+          if (value > 1) attrs += ` ${span}="${value}"`
+        }
+        const align = cell.attrs?.align
+        if (align === 'center' || align === 'right') attrs += ` style="text-align:${align}"`
+        return `<${tag}${attrs}>${richTextInlineHtml(cell as RichText, warn, pages)}</${tag}>`
+      })
+      .join('')}</tr>`
+  const body = (head ? rest : (node.content ?? [])).map((r) => row(r, 'row')).join('')
+  return `<div class="lc-table" role="region" aria-label="Table" tabindex="0"><table>${head ? `<thead>${row(first!, 'col')}</thead>` : ''}<tbody>${body}</tbody></table></div>`
 }
 
 /** Tiptap JSON to HTML. Unknown nodes render their children and warn. */

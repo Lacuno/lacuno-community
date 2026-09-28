@@ -10,6 +10,7 @@ import {
   NodeId,
   PageId,
 } from './ids.js'
+import { tableProblem } from './richtext.js'
 
 /**
  * The element tree. One flat map for the whole site; pages and components point at root nodes.
@@ -41,11 +42,16 @@ export const Binding = z.discriminatedUnion('type', [
 ])
 export type Binding = z.infer<typeof Binding>
 
-/** Rich text stored as a Tiptap/ProseMirror JSON document. Kept opaque here. */
-export const RichText = z.object({
-  type: z.literal('doc'),
-  content: z.array(z.record(z.string(), z.unknown())).optional(),
-})
+/** Rich text stored as a Tiptap/ProseMirror JSON document. Kept opaque here but for tables. */
+export const RichText = z
+  .object({
+    type: z.literal('doc'),
+    content: z.array(z.record(z.string(), z.unknown())).optional(),
+  })
+  .superRefine((doc, ctx) => {
+    const problem = tableProblem(doc)
+    if (problem) ctx.addIssue({ code: 'custom', message: problem })
+  })
 export type RichText = z.infer<typeof RichText>
 
 /** Optional annotations that give agents and the linter a vocabulary above CSS. */

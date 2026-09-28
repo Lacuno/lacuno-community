@@ -1,0 +1,22 @@
+.table-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+.table-tools > span {
+  margin: 0 2px 0 6px;
+  font-size: 11px;
+  color: #757b90;
+}
+.table-tools > span:first-child {
+  margin-left: 0;
+}
+.table-tools > button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.table-tools > button[aria-pressed="true"] {
+  background: #eee7ff;
+  color: #693cdd;
+}

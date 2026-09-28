@@ -101,3 +101,21 @@
   flex-wrap: wrap;
   gap: 6px;
 }
+.inspector-body > :is(.insert-table, .table-tools) {
+  margin-top: 12px;
+}
+.inspector-body > .insert-table {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+.inspector-body > .table-tools {
+  display: grid;
+  grid-template-columns: auto repeat(3, 1fr);
+  gap: 6px;
+}
+.inspector-body > .table-tools > span {
+  margin: 0 6px 0 0;
+}
+.inspector-body > .table-tools > [aria-label="Header row"] {
+  grid-column: span 2;
+}

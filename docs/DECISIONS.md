@@ -280,3 +280,27 @@ wrapper would read better when several fields of one entry sit together, and the
 of that by starting on the entry the page already reads. The entry id alone is enough, since
 entry ids are unique across collections; naming the collection too could only disagree with it.
 
+## D022. Tables are rich-text nodes with one shape on the canvas, in the CMS and through MCP
+
+**Decision.** A table lives in a rich-text document as Tiptap's `table`, `tableRow`, `tableHeader`
+and `tableCell` nodes, the same JSON in a text node, a rich-text entry field and an agent's batch.
+Cells hold blocks, usually one paragraph, so bold, italic, links and colour ranges work as
+anywhere. The schema refuses what the compiler could not render: rows outside a table, cells
+outside a row, empty parts, a table inside a table and rows of unequal width once `colspan` and
+`rowspan` are counted. Both editors use Tiptap's MIT table extensions, rendered in the published
+`lc-table` wrapper, with a small contextual toolbar while the caret is in a table (rows, columns,
+header row, delete); Tab moves between cells, Tab or Enter at the end adds a row, and pasted HTML or
+Markdown tables arrive as tables. The compiler writes `<table>` with a `<thead>` when the first row
+is all header cells (`th scope="col"`, and `scope="row"` for a header cell further down) inside a
+`div role="region"` that scrolls sideways and takes keyboard focus. Default styles sit in `:where()`
+and mix borders from `currentColor`, so they follow the site's text and lose to any class. A canvas
+text that gains a table becomes a `div`, since a `p` cannot hold one.
+
+**Alternatives.** A table element in the palette, built from element nodes; an embed with HTML, as
+the privacy policy used; a separate table field type in the CMS.
+
+**Why.** Tables are content, not layout: they belong with the words around them, in the documents
+the CMS and agents already edit, and one shape keeps the canvas, the CMS and MCP from drifting.
+Tiptap already parses pasted tables and handles cell selection, so the editor adds tools rather than
+a table engine. Refusing malformed tables on write keeps agents honest the way other operations do.
+Zero-specificity defaults give a readable table on any site without fighting its design.

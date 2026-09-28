@@ -41,3 +41,53 @@ export function plainText(n: unknown): string {
   const inline = o.type === 'paragraph' || o.type === 'heading' || o.type === 'codeBlock'
   return (o.content ?? []).map(plainText).join(inline ? '' : ' ')
 }
+
+type RichNode = { type?: unknown; attrs?: Record<string, unknown>; content?: unknown }
+
+/** What each table part holds. */
+const TABLE_PARTS: Record<string, string[]> = {
+  table: ['tableRow'],
+  tableRow: ['tableCell', 'tableHeader'],
+}
+const children = (node: RichNode) =>
+  Array.isArray(node.content) ? (node.content as RichNode[]) : []
+
+/**
+ * Why a rich text's tables are malformed, or nothing: a table holds rows, a row holds cells, a cell
+ * holds blocks but no table, and every row spans as many columns once spans are counted.
+ */
+export function tableProblem(node: RichNode, parent = 'doc', inCell = false): string | undefined {
+  const type = String(node.type)
+  const cell = type === 'tableCell' || type === 'tableHeader'
+  const allowed = TABLE_PARTS[parent]
+  if (allowed && !allowed.includes(type)) return `a ${parent} holds only ${allowed.join(' or ')}`
+  if (!allowed && (cell || type === 'tableRow')) return `a ${type} must sit in a table`
+  if (type === 'table' && inCell) return 'a table cannot sit inside a table'
+  if ((cell || TABLE_PARTS[type]) && !children(node).length) return `a ${type} cannot be empty`
+  for (const span of ['colspan', 'rowspan']) {
+    const value = node.attrs?.[span]
+    if (cell && value != null && !(Number.isInteger(value) && (value as number) >= 1))
+      return `${span} must be a whole number of at least 1`
+  }
+  if (type === 'table') {
+    // The columns each row fills, including those a cell above fills by spanning down.
+    const rows = children(node)
+    const filled = rows.map(() => new Set<number>())
+    for (const [r, row] of rows.entries())
+      for (const { attrs } of children(row)) {
+        const colspan = Number(attrs?.colspan ?? 1)
+        const rowspan = Number(attrs?.rowspan ?? 1)
+        if (r + rowspan > rows.length) return 'a cell spans past the last row'
+        let column = 0
+        while (filled[r]!.has(column)) column++
+        for (let down = r; down < r + rowspan; down++)
+          for (let across = column; across < column + colspan; across++) filled[down]!.add(across)
+      }
+    if (filled.some((row) => row.size !== filled[0]!.size))
+      return 'every row of a table needs the same number of columns'
+  }
+  for (const child of children(node)) {
+    const problem = tableProblem(child, type, inCell || cell)
+    if (problem) return problem
+  }
+}

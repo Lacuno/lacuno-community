@@ -18,6 +18,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Fluid typography and spacing with clamp | Later | A design token can be a scale, not just a value. Deferred out of Phase 1 |
 | Components with props, slots and variants | Phase 4 | Props are in. Slots and visible instance overrides are built with the CMS |
 | Rich text editing on canvas | MVP | Tiptap. Same editor used in CMS rich fields |
+| Tables in rich text | MVP | On the canvas and in CMS rich-text fields: insert, rows and columns above, below, left and right, header row, Tab between cells, pasted HTML and Markdown tables. Publishes a semantic table with `thead` and `th scope` in a region that scrolls sideways, styled from the text colour and overridable, see D022 |
 | Copy and paste of HTML plus CSS, Tailwind HTML, Webflow clipboard, Webstudio JSON, SVG, images | Next | Import is how people switch. Tailwind paste is how AI output gets in |
 | Gradients: linear and radial backgrounds and gradient text | MVP | A structured value with colour or token stops, edited with a stops bar in Colors; a radial gradient takes a shape and a centre, see D017 |
 | Rotating words in a text, such as a headline's "AI → designer → you" | MVP | Slide or fade, CSS keyframes, per-word icons, empty words, texts in step read as one phrase, accessible and reduced-motion aware, edited in Motion, see D018 |

@@ -13,11 +13,22 @@ To see your work without a build: page.preview returns a route's HTML as it publ
 
 ## Rich text
 
-Text node content is Tiptap-style JSON. Node types: \`paragraph\`, \`heading\` (attrs.level 1-6), \`blockquote\`, \`bulletList\`, \`orderedList\`, \`listItem\`, \`codeBlock\`, \`hardBreak\`, \`horizontalRule\`, \`text\`. Marks (on \`text\` nodes): \`bold\`, \`italic\`, \`code\`, \`underline\`, \`strike\`, \`link\` (attrs.href). Unknown node types render their children with a warning.
+Text node content is Tiptap-style JSON. Node types: \`paragraph\`, \`heading\` (attrs.level 1-6), \`blockquote\`, \`bulletList\`, \`orderedList\`, \`listItem\`, \`codeBlock\`, \`hardBreak\`, \`horizontalRule\`, \`table\`, \`tableRow\`, \`tableHeader\`, \`tableCell\`, \`text\`. Marks (on \`text\` nodes): \`bold\`, \`italic\`, \`code\`, \`underline\`, \`strike\`, \`link\` (attrs.href). Unknown node types render their children with a warning.
 
 A paragraph with a bold word:
 \`\`\`json
 { "type": "paragraph", "content": [{ "type": "text", "text": "hi " }, { "type": "text", "text": "there", "marks": [{ "type": "bold" }] }] }
+\`\`\`
+
+Tables: a \`table\` holds \`tableRow\`s, a row holds \`tableHeader\` or \`tableCell\` cells, and a cell holds blocks, usually one \`paragraph\` with marks as anywhere. A first row of \`tableHeader\` cells is the header row, which is optional; a \`tableHeader\` further down heads its row. Every row spans the same number of columns; a cell's \`attrs.colspan\` and \`attrs.rowspan\` merge cells. Tables do not nest, and a malformed one is refused. A table publishes as \`<table>\` with \`<thead>\` and \`<th scope>\` in a region that scrolls sideways on narrow screens, with borders and padding the site's styles can override. Put one in a rich-text entry field, or in a text node whose tag holds blocks (\`div\`, not \`p\` or a heading). A table with a header row:
+\`\`\`json
+{ "type": "table", "content": [
+  { "type": "tableRow", "content": [
+    { "type": "tableHeader", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "What" }] }] },
+    { "type": "tableHeader", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Why" }] }] }] },
+  { "type": "tableRow", "content": [
+    { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Email" }] }] },
+    { "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "To sign in", "marks": [{ "type": "bold" }] }] }] }] }] }
 \`\`\`
 
 ## Collections

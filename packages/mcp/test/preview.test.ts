@@ -93,6 +93,54 @@ describe('page.preview', () => {
     expect(bad.isError).toBe(true)
   })
 
+  it("publishes the guide's table example and refuses a malformed table", async () => {
+    const client = await setup()
+    const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))
+    const table = JSON.parse(guide.match(/```json\n(\{ "type": "table"[\s\S]+?)\n```/)![1]!)
+    const apply = (expectedRevision: number, content: object[]) =>
+      client.callTool({
+        name: 'document.apply',
+        arguments: {
+          expectedRevision,
+          operations: [
+            { type: 'node.update', id: 'n-hero-title', tag: 'div', text: { type: 'doc', content } },
+          ],
+        },
+      })
+    expect((await apply(0, [table])).isError).toBeFalsy()
+    const node = jsonOf<{ text: object }>(
+      await client.callTool({ name: 'node.get', arguments: { id: 'n-hero-title' } }),
+    )
+    expect(JSON.stringify(node)).toContain('"tableHeader"')
+    const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    expect(html).toContain(
+      '<div class="lc-table" role="region" aria-label="Table" tabindex="0"><table><thead><tr><th scope="col">What</th>',
+    )
+    expect(html).toContain('<td><strong>To sign in</strong></td>')
+    expect(html).toContain(':where(.lc-table) { overflow-x: auto;')
+    // A row short of a cell is refused, with the reason.
+    const ragged = structuredClone(table)
+    ragged.content[1].content.pop()
+    const bad = await apply(1, [ragged])
+    expect(bad.isError).toBe(true)
+    expect(textOf(bad)).toContain('every row of a table needs the same number of columns')
+    // Rich-text fields take tables too, under the same rules.
+    const entry = (fields: object) =>
+      client.callTool({
+        name: 'document.apply',
+        arguments: {
+          expectedRevision: 1,
+          operations: [{ type: 'entry.update', collection: 'col-posts', id: 'e-1', fields }],
+        },
+      })
+    const nested = structuredClone(table)
+    nested.content[1].content[0].content = [table]
+    expect(textOf(await entry({ 'f-body': { type: 'doc', content: [nested] } }))).toContain(
+      'field body: a table cannot sit inside a table',
+    )
+    expect((await entry({ 'f-body': { type: 'doc', content: [table] } })).isError).toBeFalsy()
+  })
+
   it('publishes a radial glow from the top and refuses a centre on a linear gradient', async () => {
     const client = await setup()
     const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))

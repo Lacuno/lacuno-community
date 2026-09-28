@@ -311,9 +311,13 @@ function checkValue(ctx: PlanContext, f: FieldDef, value: unknown, entry?: strin
     case 'boolean':
       if (typeof value !== 'boolean') bad('true or false')
       return
-    case 'richtext':
-      if (!RichText.safeParse(value).success) bad('rich text')
+    case 'richtext': {
+      // A malformed table says what is wrong with it rather than repeating the whole document.
+      const issue = RichText.safeParse(value).error?.issues[0]
+      if (issue?.code === 'custom') ctx.fail(`field ${f.name}: ${issue.message}${at}`)
+      if (issue) bad('rich text')
       return
+    }
     case 'image':
     case 'file': {
       const asset = typeof value === 'string' ? ctx.doc.assets[value] : undefined
