@@ -1,6 +1,5 @@
 import { readFile, realpath } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
-import { build } from '@lacuno/compiler/build'
 import {
   type ApplyResult,
   applyPatches,
@@ -249,6 +248,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       async ({ siteUrl }) => {
         const run = buildQueue.then(async () => {
           if (!options.siteDir) throw new InputError('this server has no site folder to build')
+          // Loaded on first use: Astro is most of a server's start-up otherwise.
+          const { build } = await import('@lacuno/compiler/build')
           return build(options.siteDir, {
             quiet: true,
             ...(siteUrl !== undefined ? { siteUrl } : {}),
