@@ -207,3 +207,26 @@ scripts.
 on the canvas and the published site. CSS keeps cycling when scripts are off and costs nothing at
 runtime; CSS alone cannot know a word's width, so the script only measures. Syncing by equal
 timing needs no group key; adjacency is enough to read texts in step as one phrase.
+
+## D019. The CMS is a dialog over the document, with values checked by field type
+
+**Decision.** Collections, fields and entries are edited in one large dialog opened from the rail's
+CMS panel, like the asset manager: collections on the left, the entries table or the fields and
+settings on the right, one entry's form in place of the table. The form saves explicitly, since
+required fields and unique slugs can only be judged for the whole entry, and it asks before
+discarding unsaved changes. Entries stay in the document: the operations check each value against
+its field type (a string, a number, an ISO date, rich text, an asset id, an entry id of the target
+collection), refuse a field change that existing entries would break, and refuse deleting an entry
+another entry references, like any other reference. Field renames and reorders are their own
+operations (`field.update` with `name`, `field.move`), and `collection.update` can switch the slug
+field when every entry has an address in it. Field types stay fixed once created.
+
+**Alternatives.** Entries as rows in SQLite beside the document; autosave per field like the
+inspector; dropping references to a deleted entry silently.
+
+**Why.** One document keeps undo, live collaboration, MCP and publishing on one path, and the
+table and form stay fast with hundreds of entries because they page and filter what is already
+loaded. Explicit saves match how people write an entry. Type checks in the operations protect the
+compiler and agents alike. Refusing a delete in use is how pages, assets and tokens already work;
+a silent cleanup would break a required reference. Changing a field's type would need a value
+conversion per pair of types, so a new field is the way until someone needs it.

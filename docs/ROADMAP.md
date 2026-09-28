@@ -208,6 +208,15 @@ already writes content through the document, so native content editing can wait.
 **Exit:** a blog with fifty posts and a contact form, imported from a Webflow export, published
 and receiving submissions.
 
+**CMS panel implemented (2026-09-28):** the rail's CMS panel lists the collections and opens the
+CMS dialog: create, rename and delete collections, add, rename, relabel, reorder and delete fields
+with their options and reference targets, pick the slug field, and find entries in a table that
+sorts, searches and pages by fifty. The entry form has an input per field type: rich text in
+Tiptap, an image or file chosen from the assets or uploaded in place, a date, a number, a switch,
+a colour, an option, and reference pickers that search the target collection; a new entry's slug
+follows its title and must be unique. Deleting what is used is refused with the places that use it;
+deletes can be undone. Viewers see everything read-only (D019).
+
 ## Phase 5. Collaboration and scale
 
 - Realtime multiplayer with presence and element comments.
