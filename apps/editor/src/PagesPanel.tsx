@@ -1,6 +1,7 @@
 import type { Operation } from '@lacuno/document'
 import type { Document, Page } from '@lacuno/schema'
 import { useState } from 'react'
+import { collectionPageCreation, freePath } from './binding.js'
 import { CodeField } from './CodeField.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
@@ -126,6 +127,10 @@ export function PageSettings({
   const [headCode, setHeadCode] = useState(page?.headCode ?? '')
   const [bodyCode, setBodyCode] = useState(page?.bodyCode ?? '')
   const [notFound, setNotFound] = useState(false)
+  // A new page may show each entry of a collection; an existing one keeps what it shows.
+  const [collection, setCollection] = useState(page?.collection ?? '')
+  const col = doc.collections[collection]
+  const [seoFields, setSeoFields] = useState(page?.seo?.fields ?? {})
   const hasNotFound = Object.values(doc.pages).some((other) => other.path === '/404')
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -147,7 +152,7 @@ export function PageSettings({
           event.preventDefault()
           const issue = !name.trim()
             ? 'Enter a page name.'
-            : pagePathError(doc, path.trim(), page?.id) ||
+            : pagePathError(doc, path.trim(), page?.id, !!(page?.collection || col)) ||
               langError(lang.trim()) ||
               canonicalError(canonical.trim())
           if (issue) {
@@ -160,6 +165,7 @@ export function PageSettings({
             canonical: canonical.trim(),
             noindex,
             ogImage,
+            fields: col ? seoFields : {},
           })
           if (page)
             void run([
@@ -174,7 +180,24 @@ export function PageSettings({
                 bodyCode: bodyCode || null,
               },
             ])
-          else {
+          else if (col) {
+            const created = collectionPageCreation(doc, col, path.trim())
+            for (const operation of created.operations)
+              if (operation.type === 'page.create')
+                Object.assign(operation, {
+                  name: name.trim(),
+                  path: path.trim(),
+                  ...(lang.trim() ? { lang: lang.trim() } : {}),
+                  seo: {
+                    ...operation.seo,
+                    ...seo,
+                    fields: { ...operation.seo?.fields, ...seo.fields },
+                  },
+                  ...(headCode ? { headCode } : {}),
+                  ...(bodyCode ? { bodyCode } : {}),
+                })
+            void run(created.operations, created.id)
+          } else {
             const id = `p-${crypto.randomUUID()}`
             void run(
               [
@@ -201,7 +224,30 @@ export function PageSettings({
           }
         }}
       >
-        {!page && (
+        {!page && Object.keys(doc.collections).length > 0 && (
+          <label>
+            Page for
+            <select
+              aria-label="Page for"
+              value={collection}
+              disabled={disabled || notFound}
+              onChange={(event) => {
+                const next = doc.collections[event.target.value]
+                setCollection(event.target.value)
+                setName(next ? `${next.name} page` : '')
+                setPath(next ? freePath(doc, `/${next.slug}/[slug]`) : '')
+              }}
+            >
+              <option value="">One page</option>
+              {Object.values(doc.collections).map((item) => (
+                <option key={item.id} value={item.id}>
+                  Each entry of {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {!page && !collection && (
           <label
             className="check-label"
             title={hasNotFound ? 'This site already has a not-found page.' : undefined}
@@ -275,6 +321,41 @@ export function PageSettings({
             onChange={(event) => setDescription(event.target.value)}
           />
         </label>
+        {col &&
+          (
+            [
+              ['title', 'Title from', 'text'],
+              ['description', 'Description from', 'text'],
+              ['ogImage', 'Social image from', 'image'],
+            ] as const
+          ).map(([key, label, kind]) => (
+            <label key={key}>
+              {label}
+              <select
+                aria-label={`SEO ${label.toLowerCase()}`}
+                value={seoFields[key] ?? ''}
+                disabled={disabled}
+                onChange={(event) =>
+                  setSeoFields({ ...seoFields, [key]: event.target.value || undefined })
+                }
+              >
+                <option value="">
+                  {kind === 'image' ? 'Social image below' : 'Written above'}
+                </option>
+                {col.fields
+                  .filter((field) =>
+                    kind === 'image'
+                      ? field.type === 'image'
+                      : ['text', 'richtext', 'slug'].includes(field.type),
+                  )
+                  .map((field) => (
+                    <option key={field.id} value={field.id}>
+                      {col.name} · {field.label}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          ))}
         <label>
           Canonical URL
           <input

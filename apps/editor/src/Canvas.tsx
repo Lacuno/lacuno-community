@@ -84,6 +84,7 @@ export function Canvas({
   tokens,
   selected,
   selectedName,
+  selectedField,
   select,
   onHistory,
   onComputed,
@@ -106,6 +107,7 @@ export function Canvas({
   tokens: Selection['tokens']
   selected: string
   selectedName: string
+  selectedField: string
   select: (id: string) => void
   onHistory: (direction: 'undo' | 'redo') => void
   onComputed: (value: { id: string; values: Record<string, string> }) => void
@@ -256,6 +258,7 @@ export function Canvas({
   // Everything the iframe listeners read long after the render that installed them.
   const current = {
     selectedName,
+    selectedField,
     onNodeAction,
     onEditText,
     livePreview,
@@ -412,6 +415,7 @@ export function Canvas({
             doc,
             () => ({
               name: latest.current.selectedName,
+              field: latest.current.selectedField,
               scope: latest.current.scope,
               state: latest.current.state,
               states: latest.current.states,

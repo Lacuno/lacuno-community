@@ -1,7 +1,10 @@
 import type { Entry, Page, State } from '@lacuno/schema'
 import { useState } from 'react'
+import { boundFieldLabel } from './binding.js'
 import { editingBreakpoint } from './breakpoints.js'
 import { Canvas, type LivePreview } from './Canvas.js'
+import type { CmsView } from './CollectionManager.js'
+import { entryTitle } from './cms.js'
 import { colorLabel, colorPreview, projectColors } from './colors.js'
 import { componentUsage } from './components.js'
 import { EditorIcon } from './EditorIcon.js'
@@ -19,6 +22,7 @@ export function CanvasPanel({
   entries,
   activeEntry,
   setEntryId,
+  openCms,
   preview,
   width,
   setWidth,
@@ -43,6 +47,7 @@ export function CanvasPanel({
   entries: Entry[]
   activeEntry: string
   setEntryId: (id: string) => void
+  openCms: (view: CmsView) => void
   preview: Preview | undefined
   width: number
   setWidth: (width: number) => void
@@ -64,6 +69,8 @@ export function CanvasPanel({
   const { doc, error, busy, frozen, leave } = session
   const [zoom, setZoom] = useState('fit')
   const { editingComponent } = editing
+  const collection =
+    page?.collection && !editingComponent ? doc?.collections[page.collection] : undefined
   const snapTokens = (group: 'spacing' | 'size') =>
     doc
       ? tokensOfGroup(doc, group).map((token) => ({
@@ -93,21 +100,37 @@ export function CanvasPanel({
       )}
       <div className="canvas-toolbar">
         <div className="canvas-viewport">
-          {entries.length > 0 && (
-            <select
-              aria-label="Collection entry"
-              value={activeEntry}
-              onChange={(event) => setEntryId(event.target.value)}
-            >
-              {entries.map((entry, index) => (
-                <option key={entry.id} value={entry.id}>
-                  {String(
-                    Object.values(entry.fields).find((value) => typeof value === 'string') ??
-                      `Entry ${index + 1}`,
-                  )}
-                </option>
-              ))}
-            </select>
+          {collection && (
+            <div className="entry-switcher">
+              <EditorIcon name="database" />
+              {entries.length > 0 ? (
+                <select
+                  aria-label="Collection entry"
+                  value={activeEntry}
+                  onChange={(event) => setEntryId(event.target.value)}
+                >
+                  {entries.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entryTitle(collection, entry)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span>No {collection.name.toLowerCase()} yet</span>
+              )}
+              <button
+                type="button"
+                onClick={() =>
+                  openCms({
+                    collection: collection.id,
+                    tab: 'entries',
+                    entry: activeEntry || (session.readOnly ? '' : 'new'),
+                  })
+                }
+              >
+                {activeEntry ? 'Edit entry' : session.readOnly ? 'Open CMS' : 'Add entry'}
+              </button>
+            </div>
           )}
           <fieldset className="viewport-switch" aria-label="Canvas width">
             {[
@@ -204,6 +227,7 @@ export function CanvasPanel({
             }}
             selected={selected}
             selectedName={doc?.nodes[selected] ? nodeLabel(doc.nodes[selected]!) : ''}
+            selectedField={doc?.nodes[selected] ? boundFieldLabel(doc, doc.nodes[selected]!) : ''}
             select={(id) => {
               reveal()
               if (id !== selected) void leave(() => setSelected(id))

@@ -3,6 +3,8 @@ import type { Operation } from '@lacuno/document'
 import type { CssValue, Document, Node, State } from '@lacuno/schema'
 import { useEffect, useRef, useState } from 'react'
 import { assetUrl } from './AssetsPanel.js'
+import { BindingControls, ListSettings } from './BindingControls.js'
+import { boundFieldLabel } from './binding.js'
 import { breakpointMedia } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { ClassManager } from './ClassManager.js'
@@ -288,11 +290,18 @@ export function Inspector({
     state,
   }
   const { local: current, overridden } = useStyleField(controls)
+  const boundField = boundFieldLabel(doc, node)
   return (
     <aside className="inspector">
       <div className="selection-heading">
         <strong>{nodeLabel(node)}</strong>
         <span className="element-badge">{'tag' in node ? node.tag.toUpperCase() : node.type}</span>
+        {boundField && (
+          <span className="field-chip" title="Shows a field of each entry">
+            <EditorIcon name="database" />
+            {boundField}
+          </span>
+        )}
         <button
           type="button"
           className="inspector-close"
@@ -323,9 +332,11 @@ export function Inspector({
           <div className="link-target-row">
             <span>Link target</span>
             <strong>
-              {link && 'pageId' in link
-                ? (doc.pages[link.pageId]?.name ?? 'Unknown page')
-                : (link?.href ?? 'No destination yet')}
+              {linkHref?.type === 'field'
+                ? `Field: ${boundField}`
+                : link && 'pageId' in link
+                  ? (doc.pages[link.pageId]?.name ?? 'Unknown page')
+                  : (link?.href ?? 'No destination yet')}
             </strong>
             <LinkTarget
               doc={doc}
@@ -348,6 +359,10 @@ export function Inspector({
               }
             />
           </div>
+        )}
+        <BindingControls doc={doc} node={node} disabled={disabled || !settled} save={save} />
+        {node.type === 'collection-list' && (
+          <ListSettings doc={doc} node={node} disabled={disabled || !settled} save={save} />
         )}
         <fieldset
           aria-label="Element properties"
@@ -416,7 +431,7 @@ export function Inspector({
                 onChange={(event) => setText(event.target.value)}
               />
             </label>
-          ) : node.type === 'text' ? (
+          ) : node.type === 'text' && node.text.type !== 'field' ? (
             <p className="note">
               {node.text.type === 'doc'
                 ? 'Double-click this text on the canvas to edit words, formatting, and links.'

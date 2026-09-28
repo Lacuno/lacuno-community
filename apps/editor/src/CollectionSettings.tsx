@@ -2,6 +2,7 @@ import type { Operation } from '@lacuno/document'
 import { referencesToCollection, referencesToField } from '@lacuno/document/references'
 import type { CollectionSchema, Document, FieldDef, OptionChoice } from '@lacuno/schema'
 import { useState } from 'react'
+import { collectionPage, collectionPageCreation } from './binding.js'
 import { FIELD_TYPES, type FieldType, fieldTypeLabel, newField, slugify } from './cms.js'
 import { ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
@@ -14,10 +15,20 @@ type Props = {
   disabled: boolean
   save: (operations: Operation[]) => Promise<boolean>
   removed: (name: string) => void
+  showPage: (id: string) => void
 }
 
 /** A collection's name, address and fields, and deleting it. */
-export function CollectionSettings({ doc, col, readOnly, disabled, save, removed }: Props) {
+export function CollectionSettings({
+  doc,
+  col,
+  readOnly,
+  disabled,
+  save,
+  removed,
+  showPage,
+}: Props) {
+  const page = collectionPage(doc, col.id)
   const [name, setName] = useState(col.name)
   const [slug, setSlug] = useState(col.slug)
   const [error, setError] = useState('')
@@ -97,6 +108,28 @@ export function CollectionSettings({ doc, col, readOnly, disabled, save, removed
         </label>
       </section>
       <ErrorNote message={error} />
+      <div className="cms-entry-pages">
+        <span>Entry pages</span>
+        {page ? (
+          <button type="button" className="text-button" onClick={() => showPage(page.id)}>
+            {page.name} <code>{page.path}</code>
+          </button>
+        ) : (
+          !readOnly && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={async () => {
+                const created = collectionPageCreation(doc, col)
+                if (await run(created.operations)) showPage(created.id)
+              }}
+            >
+              Create a page for each entry
+            </button>
+          )
+        )}
+        {!page && readOnly && <em>None</em>}
+      </div>
       <h4 className="cms-heading">
         Fields <span>{col.fields.length}</span>
       </h4>
