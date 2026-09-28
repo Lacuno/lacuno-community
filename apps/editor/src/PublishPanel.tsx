@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { SignUpLink } from './App.js'
-import { api, message, useConfig } from './api.js'
+import { api, message, transient, useConfig } from './api.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import './publishing.css'
 
@@ -59,6 +59,7 @@ export function PublishPanel({
 }) {
   const [history, setHistory] = useState<History>()
   const [error, setError] = useState('')
+  const [offline, setOffline] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<{ id: string; action: keyof typeof actions }>()
   const [name, setName] = useState('')
@@ -76,20 +77,26 @@ export function PublishPanel({
     (row) => row.status === 'queued' || row.status === 'building',
   )
   const pending = !!building
-  // biome-ignore lint/correctness/useExhaustiveDependencies: accepting a new publish restarts polling after an idle history view.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: accepting a new publish, or losing the server, restarts polling after an idle history view.
   useEffect(() => {
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout>
     const poll = async () => {
       try {
         const result = await refresh(controller.signal)
+        setOffline(false)
         if (
           result.releases.some((row) => row.status === 'queued' || row.status === 'building') &&
           !controller.signal.aborted
         )
           timer = setTimeout(poll, 1000)
       } catch (error) {
-        if (!controller.signal.aborted) setError(message(error, 'Could not load releases'))
+        if (controller.signal.aborted) return
+        // A server that restarts, as Cloud does on a deploy, is asked again: the build goes on.
+        if (transient(error)) {
+          setOffline(true)
+          timer = setTimeout(poll, 3000)
+        } else setError(message(error, 'Could not load releases'))
       }
     }
     void poll()
@@ -97,14 +104,18 @@ export function PublishPanel({
       controller.abort()
       clearTimeout(timer)
     }
-  }, [refresh, pending])
+  }, [refresh, pending, offline])
   const run = async (url: string, body: unknown) => {
     setBusy(true)
     setError('')
     try {
       await api(url, body)
       setConfirm(undefined)
-      await refresh()
+      // Done, even when the list cannot be loaded right after: polling picks it up.
+      await refresh().catch((error) => {
+        if (!transient(error)) throw error
+        setOffline(true)
+      })
       return true
     } catch (error) {
       setError(message(error, 'Request failed'))
@@ -345,7 +356,14 @@ export function PublishPanel({
           )}
         </>
       )}
-      <ErrorNote message={error} />
+      <ErrorNote
+        message={
+          error ||
+          (offline
+            ? 'Lacuno cannot be reached right now. A publish in progress carries on, and this list updates once Lacuno is back.'
+            : '')
+        }
+      />
     </Dialog>
   )
 }

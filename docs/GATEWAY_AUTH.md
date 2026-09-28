@@ -113,8 +113,10 @@ checks.
 copies every published release to that sink. After a build, before the release becomes ready, each
 file in its output goes up as `PUT <export>/sites/<site>/<key>` (`application/octet-stream`): files
 under `assets/` and `_astro/` as `immutable/<path>`, after a `HEAD` of the same URL answers 404, and
-everything else as `releases/<release>/<path>`, each path segment URL-encoded. The sink answers 204,
-and anything else fails the release. Each time a release is published, restored, promoted or sent to
+everything else as `releases/<release>/<path>`, each path segment URL-encoded, up to eight at a
+time. The sink answers 204. No answer, a 429 or a 5xx is asked again after 1, 2, 4, 8 and three
+times 15 seconds, so a sink that restarts within about a minute delays the release; anything else, or
+an outage beyond that, fails it and nothing goes live. Each time a release is published, restored, promoted or sent to
 testing, `PUT <export>/sites/<site>/pointer/<production|testing>` with the release id as its body
 follows from an outbox, retried with backoff until the sink answers 204. At start the runtime queues
 the current releases it has not exported yet. Every asset written to a site (an upload, an

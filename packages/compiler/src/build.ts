@@ -1,4 +1,4 @@
-import { lstat, readFile, realpath, rm } from 'node:fs/promises'
+import { cp, lstat, readdir, readFile, realpath, rename, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import sitemap from '@astrojs/sitemap'
@@ -20,6 +20,13 @@ export type BuildOptions = {
   siteUrl?: string
   /** Silence Astro's logger. */
   quiet?: boolean
+  /**
+   * A directory that keeps optimized images between builds of a site whose folder is new each
+   * time. Astro names them by source hash and transform, so a hit is the same file. The build
+   * starts from a copy and, once it succeeds, leaves exactly the images it output: a failed build
+   * never leaves a partial file there, and the cache never outgrows the site's current images.
+   */
+  imageCache?: string
 }
 
 export type BuildResult = {
@@ -116,6 +123,23 @@ async function linkSharp(site: string): Promise<void> {
   await link(target, at)
 }
 
+/** Replaces `cache` with the images of `built` that the output uses, all at once. */
+async function keepImages(cache: string, built: string, output: string): Promise<void> {
+  const used = new Set(await readdir(output).catch(() => []))
+  const next = `${cache}.next`
+  await rm(next, { recursive: true, force: true })
+  await cp(built, next, {
+    recursive: true,
+    filter: (source) => source === built || used.has(path.basename(source)),
+  }).catch((e) => {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
+  })
+  await rm(cache, { recursive: true, force: true })
+  await rename(next, cache).catch((e) => {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
+  })
+}
+
 /**
  * Site folder in, static output out. Every failure is a BuildError.
  *
@@ -204,6 +228,14 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
   await linkSharp(site)
 
   await rm(outDir, { recursive: true, force: true })
+  // Astro's own image cache, `<cacheDir>/assets/<file in _astro>`.
+  const images = path.join(cacheDir, 'assets')
+  if (options.imageCache) {
+    await rm(images, { recursive: true, force: true })
+    await cp(options.imageCache, images, { recursive: true }).catch((e) => {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
+    })
+  }
 
   // Astro's static build only writes the SSR/prerender bundle that carries each page's
   // stylesheet next to outDir when outDir is a literal string prefix of process.cwd(); otherwise
@@ -235,6 +267,7 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
   } finally {
     process.chdir(previousCwd)
   }
+  if (options.imageCache) await keepImages(options.imageCache, images, path.join(outDir, '_astro'))
 
   return {
     pages: routes.length,

@@ -13,6 +13,7 @@ import { jwtVerify, SignJWT } from 'jose'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createServer, type ServerOptions } from '../src/app.js'
 import { openDatabase } from '../src/database.js'
+import { withRetries } from '../src/export.js'
 
 const root = fileURLToPath(new URL('../../../', import.meta.url))
 const issuer = 'http://cloud.localhost:4000'
@@ -33,7 +34,11 @@ describe('export to the edge', () => {
   const activity: unknown[] = []
   const log: string[] = []
   let failures: { match: RegExp; status: number; times: number } | undefined
+  let inflight = 0
+  let peak = 0
   const sink = createHttpServer(async (request, response) => {
+    peak = Math.max(peak, ++inflight)
+    response.on('finish', () => inflight--)
     const chunks: Buffer[] = []
     for await (const chunk of request) chunks.push(chunk)
     const body = Buffer.concat(chunks)
@@ -209,10 +214,13 @@ describe('export to the edge', () => {
 
   let second = ''
   it(
-    'uploads a release before it goes live and skips immutable files the sink has',
+    'uploads a release before it goes live, a few files at a time, and skips immutable files the sink has',
     async () => {
       log.length = 0
+      peak = 0
       second = await publish(first)
+      expect(peak).toBeGreaterThan(1)
+      expect(peak).toBeLessThanOrEqual(8)
       const puts = log.filter((line) => line.startsWith('PUT '))
       expect(puts).toContain(`PUT releases/${second}/index.html`)
       expect(puts.filter((line) => line.startsWith('PUT immutable/'))).toEqual([])
@@ -227,12 +235,21 @@ describe('export to the edge', () => {
   )
 
   it(
-    'fails the release when the upload fails and activates nothing',
+    'retries an upload through a sink outage, and fails a refused one, activating nothing',
     async () => {
-      failures = { match: /^PUT releases\//, status: 502, times: 1 }
+      // A Cloud redeploy: the sink answers 502 for a moment.
+      log.length = 0
+      failures = { match: /^PUT releases\/[^/]+\/index\.html$/, status: 502, times: 2 }
+      second = await publish(second)
+      expect(log.filter((line) => line === `PUT releases/${second}/index.html`)).toHaveLength(3)
+      await expect.poll(() => pointers.get('production')).toBe(second)
+
+      failures = { match: /^PUT releases\//, status: 400, times: 1 }
       const failed = await publish(second, 'failed')
       const row = (await history()).releases.find((release) => release.id === failed)
-      expect(row?.error).toBe('Publishing to the edge failed. Publish again to retry.')
+      expect(row?.error).toBe(
+        'The site could not be copied to the edge, even after several tries. The live site is unchanged. Publish again to retry.',
+      )
       expect((await history()).publishedId).toBe(second)
       expect(table('export_pointer')).toEqual([])
       expect(pointers.get('production')).toBe(second)
@@ -410,5 +427,35 @@ describe('export to the edge', () => {
     await apply([{ type: 'site.update', name: 'Renamed' }])
     await new Promise((resolve) => setTimeout(resolve, 1500))
     expect(log).toEqual([])
+  })
+})
+
+describe('retries', () => {
+  const answers = (...statuses: (number | undefined)[]) => {
+    const calls = { count: 0 }
+    const call = async () => {
+      const status = statuses[calls.count++]
+      if (status === undefined) throw new TypeError('fetch failed')
+      return new Response(null, { status })
+    }
+    return { calls, call }
+  }
+  it('asks again after no answer, a 429 or a 5xx, and gives up after the last wait', async () => {
+    const outage = answers(undefined, 502, 429, 503, 204)
+    expect((await withRetries(outage.call, [1, 1, 1, 1]))?.status).toBe(204)
+    expect(outage.calls.count).toBe(5)
+    const down = answers(502, 502, 502)
+    expect((await withRetries(down.call, [1, 1]))?.status).toBe(502)
+    expect(down.calls.count).toBe(3)
+    const gone = answers(undefined, undefined)
+    expect(await withRetries(gone.call, [1])).toBeUndefined()
+  })
+  it('takes a refusal as the answer, and stops asking once stopped', async () => {
+    const refused = answers(400, 204)
+    expect((await withRetries(refused.call, [1]))?.status).toBe(400)
+    expect(refused.calls.count).toBe(1)
+    const stopping = answers(502, 204)
+    expect((await withRetries(stopping.call, [1], () => true))?.status).toBe(502)
+    expect(stopping.calls.count).toBe(1)
   })
 })

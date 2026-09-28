@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hashAsset, parseDocument } from '@lacuno/schema'
@@ -196,12 +196,19 @@ export class Releases extends PublicationReader {
             .run(Date.now() + leaseMs, id, this.owner)
       }, 5000)
       heartbeat.unref()
+      const started = Date.now()
       const warnings = await this.build(job)
-      await this.exporter?.upload(job.site_id, id).catch((error) => {
+      const built = Date.now()
+      const sent = await this.exporter?.upload(job.site_id, id).catch((error) => {
         if (!this.stopped) console.error('Export of a release failed', error)
-        throw new Error('Publishing to the edge failed. Publish again to retry.')
+        throw new Error(
+          'The site could not be copied to the edge, even after several tries. The live site is unchanged. Publish again to retry.',
+        )
       })
       if (this.stopped) return
+      console.log(
+        `Release ${id} built in ${built - started} ms${sent ? `, uploaded in ${Date.now() - built} ms: ${sent.files} files, ${sent.bytes} bytes, ${sent.skipped} already there` : ''}`,
+      )
       this.sqlite
         .transaction(() => {
           const result = this.sqlite
@@ -232,8 +239,19 @@ export class Releases extends PublicationReader {
   }
 
   private async build(job: ReleaseRow): Promise<unknown[]> {
-    const doc = parseDocument(JSON.parse(job.document))
     const directory = this.directory(job.site_id, job.id)
+    // A document with a successful release already, as a draft just sent to testing, is copied.
+    const same = this.sqlite
+      .prepare(
+        "SELECT id,warnings FROM releases WHERE site_id=? AND revision=? AND document=? AND status='ready' ORDER BY version DESC LIMIT 1",
+      )
+      .get(job.site_id, job.revision, job.document) as { id: string; warnings: string } | undefined
+    if (same) {
+      const built = path.join(this.directory(job.site_id, same.id), 'dist')
+      await cp(built, path.join(directory, 'dist'), { recursive: true })
+      return JSON.parse(same.warnings)
+    }
+    const doc = parseDocument(JSON.parse(job.document))
     await mkdir(path.join(directory, 'assets'), { recursive: true })
     await writeFile(path.join(directory, 'lacuno.json'), JSON.stringify(doc))
     for (const asset of Object.values(doc.assets)) {
@@ -258,6 +276,8 @@ export class Releases extends PublicationReader {
           worker,
           directory,
           this.url(job.site_id),
+          // Optimized images carry over between the site's builds; backups leave them out.
+          path.join(this.dataDir, 'builds', job.site_id, 'images'),
         ],
         { stdio: 'ignore' },
       )

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import type Database from 'better-sqlite3'
 import { HTTPException } from 'hono/http-exception'
 import { signForCloud } from './gateway-auth.js'
@@ -34,6 +35,30 @@ async function send(
     signal: AbortSignal.timeout(120_000),
   })
 }
+
+/** About a minute of waits between attempts, long enough for Cloud to redeploy its sink. */
+const retryDelays = [1, 2, 4, 8, 15, 15, 15].map((seconds) => seconds * 1000)
+
+/**
+ * Makes a call again after no answer, a 429 or a 5xx, waiting `delays` between attempts; the last
+ * answer, or undefined when there was none.
+ */
+export async function withRetries(
+  call: () => Promise<Response>,
+  delays = retryDelays,
+  stopped = () => false,
+) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await call().catch(() => undefined)
+    const transient = !response || response.status === 429 || response.status >= 500
+    if (!transient || attempt === delays.length || stopped()) return response
+    await response?.body?.cancel()
+    await delay(delays[attempt], undefined, { ref: false })
+  }
+}
+
+/** Uploads at the same time; the sink passes each one on to Bunny Storage. */
+const parallelUploads = 8
 
 /**
  * Keeps an asset's bytes in Cloud's object storage (`PUT <export>/sites/<site>/asset/<hash>`), so a
@@ -126,26 +151,65 @@ export class Exporter {
         'INSERT INTO export_pointer(site_id,target,release_id) VALUES(?,?,?) ON CONFLICT(site_id,target) DO UPDATE SET release_id=excluded.release_id,attempts=0,next_attempt_at=0',
       )
       .run(siteId, target, releaseId)
+    queueMicrotask(() => {
+      void this.drain()
+    })
   }
 
+  /**
+   * Uploads a release's files, `parallelUploads` at a time, each retried through a sink outage.
+   * Content-addressed files the sink has already are skipped.
+   */
   async upload(siteId: string, releaseId: string) {
     const root = this.dist(siteId, releaseId)
-    for (const entry of await readdir(root, { recursive: true, withFileTypes: true })) {
-      if (this.stopped) throw new Error('Server stopped')
-      const file = path.join(entry.parentPath, entry.name)
-      const parts = path.relative(root, file).split(path.sep)
+    const files = (await readdir(root, { recursive: true, withFileTypes: true }))
+      .map((entry) => ({
+        entry,
+        parts: path.relative(root, path.join(entry.parentPath, entry.name)).split(path.sep),
+      }))
       // The publishing listener never serves hidden files or symbolic links either.
-      if (!entry.isFile() || parts.some((part) => part.startsWith('.'))) continue
-      // Content-addressed files are shared by every release of the site.
-      const immutable = ['assets', '_astro'].includes(parts[0]!)
-      const key = `${immutable ? 'immutable' : `releases/${releaseId}`}/${parts.map(encodeURIComponent).join('/')}`
-      if (immutable && (await send(this.options, 'HEAD', siteId, key)).status === 200) continue
-      const response = await send(this.options, 'PUT', siteId, key, await readFile(file))
-      if (response.status !== 204) throw new Error(`Export sink answered ${response.status}`)
+      .filter(({ entry, parts }) => entry.isFile() && !parts.some((part) => part.startsWith('.')))
+    const sent = { files: 0, bytes: 0, skipped: 0 }
+    let next = 0
+    let failed = false
+    const stopped = () => this.stopped || failed
+    const upload = async () => {
+      while (next < files.length && !stopped()) {
+        const { entry, parts } = files[next++]!
+        // Content-addressed files are shared by every release of the site.
+        const immutable = ['assets', '_astro'].includes(parts[0]!)
+        const key = `${immutable ? 'immutable' : `releases/${releaseId}`}/${parts.map(encodeURIComponent).join('/')}`
+        if (immutable) {
+          const head = await withRetries(
+            () => send(this.options, 'HEAD', siteId, key),
+            undefined,
+            stopped,
+          )
+          if (head?.status === 200) {
+            sent.skipped++
+            continue
+          }
+        }
+        const body = await readFile(path.join(entry.parentPath, entry.name))
+        const response = await withRetries(
+          () => send(this.options, 'PUT', siteId, key, body),
+          undefined,
+          stopped,
+        )
+        if (response?.status !== 204) {
+          failed = true
+          throw new Error(`Export sink answered ${response?.status ?? 'nothing'} for ${key}`)
+        }
+        sent.files++
+        sent.bytes += body.length
+      }
     }
+    await Promise.all(Array.from({ length: parallelUploads }, upload))
+    if (this.stopped) throw new Error('Server stopped')
     this.sqlite
       .prepare('INSERT OR IGNORE INTO exported_release(release_id) VALUES(?)')
       .run(releaseId)
+    return sent
   }
 
   private async drain() {
