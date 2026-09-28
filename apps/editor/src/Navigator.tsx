@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
 import { Menu, type MenuPoint, menuPoint } from './Menu.js'
 import { presetValues } from './presets.js'
-import { nodeLabel, structureRestriction, subtreeRestriction } from './structure.js'
+import {
+  moveShortcut,
+  type NodeAction,
+  nodeLabel,
+  structureRestriction,
+  subtreeRestriction,
+} from './structure.js'
 
 /** The layer icon for an element's tag; other elements show their layout. */
 const tagKinds: Record<string, 'image' | 'video' | 'list' | 'section'> = {
@@ -25,7 +31,7 @@ type Props = {
   select: (id: string) => void
   actions: (id: string) => void
   save: (operations: Operation[]) => Promise<boolean>
-  nodeAction: (action: 'duplicate' | 'delete', id: string) => void
+  nodeAction: (action: NodeAction, id: string) => void
 }
 
 export function Navigator({
@@ -203,6 +209,9 @@ export function Navigator({
                 } else if (event.key === 'Delete' || event.key === 'Backspace') {
                   event.preventDefault()
                   nodeAction('delete', id)
+                } else if (moveShortcut(event)) {
+                  event.preventDefault()
+                  nodeAction(moveShortcut(event)!, id)
                 } else if (event.key === 'ArrowRight' && children.length && collapsed.has(id)) {
                   event.preventDefault()
                   toggle(id)

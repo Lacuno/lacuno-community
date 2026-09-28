@@ -17,7 +17,12 @@ import { type InnerTag, tagStates } from './richTags.js'
 import { type Panel, Sidebar } from './Sidebar.js'
 import { useDocumentSession } from './session.js'
 import { applicableStates } from './states.js'
-import { duplicateSelection, subtreeRestriction } from './structure.js'
+import {
+  duplicateSelection,
+  type NodeAction,
+  siblingMove,
+  subtreeRestriction,
+} from './structure.js'
 import { useThumbnail } from './thumbnail.js'
 import { useComponentEditing } from './useComponentEditing.js'
 import { useImageDrop } from './useImageDrop.js'
@@ -101,8 +106,13 @@ export function Editor({
   const { config } = useConfig()
   useThumbnail(siteId, doc, !!config && !config.try && role !== 'viewer')
   const { uploadingImage, dropImage } = useImageDrop({ siteId, session, setSelected })
-  async function nodeAction(action: 'duplicate' | 'delete', id: string) {
+  async function nodeAction(action: NodeAction, id: string) {
     if (!editableDoc || unsettled) return
+    if (action === 'up' || action === 'down') {
+      const move = siblingMove(editableDoc, id, action === 'up' ? -1 : 1)
+      if (move) await save([move])
+      return
+    }
     if (action === 'delete') {
       if (subtreeRestriction(editableDoc, id)) return
       if (await save([{ type: 'node.delete', id }])) setSelected('')

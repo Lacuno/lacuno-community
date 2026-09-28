@@ -1,7 +1,7 @@
 import { Navigator } from './Navigator.js'
 import { ElementActions } from './StructurePanel.js'
 import type { DocumentSession } from './session.js'
-import { nodeLabel } from './structure.js'
+import { type NodeAction, nodeLabel } from './structure.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 
 /** The layer tree plus the element actions popover that the tree's row menu opens. */
@@ -20,7 +20,7 @@ export function LayersPanel({
   setSelected: (id: string) => void
   revealSelection: number
   elementActionsId: string
-  nodeAction: (action: 'duplicate' | 'delete', id: string) => void
+  nodeAction: (action: NodeAction, id: string) => void
 }) {
   const { frozen, save, leave } = session
   const { editableDoc, editingRoot, editingComponent } = editing

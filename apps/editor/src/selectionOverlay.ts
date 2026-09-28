@@ -668,7 +668,7 @@ export function selectionOverlay(
     }
     const bounds = selected?.getBoundingClientRect()
     const visible =
-      !doc.querySelector('[data-lacuno-sort-gap]') &&
+      !doc.documentElement.hasAttribute('data-lacuno-dropping') &&
       bounds &&
       bounds.width > 0 &&
       bounds.height > 0 &&

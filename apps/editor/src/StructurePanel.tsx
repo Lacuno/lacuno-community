@@ -6,6 +6,7 @@ import { EditorIcon } from './EditorIcon.js'
 import {
   actions,
   insertionTarget,
+  type NodeAction,
   nodeLabel,
   type Placement,
   type Preset,
@@ -191,7 +192,7 @@ export function ElementActions({
   disabled,
   save,
   select,
-}: Props & { nodeAction: (action: 'duplicate' | 'delete', id: string) => void }) {
+}: Props & { nodeAction: (action: NodeAction, id: string) => void }) {
   const [wrapper, setWrapper] = useState<Wrapper>('container')
   const wrap = wrapTarget(doc, selected, wrapper)
   const wrapReason = typeof wrap === 'string' ? wrap : ''

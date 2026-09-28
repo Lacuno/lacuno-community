@@ -1,14 +1,11 @@
 import type { Operation } from '@lacuno/document'
 import type { Document as SiteDocument } from '@lacuno/schema'
 import { useEffect, useRef } from 'react'
-import { createDragPreview } from './dragPreview.js'
-import { canvasDropTarget } from './dragTarget.js'
+import { canvasSlots, DWELL, insertionLine, layerDepth, layerSlots } from './dragTarget.js'
 import {
-  canContain,
   type DragItem,
-  type DropPosition,
   dropEdit,
-  dropTarget,
+  nodeLabel,
   type Preset,
   structureRestriction,
 } from './structure.js'
@@ -23,6 +20,10 @@ type Options = {
   select: (id: string) => void
 }
 
+type Rect = { left: number; top: number; width: number; height: number }
+
+const ACCENT = '#7952ed'
+
 /** Share a native drag session between the editor document and its same-origin canvas. */
 export function useStructureDrag(options: Options) {
   const current = useRef(options)
@@ -34,105 +35,205 @@ export function useStructureDrag(options: Options) {
   return bind
 }
 
+/**
+ * Nothing on the page moves while dragging: the dragged element dims in place, a label follows the
+ * pointer, and the target container's outline and an insertion line show where it will land. The
+ * document changes once, on drop.
+ */
 function createController(getOptions: () => Options) {
   let item: DragItem | undefined
-  const clearers = new Set<() => void>()
-  const clear = (except?: () => void) => {
-    for (const reset of clearers) if (reset !== except) reset()
-  }
+  // Where a drag from a layer row started, so moving sideways from there changes its depth.
+  let grab: { surface: Document; x: number; depth: number } | undefined
+  const surfaces = new Map<Document, () => void>()
   const end = () => {
     item = undefined
-    clear()
+    grab = undefined
+    for (const [surface, reset] of surfaces) {
+      reset()
+      for (const element of surface.querySelectorAll('[data-lacuno-dragging]'))
+        element.removeAttribute('data-lacuno-dragging')
+    }
   }
   const bind = (surface: Document) => {
+    const view = surface.defaultView!
+    const frame = view.frameElement as HTMLElement | null
     const indicator = surface.createElement('div')
     indicator.setAttribute('data-lacuno-drop-indicator', '')
     // A unique id keeps the canvas morph from matching a server node against the indicator.
     indicator.id = 'lacuno-drop-indicator'
     indicator.style.cssText =
-      'display:none;position:fixed;pointer-events:none;z-index:2147483647;box-sizing:border-box;border:2px solid #7952ed;background:#7952ed16;'
+      'display:none;position:fixed;inset:0;pointer-events:none;z-index:2147483647;'
+    const style = surface.createElement('style')
+    style.textContent = '[data-lacuno-dragging] { opacity: .4 !important; }'
+    const outline = surface.createElement('div')
+    const line = surface.createElement('div')
     const label = surface.createElement('span')
-    label.style.cssText =
-      'position:absolute;left:0;top:0;transform:translateY(-100%);padding:3px 6px;background:#7952ed;color:white;font:12px sans-serif;white-space:nowrap;border-radius:3px;'
-    indicator.append(label)
+    indicator.append(style, outline, line, label)
     surface.body.append(indicator)
-    // A transparent image hides the native drag image; the projection draws the element instead.
-    const blank = surface.createElement('img')
-    blank.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='
-    let grab = { x: 0, y: 0 }
-    let preview: ReturnType<typeof createDragPreview>
-    let previewItem: DragItem | undefined
-    const reset = () => {
+    // Chrome draws on the canvas at its zoom; divide by it to keep the lines crisp and thin.
+    const zoom = () => (frame ? frame.getBoundingClientRect().width / frame.offsetWidth || 1 : 1)
+    const place = (element: HTMLElement, rect: Rect | undefined, css: string) => {
+      element.hidden = !rect
+      if (rect)
+        element.style.cssText = `position:absolute;box-sizing:border-box;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;${css}`
+    }
+    const show = (
+      container: Rect | undefined,
+      bar: Rect | undefined,
+      name: string,
+      fill = false,
+    ) => {
+      const px = 1 / zoom()
+      indicator.style.display = 'block'
+      surface.documentElement.setAttribute('data-lacuno-dropping', '')
+      place(
+        outline,
+        container,
+        `border:${px}px solid ${ACCENT}99;border-radius:${2 * px}px;background:${fill ? `${ACCENT}14` : 'none'}`,
+      )
+      place(line, bar, `background:${ACCENT};border-radius:${px}px`)
+      label.hidden = !container || !name
+      label.textContent = name
+      if (container)
+        label.style.cssText = `position:absolute;left:${container.left}px;top:${Math.max(0, container.top)}px;padding:${px}px ${5 * px}px;background:${ACCENT};color:#fff;font:500 ${11 * px}px/1.4 system-ui,sans-serif;border-radius:0 0 ${3 * px}px 0;white-space:nowrap`
+    }
+    let target: { parent: string; index: number } | undefined
+    let pointer: { x: number; y: number; over: Element | null } | undefined
+    let canvas: { doc: SiteDocument; slots: ReturnType<typeof canvasSlots> } | undefined
+    let layers:
+      | { doc: SiteDocument; panel: HTMLElement; slots: ReturnType<typeof layerSlots> }
+      | undefined
+    let dwell: ReturnType<typeof setTimeout> | undefined
+    let scrolling = 0
+    const hide = () => {
+      target = undefined
       indicator.style.display = 'none'
-      preview?.clear()
-      if (!item) {
-        preview?.dispose()
-        preview = undefined
-        previewItem = undefined
+      surface.documentElement.removeAttribute('data-lacuno-dropping')
+    }
+    const reset = () => {
+      hide()
+      pointer = undefined
+      canvas = undefined
+      layers = undefined
+      clearTimeout(dwell)
+      view.cancelAnimationFrame(scrolling)
+    }
+    surfaces.set(surface, reset)
+    const update = () => {
+      const { doc, root, disabled } = getOptions()
+      if (!item || !pointer || !doc || !root || disabled) return hide()
+      if (frame) {
+        if (canvas?.doc !== doc) canvas = { doc, slots: canvasSlots(surface, doc, root, item) }
+        const slot = canvas.slots.locate(pointer.x, pointer.y)
+        if (!slot) return hide()
+        target = slot
+        const node = doc.nodes[slot.parent]!
+        const box = canvas.slots.box(slot.parent)!
+        show(
+          box,
+          insertionLine(slot, pointer.y, 2 / zoom()),
+          slot.parent === root ? 'Body' : nodeLabel(node),
+          !slot.boxes.length,
+        )
+        return
+      }
+      const panel = pointer.over?.closest<HTMLElement>('.navigator')
+      if (!panel) return hide()
+      if (layers?.doc !== doc || layers.panel !== panel)
+        layers = {
+          doc,
+          panel,
+          slots: layerSlots(panel, doc, root, item, grab?.surface === surface ? grab : undefined),
+        }
+      const slot = layers.slots.locate(pointer.x, pointer.y)
+      if (!slot) return hide()
+      target = slot
+      if ('row' in slot) {
+        const { left, top, width, height } = slot.row.rect
+        show({ left, top, width, height }, undefined, '', true)
+      } else {
+        const { left, top } = slot.line
+        const width = panel.getBoundingClientRect().right - left
+        show(undefined, { left, top: top - 1, width, height: 2 }, '')
       }
     }
-    clearers.add(reset)
-    const onCanvas = !!surface.defaultView?.frameElement
+    // Near the top or bottom edge, the canvas or the layers list scrolls, faster closer to it.
+    const autoScroll = () => {
+      view.cancelAnimationFrame(scrolling)
+      const scroller = frame ? surface.scrollingElement : pointer?.over?.closest('.layer-list')
+      if (!item || !pointer || !scroller) return
+      const bounds = frame ? { top: 0, bottom: view.innerHeight } : scroller.getBoundingClientRect()
+      const zone = 40
+      const speed =
+        pointer.y < bounds.top + zone
+          ? pointer.y - bounds.top - zone
+          : pointer.y > bounds.bottom - zone
+            ? pointer.y - bounds.bottom + zone
+            : 0
+      if (!speed) return
+      scrolling = view.requestAnimationFrame(() => {
+        const before = scroller.scrollTop
+        scroller.scrollTop += Math.round(speed / 2)
+        if (scroller.scrollTop === before) return
+        update()
+        autoScroll()
+      })
+    }
+    // The layout never moves during a drag; only a scroll changes where things are.
+    const remeasure = () => {
+      canvas?.slots.remeasure()
+      layers?.slots.remeasure()
+    }
     const elementAt = (event: DragEvent) =>
       (event.target as Element | null)?.closest?.<HTMLElement>(
         '[data-drag-preset], [data-drag-node], [data-lacuno-node]',
       )
-    // The canvas hit-tests real geometry; layer rows are a plain vertical list.
-    const locate = (event: DragEvent) => {
-      const { doc, root, disabled } = getOptions()
-      if (!item || !doc || !root || disabled) return
-      if (onCanvas) return canvasDropTarget(surface, doc, root, item, event.clientX, event.clientY)
-      const element = elementAt(event)
-      const id = element?.dataset.dragNode
-      if (!element || !id) return
-      const rect = element.getBoundingClientRect()
-      const fraction = (event.clientY - rect.top) / Math.max(1, rect.height)
-      const inside = canContain(doc, id) && (id === root || (fraction > 0.25 && fraction < 0.75))
-      const leading = fraction < 0.5
-      const position: DropPosition = inside ? 'inside' : leading ? 'before' : 'after'
-      try {
-        const destination = dropTarget(doc, root, item, id, position)
-        return { ...destination, id, position, rect, horizontal: false, leading }
-      } catch {
-        return
-      }
-    }
-    const ensurePreview = () => {
-      const { doc, siteId } = getOptions()
-      if (previewItem !== item && doc) {
-        preview?.dispose()
-        preview = createDragPreview(surface, doc, item!, siteId, grab)
-        previewItem = item
-      }
-      return preview
-    }
     const start = (event: DragEvent) => {
       end()
       const { doc, root, disabled } = getOptions()
       const element = elementAt(event)
       if (!element) return
-      if (!doc || disabled || !event.dataTransfer) {
+      if (!doc || !root || disabled || !event.dataTransfer) {
         event.preventDefault()
         return
       }
       const preset = element.dataset.dragPreset as Preset | undefined
-      const id = element.dataset.dragNode ?? element.dataset.lacunoNode
+      const movable = (id: string | undefined) =>
+        !!id && id !== root && !!doc.nodes[id]?.parent && !structureRestriction(doc, id)
+      // A press inside the selected element drags it, so a whole section moves from anywhere on it.
+      const selected = frame
+        ? element.closest('[data-lacuno-selected]')?.closest<HTMLElement>('[data-lacuno-node]')
+            ?.dataset.lacunoNode
+        : undefined
+      const id = [selected, element.dataset.dragNode ?? element.dataset.lacunoNode].find(movable)
       if (preset)
         item = {
           preset,
           classId: element.dataset.dragClass ?? '',
           assetId: element.dataset.dragAsset ?? '',
         }
-      else if (id && id !== root && doc.nodes[id]?.parent && !structureRestriction(doc, id))
-        item = { id }
+      else if (id) item = { id }
       if (!item) {
         event.preventDefault()
         return
       }
-      if (onCanvas) {
-        const rect = element.getBoundingClientRect()
-        grab = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-        event.dataTransfer.setDragImage(blank, 0, 0)
+      if (id && !preset) {
+        for (const each of surfaces.keys())
+          for (const source of each.querySelectorAll(
+            `[data-lacuno-node="${CSS.escape(id)}"], [data-drag-node="${CSS.escape(id)}"]`,
+          ))
+            source.setAttribute('data-lacuno-dragging', '')
+        if (element.dataset.dragNode)
+          grab = { surface, x: event.clientX, depth: layerDepth(doc, root, id) }
+        // On the canvas a small label follows the pointer instead of a picture of the element.
+        if (frame) {
+          const ghost = surface.createElement('div')
+          ghost.textContent = nodeLabel(doc.nodes[id]!)
+          ghost.style.cssText = `position:fixed;left:0;top:-100px;padding:4px 8px;background:${ACCENT};color:#fff;font:500 12px/1.4 system-ui,sans-serif;border-radius:4px;white-space:nowrap`
+          surface.body.append(ghost)
+          event.dataTransfer.setDragImage(ghost, -10, -10)
+          setTimeout(() => ghost.remove())
+        }
       }
       event.dataTransfer.effectAllowed = 'preset' in item ? 'copy' : 'move'
       event.dataTransfer.setData('application/x-lacuno-element', 'internal')
@@ -162,89 +263,63 @@ function createController(getOptions: () => Options) {
       if (ownDropZone(event)) return
       if (isFileDrop(event)) {
         event.preventDefault()
-        clear()
-        const target = imageTarget(event)
-        if (event.dataTransfer) event.dataTransfer.dropEffect = target ? 'copy' : 'none'
-        if (target) {
-          const rect = target.element.getBoundingClientRect()
-          Object.assign(indicator.style, {
-            display: 'block',
-            left: `${rect.left}px`,
-            top: `${rect.top}px`,
-            width: `${rect.width}px`,
-            height: `${rect.height}px`,
-          })
-          label.textContent = 'Drop photo to replace image'
-        }
+        const image = imageTarget(event)
+        if (event.dataTransfer) event.dataTransfer.dropEffect = image ? 'copy' : 'none'
+        if (image)
+          show(
+            image.element.getBoundingClientRect(),
+            undefined,
+            'Drop photo to replace image',
+            true,
+          )
+        else hide()
         return
       }
       if (!item) return
       event.preventDefault()
-      const projection = onCanvas ? ensurePreview() : undefined
-      projection?.follow(event.clientX, event.clientY)
-      const target = locate(event)
+      pointer = { x: event.clientX, y: event.clientY, over: event.target as Element | null }
+      update()
+      autoScroll()
+      // Resting still settles a drop into the sibling under the pointer without another event.
+      clearTimeout(dwell)
+      dwell = setTimeout(update, DWELL + 20)
       if (event.dataTransfer)
         event.dataTransfer.dropEffect = target ? ('preset' in item ? 'copy' : 'move') : 'none'
-      if (!target) {
-        clear()
-        return
-      }
-      if (projection) {
-        clear(reset)
-        indicator.style.display = 'none'
-        projection.show(target)
-        return
-      }
-      clear()
-      const { rect, position, horizontal, leading, id } = target
-      const doc = getOptions().doc!
-      const inside = position === 'inside'
-      Object.assign(indicator.style, {
-        display: 'block',
-        left: `${rect.left + (!inside && horizontal && !leading ? rect.width : 0)}px`,
-        top: `${rect.top + (!inside && !horizontal && !leading ? rect.height : 0)}px`,
-        width: `${!inside && horizontal ? 3 : rect.width}px`,
-        height: `${!inside && !horizontal ? 3 : rect.height}px`,
-      })
-      const node = doc.nodes[id]!
-      label.textContent = `${position === 'inside' ? 'Inside' : position === 'before' ? 'Before' : 'After'} ${node.meta?.label ?? ('tag' in node ? node.tag : node.type)}`
     }
     const drop = (event: DragEvent) => {
       if (ownDropZone(event)) return
       if (isFileDrop(event)) {
         event.preventDefault()
         event.stopPropagation()
-        const target = imageTarget(event)
+        const image = imageTarget(event)
         const file = event.dataTransfer?.files[0]
         end()
-        if (target && file) getOptions().uploadImage(target.id, file)
+        if (image && file) getOptions().uploadImage(image.id, file)
         return
       }
       if (!item) return
       event.preventDefault()
       event.stopPropagation()
-      const target = locate(event)
+      pointer = { x: event.clientX, y: event.clientY, over: event.target as Element | null }
+      update()
       const source = item
+      const slot = target
       const { doc, root, save, select } = getOptions()
-      if (!target || !doc || !root) {
-        end()
+      end()
+      if (!slot || !doc || !root) return
+      let edit: ReturnType<typeof dropEdit>
+      try {
+        edit = dropEdit(doc, root, source, slot.parent, slot.index)
+      } catch {
         return
       }
-      const edit = dropEdit(doc, root, source, target.id, target.position)
-      // Keep the last projection while the save is in flight instead of snapping back on drop.
-      const pending = edit.operations.length ? preview : undefined
-      pending?.drop()
-      if (pending) preview = undefined
-      end()
       if (edit.operations.length)
-        void save(edit.operations)
-          .then((saved) => {
-            if (saved) select(edit.node.id)
-          })
-          .finally(() => pending?.dispose())
+        void save(edit.operations).then((saved) => {
+          if (saved) select(edit.node.id)
+        })
     }
     const leave = (event: DragEvent) => {
-      if (!event.relatedTarget) reset()
+      if (!event.relatedTarget) hide()
     }
     surface.addEventListener('dragstart', start, true)
     surface.addEventListener('dragenter', over, true)
@@ -252,6 +327,8 @@ function createController(getOptions: () => Options) {
     surface.addEventListener('drop', drop, true)
     surface.addEventListener('dragend', end, true)
     surface.addEventListener('dragleave', leave, true)
+    surface.addEventListener('scroll', remeasure, true)
+    view.addEventListener('resize', remeasure)
     return () => {
       surface.removeEventListener('dragstart', start, true)
       surface.removeEventListener('dragenter', over, true)
@@ -259,10 +336,11 @@ function createController(getOptions: () => Options) {
       surface.removeEventListener('drop', drop, true)
       surface.removeEventListener('dragend', end, true)
       surface.removeEventListener('dragleave', leave, true)
-      clearers.delete(reset)
-      preview?.dispose()
+      surface.removeEventListener('scroll', remeasure, true)
+      view.removeEventListener('resize', remeasure)
+      reset()
+      surfaces.delete(surface)
       indicator.remove()
-      end()
     }
   }
   return { bind }

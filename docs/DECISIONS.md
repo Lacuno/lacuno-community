@@ -348,3 +348,31 @@ would need one per locale. An inline node keeps the field id visible to validati
 reference check, which a string placeholder would hide (D020). One pattern with `{page}` covers
 suffixes and prefixes alike, and `false` gives the home page its own title without a second
 setting.
+
+## D025. Dragging shows where a drop lands and changes nothing until it does
+
+**Decision.** While an element is dragged, the page keeps its layout. The element dims in place, a
+small label with its name follows the pointer, and the target container's outline, named in its
+corner, carries a line between the two children the drop goes between; an empty container fills
+instead. The slot comes from the container's flow: vertical midpoints in a block or column,
+horizontal ones in a row or grid, line by line when it wraps, with 8px of hysteresis. The pointer
+goes into the deepest container whose inside it is over; a container's edges along its parent's
+flow (24px, or a quarter of it) mean before or after it; text, images and components never take a
+drop, nor does the dragged element itself. A dragged element stays among its siblings while the
+pointer passes over them, and goes into a sibling only after resting still on its inside for
+800ms, or at once when that sibling is empty. A press inside the selected element drags the
+selection, so a section moves from anywhere on it. Near the canvas's or layers' top and bottom edge
+the view scrolls; Escape or a drop elsewhere changes nothing; a drop is one edit and one undo step.
+In the layers, the middle of a container's row drops into it, and between rows the sideways
+distance from where the drag started sets the depth. Alt+↑ and Alt+↓ move the selection one place
+among its siblings, on the canvas and in the layers.
+
+**Alternatives.** Opening a live gap in a copy of the canvas as the pointer moves (what this
+replaces); hit-testing the element under the pointer and dropping before, inside or after it;
+nesting on hover without a pause; a modifier key to nest.
+
+**Why.** The live gap shifted the siblings under the pointer, so the page a designer aimed at was
+not the one being hit-tested, and the middle of any container meant "inside": dragging a section
+down by one put it into the next section. Midpoints of the siblings in the container's own flow
+make one step of the pointer one step in the order, and a still page lets the eye stay on the
+target. Resting to nest keeps reordering the default without hiding nesting behind a key.

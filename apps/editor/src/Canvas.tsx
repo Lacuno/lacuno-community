@@ -7,6 +7,7 @@ import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
 import { type InnerTag, richTagAt, tagElements } from './richTags.js'
 import { type Selection, selectionOverlay } from './selectionOverlay.js'
+import { moveShortcut, type NodeAction } from './structure.js'
 
 /** The unsaved edit a panel paints into the canvas before it is committed. */
 export type LivePreview = {
@@ -105,7 +106,7 @@ export function Canvas({
 }: {
   editingText: boolean
   onEditText: (id: string, element: HTMLElement) => void
-  onNodeAction: (action: 'duplicate' | 'delete', id: string) => void
+  onNodeAction: (action: NodeAction, id: string) => void
   bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
   html: string
@@ -465,7 +466,9 @@ export function Canvas({
           const style = doc.createElement('style')
           // Inside a rich-text block the hovered tag is outlined, since a click selects it.
           const tags = `:is(${RichTag.options.join()}):not(:is(li, th, td) > p, pre > code)`
-          style.textContent = `div[data-lacuno-node]:empty, section[data-lacuno-node]:empty { min-height: 48px; min-width: 48px; } [data-lacuno-node]:not([data-lacuno-selected], [data-lacuno-rich]):hover:not(:has([data-lacuno-node]:hover)), [data-lacuno-rich]:not([data-lacuno-selected]):hover:not(:has(${tags}:hover)), [data-lacuno-rich]:not([data-lacuno-editing]) ${tags}:not([data-lacuno-selected]):hover:not(:has(${tags}:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }`
+          // A drag freezes :hover on the element it started from; its outline waits for the drop.
+          const idle = ':root:not([data-lacuno-dropping])'
+          style.textContent = `div[data-lacuno-node]:empty, section[data-lacuno-node]:empty { min-height: 48px; min-width: 48px; } ${idle} [data-lacuno-node]:not([data-lacuno-selected], [data-lacuno-rich]):hover:not(:has([data-lacuno-node]:hover)), ${idle} [data-lacuno-rich]:not([data-lacuno-selected]):hover:not(:has(${tags}:hover)), ${idle} [data-lacuno-rich]:not([data-lacuno-editing]) ${tags}:not([data-lacuno-selected]):hover:not(:has(${tags}:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }`
           style.textContent += `[data-lacuno-image-placeholder] { min-height:160px !important; min-width:80px; background: #f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; position:relative; } [data-lacuno-image-placeholder]::after { content:""; display:block; width:40px; height:40px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%239187aa' stroke-width='1.5'%3E%3Cpath d='M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8'/%3E%3Ccircle cx='22' cy='10' r='2'/%3E%3C/svg%3E"); }`
           style.textContent +=
             '[data-lacuno-placeholder] { display:grid; place-items:center; min-height:120px !important; padding:12px; background:#f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; font:12px/1.4 system-ui, sans-serif; color:#6f6787; text-align:center; } [data-lacuno-placeholder]::before { content:attr(data-lacuno-placeholder); } [data-lacuno-placeholder="Embed"]::before { content:"Embed. Scripts and iframes run on the published site."; } [data-lacuno-placeholder] iframe { display:none; }'
@@ -527,6 +530,12 @@ export function Canvas({
               if (event.key === 'Delete' || event.key === 'Backspace') {
                 event.preventDefault()
                 latest.current.onNodeAction('delete', latest.current.selected)
+                return
+              }
+              const move = moveShortcut(event)
+              if (move) {
+                event.preventDefault()
+                latest.current.onNodeAction(move, latest.current.selected)
                 return
               }
               if (event.key === 'Enter' || event.key === ' ') pick(event)

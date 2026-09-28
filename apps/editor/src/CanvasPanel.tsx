@@ -11,7 +11,7 @@ import { EditorIcon } from './EditorIcon.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { type InnerTag, RICH_TAG_NAMES, richClassName } from './richTags.js'
 import type { DocumentSession } from './session.js'
-import { isLocked, nodeLabel } from './structure.js'
+import { isLocked, type NodeAction, nodeLabel } from './structure.js'
 import { tokensOfGroup, tokenValue } from './tokens.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 import type { Preview } from './usePreview.js'
@@ -64,7 +64,7 @@ export function CanvasPanel({
   setInlineTarget: (target: InlineTarget | undefined) => void
   focus: boolean
   setFocus: (focus: boolean) => void
-  nodeAction: (action: 'duplicate' | 'delete', id: string) => void
+  nodeAction: (action: NodeAction, id: string) => void
   bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
   setComputed: (value: { id: string; values: Record<string, string> }) => void

@@ -9,7 +9,12 @@ import { LayersPanel } from './LayersPanel.js'
 import { PagesPanel } from './PagesPanel.js'
 import { InsertPanel } from './StructurePanel.js'
 import type { DocumentSession } from './session.js'
-import { insertionTarget, structureInsertion, subtreeRestriction } from './structure.js'
+import {
+  insertionTarget,
+  type NodeAction,
+  structureInsertion,
+  subtreeRestriction,
+} from './structure.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 
 export const sidebars = {
@@ -57,7 +62,7 @@ export function Sidebar({
   elementActionsId: string
   openColors: () => void
   openCms: (view: CmsView) => void
-  nodeAction: (action: 'duplicate' | 'delete', id: string) => void
+  nodeAction: (action: NodeAction, id: string) => void
 }) {
   const { doc, frozen, save, leave, setError } = session
   const { editableDoc, editingRoot, editingComponent, editingId } = editing

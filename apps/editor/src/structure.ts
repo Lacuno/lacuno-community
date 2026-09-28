@@ -161,6 +161,17 @@ export function insertionTarget(
   }
 }
 
+/** What the element actions, their shortcuts and the layers' menu do to one element. */
+export type NodeAction = 'duplicate' | 'delete' | 'up' | 'down'
+
+/** Alt+↑ and Alt+↓ move the selected element one place among its siblings. */
+export const moveShortcut = (
+  event: Pick<KeyboardEvent, 'key' | 'altKey' | 'metaKey' | 'ctrlKey'>,
+) =>
+  event.altKey && !event.metaKey && !event.ctrlKey
+    ? ({ ArrowUp: 'up', ArrowDown: 'down' } as const)[event.key as 'ArrowUp' | 'ArrowDown']
+    : undefined
+
 export function siblingMove(doc: Document, id: string, direction: -1 | 1): Operation | undefined {
   if (structureRestriction(doc, id)) return undefined
   const node = doc.nodes[id]
@@ -355,7 +366,6 @@ export function wrapSelection(doc: Document, id: string, preset: Wrapper) {
   return result
 }
 
-export type DropPosition = 'before' | 'inside' | 'after'
 export type DragItem = { preset: Preset; classId?: string; assetId?: string } | { id: string }
 
 export function canContain(doc: Document, id: string) {
@@ -363,25 +373,20 @@ export function canContain(doc: Document, id: string) {
   return node?.type === 'element' && containers.has(node.tag)
 }
 
-/** Resolve a visual insertion boundary to the index after removing the dragged node. */
+/**
+ * Validate a drop at `index` among the parent's current children (the dragged node included) and
+ * resolve it to the index after removing the dragged node.
+ */
 export function dropTarget(
   doc: Document,
   root: string,
   item: DragItem,
-  id: string,
-  position: DropPosition,
+  parent: string,
+  index: number,
 ) {
   const belongs = (nodeId: string) => nodeId === root || isDescendant(doc, root, nodeId)
-  if (!belongs(id) || structureRestriction(doc, id))
-    throw new Error('This element cannot receive a drop.')
-  const node = doc.nodes[id]!
-  const parent = position === 'inside' ? id : node.parent
-  if (!parent || !canContain(doc, parent))
+  if (!belongs(parent) || structureRestriction(doc, parent) || !canContain(doc, parent))
     throw new Error('Drop inside a container or beside an element.')
-  let index =
-    position === 'inside'
-      ? doc.nodes[parent]!.children.length
-      : doc.nodes[parent]!.children.indexOf(id) + (position === 'after' ? 1 : 0)
   if ('id' in item) {
     const source = doc.nodes[item.id]
     if (
@@ -402,10 +407,10 @@ export function dropEdit(
   doc: Document,
   root: string,
   item: DragItem,
-  id: string,
-  position: DropPosition,
+  parent: string,
+  index: number,
 ) {
-  const target = dropTarget(doc, root, item, id, position)
+  const target = dropTarget(doc, root, item, parent, index)
   if ('preset' in item)
     return structureInsertion(
       item.preset,
