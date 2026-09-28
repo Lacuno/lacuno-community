@@ -9,7 +9,7 @@ import type {
   NodeId,
   RichText,
 } from '@lacuno/schema'
-import { designTokenCssName } from '@lacuno/schema'
+import { designTokenCssName, findEntry } from '@lacuno/schema'
 import { RenderError } from './errors.js'
 
 /** One component instance being rendered. Slot children render in the outer scope. */
@@ -46,13 +46,14 @@ function fieldValue(
   doc: Document,
   field: FieldDef,
   entry: Entry,
+  collection: string,
   b: Extract<Binding, { type: 'field' }>,
   scope: Scope,
   attr?: string,
 ): Resolved {
   const value = entry.fields[field.id]
   if (value === undefined) return undefined
-  if (attr === 'href' && field.type === 'slug') return entryPath(doc, scope.collection!.id, entry)
+  if (attr === 'href' && field.type === 'slug') return entryPath(doc, collection, entry)
   if (attr === 'href' && field.type === 'reference') {
     const target = doc.entries[field.reference]?.find((e) => e.id === value)
     return target && entryPath(doc, field.reference, target)
@@ -94,11 +95,22 @@ export function resolveBinding(
       return a
     }
     case 'field': {
-      if (!scope.entry || !scope.collection)
-        throw new RenderError(`field binding ${b.field} outside a collection`, nodeId)
-      const field = scope.collection.fields.find((f) => f.id === b.field)
+      // A chosen entry, else the entry around the node.
+      const found =
+        b.entry !== undefined
+          ? findEntry(doc, b.entry)
+          : scope.entry && scope.collection && { entry: scope.entry, collection: scope.collection }
+      if (!found)
+        throw new RenderError(
+          b.entry !== undefined
+            ? `unknown entry ${b.entry}`
+            : `field binding ${b.field} outside a collection`,
+          nodeId,
+        )
+      const { entry, collection } = found
+      const field = collection.fields.find((f) => f.id === b.field)
       if (!field) throw new RenderError(`unknown field ${b.field}`, nodeId)
-      return fieldValue(doc, field, scope.entry, b, scope, attr)
+      return fieldValue(doc, field, entry, collection.id, b, scope, attr)
     }
     case 'page': {
       const p = doc.pages[b.page]

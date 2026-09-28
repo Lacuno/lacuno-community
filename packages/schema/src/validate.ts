@@ -1,4 +1,4 @@
-import { Document } from './document.js'
+import { Document, findEntry } from './document.js'
 import { nodeBindings } from './nodes.js'
 import { BASE_BREAKPOINT_ID, styleKey } from './styles.js'
 
@@ -60,6 +60,12 @@ export function checkReferences(doc: Document): Issue[] {
       if (!doc.classes[cls]) add(`nodes.${id}`, `unknown class ${cls}`)
     }
     for (const b of nodeBindings(node)) {
+      if (b.type === 'field' && b.entry !== undefined) {
+        const found = findEntry(doc, b.entry)
+        if (!found) add(`nodes.${id}`, `unknown entry ${b.entry}`)
+        else if (!found.collection.fields.some((f) => f.id === b.field))
+          add(`nodes.${id}`, `field ${b.field} is not a field of ${found.collection.id}`)
+      }
       if (b.type !== 'page') continue
       const page = doc.pages[b.page]
       if (!page) add(`nodes.${id}`, `unknown page ${b.page}`)
@@ -77,7 +83,7 @@ export function checkReferences(doc: Document): Issue[] {
     const scope = bindingScope(doc, id)
     if (!scope) continue
     for (const b of nodeBindings(node)) {
-      if (b.type !== 'field') continue
+      if (b.type !== 'field' || b.entry !== undefined) continue
       const col = scope.collection ? doc.collections[scope.collection] : undefined
       if (!scope.collection) add(`nodes.${id}`, `field binding ${b.field} outside a collection`)
       else if (col && !col.fields.some((f) => f.id === b.field))
@@ -100,11 +106,21 @@ export function checkReferences(doc: Document): Issue[] {
       add(`pages.${id}`, `unknown collection ${page.collection}`)
     if (page.collection && !page.path.includes('['))
       add(`pages.${id}`, 'collection page path needs a [param]')
+    const seoEntry = page.seo?.entry
+    if (seoEntry !== undefined && page.collection)
+      add(`pages.${id}`, 'a collection page reads seo.fields from each entry, not seo.entry')
+    else if (seoEntry !== undefined && !findEntry(doc, seoEntry))
+      add(`pages.${id}`, `unknown entry ${seoEntry}`)
+    const seoCol = page.collection
+      ? doc.collections[page.collection]
+      : seoEntry !== undefined
+        ? findEntry(doc, seoEntry)?.collection
+        : undefined
     for (const [key, field] of Object.entries(page.seo?.fields ?? {})) {
-      const col = page.collection ? doc.collections[page.collection] : undefined
-      if (!page.collection) add(`pages.${id}`, `seo.fields.${key} needs a collection page`)
-      else if (col && !col.fields.some((f) => f.id === field))
-        add(`pages.${id}`, `seo.fields.${key}: ${field} is not a field of ${page.collection}`)
+      if (!page.collection && seoEntry === undefined)
+        add(`pages.${id}`, `seo.fields.${key} needs a collection page or seo.entry`)
+      else if (seoCol && !seoCol.fields.some((f) => f.id === field))
+        add(`pages.${id}`, `seo.fields.${key}: ${field} is not a field of ${seoCol.id}`)
     }
     if (page.folder && !doc.folders[page.folder])
       add(`pages.${id}`, `unknown folder ${page.folder}`)

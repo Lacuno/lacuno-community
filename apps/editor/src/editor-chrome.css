@@ -1324,6 +1324,8 @@
   font-size: 13px;
   font-weight: 600;
   overflow-wrap: anywhere;
+  flex-shrink: 0;
+  max-width: 50%;
 }
 .element-badge {
   background: #eee8ff;

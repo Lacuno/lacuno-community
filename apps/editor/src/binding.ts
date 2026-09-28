@@ -1,15 +1,18 @@
 import type { NodeLiteral, Operation } from '@lacuno/document'
+import { subtreeIds } from '@lacuno/document/references'
 import {
   type Binding,
   bindingScope,
   type CollectionSchema,
   type Document,
   type FieldDef,
+  findEntry,
   type Node,
   nodeBindings,
   plainText,
+  type RichText,
 } from '@lacuno/schema'
-import { newCollection, titleField } from './cms.js'
+import { entryTitle, newCollection, titleField } from './cms.js'
 import { pageOf } from './structure.js'
 
 /** The collection whose entry the node's bindings read, if any. */
@@ -40,22 +43,57 @@ export function bindableFields(doc: Document, col: CollectionSchema, slot: Bindi
   })
 }
 
-/** The bound field's label for the chip on the selection, or '' when nothing is bound. */
-export function boundFieldLabel(doc: Document, node: Node): string {
-  const field = nodeBindings(node).find((binding) => binding.type === 'field')
-  if (field?.type !== 'field') return ''
-  const col = scopeCollection(doc, node.id)
-  return col?.fields.find((item) => item.id === field.field)?.label ?? 'Missing field'
+type FieldBinding = Extract<Binding, { type: 'field' }>
+
+/** The collection a field binding reads, and its chosen entry when it names one. */
+export function bindingSource(doc: Document, nodeId: string, binding: FieldBinding) {
+  if (binding.entry === undefined) return { collection: scopeCollection(doc, nodeId) }
+  const found = findEntry(doc, binding.entry)
+  return { collection: found?.collection, entry: found?.entry }
 }
 
-export const fieldBinding = (field: string, format?: string): Binding =>
-  format
-    ? { type: 'field', field, format: format as 'short' | 'medium' | 'long' | 'full' }
-    : { type: 'field', field }
+/** A field binding's label: the field, or for a chosen entry "Legal › Privacy › Body". */
+export function bindingLabel(doc: Document, nodeId: string, binding: FieldBinding): string {
+  const { collection, entry } = bindingSource(doc, nodeId, binding)
+  const field = collection?.fields.find((item) => item.id === binding.field)?.label
+  if (binding.entry === undefined) return field ?? 'Missing field'
+  return collection && entry && field
+    ? `${collection.name} › ${entryTitle(collection, entry)} › ${field}`
+    : 'Missing entry'
+}
 
-/** A text back from a field: what the first entry holds, else the field's label. */
-export function unboundText(doc: Document, col: CollectionSchema, field: string) {
-  const value = doc.entries[col.id]?.[0]?.fields[field]
+/** The bound field's label for the chip on the selection, or '' when nothing is bound. */
+export function boundFieldLabel(doc: Document, node: Node): string {
+  const binding = nodeBindings(node).find((item) => item.type === 'field')
+  return binding?.type === 'field' ? bindingLabel(doc, node.id, binding) : ''
+}
+
+/** The entry another element of the node's page reads, so binding the next field starts there. */
+export function nearbyEntry(doc: Document, nodeId: string): string | undefined {
+  const root = doc.pages[pageOf(doc, nodeId)]?.root
+  return (root ? subtreeIds(doc, root) : [])
+    .flatMap((id) => nodeBindings(doc.nodes[id]!))
+    .flatMap((binding) => (binding.type === 'field' && binding.entry ? [binding.entry] : []))
+    .at(-1)
+}
+
+export const fieldBinding = (field: string, format?: string, entry?: string): Binding => ({
+  type: 'field',
+  ...(entry ? { entry } : {}),
+  field,
+  ...(format ? { format: format as 'short' | 'medium' | 'long' | 'full' } : {}),
+})
+
+/**
+ * A text back from a field: what the chosen entry, else the first entry, holds (rich text as it
+ * is), else the field's label.
+ */
+export function unboundText(doc: Document, col: CollectionSchema, field: string, entry?: string) {
+  const value = (
+    entry ? doc.entries[col.id]?.find((item) => item.id === entry) : doc.entries[col.id]?.[0]
+  )?.fields[field]
+  if (col.fields.find((item) => item.id === field)?.type === 'richtext' && value)
+    return structuredClone(value as RichText)
   const text =
     typeof value === 'string' || typeof value === 'number'
       ? String(value)
@@ -200,12 +238,13 @@ export function switchListCollection(doc: Document, listId: string, to: Collecti
     if (id !== listId) {
       const attrs: Record<string, Binding> = {}
       for (const [name, binding] of Object.entries(node.attrs ?? {})) {
-        const next = binding.type === 'field' ? match(binding.field) : undefined
-        if (binding.type !== 'field') attrs[name] = binding
+        const own = binding.type !== 'field' || binding.entry !== undefined
+        const next = own ? undefined : match(binding.field)
+        if (own) attrs[name] = binding
         else if (next) attrs[name] = { ...binding, field: next.id }
       }
       const changed = JSON.stringify(attrs) !== JSON.stringify(node.attrs ?? {})
-      if (node.type === 'text' && node.text.type === 'field') {
+      if (node.type === 'text' && node.text.type === 'field' && node.text.entry === undefined) {
         const next = match(node.text.field)
         operations.push({
           type: 'node.update',

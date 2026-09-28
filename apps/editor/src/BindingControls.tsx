@@ -1,14 +1,26 @@
 import type { Operation } from '@lacuno/document'
-import type { CollectionListNode, Document, FieldDef, Node } from '@lacuno/schema'
+import {
+  type CollectionListNode,
+  type CollectionSchema,
+  type Document,
+  type FieldDef,
+  findEntry,
+  type Node,
+} from '@lacuno/schema'
+import { useId, useState } from 'react'
 import {
   type BindingSlot,
   bindableFields,
+  bindingLabel,
+  bindingSource,
   fieldBinding,
+  nearbyEntry,
   scopeCollection,
   switchListCollection,
   unboundText,
 } from './binding.js'
 import { entryTitle } from './cms.js'
+import { ReferenceInput } from './EntryFields.js'
 
 type Props = {
   doc: Document
@@ -25,13 +37,18 @@ const FORMATS = [
   ['full', 'Full'],
 ] as const
 
+/** Phrasing tags cannot hold the blocks of rich text, so a text bound to it becomes a div. */
+const PHRASING = new Set(['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+
 /**
- * Where the element's content comes from inside a collection list or on a collection page: a
- * text, an image and its alt text, or a link can read a field of the entry.
+ * Where the element's content comes from: a text, an image and its alt text, or a link can read a
+ * field of the entry around it, inside a collection list or on a collection page, or of an entry
+ * chosen from the CMS, on any page.
  */
 export function BindingControls({ doc, node, disabled, save }: Props) {
+  const [picking, setPicking] = useState<BindingSlot>()
   const col = scopeCollection(doc, node.id)
-  if (!col || !('tag' in node)) return null
+  if (!Object.keys(doc.collections).length || !('tag' in node)) return null
   const slots: [BindingSlot, string, string][] = []
   if (node.type === 'text') slots.push(['text', 'Content from', 'Written text'])
   if (node.type === 'element' && node.tag === 'img')
@@ -40,21 +57,27 @@ export function BindingControls({ doc, node, disabled, save }: Props) {
   if (!slots.length) return null
   const current = (slot: BindingSlot) =>
     slot === 'text' ? (node.type === 'text' ? node.text : undefined) : node.attrs?.[slot]
-  const bind = (slot: BindingSlot, field: string, format?: string) => {
+  const bind = (slot: BindingSlot, field: string, format?: string, entry?: string) => {
+    setPicking(undefined)
     const attrs = { ...node.attrs }
-    if (slot === 'text' && node.type === 'text')
+    if (slot === 'text' && node.type === 'text') {
+      const was = node.text.type === 'field' ? node.text : undefined
+      const from = was && bindingSource(doc, node.id, was).collection
+      const rich = field && findField(doc, field, entry, col)?.type === 'richtext'
       return save([
         {
           type: 'node.update',
           id: node.id,
+          ...(rich && PHRASING.has(node.tag) ? { tag: 'div' } : {}),
           text: field
-            ? fieldBinding(field, format)
-            : node.text.type === 'field'
-              ? unboundText(doc, col, node.text.field)
+            ? fieldBinding(field, format, entry)
+            : was && from
+              ? unboundText(doc, from, was.field, was.entry)
               : node.text,
         },
       ])
-    if (field) attrs[slot] = fieldBinding(field)
+    }
+    if (field) attrs[slot] = fieldBinding(field, undefined, entry)
     else if (slot === 'alt') attrs.alt = { type: 'static', value: '' }
     else delete attrs[slot]
     return save([{ type: 'node.update', id: node.id, attrs }])
@@ -64,25 +87,45 @@ export function BindingControls({ doc, node, disabled, save }: Props) {
       {slots.map(([slot, label, none]) => {
         const binding = current(slot)
         const bound = binding?.type === 'field' ? binding : undefined
-        const field = col.fields.find((item) => item.id === bound?.field)
+        const field = bound && findField(doc, bound.field, bound.entry, col)
         return (
           <div key={slot} className="binding-row">
             <label>
               {label}
               <select
                 aria-label={label}
-                value={bound?.field ?? ''}
+                value={
+                  picking === slot ? 'pick' : bound ? (bound.entry ? 'entry' : bound.field) : ''
+                }
                 disabled={disabled}
-                onChange={(event) => void bind(slot, event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value
+                  if (value === 'pick') setPicking(slot)
+                  else if (value === 'entry' || (!value && !bound)) setPicking(undefined)
+                  else void bind(slot, value)
+                }}
               >
                 <option value="">{none}</option>
-                {bindableFields(doc, col, slot).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {col.name} · {item.label}
-                  </option>
-                ))}
+                {col &&
+                  bindableFields(doc, col, slot).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {col.name} · {item.label}
+                    </option>
+                  ))}
+                {bound?.entry && <option value="entry">{bindingLabel(doc, node.id, bound)}</option>}
+                <option value="pick">From the CMS…</option>
               </select>
             </label>
+            {picking === slot && (
+              <EntryPicker
+                doc={doc}
+                slot={slot}
+                start={bound?.entry ?? nearbyEntry(doc, node.id)}
+                disabled={disabled}
+                choose={(entry, field) => void bind(slot, field, undefined, entry)}
+                cancel={() => setPicking(undefined)}
+              />
+            )}
             {field?.type === 'date' && bound && (
               <label>
                 Date format
@@ -90,7 +133,7 @@ export function BindingControls({ doc, node, disabled, save }: Props) {
                   aria-label="Date format"
                   value={bound.format ?? ''}
                   disabled={disabled}
-                  onChange={(event) => void bind(slot, field.id, event.target.value)}
+                  onChange={(event) => void bind(slot, field.id, event.target.value, bound.entry)}
                 >
                   {FORMATS.map(([value, text]) => (
                     <option key={value} value={value}>
@@ -104,6 +147,91 @@ export function BindingControls({ doc, node, disabled, save }: Props) {
         )
       })}
     </div>
+  )
+}
+
+/** A field of the chosen entry's collection, else of the collection around the node. */
+function findField(doc: Document, field: string, entry?: string, col?: CollectionSchema) {
+  const source = entry ? findEntry(doc, entry)?.collection : col
+  return source?.fields.find((item) => item.id === field)
+}
+
+/** Choosing a collection, then one of its entries by searching, then the field to show. */
+function EntryPicker({
+  doc,
+  slot,
+  start,
+  disabled,
+  choose,
+  cancel,
+}: {
+  doc: Document
+  slot: BindingSlot
+  start: string | undefined
+  disabled: boolean
+  choose: (entry: string, field: string) => void
+  cancel: () => void
+}) {
+  const found = start ? findEntry(doc, start) : undefined
+  const [collection, setCollection] = useState(
+    found?.collection.id ?? Object.keys(doc.collections)[0] ?? '',
+  )
+  const [entry, setEntry] = useState(found?.entry.id ?? '')
+  const id = useId()
+  const col = doc.collections[collection]
+  if (!col) return null
+  const fields = bindableFields(doc, col, slot)
+  return (
+    <fieldset
+      className="entry-picker"
+      aria-label="Choose from the CMS"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !event.defaultPrevented) cancel()
+      }}
+    >
+      {Object.keys(doc.collections).length > 1 && (
+        <select
+          aria-label="Collection"
+          value={collection}
+          disabled={disabled}
+          onChange={(event) => {
+            setCollection(event.target.value)
+            setEntry('')
+          }}
+        >
+          {Object.values(doc.collections).map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+      )}
+      <ReferenceInput
+        id={id}
+        doc={doc}
+        field={{ id: 'entry', name: 'entry', label: 'Entry', type: 'reference', reference: col.id }}
+        value={entry || undefined}
+        disabled={disabled}
+        change={(value) => setEntry(typeof value === 'string' ? value : '')}
+      />
+      {entry && (
+        <select
+          aria-label="Field"
+          value=""
+          disabled={disabled || !fields.length}
+          onChange={(event) => choose(entry, event.target.value)}
+        >
+          <option value="" disabled>
+            {fields.length ? 'Choose a field' : 'No field fits here'}
+          </option>
+          {fields.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      )}
+    </fieldset>
   )
 }
 

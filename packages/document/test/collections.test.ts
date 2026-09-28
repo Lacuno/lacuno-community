@@ -1,4 +1,4 @@
-import { fixtureDocument } from '@lacuno/schema'
+import { checkReferences, fixtureDocument } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { planBatch } from '../src/engine.js'
 import { OperationError } from '../src/errors.js'
@@ -449,6 +449,54 @@ describe('editing collections by hand', () => {
       [
         { type: 'entry.update', collection: 'col-posts', id: 'e-2', fields: { 'f-author': null } },
         { type: 'entry.delete', collection: 'col-authors', id: 'e-ada' },
+      ],
+      doc,
+    )
+  })
+
+  it('binds a chosen entry on any page and refuses deleting what it reads', () => {
+    const privacy = (entry = 'e-1', field = 'f-body'): Operation => ({
+      type: 'node.create',
+      parent: 'n-home',
+      node: { type: 'text', id: 'n-legal', tag: 'div', text: { type: 'field', entry, field } },
+    })
+    const doc = run([
+      privacy(),
+      {
+        type: 'page.update',
+        id: 'p-home',
+        seo: { entry: 'e-2', fields: { title: 'f-title' } },
+      },
+    ]).document
+    expect(doc.nodes['n-legal']).toMatchObject({ text: { entry: 'e-1', field: 'f-body' } })
+    expect(checkReferences(doc)).toEqual([])
+    // The store refuses a batch whose document fails these checks.
+    const issues = (ops: Operation[]) => checkReferences(run(ops).document).map((i) => i.message)
+    expect(issues([privacy('e-nope')])).toEqual(['unknown entry e-nope'])
+    expect(issues([privacy('e-1', 'f-name')])).toEqual(['field f-name is not a field of col-posts'])
+    expect(
+      issues([{ type: 'page.update', id: 'p-home', seo: { fields: { title: 'f-title' } } }]),
+    ).toEqual(['seo.fields.title needs a collection page or seo.entry'])
+    expect(issues([{ type: 'page.update', id: 'p-post', seo: { entry: 'e-1' } }])).toEqual([
+      'a collection page reads seo.fields from each entry, not seo.entry',
+    ])
+    const del = (id: string) =>
+      failing([{ type: 'entry.delete', collection: 'col-posts', id }], /referenced/, doc)
+    expect(del('e-1').referencedBy).toEqual(['nodes.n-legal'])
+    expect(del('e-2').referencedBy).toEqual(['pages.p-home'])
+    const field = failing(
+      [{ type: 'field.remove', collection: 'col-posts', id: 'f-body' }],
+      /referenced/,
+      doc,
+    )
+    expect(field.referencedBy).toContain('nodes.n-legal')
+    const col = failing([{ type: 'collection.delete', id: 'col-posts' }], /referenced/, doc)
+    expect(col.referencedBy).toEqual(expect.arrayContaining(['nodes.n-legal', 'pages.p-home']))
+    // Unbound, the entry is free again.
+    run(
+      [
+        { type: 'node.update', id: 'n-legal', text: { type: 'doc', content: [] } },
+        { type: 'entry.delete', collection: 'col-posts', id: 'e-1' },
       ],
       doc,
     )

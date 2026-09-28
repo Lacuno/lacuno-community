@@ -1,8 +1,9 @@
 import type { Operation } from '@lacuno/document'
-import type { Document, Page } from '@lacuno/schema'
+import { type Document, findEntry, type Page } from '@lacuno/schema'
 import { useState } from 'react'
 import { collectionPageCreation, freePath } from './binding.js'
 import { CodeField } from './CodeField.js'
+import { entryTitle } from './cms.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { Menu, type MenuPoint, menuPoint } from './Menu.js'
@@ -199,6 +200,9 @@ export function PageSettings({
   const [collection, setCollection] = useState(page?.collection ?? '')
   const col = doc.collections[collection]
   const [seoFields, setSeoFields] = useState(page?.seo?.fields ?? {})
+  // Another page may read its SEO fields from an entry chosen here.
+  const [seoEntry, setSeoEntry] = useState(page?.seo?.entry ?? '')
+  const seoCol = col ?? (seoEntry ? findEntry(doc, seoEntry)?.collection : undefined)
   const hasNotFound = Object.values(doc.pages).some((other) => other.path === '/404')
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -233,7 +237,8 @@ export function PageSettings({
             canonical: canonical.trim(),
             noindex,
             ogImage,
-            fields: col ? seoFields : {},
+            fields: seoCol ? seoFields : {},
+            entry: col ? '' : seoEntry,
           })
           if (page)
             void run([
@@ -389,7 +394,32 @@ export function PageSettings({
             onChange={(event) => setDescription(event.target.value)}
           />
         </label>
-        {col &&
+        {!col && !page?.collection && Object.keys(doc.collections).length > 0 && (
+          <label>
+            SEO from entry
+            <select
+              aria-label="SEO from entry"
+              value={seoEntry}
+              disabled={disabled}
+              onChange={(event) => {
+                setSeoEntry(event.target.value)
+                setSeoFields({})
+              }}
+            >
+              <option value="">None</option>
+              {Object.values(doc.collections).map((item) => (
+                <optgroup key={item.id} label={item.name}>
+                  {(doc.entries[item.id] ?? []).map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entryTitle(item, entry)}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+        )}
+        {seoCol &&
           (
             [
               ['title', 'Title from', 'text'],
@@ -410,7 +440,7 @@ export function PageSettings({
                 <option value="">
                   {kind === 'image' ? 'Social image below' : 'Written above'}
                 </option>
-                {col.fields
+                {seoCol.fields
                   .filter((field) =>
                     kind === 'image'
                       ? field.type === 'image'
@@ -418,7 +448,7 @@ export function PageSettings({
                   )
                   .map((field) => (
                     <option key={field.id} value={field.id}>
-                      {col.name} · {field.label}
+                      {seoCol.name} · {field.label}
                     </option>
                   ))}
               </select>

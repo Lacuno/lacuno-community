@@ -146,7 +146,21 @@ function entriesWith(doc: Document, match: (field: FieldDef) => boolean, id: str
   return out
 }
 
-/** Where an entry is used: reference fields of other entries and list filters that name it. */
+/** The nodes and pages that read one of the entries directly: bindings and `seo.entry`. */
+function readersOfEntries(doc: Document, ids: ReadonlySet<string>): string[] {
+  const out: string[] = []
+  for (const node of Object.values(doc.nodes))
+    if (nodeBindings(node).some((b) => b.type === 'field' && b.entry && ids.has(b.entry)))
+      out.push(`nodes.${node.id}`)
+  for (const page of Object.values(doc.pages))
+    if (page.seo?.entry && ids.has(page.seo.entry)) out.push(`pages.${page.id}`)
+  return out
+}
+
+/**
+ * Where an entry is used: reference fields of other entries, list filters that name it, and
+ * bindings and pages that read it.
+ */
 export function referencesToEntry(doc: Document, collection: string, id: string): string[] {
   const out = entriesWith(
     doc,
@@ -161,7 +175,8 @@ export function referencesToEntry(doc: Document, collection: string, id: string)
       )
     )
       out.push(`nodes.${node.id}`)
-  return out.sort()
+  out.push(...readersOfEntries(doc, new Set([id])))
+  return [...new Set(out)].sort()
 }
 
 export function referencesToCollection(doc: Document, id: string): string[] {
@@ -178,7 +193,8 @@ export function referencesToCollection(doc: Document, id: string): string[] {
         col.id !== id
       )
         out.push(`collections.${col.id}.fields.${f.id}`)
-  return out.sort()
+  out.push(...readersOfEntries(doc, new Set(doc.entries[id]?.map((entry) => entry.id))))
+  return [...new Set(out)].sort()
 }
 
 /** Whether rich text, or any JSON holding it, has a link mark to the page. */

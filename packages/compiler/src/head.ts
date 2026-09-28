@@ -2,6 +2,7 @@ import {
   type AssetRef,
   type Document,
   type Entry,
+  findEntry,
   type Page,
   pageLang,
   plainText,
@@ -90,10 +91,12 @@ export function renderHead(input: HeadInput): string {
   const { doc, page, path } = input
   const resolveAsset = input.resolveAsset ?? publicAssetPath
   const siteUrl = input.siteUrl ? input.siteUrl.replace(/\/+$/, '') : undefined
-  // Entry fields named in seo.fields stand in for the page's own values.
+  // Entry fields named in seo.fields stand in for the page's own values: of the collection page's
+  // entry, else of the chosen one.
+  const entry = input.entry ?? (page.seo?.entry ? findEntry(doc, page.seo.entry)?.entry : undefined)
   const fromEntry = (key: 'title' | 'description' | 'ogImage') => {
     const field = page.seo?.fields?.[key]
-    const value = field ? input.entry?.fields[field] : undefined
+    const value = field ? entry?.fields[field] : undefined
     if (value === undefined) return undefined
     return typeof value === 'object' ? plainText(value) : String(value)
   }

@@ -66,7 +66,8 @@ from a repository without a server, and for building templates.
 - **Bindings.** A node attribute, a bound text value and a component prop each hold a binding:
   `static`, `field`, `designToken`, `asset`, `prop` or `page`. A `page` binding names a page id and
   compiles to that page's path, so a link survives a path change; deleting a referenced page is
-  refused with the referencing node ids.
+  refused with the referencing node ids. A `field` binding reads the entry around the node (a
+  collection list or collection page), or with `entry` one chosen entry on any page.
 
 ## Skills
 

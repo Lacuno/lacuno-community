@@ -7,6 +7,8 @@ import {
   type DocumentStore,
   type Operation,
   referencesToAsset,
+  referencesToCollection,
+  referencesToEntry,
 } from '@lacuno/document'
 import { type AssetRef, Document, type Node, parseDocument } from '@lacuno/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -269,7 +271,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'document.read',
     {
       description:
-        'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, components, collections, assets. No nodes, styles or entries. Each asset lists `usedBy`, the places that reference it (empty when unused, so asset.delete can remove it).',
+        'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, components, collections, assets. No nodes, styles or entries. Each asset and collection lists `usedBy`, the places that reference it (empty when unused, so asset.delete can remove it).',
     },
     async () => {
       const { document, revision } = store.read()
@@ -280,15 +282,19 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         styles: _s,
         entries: _e,
         assets,
+        collections,
         ...overview
       } = document
-      const withUses = Object.fromEntries(
-        Object.entries(assets).map(([id, asset]) => [
-          id,
-          { ...asset, usedBy: referencesToAsset(document, id) },
-        ]),
-      )
-      return ok({ revision, ...overview, assets: withUses })
+      const withUses = <T>(map: Record<string, T>, uses: (doc: Document, id: string) => string[]) =>
+        Object.fromEntries(
+          Object.entries(map).map(([id, item]) => [id, { ...item, usedBy: uses(document, id) }]),
+        )
+      return ok({
+        revision,
+        ...overview,
+        collections: withUses(collections, referencesToCollection),
+        assets: withUses(assets, referencesToAsset),
+      })
     },
   )
 
@@ -432,15 +438,21 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'entries.list',
     {
-      description: 'Entries of a collection in order.',
+      description:
+        'Entries of a collection in order. Each lists `usedBy`, the places that reference it (empty when unused, so entry.delete can remove it).',
       inputSchema: { collection: z.string(), limit: z.number().int().positive().optional() },
     },
     async ({ collection, limit }) => {
       const d = store.read().document
       if (!d.collections[collection])
         return fail(new InputError(`unknown collection ${collection}`))
-      const entries = d.entries[collection] ?? []
-      return ok(limit === undefined ? entries : entries.slice(0, limit))
+      const entries = (d.entries[collection] ?? []).slice(0, limit)
+      return ok(
+        entries.map((entry) => ({
+          ...entry,
+          usedBy: referencesToEntry(d, collection, entry.id),
+        })),
+      )
     },
   )
 

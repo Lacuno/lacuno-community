@@ -254,3 +254,29 @@ they reuse the inspector people already know. Structured `seo.fields` keeps fiel
 reference check that refuses deleting a used field; template strings would hide them. A generated
 pagination nav is a few lines and covers the common blog; a designable pagination node can follow
 when someone needs to style it beyond the site's link styles.
+
+## D021. A field binding may name its entry, so any page can show chosen CMS content
+
+**Decision.** A field binding takes an optional `entry`, an entry id:
+`{"type":"field","entry":"<entryId>","field":"<fieldId>"}` reads that entry on any page, in any
+slot a field binding fills (text, rich text, image, alt text, link), and inside a list or on a
+collection page too. The collection follows from the entry, and the id survives a slug change. A
+page that is not a collection page may set `seo.entry`, and its `seo.fields` then read that entry.
+In the inspector, "From the CMS…" picks a collection, searches its entries and offers the fields
+that fit the slot; the chip reads "Legal › Privacy › Body", the picker starts on the entry the page
+already reads, and "Written text" unbinds and keeps what the entry says, rich text included. A
+text bound to a rich text field becomes a `div`, so its headings, lists and links render as
+blocks. Validation refuses a missing entry or a field of another collection, which stops the
+build with the node and entry named; deleting an entry, field or collection that a binding or
+`seo.entry` reads is refused with the places, shown by page path.
+
+**Alternatives.** An element-level entry context, a wrapper whose descendants bind like a
+single-item list; a page-level entry, a collection page fixed to one entry; a binding that names
+the collection as well as the entry.
+
+**Why.** One optional property extends the binding people and agents already use: no new node
+type, no new scope rule, and a single element can show one field without a wrapper around it. A
+wrapper would read better when several fields of one entry sit together, and the picker gets most
+of that by starting on the entry the page already reads. The entry id alone is enough, since
+entry ids are unique across collections; naming the collection too could only disagree with it.
+

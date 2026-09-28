@@ -253,7 +253,7 @@ export function detachComponent(doc: Document, id: string) {
     component.props.map((prop) => [prop.name, instance.props?.[prop.name] ?? prop.default]),
   )
   const binding = (value: Binding): Binding => {
-    if (value.type === 'field')
+    if (value.type === 'field' && value.entry === undefined)
       throw new Error('Collection-bound instances must keep their component link.')
     if (value.type !== 'prop') return structuredClone(value)
     const resolved = values.get(value.prop)

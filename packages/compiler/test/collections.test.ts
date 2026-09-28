@@ -1,4 +1,4 @@
-import { checkReferences, type Document, fixtureDocument } from '@lacuno/schema'
+import { checkReferences, type Document, fixtureDocument, parseDocument } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { plainImageResolver } from '../src/images.js'
 import { render } from '../src/render.js'
@@ -89,8 +89,111 @@ describe('field bindings', () => {
     doc.pages['p-home']!.seo = { fields: { title: 'f-title' } }
     expect(checkReferences(doc).map((issue) => issue.message)).toEqual([
       'field binding f-title outside a collection',
-      'seo.fields.title needs a collection page',
+      'seo.fields.title needs a collection page or seo.entry',
     ])
+  })
+})
+
+describe('a chosen entry on any page', () => {
+  /** The home page reading posts by id: e-1's body and cover, e-2's title and page. */
+  function home(): Document {
+    const doc = blog()
+    post(doc).fields['f-body'] = {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Data' }] },
+        {
+          type: 'bulletList',
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [
+                    {
+                      type: 'text',
+                      text: 'Contact',
+                      marks: [{ type: 'link', attrs: { href: 'mailto:a@b.at' } }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const add = (id: string, node: Record<string, unknown>) => {
+      doc.nodes[id] = { id, parent: 'n-home', children: [], classes: [], ...node } as never
+      doc.nodes['n-home']!.children.push(id)
+    }
+    add('n-e-title', {
+      type: 'text',
+      tag: 'h2',
+      text: { type: 'field', entry: 'e-2', field: 'f-title' },
+    })
+    add('n-e-body', {
+      type: 'text',
+      tag: 'div',
+      text: { type: 'field', entry: 'e-1', field: 'f-body' },
+    })
+    add('n-e-cover', {
+      type: 'element',
+      tag: 'img',
+      attrs: {
+        src: { type: 'field', entry: 'e-1', field: 'f-cover' },
+        alt: { type: 'field', entry: 'e-1', field: 'f-title' },
+      },
+    })
+    add('n-e-link', {
+      type: 'text',
+      tag: 'a',
+      attrs: { href: { type: 'field', entry: 'e-2', field: 'f-slug' } },
+      text: { type: 'static', value: 'Read' },
+    })
+    doc.pages['p-home']!.seo = {
+      entry: 'e-1',
+      fields: { title: 'f-title', description: 'f-status', ogImage: 'f-cover' },
+    }
+    return doc
+  }
+
+  it('renders text, rich text blocks, an image, a link and the SEO fields of the entry', () => {
+    const doc = home()
+    expect(checkReferences(doc)).toEqual([])
+    const { body: html, head } = body(doc, 'p-home')
+    expect(html).toContain('<h2>Second post</h2>')
+    expect(html).toContain(
+      '<div><h2>Data</h2><ul><li><p><a href="mailto:a@b.at">Contact</a></p></li></ul></div>',
+    )
+    expect(html).toMatch(/<img[^>]*alt="Hello world"[^>]*src="\/assets\/0123456789abcdef/)
+    expect(html).toContain('<a href="/blog/second-post">Read</a>')
+    expect(head).toContain('<title>Hello world</title>')
+    expect(head).toContain('<meta name="description" content="published">')
+    expect(head).toMatch(/og:image" content="\/assets\/0123456789abcdef/)
+  })
+
+  it('reads the chosen entry inside a list and a collection page too', () => {
+    const doc = blog()
+    doc.nodes['n-date'] = {
+      ...doc.nodes['n-date']!,
+      text: { type: 'field', entry: 'e-3', field: 'f-title' },
+    } as never
+    expect(body(doc, 'p-post').body).toContain('<p>Third post</p>')
+  })
+
+  it('refuses a missing entry or a field of another collection', () => {
+    const doc = home()
+    doc.entries['col-posts']!.splice(1, 1)
+    ;(doc.nodes['n-e-cover'] as { attrs: Record<string, unknown> }).attrs.alt = {
+      type: 'field',
+      entry: 'e-1',
+      field: 'f-nope',
+    }
+    expect(() => parseDocument(doc)).toThrow(
+      /nodes.n-e-title: unknown entry e-2[\s\S]*nodes.n-e-cover: field f-nope is not a field of col-posts[\s\S]*nodes.n-e-link: unknown entry e-2/,
+    )
   })
 })
 

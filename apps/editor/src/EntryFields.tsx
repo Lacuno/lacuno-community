@@ -223,7 +223,14 @@ function AssetInput({
 }
 
 /** Picks one entry, or several, of the field's collection by searching their titles. */
-function ReferenceInput({ doc, field, value, disabled, change, id }: FieldProps & { id: string }) {
+export function ReferenceInput({
+  doc,
+  field,
+  value,
+  disabled,
+  change,
+  id,
+}: Omit<FieldProps, 'siteId' | 'upload'> & { id: string }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)

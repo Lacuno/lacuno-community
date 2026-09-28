@@ -5,6 +5,7 @@ import {
   CollectionId,
   ComponentId,
   DesignTokenId,
+  EntryId,
   FieldId,
   NodeId,
   PageId,
@@ -25,6 +26,11 @@ export const Binding = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('field'),
     field: FieldId,
+    /**
+     * A chosen entry to read, on any page; when left out, the entry around the node: the nearest
+     * collection list, else the collection page.
+     */
+    entry: EntryId.optional(),
     /** How a date field reads, in the page's language; the ISO date when left out. */
     format: z.enum(['short', 'medium', 'long', 'full']).optional(),
   }),

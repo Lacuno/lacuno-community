@@ -1,7 +1,7 @@
 import type { Operation } from '@lacuno/document'
 import type { CollectionSchema, Document, Entry, FieldDef } from '@lacuno/schema'
 import { plainText } from '@lacuno/schema'
-import { type AssetUse, nodeUse } from './assets.js'
+import { type AssetUse, nodeHome, nodeUse } from './assets.js'
 
 export type FieldType = FieldDef['type']
 
@@ -174,7 +174,11 @@ export function tableFields(col: CollectionSchema): FieldDef[] {
 export function uses(doc: Document, refs: string[]): AssetUse[] {
   return refs.map((ref): AssetUse => {
     const [kind, key = '', rest = '', index = ''] = ref.split('.')
-    if (kind === 'nodes') return nodeUse(doc, key)
+    // An element on a page reads where it is used by the page's address, like a page does.
+    if (kind === 'nodes') {
+      const page = nodeHome(doc, key).page
+      return { ...nodeUse(doc, key), ...(page ? { place: page.path } : {}) }
+    }
     if (kind === 'pages')
       return { label: `${doc.pages[key]?.name ?? key} page`, place: doc.pages[key]?.path ?? '' }
     if (kind === 'collections') {

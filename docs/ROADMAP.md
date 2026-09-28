@@ -228,6 +228,11 @@ With no collections, the CMS panel starts a blog in one step (D020). A collectio
 create a list page at `/<collection>` whose cards link to the entry pages, and the link picker
 offers every page and each entry of an entry page. Content editor mode, drafts and scheduling, and
 CSV import remain.
+**A chosen entry anywhere implemented (2026-09-28):** on any page, "From the CMS…" binds a text,
+an image, its alt text or a link to a field of an entry picked by collection, search and field,
+with a chip such as "Legal › Privacy › Body"; rich text renders its headings, lists and links as
+blocks, page settings read the SEO title, description and social image from a chosen entry, and a
+used entry, field or collection cannot be deleted (D021). Rich text has no tables yet.
 
 ## Phase 5. Collaboration and scale
 

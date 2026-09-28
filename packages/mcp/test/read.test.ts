@@ -152,4 +152,53 @@ describe('read tools', () => {
       (await client.callTool({ name: 'entries.list', arguments: { collection: 'nope' } })).isError,
     ).toBe(true)
   })
+
+  it('binds a chosen entry on a normal page and lists where entries and collections are used', async () => {
+    const { client } = await setup()
+    const read = async () =>
+      jsonOf<{ revision: number; collections: Record<string, { usedBy: string[] }> }>(
+        await client.callTool({ name: 'document.read', arguments: {} }),
+      )
+    expect((await read()).collections['col-posts']!.usedBy).toEqual([
+      'nodes.n-posts',
+      'pages.p-post',
+    ])
+    const applied = await client.callTool({
+      name: 'document.apply',
+      arguments: {
+        expectedRevision: (await read()).revision,
+        operations: [
+          {
+            type: 'node.create',
+            parent: 'n-home',
+            node: {
+              type: 'text',
+              id: 'n-legal',
+              tag: 'div',
+              text: { type: 'field', entry: 'e-1', field: 'f-body' },
+            },
+          },
+        ],
+      },
+    })
+    expect(applied.isError).toBeFalsy()
+    expect((await read()).collections['col-posts']!.usedBy).toContain('nodes.n-legal')
+    const entries = jsonOf<{ id: string; usedBy: string[] }[]>(
+      await client.callTool({ name: 'entries.list', arguments: { collection: 'col-posts' } }),
+    )
+    expect(entries.map((e) => e.usedBy)).toEqual([['nodes.n-legal'], [], []])
+    const preview = textOf(
+      await client.callTool({ name: 'page.preview', arguments: { page: '/', text: true } }),
+    )
+    expect(preview).toContain('n-legal\tThe first post.')
+    const refused = await client.callTool({
+      name: 'document.apply',
+      arguments: {
+        expectedRevision: (await read()).revision,
+        operations: [{ type: 'entry.delete', collection: 'col-posts', id: 'e-1' }],
+      },
+    })
+    expect(refused.isError).toBe(true)
+    expect(textOf(refused)).toContain('nodes.n-legal')
+  })
 })

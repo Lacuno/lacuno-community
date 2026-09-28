@@ -59,3 +59,15 @@ export type Document = z.infer<typeof Document>
 
 /** The page's language: its own, or else the site's. */
 export const pageLang = (doc: Document, page: Page): string => page.lang ?? doc.site.locale
+
+/** An entry by id, with its collection, whichever collection holds it. */
+export function findEntry(
+  doc: Document,
+  id: string,
+): { collection: CollectionSchema; entry: Entry } | undefined {
+  for (const [collection, entries] of Object.entries(doc.entries)) {
+    const entry = entries.find((item) => item.id === id)
+    const col = doc.collections[collection]
+    if (entry && col) return { collection: col, entry }
+  }
+}

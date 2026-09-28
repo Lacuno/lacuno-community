@@ -4,10 +4,13 @@ import { expect, it } from 'vitest'
 import {
   bindableFields,
   blogStarter,
+  boundFieldLabel,
   collectionPageCreation,
   listInsertion,
+  nearbyEntry,
   scopeCollection,
   switchListCollection,
+  unboundText,
 } from '../src/binding.js'
 
 const apply = async (doc: Document, operations: Operation[]) => {
@@ -105,4 +108,31 @@ it('creates a page per entry and a whole blog in one step', async () => {
   )
   const list = Object.values(blog.nodes).find((node) => node.type === 'collection-list')
   expect(list).toMatchObject({ query: { limit: 10, paginate: true } })
+})
+
+it('names a chosen entry on the chip, starts the next binding there and unbinds to its content', async () => {
+  const doc = await apply(fixtureDocument(), [
+    {
+      type: 'node.create',
+      parent: 'n-home',
+      node: {
+        type: 'text',
+        id: 'n-legal',
+        tag: 'div',
+        text: { type: 'field', entry: 'e-1', field: 'f-body' },
+      },
+    },
+  ])
+  expect(boundFieldLabel(doc, doc.nodes['n-legal']!)).toBe('Posts › Hello world › Body')
+  expect(boundFieldLabel(doc, doc.nodes['n-post-title']!)).toBe('Title')
+  expect(nearbyEntry(doc, 'n-hero-title')).toBe('e-1')
+  expect(nearbyEntry(doc, 'n-post-title')).toBeUndefined()
+  const posts = doc.collections['col-posts']!
+  // Rich text comes back whole; other values as a paragraph.
+  expect(unboundText(doc, posts, 'f-body', 'e-1')).toEqual(
+    doc.entries['col-posts']![0]!.fields['f-body'],
+  )
+  expect(unboundText(doc, posts, 'f-title', 'e-2').content).toEqual([
+    { type: 'paragraph', content: [{ type: 'text', text: 'Second post' }] },
+  ])
 })

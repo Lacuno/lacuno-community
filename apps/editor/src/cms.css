@@ -854,8 +854,13 @@
   white-space: nowrap;
 }
 .field-chip .editor-icon {
+  flex-shrink: 0;
   width: 12px;
   height: 12px;
+}
+.field-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .binding-controls,
 .list-settings {
@@ -871,6 +876,15 @@
 .binding-row {
   display: grid;
   gap: 8px;
+}
+.entry-picker {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 .list-settings > label:first-child {
   margin-top: 4px;

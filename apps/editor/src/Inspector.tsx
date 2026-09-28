@@ -297,9 +297,9 @@ export function Inspector({
         <strong>{nodeLabel(node)}</strong>
         <span className="element-badge">{'tag' in node ? node.tag.toUpperCase() : node.type}</span>
         {boundField && (
-          <span className="field-chip" title="Shows a field of each entry">
+          <span className="field-chip" title={boundField}>
             <EditorIcon name="database" />
-            {boundField}
+            <span>{boundField}</span>
           </span>
         )}
         <button
@@ -360,7 +360,13 @@ export function Inspector({
             />
           </div>
         )}
-        <BindingControls doc={doc} node={node} disabled={disabled || !settled} save={save} />
+        <BindingControls
+          key={node.id}
+          doc={doc}
+          node={node}
+          disabled={disabled || !settled}
+          save={save}
+        />
         {node.type === 'collection-list' && (
           <ListSettings doc={doc} node={node} disabled={disabled || !settled} save={save} />
         )}
