@@ -92,7 +92,19 @@ closes their open MCP sessions. It answers `200 {"consents":n,"tokens":n,"sessio
 nothing left to revoke; 400 for an invalid body; 401 for a missing, invalid or replayed assertion;
 403 for an assertion without `system`. Its assertion is a normal one with `system: true`
 (conventionally `sub` `lacuno-cloud`), sent without an `Origin` header and never on behalf of a
-browser. The runtime refuses a `system` assertion (401) on every other route.
+browser. The runtime refuses a `system` assertion (401) on every route but these two.
+
+**A site's origin.** `POST /api/gateway/site-origin` with `{"siteId":"<id>","origin":"https://www.example.com"}`,
+with the same `system` assertion, sets the origin a site's builds link to: canonical links,
+`og:url`, absolute `og:image`, the sitemap and the `Sitemap:` line of robots.txt, served on that
+same host. `"origin": null` goes back to the site's published address (`LACUNO_PUBLISH_BASE_URL`),
+and a **Public URL** in Site settings still wins over both. The origin must be exactly an HTTP(S)
+origin, lowercase, without a path. Each release records the origin it was built with; when the
+live release's differs, the runtime builds its same revision and document again as a new
+production release (never the draft), right away or when the build in progress goes live, and it
+does the same after a restore. The editor's live link shows the origin. It answers
+`200 {"origin":"<origin now in use>"}`; 400 for an invalid body, 404 for a site it does not have,
+503 without publishing.
 
 **Client ID Metadata Documents and files.** A runtime without internet access fetches Client ID
 Metadata Documents, and the files an AI app imports by `url`, through the relay in

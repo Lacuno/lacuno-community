@@ -163,7 +163,7 @@ release offers **Send v7 to testing** to point testing at it; **Restore v7** sta
 rollback and leaves testing alone. Releases are not tied to a target; each records the target it was published
 for. Built pages link to the production URL, so a promoted build needs no rebuild.
 
-Locally, the default published URL is `http://<site-id>.localhost:3001`. A **Public URL** set in Site settings replaces it in canonical links, social URLs, the sitemap and robots.txt. Modern browsers resolve
+Locally, the default published URL is `http://<site-id>.localhost:3001`. A **Public URL** set in Site settings replaces it in canonical links, social URLs, the sitemap and robots.txt; behind a gateway, the site's origin the gateway sets (`POST /api/gateway/site-origin`, [GATEWAY_AUTH.md](../../docs/GATEWAY_AUTH.md)) replaces it unless Site settings has one. Modern browsers resolve
 `.localhost` to loopback. The static listener has no editor, authentication or draft API routes.
 Production requires an explicit publishing base URL, wildcard DNS and a TLS reverse proxy that
 preserves the Host header and routes published hosts to the publishing port. Use a dedicated

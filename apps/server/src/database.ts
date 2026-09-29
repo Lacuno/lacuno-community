@@ -148,4 +148,19 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM lacuno_migrations WHERE version = 6').get()) return
+      // The origin a gateway gave a site, such as its primary custom domain, and the origin each
+      // release was built with (releases.ts); an older release was built with the published address.
+      sqlite.exec(`
+      CREATE TABLE site_origin (
+        site_id TEXT PRIMARY KEY NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        origin TEXT NOT NULL
+      );
+      ALTER TABLE releases ADD COLUMN origin TEXT;
+      INSERT INTO lacuno_migrations (version) VALUES (6);
+    `)
+    })
+    .immediate()
 }

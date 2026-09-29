@@ -37,6 +37,7 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     const linked = /<link rel="stylesheet" href="\/_astro\/[^"]+\.css">/.test(home)
     expect(inlined || linked).toBe(true)
     expect(home).toContain('<link rel="canonical" href="https://example.com/">')
+    expect(home).toContain('<meta property="og:url" content="https://example.com/">')
     expect(existsSync(path.join(dir, 'dist/blog/hello-world/index.html'))).toBe(true)
     expect(existsSync(path.join(dir, 'dist/blog/third-post/index.html'))).toBe(true)
     expect(existsSync(path.join(dir, 'dist/old-blog/index.html'))).toBe(true)
@@ -82,6 +83,12 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     const plain = await tmp()
     await writeFixtureSite(plain)
     await build(plain, { quiet: true })
+    // Without a site url nothing is absolute: no canonical, og:url, sitemap or Sitemap line.
+    expect(await readFile(path.join(plain, 'dist/index.html'), 'utf8')).not.toMatch(
+      /rel="canonical"|og:url/,
+    )
+    expect(existsSync(path.join(plain, 'dist/sitemap-index.xml'))).toBe(false)
+    expect(await readFile(path.join(plain, 'dist/robots.txt'), 'utf8')).not.toContain('Sitemap')
     const cache = path.join(await tmp(), 'images')
 
     const cold = await tmp()

@@ -237,8 +237,12 @@ export async function createServer(options: ServerOptions) {
       app.use('*', async (c, next) => {
         if (anonymous(c.req.method, c.req.path)) return next()
         const user = await gateway.authenticate(c.req.raw).catch(() => undefined)
-        // Cloud's own assertions are good for revoking access and nothing else.
-        if (!user || (user.system && c.req.path !== '/api/gateway/revoke-user'))
+        // Cloud's own assertions are good for its two routes and nothing else.
+        if (
+          !user ||
+          (user.system &&
+            !['/api/gateway/revoke-user', '/api/gateway/site-origin'].includes(c.req.path))
+        )
           return c.json({ error: 'Authenticated gateway required' }, 401)
         const refused = refusal(user.role, c.req.method, c.req.path)
         if (refused) return c.json({ error: refused }, 403)
@@ -269,6 +273,24 @@ export async function createServer(options: ServerOptions) {
           ...(await provider.revokeUser(userId)),
           sessions: await closeUserSessions(userId),
         })
+      })
+      app.post('/api/gateway/site-origin', async (c) => {
+        if (!c.get('gatewayUser').system)
+          return c.json({ error: 'Only the gateway itself can set a site origin' }, 403)
+        const input = z
+          .strictObject({
+            siteId: z.string().min(1).max(100),
+            origin: z
+              .string()
+              .max(300)
+              .refine((value) => URL.canParse(value) && new URL(value).origin === value)
+              .nullable(),
+          })
+          .safeParse(await c.req.json().catch(() => null))
+        if (!input.success) return c.json({ error: 'Invalid site origin' }, 400)
+        if (!releases) return c.json({ error: 'Publishing is not configured on this server.' }, 503)
+        releases.setOrigin(input.data.siteId, input.data.origin)
+        return c.json({ origin: releases.origin(input.data.siteId) })
       })
     }
     // OAuth clients post forms from other apps; these endpoints authenticate the client instead.

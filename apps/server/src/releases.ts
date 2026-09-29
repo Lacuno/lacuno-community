@@ -24,6 +24,8 @@ type ReleaseRow = {
   warnings: string
   owner: string | null
   lease_until: number | null
+  /** The origin it links to, set when its build starts; null in releases from before. */
+  origin: string | null
 }
 const conflict = (message: string) => new HTTPException(409, { message })
 const leaseMs = 30_000
@@ -63,11 +65,14 @@ export class Releases extends PublicationReader {
       .prepare(
         'SELECT id,revision,version,name,target,status,created_at,finished_at,error,warnings FROM releases WHERE site_id = ? ORDER BY version DESC',
       )
-      .all(siteId) as Omit<ReleaseRow, 'document' | 'site_id' | 'owner' | 'lease_until'>[]
+      .all(siteId) as Omit<
+      ReleaseRow,
+      'document' | 'site_id' | 'owner' | 'lease_until' | 'origin'
+    >[]
     return {
       enabled: true,
       publishedId: this.current(siteId),
-      url: this.url(siteId),
+      url: this.origin(siteId),
       testingId: this.current(siteId, 'testing'),
       testingUrl: this.url(siteId, 'testing'),
       releases: rows.map((row) => ({
@@ -92,8 +97,7 @@ export class Releases extends PublicationReader {
     name: string | null,
     target: Target,
   ) {
-    const id = randomUUID()
-    this.sqlite
+    const id = this.sqlite
       .transaction(() => {
         this.checkPublication(siteId, expectedId, target)
         const site = this.sqlite
@@ -101,20 +105,78 @@ export class Releases extends PublicationReader {
           .get(siteId) as { document: string; revision: number }
         if (site.revision !== revision)
           throw conflict('The draft changed. Reload before publishing.')
-        const { version } = this.sqlite
-          .prepare(
-            'SELECT COALESCE(MAX(version), 0) + 1 AS version FROM releases WHERE site_id = ?',
-          )
-          .get(siteId) as { version: number }
-        this.sqlite
-          .prepare(
-            "INSERT INTO releases(id,site_id,revision,version,name,target,document,status,created_at) VALUES(?,?,?,?,?,?,?,'queued',?)",
-          )
-          .run(id, siteId, revision, version, name, target, site.document, Date.now())
+        return this.queue(siteId, revision, site.document, name, target)
       })
       .immediate()
     void this.tick()
     return { id }
+  }
+
+  private queue(
+    siteId: string,
+    revision: number,
+    document: string,
+    name: string | null,
+    target: Target,
+  ) {
+    const id = randomUUID()
+    const { version } = this.sqlite
+      .prepare('SELECT COALESCE(MAX(version), 0) + 1 AS version FROM releases WHERE site_id = ?')
+      .get(siteId) as { version: number }
+    this.sqlite
+      .prepare(
+        "INSERT INTO releases(id,site_id,revision,version,name,target,document,status,created_at) VALUES(?,?,?,?,?,?,?,'queued',?)",
+      )
+      .run(id, siteId, revision, version, name, target, document, Date.now())
+    return id
+  }
+
+  /** The origin a site's pages link to: the one its gateway set, else its published address. */
+  origin(siteId: string) {
+    const row = this.sqlite
+      .prepare('SELECT origin FROM site_origin WHERE site_id = ?')
+      .get(siteId) as { origin: string } | undefined
+    return row?.origin ?? this.url(siteId)
+  }
+
+  /** Sets a site's origin (null: its published address) and brings its live release up to it. */
+  setOrigin(siteId: string, origin: string | null) {
+    this.sqlite
+      .transaction(() => {
+        if (!this.sqlite.prepare('SELECT id FROM sites WHERE id = ?').get(siteId))
+          throw new HTTPException(404, { message: 'Site not found' })
+        if (origin)
+          this.sqlite
+            .prepare(
+              'INSERT INTO site_origin(site_id,origin) VALUES(?,?) ON CONFLICT(site_id) DO UPDATE SET origin=excluded.origin',
+            )
+            .run(siteId, origin)
+        else this.sqlite.prepare('DELETE FROM site_origin WHERE site_id = ?').run(siteId)
+        this.refresh(siteId)
+      })
+      .immediate()
+    void this.tick()
+  }
+
+  /**
+   * Builds the live release again, its same revision and document, when it links to another
+   * origin than the site's now. Waits for a build in progress, which calls it again when it goes
+   * live.
+   */
+  private refresh(siteId: string) {
+    const live = this.sqlite
+      .prepare(
+        "SELECT r.revision,r.document,r.origin FROM publications p JOIN releases r ON r.id=p.release_id WHERE p.site_id=? AND p.target='production'",
+      )
+      .get(siteId) as Pick<ReleaseRow, 'revision' | 'document' | 'origin'> | undefined
+    if (!live || (live.origin ?? this.url(siteId)) === this.origin(siteId)) return
+    if (
+      this.sqlite
+        .prepare("SELECT id FROM releases WHERE site_id = ? AND status IN ('queued','building')")
+        .get(siteId)
+    )
+      return
+    this.queue(siteId, live.revision, live.document, null, 'production')
   }
 
   rename(siteId: string, id: string, name: string | null) {
@@ -158,6 +220,7 @@ export class Releases extends PublicationReader {
       )
       .run(siteId, target, id)
     this.exporter?.queue(siteId, target, id)
+    this.refresh(siteId)
   }
 
   private async tick() {
@@ -178,10 +241,14 @@ export class Releases extends PublicationReader {
               "SELECT * FROM releases WHERE status='queued' ORDER BY created_at, rowid LIMIT 1",
             )
             .get() as ReleaseRow | undefined
-          if (row)
+          if (row) {
+            row.origin = this.origin(row.site_id)
             this.sqlite
-              .prepare("UPDATE releases SET status='building',owner=?,lease_until=? WHERE id=?")
-              .run(this.owner, Date.now() + leaseMs, row.id)
+              .prepare(
+                "UPDATE releases SET status='building',owner=?,lease_until=?,origin=? WHERE id=?",
+              )
+              .run(this.owner, Date.now() + leaseMs, row.origin, row.id)
+          }
           return row
         })
         .immediate()
@@ -240,12 +307,15 @@ export class Releases extends PublicationReader {
 
   private async build(job: ReleaseRow): Promise<unknown[]> {
     const directory = this.directory(job.site_id, job.id)
-    // A document with a successful release already, as a draft just sent to testing, is copied.
+    // A document with a successful release for the same origin already, as a draft just sent to
+    // testing, is copied.
     const same = this.sqlite
       .prepare(
-        "SELECT id,warnings FROM releases WHERE site_id=? AND revision=? AND document=? AND status='ready' ORDER BY version DESC LIMIT 1",
+        "SELECT id,warnings FROM releases WHERE site_id=? AND revision=? AND document=? AND origin IS ? AND status='ready' ORDER BY version DESC LIMIT 1",
       )
-      .get(job.site_id, job.revision, job.document) as { id: string; warnings: string } | undefined
+      .get(job.site_id, job.revision, job.document, job.origin) as
+      | { id: string; warnings: string }
+      | undefined
     if (same) {
       const built = path.join(this.directory(job.site_id, same.id), 'dist')
       await cp(built, path.join(directory, 'dist'), { recursive: true })
@@ -275,7 +345,7 @@ export class Releases extends PublicationReader {
           ...(source ? ['--import', import.meta.resolve('tsx')] : []),
           worker,
           directory,
-          this.url(job.site_id),
+          job.origin!,
           // Optimized images carry over between the site's builds; backups leave them out.
           path.join(this.dataDir, 'builds', job.site_id, 'images'),
         ],
