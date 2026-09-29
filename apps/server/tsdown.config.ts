@@ -7,6 +7,7 @@ export default defineConfig({
     'src/setup-token.ts',
     'src/backup-cli.ts',
     'src/published-main.ts',
+    'src/auth-migrate.ts',
   ],
   format: 'esm',
   platform: 'node',

@@ -1,6 +1,9 @@
+import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { once } from 'node:events'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { serveStatic } from '@hono/node-server/serve-static'
 import {
   DocumentStore,
@@ -12,21 +15,20 @@ import {
 } from '@lacuno/document'
 import { renderPreview } from '@lacuno/renderer'
 import { AssetHash, hashAsset, parseDocument } from '@lacuno/schema'
-import { type BetterAuthOptions, betterAuth } from 'better-auth'
-import { getMigrations } from 'better-auth/db/migration'
+import type Database from 'better-sqlite3'
 import { and, eq, sql } from 'drizzle-orm'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
+import type { Auth, AuthSettings } from './auth.js'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { type SiteEvent, siteEvents, summarize } from './events.js'
 import { exportActivity, exportAsset, exportThumbnail } from './export.js'
-import { fetchFile } from './fetch-file.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
-import { createOAuth, gatewayUser, type OAuth, oauthPlugins, relayFetch } from './oauth.js'
+import { createOAuth, gatewayUser, type OAuth, relayFetch } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
 import { SqlitePersistence } from './persistence.js'
 import { publishedApp } from './published.js'
@@ -93,6 +95,41 @@ const anonymous = (method: string, path: string) =>
   (['GET', 'POST', 'DELETE'].includes(method) && /^\/mcp\/[^/]+$/.test(path)) ||
   (method === 'PUT' && /^\/mcp\/[^/]+\/upload\/[^/]+$/.test(path))
 
+/**
+ * Better Auth's tables as auth.ts configures them: bump it when auth.ts changes a plugin or what
+ * Better Auth stores (lazy-start.test.ts checks), so existing databases migrate.
+ */
+export const AUTH_TABLES = 1
+
+/**
+ * Better Auth's migrations, in a child process so its modules leave with it, and only when its
+ * packages or AUTH_TABLES changed since they last ran: a start without them is about 0.4 s faster.
+ */
+async function migrateAuth(sqlite: Database.Database, dataDir: string) {
+  const packages = ['better-auth', '@better-auth/oauth-provider'].map((name) =>
+    import.meta.resolve(name),
+  )
+  const key = [AUTH_TABLES, ...packages].join(' ')
+  sqlite.exec('CREATE TABLE IF NOT EXISTS auth_migrations (key TEXT PRIMARY KEY NOT NULL)')
+  if (sqlite.prepare('SELECT key FROM auth_migrations WHERE key=?').get(key)) return
+  const source = import.meta.url.endsWith('.ts')
+  const child = spawn(
+    process.execPath,
+    [
+      ...(source ? ['--import', import.meta.resolve('tsx')] : []),
+      fileURLToPath(new URL(`./auth-migrate.${source ? 'ts' : 'js'}`, import.meta.url)),
+      dataDir,
+    ],
+    { stdio: ['ignore', 'inherit', 'inherit'] },
+  )
+  const [code] = await once(child, 'exit')
+  if (code !== 0) throw new Error(`Better Auth's migrations failed (exit code ${code})`)
+  sqlite.transaction(() => {
+    sqlite.exec('DELETE FROM auth_migrations')
+    sqlite.prepare('INSERT INTO auth_migrations(key) VALUES(?)').run(key)
+  })()
+}
+
 export async function createServer(options: ServerOptions) {
   if (options.secret.length < 32) throw new Error('Auth secret must contain at least 32 characters')
   if (options.export && !options.gateway) throw new Error('Export requires the gateway settings')
@@ -104,36 +141,28 @@ export async function createServer(options: ServerOptions) {
   const { db, sqlite } = openDatabase(options.dataDir)
   let releases: Releases | undefined
   try {
-    const authOptions = {
-      database: sqlite,
-      baseURL: origin,
-      secret: options.secret,
-      trustedOrigins: [origin],
-      emailAndPassword: { enabled: true, disableSignUp: !options.allowSignup },
-      rateLimit: { enabled: true, storage: 'database' },
-      // Behind a gateway every request comes from the gateway; it names the client.
-      ...(options.gateway
-        ? { advanced: { ipAddress: { ipAddressHeaders: ['x-lacuno-client-ip'] } } }
-        : {}),
-      plugins: oauthPlugins({ origin, gateway: options.gateway, cimdRelay: options.cimdRelay }),
-    } satisfies BetterAuthOptions
-    const migrations = await getMigrations(authOptions)
-    await migrations.runMigrations()
+    await migrateAuth(sqlite, options.dataDir)
     migrateApplication(sqlite)
     if (!options.gateway && sqlite.prepare('SELECT id FROM gateway_mode WHERE id=1').get())
       throw new Error('Gateway configuration is required for this managed instance')
     const gateway = options.gateway ? new GatewayAuth(sqlite, options.gateway, origin) : undefined
     const setup = gateway ? undefined : new OwnerSetup(sqlite, options.allowSignup ?? false)
-    if (gateway || setup?.singleOwner) authOptions.emailAndPassword.disableSignUp = true
-    const auth = betterAuth(authOptions)
+    const authSettings = (signUp: boolean): AuthSettings => ({
+      sqlite,
+      origin,
+      secret: options.secret,
+      signUp,
+      gateway: options.gateway,
+      cimdRelay: options.cimdRelay,
+    })
+    let loading: Promise<Auth> | undefined
+    const auth = () =>
+      (loading ??= import('./auth.js').then(({ createAuth }) =>
+        createAuth(authSettings(!gateway && !setup?.singleOwner && (options.allowSignup ?? false))),
+      ))
     const provider = createOAuth(auth, sqlite, origin, { gateway: !!gateway })
     // Tests may swap the verifier; the discovery routes stay the provider's.
     const oauth: OAuth = options.oauth ?? provider
-    // Only the token-protected setup endpoint can reach this registration-enabled handler.
-    const setupAuth = betterAuth({
-      ...authOptions,
-      emailAndPassword: { enabled: true, disableSignUp: false },
-    })
     releases = options.publishBaseURL
       ? new Releases(sqlite, options.dataDir, options.publishBaseURL, exportOptions)
       : undefined
@@ -222,7 +251,10 @@ export async function createServer(options: ServerOptions) {
         ['GET', 'POST'],
         '/api/auth/oauth2/:endpoint{authorize|public-client|consent}',
         sameOriginJson,
-        (c) => gatewayUser.run(c.get('gatewayUser'), () => auth.handler(c.req.raw)),
+        async (c) => {
+          const { handler } = await auth()
+          return gatewayUser.run(c.get('gatewayUser'), () => handler(c.req.raw))
+        },
       )
       app.post('/api/gateway/revoke-user', async (c) => {
         if (!c.get('gatewayUser').system)
@@ -242,7 +274,7 @@ export async function createServer(options: ServerOptions) {
     // OAuth clients post forms from other apps; these endpoints authenticate the client instead.
     app.post(
       `/api/auth/oauth2/:endpoint{token|register|revoke${gateway ? '' : '|introspect'}}`,
-      (c) => auth.handler(c.req.raw),
+      async (c) => (await auth()).handler(c.req.raw),
     )
     if (gateway)
       app.on(['GET', 'POST'], '/api/auth/*', (c) =>
@@ -265,7 +297,9 @@ export async function createServer(options: ServerOptions) {
         return c.json({ error: 'Enter your name, email, password and setup token.' }, 400)
       if (!setup.accepts(input.data.token)) return c.json({ error: 'Invalid setup token.' }, 403)
       const { token: _, ...account } = input.data
-      const response = await setupAuth.handler(
+      // Only the token-protected setup endpoint reaches a registration-enabled handler.
+      const { createAuth } = await import('./auth.js')
+      const response = await createAuth(authSettings(true)).handler(
         new Request(`${origin}/api/auth/sign-up/email`, {
           method: 'POST',
           headers: c.req.raw.headers,
@@ -282,11 +316,11 @@ export async function createServer(options: ServerOptions) {
         return c.json({ error: 'The owner account could not be created. Please try again.' }, 503)
       return response
     })
-    app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
+    app.on(['GET', 'POST'], '/api/auth/*', async (c) => (await auth()).handler(c.req.raw))
     app.use('/api/*', async (c, next) => {
       const session = gateway
         ? { user: { id: gateway.ownerId } }
-        : await auth.api.getSession({ headers: c.req.raw.headers })
+        : await (await auth()).api.getSession({ headers: c.req.raw.headers })
       if (!session) return c.json({ error: 'Authentication required' }, 401)
       c.set('userId', session.user.id)
       db.insert(workspaces)
@@ -397,14 +431,13 @@ export async function createServer(options: ServerOptions) {
       stageUpload((await store(id)).read().document, persistence(id), name, bytes)
     // A gateway runtime has no internet access: it downloads through Cloud's relay, or not at all.
     const { cimdRelay } = options
-    const download = !options.gateway
-      ? fetchFile
-      : cimdRelay &&
-        ((url: string) =>
-          fetchFile(
-            url,
-            relayFetch(cimdRelay, options.gateway!.secret, origin, 'lacuno-file-relay'),
-          ))
+    const relay =
+      options.gateway &&
+      cimdRelay &&
+      relayFetch(cimdRelay, options.gateway.secret, origin, 'lacuno-file-relay')
+    const download =
+      (!options.gateway || relay) &&
+      (async (url: string) => (await import('./fetch-file.js')).fetchFile(url, relay || undefined))
     app.route(
       '/mcp',
       mcpRoutes({

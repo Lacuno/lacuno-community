@@ -3,10 +3,9 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import type { ApplyResult, Batch, DocumentStore, Operation, stageUpload } from '@lacuno/document'
-import { type AssetDetails, createServer, InputError } from '@lacuno/mcp'
+import type { AssetDetails } from '@lacuno/mcp'
 import type { AssetRef } from '@lacuno/schema'
-import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
+import type { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
@@ -148,6 +147,16 @@ export function mcpRoutes(deps: McpDeps): Hono {
     // Parsed once here, so a tool call can be recorded; the transport takes it as parsedBody.
     const body: unknown =
       c.req.method === 'POST' ? await c.req.json().catch(() => undefined) : undefined
+    // Loaded on the first request, so a runtime no AI app connects to never loads them.
+    const [
+      { createServer, InputError },
+      { WebStandardStreamableHTTPServerTransport },
+      { isInitializeRequest },
+    ] = await Promise.all([
+      import('@lacuno/mcp'),
+      import('@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'),
+      import('@modelcontextprotocol/sdk/types.js'),
+    ])
     const sessionId = c.req.header('mcp-session-id')
     let session = sessionId ? sessions.get(sessionId) : undefined
     if (sessionId && (session?.siteId !== siteId || session.connectionId !== grant.connectionId))
