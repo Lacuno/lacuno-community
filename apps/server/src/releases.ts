@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { hashAsset, parseDocument } from '@lacuno/schema'
 import type Database from 'better-sqlite3'
 import { HTTPException } from 'hono/http-exception'
-import { Exporter, type ExportOptions } from './export.js'
+import { buildSlot, Exporter, type ExportOptions } from './export.js'
 import { PublicationReader, type Target } from './publication-reader.js'
 
 type ReleaseRow = {
@@ -38,12 +38,14 @@ export class Releases extends PublicationReader {
   private timer: ReturnType<typeof setInterval>
   private child: ChildProcess | undefined
   private exporter: Exporter | undefined
+  /** The release waiting for one of Cloud's build slots, which the history shows as `waiting`. */
+  private waiting: string | undefined
 
   constructor(
     sqlite: Database.Database,
     dataDir: string,
     baseURL: string,
-    exportOptions?: ExportOptions,
+    private exportOptions?: ExportOptions,
   ) {
     super(sqlite, dataDir, baseURL)
     this.exporter =
@@ -81,7 +83,7 @@ export class Releases extends PublicationReader {
         version: row.version,
         name: row.name,
         target: row.target,
-        status: row.status,
+        status: row.id === this.waiting && row.status === 'building' ? 'waiting' : row.status,
         createdAt: row.created_at,
         finishedAt: row.finished_at,
         error: row.error,
@@ -334,6 +336,31 @@ export class Releases extends PublicationReader {
       await writeFile(path.join(directory, 'assets', asset.hash), bytes)
     }
     if (this.stopped) throw new Error('Server stopped')
+    // Cloud runs only so many builds at once on the server; a build takes about 0.5 GB for seconds.
+    let release: (() => void) | undefined
+    try {
+      release =
+        this.exportOptions &&
+        (await buildSlot(
+          this.exportOptions,
+          job.site_id,
+          () => {
+            this.waiting = job.id
+          },
+          () => this.stopped,
+        ))
+    } finally {
+      this.waiting = undefined
+    }
+    try {
+      return await this.spawn(job, directory)
+    } finally {
+      release?.()
+    }
+  }
+
+  /** Builds a snapshot directory in a child process, whose memory leaves with it. */
+  private async spawn(job: ReleaseRow, directory: string): Promise<unknown[]> {
     const source = import.meta.url.endsWith('.ts')
     const worker = fileURLToPath(
       new URL(source ? './build-worker.ts' : './build-worker.js', import.meta.url),
@@ -342,6 +369,8 @@ export class Releases extends PublicationReader {
       const child = spawn(
         process.execPath,
         [
+          // A runaway build fails alone: the default template's heap peaks at about 110 MB.
+          '--max-old-space-size=384',
           ...(source ? ['--import', import.meta.resolve('tsx')] : []),
           worker,
           directory,

@@ -14,7 +14,7 @@ type Pointer = { site_id: string; target: Target; release_id: string; attempts: 
 /** One call to the sink for a site's `key`, signed for exactly that site, key and body. */
 async function send(
   options: ExportOptions,
-  method: 'HEAD' | 'PUT',
+  method: 'HEAD' | 'PUT' | 'DELETE',
   site: string,
   key: string,
   body?: Uint8Array,
@@ -54,6 +54,46 @@ export async function withRetries(
     if (!transient || attempt === delays.length || stopped()) return response
     await response?.body?.cancel()
     await delay(delays[attempt], undefined, { ref: false })
+  }
+}
+
+/**
+ * Waits for one of Cloud's build slots (`PUT <export>/sites/<site>/build`: 204 held, 202 waiting in
+ * line), so the server runs only so many builds at once; `waiting` is called while it waits. A
+ * runtime holds at most one, leased: it is renewed every 10 s while held, and this resolves to a
+ * function that gives it back (`DELETE`). A Cloud without build slots refuses the key, and the
+ * build starts at once; a sink that does not answer is asked again, like a full line, for up to
+ * ten minutes.
+ */
+export async function buildSlot(
+  options: ExportOptions,
+  site: string,
+  waiting: () => void,
+  stopped: () => boolean,
+) {
+  const key = 'build'
+  const ask = async () => {
+    const response = await send(options, 'PUT', site, key, Buffer.alloc(0)).catch(() => undefined)
+    await response?.body?.cancel()
+    return response?.status
+  }
+  for (const deadline = Date.now() + 600_000; ; ) {
+    const status = await ask()
+    if (status === 204) break
+    if (status && status !== 202 && status !== 429 && status < 500) return () => {}
+    if (stopped()) throw new Error('Server stopped')
+    if (Date.now() > deadline)
+      throw new Error('Too many sites are being published right now. Publish again in a minute.')
+    waiting()
+    await delay(1000, undefined, { ref: false })
+  }
+  const renew = setInterval(() => void ask(), 10_000)
+  renew.unref()
+  return () => {
+    clearInterval(renew)
+    void send(options, 'DELETE', site, key)
+      .then((response) => response.body?.cancel())
+      .catch(() => {})
   }
 }
 

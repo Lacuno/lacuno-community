@@ -35,6 +35,8 @@ describe('export to the edge', () => {
   const log: string[] = []
   let failures: { match: RegExp; status: number; times: number } | undefined
   let inflight = 0
+  // Cloud's build slots: 202 while `full`, as when the server runs as many builds as it takes.
+  let full = false
   let peak = 0
   const sink = createHttpServer(async (request, response) => {
     peak = Math.max(peak, ++inflight)
@@ -52,13 +54,15 @@ describe('export to the edge', () => {
         payload.site === siteId &&
         payload.key === key &&
         payload.exp! - payload.iat! <= 60 &&
-        (request.method === 'HEAD' || payload.sha256 === sha256(body)),
+        (['HEAD', 'DELETE'].includes(request.method!) || payload.sha256 === sha256(body)),
       () => false,
     )
     log.push(`${request.method} ${key}`)
     if (!valid) return response.writeHead(401).end()
     if (failures?.match.test(`${request.method} ${key}`) && failures.times-- > 0)
       return response.writeHead(failures.status).end()
+    if (key === 'build')
+      return response.writeHead(request.method === 'PUT' && full ? 202 : 204).end()
     if (request.method === 'HEAD') return response.writeHead(files.has(key!) ? 200 : 404).end()
     if (key!.startsWith('pointer/')) pointers.set(key!.slice('pointer/'.length), body.toString())
     else if (key === 'assets') lists.set(siteId!, body.toString())
@@ -253,6 +257,48 @@ describe('export to the edge', () => {
       expect((await history()).publishedId).toBe(second)
       expect(table('export_pointer')).toEqual([])
       expect(pointers.get('production')).toBe(second)
+    },
+    build,
+  )
+
+  it(
+    'waits for a build slot, shown as waiting, and gives it back before the upload',
+    async () => {
+      log.length = 0
+      full = true
+      // A changed draft: a document built already is copied without a slot.
+      const { revision } = await call(`/api/sites/${site}/document`)
+      await call(`/api/sites/${site}/document/apply`, {
+        expectedRevision: revision,
+        operations: [{ type: 'site.update', name: 'Waited' }],
+      })
+      const { id } = await call(`/api/sites/${site}/releases`, {
+        expectedRevision: revision + 1,
+        expectedId: second,
+      })
+      const status = async () => (await history()).releases.find((row) => row.id === id)?.status
+      await expect.poll(status).toBe('waiting')
+      const busy = await (await server.app.request(`${origin}/health`)).json()
+      expect(busy).toEqual({ status: 'ok', busy: true })
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      expect(await status()).toBe('waiting')
+      expect(log.filter((line) => line === 'PUT build').length).toBeGreaterThan(1)
+      full = false
+      await expect.poll(status, { timeout: build }).toBe('ready')
+      second = id
+      expect(log.indexOf('DELETE build')).toBeGreaterThan(-1)
+      expect(log.indexOf('DELETE build')).toBeLessThan(log.indexOf(`PUT releases/${id}/index.html`))
+
+      // A Cloud without build slots refuses the key: the build starts at once.
+      log.length = 0
+      failures = { match: /^PUT build$/, status: 400, times: 1 }
+      const { revision: next } = await call(`/api/sites/${site}/document`)
+      await call(`/api/sites/${site}/document/apply`, {
+        expectedRevision: next,
+        operations: [{ type: 'site.update', name: 'Built at once' }],
+      })
+      second = await publish(second)
+      expect(log.filter((line) => line.endsWith(' build'))).toEqual(['PUT build'])
     },
     build,
   )

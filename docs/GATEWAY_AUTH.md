@@ -145,9 +145,18 @@ of a site (its home page's first screen, a 640×400 WebP or JPEG the editor draw
 fails that request, so the editor draws it again later. After an AI app publishes, and at most
 once an hour per MCP session after it changes the document, `PUT <export>/sites/<site>/activity`
 sends `{"user":"<sub>","app":"<app name>","action":"published"|"edited"}` for the person who
-connected it, once and best effort; the sink answers 204. Every request carries
+connected it, once and best effort; the sink answers 204. Before a build starts its build process,
+`PUT <export>/sites/<site>/build` (empty body) asks for one of the server's build slots: 204 means
+the runtime holds one, 202 that it waits in line (the release history shows the release
+`waiting`), and no answer, a 429 or a 5xx count as waiting too; the runtime asks every second for up
+to ten minutes, then fails the release. It asks again every 10 seconds while it builds, and
+`DELETE <export>/sites/<site>/build` gives the slot back when the build process exits, before the
+upload. Any other answer means the sink has no build slots, and the build starts at once. Every
+request carries
 `authorization: Bearer <jwt>`, signed like the relay's with `aud` `lacuno-export` and the claims
 `site`, `key` (as in the URL) and, for `PUT`, `sha256` (the body's lowercase hex SHA-256).
+Without the export sink, as when self-hosted, a runtime builds at once, one release at a time; a
+build process's heap is limited to 384 MB either way.
 
 The proxy is a full trust boundary: anyone with its signing key can act as the managed owner. Protect
 and rotate keys deliberately, synchronize clocks and prevent direct public runtime access. This

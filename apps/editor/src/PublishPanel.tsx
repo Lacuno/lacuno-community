@@ -11,7 +11,8 @@ type Release = {
   name: string | null
   /** The target the release was published for. */
   target: Target
-  status: 'queued' | 'building' | 'ready' | 'failed'
+  /** `waiting` for one of Cloud's build slots, while the server runs as many builds as it can. */
+  status: 'queued' | 'waiting' | 'building' | 'ready' | 'failed'
   createdAt: number
   finishedAt: number | null
   error: string | null
@@ -27,7 +28,14 @@ type History = {
   releases: Release[]
 }
 
-const statusLabel = { queued: 'Queued', building: 'Building', ready: 'Ready', failed: 'Failed' }
+const statusLabel = {
+  queued: 'Queued',
+  waiting: 'Waiting for a build slot',
+  building: 'Building',
+  ready: 'Ready',
+  failed: 'Failed',
+}
+const active = (row: Release) => row.status !== 'ready' && row.status !== 'failed'
 const title = (row: Release) => (row.name ? `v${row.version} · ${row.name}` : `v${row.version}`)
 /** Every row action re-points one target at a ready release without a build. */
 const actions = {
@@ -73,9 +81,7 @@ export function PublishPanel({
     },
     [siteId],
   )
-  const building = history?.releases.find(
-    (row) => row.status === 'queued' || row.status === 'building',
-  )
+  const building = history?.releases.find(active)
   const pending = !!building
   // biome-ignore lint/correctness/useExhaustiveDependencies: accepting a new publish, or losing the server, restarts polling after an idle history view.
   useEffect(() => {
@@ -85,10 +91,7 @@ export function PublishPanel({
       try {
         const result = await refresh(controller.signal)
         setOffline(false)
-        if (
-          result.releases.some((row) => row.status === 'queued' || row.status === 'building') &&
-          !controller.signal.aborted
-        )
+        if (result.releases.some(active) && !controller.signal.aborted)
           timer = setTimeout(poll, 1000)
       } catch (error) {
         if (controller.signal.aborted) return
@@ -325,8 +328,13 @@ export function PublishPanel({
               </div>
               {building && (
                 <p role="status">
-                  {building.target === 'testing' ? 'Publishing to testing…' : 'Publishing…'} You can
-                  close this window and keep editing. The current live release stays available.
+                  {building.status === 'waiting'
+                    ? 'Waiting for a build slot…'
+                    : building.target === 'testing'
+                      ? 'Publishing to testing…'
+                      : 'Publishing…'}{' '}
+                  You can close this window and keep editing. The current live release stays
+                  available.
                 </p>
               )}
             </>
