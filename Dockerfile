@@ -33,4 +33,8 @@ USER node
 EXPOSE 3000 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
-CMD ["node", "apps/server/dist/main.js"]
+# Each thread that allocates gets a malloc arena of its own, which keeps what it freed: an editing
+# runtime held up to 40 MB more through V8's background compiler and garbage collector, which the
+# runtime's one CPU does not need. Node's fetch parses with a WebAssembly module whose optimizing
+# compile took another 18 MB; its baseline code is fast enough for the few requests a runtime sends.
+CMD ["node", "--single-threaded", "--liftoff-only", "apps/server/dist/main.js"]
