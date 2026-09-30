@@ -152,7 +152,7 @@ describe('the remote MCP endpoint', () => {
       expect.objectContaining({
         revision: revision + 1,
         actor: { kind: 'agent', app: 'Test Agent' },
-        summary: '1 operation: class.create',
+        summary: 'Added a class',
       }),
     ])
     expect(touched).toContain('conn-1')

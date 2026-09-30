@@ -49,7 +49,7 @@ it('streams committed batches, replaying the ones after ?since', async () => {
   expect(replayed.data).toMatchObject({
     revision: start + 1,
     actor: { kind: 'editor' },
-    summary: '1 operation: node.create',
+    summary: 'Added an element',
   })
   await apply('n-live-late', start + 1)
   expect((await next()).data.revision).toBe(start + 2)
