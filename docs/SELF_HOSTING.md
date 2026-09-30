@@ -57,8 +57,13 @@ If using a bind mount instead, its directory must be writable by UID/GID 1000.
 
 ## Public deployment: operator-managed
 
-Deploy on a server you control. Build the image there, or transport an image built for that server's
-CPU architecture. There is no official prebuilt image or automated update service yet.
+Deploy on a server you control. Build the image there, or use the prebuilt one:
+`ghcr.io/lacuno/lacuno-community:main` is built from `main` on every push, for linux/amd64, and each
+build is also tagged with its commit (`:<commit sha>`). Pin a tag or a digest rather than following
+`:main` blindly, and test an update before you roll it out. To use it, replace `build: .` and the
+`image:` line of the `lacuno` service in `compose.yaml` with `image:
+ghcr.io/lacuno/lacuno-community:<tag>` and start without `--build`. There is no automated update
+service.
 
 Use a dedicated publishing domain distinct from the editor's domain. For example, configure:
 

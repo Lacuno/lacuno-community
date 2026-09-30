@@ -60,7 +60,6 @@ restore, moving a workspace out of Lacuno Cloud, and upgrades.
 | [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) | Docker setup, operator-managed HTTPS, backups, restore and updates |
 | [docs/GATEWAY_AUTH.md](docs/GATEWAY_AUTH.md) | Gateway mode, for a trusted proxy that authenticates users |
 | [docs/CLOUD.md](docs/CLOUD.md) | Where Community ends and Lacuno Cloud begins |
-| [docs/LANDSCAPE.md](docs/LANDSCAPE.md) | Notes on related products and where Lacuno differs |
 | [apps/server/README.md](apps/server/README.md) | Server settings, HTTP API and publishing |
 | [apps/editor/README.md](apps/editor/README.md) | The editor, feature by feature |
 | [packages/mcp/README.md](packages/mcp/README.md) | The MCP tools and resources |
