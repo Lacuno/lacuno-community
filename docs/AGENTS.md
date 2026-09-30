@@ -26,8 +26,9 @@ look at the result, and a canvas where the designer watches it work.
 The editor's **Connect your AI** button registers the site's MCP endpoint in the app of the
 user's choice: an install link where the app has one, a one-line command or a URL to paste where
 it does not, then an OAuth consent screen in Lacuno. Once connected, the editor shows the app's
-name, when it last acted, and each batch it applies; touched elements flash on the canvas. See the
-[design](superpowers/specs/2026-09-23-connect-your-ai-design.md).
+name and when it last acted, the header's History lists each batch it applies, and touched elements
+flash on the canvas. The [editor README](../apps/editor/README.md#connect-your-ai) describes the
+panel and the [server README](../apps/server/README.md#api) the endpoint and its OAuth.
 
 - **Remote MCP** over Streamable HTTP on the Community server, one endpoint per site, protected by
   OAuth issued by the same server that runs the editor.
@@ -48,9 +49,10 @@ from a repository without a server, and for building templates.
   of loading every operation schema up front.
 - **Reading.** `document.read`, `page.outline`, `node.get`, `styles.get`, `entries.list`, plus
   the document schema and operations schema as resources.
-- **Writing.** `document.apply` with version pinning: every write names the document version it
-  read, and a stale write is rejected with the current version so the agent re-reads and retries
-  instead of overwriting. Dry run returns the resulting diff without applying it.
+- **Writing.** `document.apply` is the one writing tool: an atomic batch of operations (D026) with
+  version pinning. Every write names the document version it read, and a stale write is rejected
+  with the current version so the agent re-reads and retries instead of overwriting. Dry run
+  returns the resulting patches without applying them.
 - **Looking.** `page.preview` returns a route's HTML as published, or its visible text with node
   ids; `page.screenshot` returns a PNG of a route or a node through an optional Playwright
   Chromium; `document.diff` summarises a dry-run batch or the changes since another document.
@@ -69,7 +71,7 @@ from a repository without a server, and for building templates.
   refused with the referencing node ids. A `field` binding reads the entry around the node (a
   collection list or collection page), or with `entry` one chosen entry on any page.
 
-## Skills
+## Skills (planned, Phase 3)
 
 A skill is a markdown file with frontmatter, stored in the site repository under `skills/`.
 
@@ -92,9 +94,9 @@ Use `color.brand` only for primary actions. Sections alternate `surface.default`
 - Lacuno ships default skills: responsive fixes, accessibility, copywriting, component
   extraction, collection schema design, SEO.
 
-## Semantic vocabulary
+## Semantic vocabulary (planned, Phase 3)
 
-Nodes can carry optional annotations that cost nothing in output and help agents and tools:
+The schema already has the optional `semantic` field; nothing reads it yet. Nodes can carry optional annotations that cost nothing in output and help agents and tools:
 
 - `role`: `hero`, `nav`, `pricing`, `testimonial`, `cta`, `footer`, `feature-grid`, and free-form.
 - `archetype`: which section pattern this instance follows, linking back to a skill example.
@@ -106,13 +108,14 @@ contrast, a `pricing` section that breaks at tablet width. An agent runs it befo
 
 ## Safety and limits
 
-- Every tool call is logged with the connected app, the user who connected it and the resulting
-  diff, and shows up in the editor's activity list.
+- Every batch an app applies names the app and the person who connected it, and shows up in the
+  editor's History with a summary of what changed.
 - Connections are per site and revocable from the editor: by whoever connected the app, or by the
   workspace owner. A token only ever grants one site.
 - Agents cannot change permissions, invite users, delete sites or publish to production. Those
   are human-only actions and are not exposed as tools.
-- Rate limits per connection.
+- OAuth registration, token and authorization requests are rate limited per client address. Rate
+  limits per connection are planned.
 
 ## What ships when
 
@@ -120,8 +123,8 @@ contrast, a `pricing` section that breaks at tablet width. An agent runs it befo
 | --- | --- |
 | MCP server with discovery, nodes, styles, design tokens, pages, dry run, version pinning | Done |
 | Preview, screenshot, diff | Done |
-| Connect your AI: remote endpoint, OAuth, app cards, connection badge, live view, activity | Phase 2 |
-| Uploads and publish to testing through the connected endpoint | Phase 2 |
+| Connect your AI: remote endpoint, OAuth, app cards, connection badge, live view, history | Done |
+| Uploads and publish to testing through the connected endpoint | Done |
 | Selection context through MCP | Phase 3 |
 | Skills, default skill set, semantic annotations, linter | Phase 3 |
 | Element comments the agent can read | Later |

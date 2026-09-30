@@ -1,12 +1,13 @@
-# Lacuno server foundation
+# Lacuno server
 
-An authenticated HTTP API for the first Phase 1 milestone. Each account gets a private default
-workspace. Sites start from `templates/lacuno`, including its content-addressed assets.
-Document operations reuse `@lacuno/document` validation and revision checks.
+The Community server: it serves the editor and its authenticated HTTP API, the MCP endpoint for
+AI apps, builds and releases, and published sites on a separate listener. Each account gets a
+private default workspace. Sites start from `templates/lacuno`, including its content-addressed
+assets. Document operations reuse `@lacuno/document` validation and revision checks.
 
 For container deployment and operator-managed infrastructure, see the
-[self-hosting guide](../../docs/SELF_HOSTING.md). Managed domain/TLS setup is planned for Cloud,
-not the Community server.
+[self-hosting guide](../../docs/SELF_HOSTING.md). Managed domain and TLS setup belongs to
+[Lacuno Cloud](https://lacuno.io), not the Community server.
 
 ## Run locally
 
@@ -56,7 +57,7 @@ pnpm build
 pnpm --filter @lacuno/server start
 ```
 
-## Try the milestone
+## Try the API
 
 For an explicitly configured legacy multi-account instance with registration enabled, these commands
 create an account, sign in and create a site. Default Community installations use the owner setup
@@ -109,7 +110,7 @@ and checks the persisted result.
 | `POST /api/auth/sign-out` | Revoke the session |
 | `GET /api/workspaces` | Current user's default workspace |
 | `GET /api/sites` | Sites in that workspace |
-| `POST /api/sites` | Create a template site: `{name}` |
+| `POST /api/sites` | Create a site from the template: `{name}`; or from a document: `{name,document,assets}` with each referenced asset's bytes as base64 by hash (up to 90 MB) |
 | `GET /api/sites/:id/document` | `{document,revision}` |
 | `GET /api/sites/:id/preview?page=<id>&entry=<id>` | Canvas HTML, warnings and revision; entry required for collection pages |
 | `POST /api/sites/:id/assets/upload` | `{name,data}` (base64, up to 10 MB) → staged asset reference; PNG, JPEG, WebP, GIF, MP4, WebM, WOFF2, WOFF, TTF or OTF, typed by its bytes |
@@ -119,10 +120,12 @@ and checks the persisted result.
 | `POST /api/sites/:id/releases` | `{expectedRevision,expectedId,name?,target?}` → `202 {id,target}`; enqueue an immutable snapshot that goes live on `target` (`production` by default) when it is built |
 | `POST /api/sites/:id/releases/:releaseId/activate` | `{expectedId,target?}` → `{id,target}`; point `target` (`production` by default) at a successful release without a build: rollback, promote or send to testing; draft unchanged |
 | `POST /api/sites/:id/releases/:releaseId/name` | `{name}` → rename a release; an empty name clears it |
+| `POST /api/sites/:id/thumbnail`, `GET /api/sites/:id/thumbnail` | `{revision,image}` (a WebP or JPEG of the home page's first screen, base64, up to 256 KB) → `204`; a newer revision replaces an older one. `GET` returns the image |
 | `GET /api/sites/:id/events` | Server-sent events, one `batch` per committed apply: `{revision,patches,actor,at,summary}`; `?since=<revision>` or `Last-Event-ID` replays what was missed |
 | `GET /api/sites/:id/connections` | AI apps approved for the site: `[{id,app,approvedAt,lastActiveAt,active}]` |
 | `DELETE /api/sites/:id/connections/:id` | Revoke an app's tokens and close its sessions → `204` |
-| `POST/GET/DELETE /mcp/:id` | MCP over Streamable HTTP for one site; bearer token from the server's own OAuth, else `401` with `WWW-Authenticate … resource_metadata` |
+| `POST/GET/DELETE /mcp/:id` | MCP over Streamable HTTP for one site; bearer token from the server's own OAuth, else `401` with `WWW-Authenticate … resource_metadata`. A session closes after 30 minutes without a request |
+| `PUT /mcp/:id/upload/:token` | The single-use address `asset.upload` returns, valid 10 minutes; the body is one file of at most 10 MB → `201` with the asset |
 | `GET /.well-known/oauth-authorization-server`, `GET /.well-known/oauth-protected-resource/mcp/:id` | OAuth discovery for MCP clients; authorization, token, registration and revocation live under `/api/auth/oauth2/*`; consent is the editor's `/consent` page |
 
 Application routes require a session cookie; `/mcp/:id` takes an OAuth bearer token instead
@@ -195,9 +198,12 @@ the same base revision, including across server instances. Invalid batches and d
 stored document untouched. Failed site creation removes its partially copied assets; a process crash
 during creation can leave an unreferenced asset directory.
 
-The database is authoritative for server sites; these directories are not CLI site folders yet.
-Yjs sync, git snapshots, custom-domain management, shared workspace membership, email verification and
-password recovery are later work. The existing CLI/MCP site-folder workflow remains separate.
+The database is authoritative for server sites; these directories are not CLI site folders.
+Live collaboration, git snapshots, custom-domain management, local workspace members, email
+verification and password recovery are not built. The CLI/MCP site-folder workflow is separate.
+
+Gateway mode, for a trusted proxy that authenticates users, adds the `/api/gateway/*` routes and
+changes how requests are authenticated; see [GATEWAY_AUTH.md](../../docs/GATEWAY_AUTH.md).
 
 ```sh
 pnpm --filter @lacuno/server test

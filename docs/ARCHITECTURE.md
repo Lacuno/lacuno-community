@@ -6,16 +6,16 @@
                     ┌──────────────────────────────────────────────┐
                     │                 Lacuno server               │
                     │  Hono + Node 22                               │
-  Browser ─────────►│  ├─ /api        REST + tRPC-style typed API   │
-  (editor SPA)      │  ├─ /ws         Yjs sync + presence           │
+  Browser ─────────►│  ├─ /api        JSON API, server-sent events  │
+  (editor SPA)      │  ├─ /ws         live collaboration (planned)  │
   Claude, ChatGPT ─►│  ├─ /mcp        MCP over streamable HTTP,     │
   Cursor, VS Code   │  │              OAuth per site, no model calls │
                     │  ├─ /build      build queue → Astro compiler   │
-                    │  ├─ /forms      submissions endpoint for       │
-  Published site ──►│  │              published sites                │
+                    │  ├─ /forms      form submissions (planned)     │
+  Published site ──►│  │                                             │
                     │  └─ /sites/*    serves published static output │
                     │                                               │
-                    │  SQLite (Drizzle)   git repos    assets (fs/S3)│
+                    │  SQLite (Drizzle)        assets (filesystem)  │
                     └──────────────────────────────────────────────┘
                          Operator-managed proxy: TLS + host routing
 ```
@@ -32,21 +32,22 @@ belongs to the planned Cloud service. See [self-hosting](SELF_HOSTING.md).
 lacuno/
   apps/
     server/        Hono app, wires everything below together, ships as the Docker image
-    editor/        React SPA: canvas, panels, agent UI
-    cli/           `lacuno` binary: local dev, MCP stdio bridge, export, import
+    editor/        React SPA: canvas, panels, Connect your AI, the in-browser try build
+    cli/           `lacuno build` and `lacuno mcp` over a site folder
   packages/
     schema/        Zod schema for the document. Types, validation, migrations. Zero deps beyond zod
     document/      Operations over the document: typed mutations compiled to patches, revision, dry run, persistence
     css/           The one CSS generator. Document → stylesheet. Used by renderer and compiler
     renderer/      Canvas HTML adapter over the compiler renderer, hosted in a React-managed iframe
     compiler/      Document + content → static site, using Astro as an internal engine
-    cms/           Collection schema, storage, queries, export to content collections
     mcp/           MCP server: tool definitions over the document API
-    agent/         Skills, semantic annotations, design linter
-    importers/     Webflow clipboard, Webstudio JSON, HTML+CSS, Tailwind HTML, Markdown
-    ui/            Shared editor UI kit (Radix-based)
+  templates/
+    lacuno/        The default site new sites start from
   docs/
 ```
+
+Collections, fields and entries live in `schema` and `document`. Packages for skills and the design
+linter, importers and a shared UI kit are planned, not present.
 
 pnpm workspaces, Turborepo, TypeScript strict everywhere, Vitest, Playwright for the editor.
 
@@ -79,7 +80,6 @@ type Node = {
   parent: NodeId | null
   children: NodeId[]
   classes: ClassId[]                    // ordered; later classes win, like combo classes
-  localStyles?: StyleKey[]              // per-instance overrides, discouraged but allowed
   attrs: Record<string, AttrValue>      // static or bound to a CMS field or design token
   text?: RichText                       // for text nodes, Tiptap JSON
   rotatingWords?: { words: (string | { text; icon? })[]; icon?; interval?; transition?: 'slide' | 'fade' }  // text only
@@ -105,12 +105,10 @@ Design choices that matter:
   to a custom property. Any style value can reference a design token.
 - **Components are subtrees with a props schema.** An instance references a component and carries
   prop values plus explicit override nodes. Slots are nodes of type slot inside the component.
-- **Collections are schema in the document, data in the database.** The design of a collection is
-  part of the design. Entries are content and live in SQLite. On publish, entries are exported into
-  the repository so the repository is a complete site.
-- **Entries live in the document for now.** Until the server and its database exist, collection
-  entries are a map in the document keyed by collection id. The content phase moves them out with a
-  migration. Nothing else in the design depends on where they live.
+- **Per-element styles are a local class.** An element's own formatting goes into an unnamed
+  local class of that element, so it compiles like any other class and sits last in its list.
+- **Collections and their entries live in the document** (D019): entries are a map keyed by
+  collection id, and operations check every value against its field type.
 - **Semantic annotations are optional and cheap.** Role and archetype like `hero`, `pricing`,
   `testimonial`, and constraints like `above-fold` give the agent and the linter a vocabulary
   above raw CSS without affecting output.
@@ -121,35 +119,39 @@ and written back on the next commit.
 
 ## Live document and persistence
 
-- In the editor, undo and redo replay a committed batch's patches inverted, so one drag is one
-  undo step. Agent batches arrive over an event stream and are not the designer's undo steps.
-- Yjs sync is deferred. When it lands, the document becomes a Yjs doc that panels subscribe to, and
-  the server keeps it in memory per open site, syncs over WebSocket, and persists updates to SQLite
-  as they arrive so a crash loses nothing.
-- **Operations and revision.** Every change, from the editor or an agent, is a named operation
-  (`node.create`, `style.set`, `designToken.setValue` and so on) with a Zod schema. Operations
-  compile to five primitive patches (set, delete, insert, remove, move) that a plain-object
-  applier runs, and whose inverses are what undo replays. A document store owns the revision
-  counter: a batch names the revision it read, a stale batch is rejected, a dry run returns the
-  patches without committing, and the whole result is validated before commit. Nothing outside
-  the store's commit path can bump the revision.
-- **Commits.** On publish or on explicit save, the document is serialized to
-  JSON and committed to the site's git repository along with exported CMS entries and assets
-  metadata. Git is the durable history; SQLite is the live buffer.
-- Repository layout:
+- **Operations and revision** (D026). Every change, from the editor or an agent, is a named
+  operation (`node.create`, `style.set`, `designToken.setValue` and so on) with a Zod schema.
+  Operations compile to five primitive patches (set, delete, insert, remove, move) that a
+  plain-object applier runs with structural sharing. A document store owns the revision counter:
+  a batch names the revision it read, a stale batch is rejected, a dry run returns the patches
+  without committing, and the whole result is validated before commit. Nothing outside the store's
+  commit path can bump the revision.
+- **Validation and errors.** Each operation checks its preconditions against the draft as it
+  stands at that point in the batch, so a batch can refer to ids it created earlier. The full schema
+  and reference check then runs on the result. Failures are `StaleRevisionError` (expected and
+  current revision), `OperationError` (operation index, type, and the referencing paths when a
+  delete is refused), `DocumentError` (the issue list) or `PatchError` (a planner bug).
+- **Undo and redo.** In the editor, undo and redo replay a committed batch's patches inverted, so
+  one drag is one undo step. Batches from AI apps arrive over a server-sent event stream and land
+  on the canvas; they are not the designer's undo steps.
+- **Persistence** is an interface: SQLite on the server, a folder for the CLI, IndexedDB in the
+  in-browser try build and memory in tests. The server stores each site's document and revision in
+  one conditional statement, so two writers cannot commit on the same revision. The folder
+  implementation writes `lacuno.json` to a temporary file and renames it over the old one,
+  serializes deterministically (schema key order, sorted id maps, two-space indent) so a diff shows
+  only the change.
+- **Not built yet:** Yjs sync (D006) and git commits of the document (D005).
+
+A site folder, as `lacuno build` and `lacuno mcp` use it:
 
 ```
 site/
-  lacuno.json            the document, including collection entries for now
+  lacuno.json              the document, including collection entries
   assets/<hash>            asset bytes, addressed by content hash, no extension
-  skills/*.md              agent skills for this site
-  .lacuno/               build cache, ignored by git, owned by the build
+  .lacuno/                 build cache, owned by the build
   dist/                    static output, owned by the build
   node_modules/sharp       symlink the build creates so Astro's image step can load sharp
 ```
-
-- The repository can be local to the instance or a remote the user controls. Push on commit is a
-  setting.
 
 ## CSS generator
 
@@ -170,15 +172,20 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
 
 ## Canvas renderer
 
-- The canvas is an iframe. Inside it, the renderer package renders the document to DOM with React,
-  keyed by node id, and injects the generated stylesheet.
-- The editor talks to the iframe over postMessage: selection, hover, drag targets, bounding boxes,
-  text editing focus. No editor CSS or scripts run in the iframe except the thin instrumentation
-  layer.
+- The canvas is an iframe sandboxed with `allow-same-origin` only, plus a CSP that blocks
+  scripts, forms, frames and external resources. Site scripts and embeds never run there.
+- Its HTML comes from `@lacuno/renderer`: the compiler's renderer and the CSS generator, with node
+  ids on elements and assets served from the site's authenticated URLs. The server renders it per
+  revision; the try build renders it in a service worker.
+- The editor loads the first render once and morphs every later one into the live document in
+  place (D028), so scroll, selection and open controls survive an edit.
+- The selection overlay, spacing and size handles, the colour wheel and the state chip live in a
+  shadow root inside the iframe, where site CSS cannot reach them. Drag previews write a draft
+  rule into the canvas and commit once on release as one undo step.
 - Text editing is Tiptap mounted into the text node in place.
-- Collection lists render sample entries from the CMS so the design shows real content.
-- Breakpoint switching resizes the iframe; container queries and media queries then behave exactly
-  as they will in production.
+- Collection lists and collection pages render real entries from the document.
+- Breakpoint switching resizes the iframe, so media queries behave exactly as they will in
+  production.
 
 ## Compiler
 
@@ -197,47 +204,60 @@ generates is meant to be read, edited or kept.
   inlined when small, images optimized to AVIF and WebP with a width set, hashed asset names,
   redirects as meta-refresh pages, robots and a sitemap when the site URL is known.
 - Every route is rendered once before Astro runs, so reference errors and warnings surface with
-  node and page ids instead of being buried in bundler output.
+  node and page ids instead of being buried in bundler output. Warnings never fail a build; a
+  missing reference always does. Errors are reported as `document` (invalid file), `render` (with
+  node and page) or `engine` (Astro or sharp).
+- Images bound to an asset become a `<picture>` with AVIF and WebP sources at widths from 320 to
+  1920 and an `<img>` carrying `width` and `height` from the asset, `loading="lazy"` and
+  `decoding="async"` unless the node sets its own, and `sizes` defaulting to `100vw`. Alt text comes
+  from the node, then the asset, then an empty string. Images used in CSS `url()` values are copied
+  unoptimized.
+- A component instance's children are its slot content; a child names its slot with a static
+  `slot` attribute, which is not emitted, and falls into `default` otherwise. An embed publishes
+  its HTML verbatim, inside a `div` only when the embed has classes or attributes.
 - The build changes the process working directory for the duration of the Astro call, because
   Astro places its prerender bundle relative to the working directory. Builds must therefore run
   one at a time per process; the server's build queue runs them in a child process.
-- Custom code enters through embeds today and code components later. Code components are inputs
-  to the build, never files a developer edits in place.
+- Custom code enters through embeds and head or body code today, and code components later. Code
+  components are inputs to the build, never files a developer edits in place.
 
 The compiler has no knowledge of the server. The CLI exposes it as `lacuno build`.
 
 ## Server
 
-- **Hono** on Node 22. Typed routes shared with the editor through a generated client.
-- **Auth** with better-auth: email and password, magic link, then OIDC.
-- **Storage** through Drizzle. SQLite by default with WAL. Postgres via config.
-- **Tables** cover accounts, workspaces, sites, memberships, CMS entries, form submissions, builds,
-  MCP connections, activity log, and the Yjs update buffer.
-- **Build queue.** A small in-process queue runs each build in a child process, one at a time per
-  site, because the build changes its working directory for Astro. Output goes to
-  `builds/<site>/<build-id>/`. The first publishing milestone atomically updates a SQLite live-release
-  pointer after a successful build; the separate static listener resolves that pointer per request.
-  Immutable document snapshots and release states live in SQLite, builds run in child processes,
-  and rollback switches the pointer without changing the draft. A testing pointer per site is served
-  at `<site>-testing.<base>` and promoted to production without a rebuild; managed domain/TLS provisioning belongs to Cloud.
-- **Serving.** Published output is served with immutable caching for hashed assets and short
-  caching for HTML. An operator-managed reverse proxy terminates TLS and forwards published hosts
-  to the isolated static listener, preserving the Host header.
-- **Forms.** A published form posts to the instance, which validates, stores, notifies and
-  optionally forwards to a webhook. Rate limiting and honeypot are built in.
-- **Assets.** Content-addressed. Local disk by default, S3-compatible via config. Served through
-  the instance or directly from the bucket.
+- **Hono** on Node 22, serving the editor, its JSON API and the MCP endpoint on one origin.
+- **Auth** with Better Auth: email and password, a one-time owner setup (D015), and an OAuth
+  authorization server for AI apps (D016). Behind a trusted gateway, signed per-request assertions
+  replace local sign-in ([gateway mode](GATEWAY_AUTH.md)). Magic links and OIDC are planned.
+- **Storage** in SQLite (better-sqlite3, WAL) with Drizzle. Postgres is planned (D008).
+- **Tables** cover accounts and sessions, OAuth clients, consents and tokens, workspaces, sites
+  (document and revision), releases, publication pointers, site thumbnails and gateway state.
+- **Live edits.** Every committed batch goes out on a per-site server-sent event stream with its
+  revision, patches, actor and a one-line summary; an editor that missed revisions reads the
+  document again.
+- **Build queue.** A small in-process queue runs each build in a child process, one at a time,
+  because the build changes its working directory for Astro. Output goes to
+  `builds/<site>/<release>/`. A successful build atomically updates the SQLite publication pointer
+  for its target (production or testing, D027); the separate static listener resolves that pointer
+  per request. Rollback switches the pointer without changing the draft. Managed domain and TLS
+  provisioning belongs to Cloud.
+- **Serving.** Published output is served on its own listener and origin, with immutable caching
+  for hashed assets and short caching for HTML. An operator-managed reverse proxy terminates TLS and
+  forwards published hosts to that listener, preserving the Host header.
+- **Assets.** Content-addressed on local disk, typed by their first bytes on upload. S3-compatible
+  storage is planned.
+- **Forms** are planned: a published form posting to the instance, which validates, stores,
+  notifies and optionally forwards to a webhook, with rate limiting and a honeypot.
 
 ## CLI
 
-`lacuno` is a single binary with the same packages:
+`lacuno` works on a site folder with the same packages:
 
-- `lacuno dev` runs the server locally against a folder.
-- `lacuno build` produces the static output for a site folder.
-- `lacuno mcp` runs the MCP server over stdio for local agents and proxies to a remote instance
-  when configured.
-- `lacuno export` and `lacuno import` move sites between instances and formats.
-- `lacuno backup` and `lacuno restore` bundle the database, repositories and assets.
+- `lacuno build [dir]` produces the static output. `--out`, `--site-url` (used only when the
+  document has no `site.url`) and `--json` are its options.
+- `lacuno mcp [dir]` serves the MCP tools over stdio for local agents.
+- Planned: `lacuno dev`, `export` and `import`. Server backups use the operator tool described in
+  the [server README](../apps/server/README.md).
 
 ## Security posture
 
@@ -245,8 +265,10 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
 - Custom code and embeds are user-trusted content and only render in the published site and the
   canvas iframe, never in editor chrome.
 - Agent tool calls run under the permissions of the user who connected the app, scoped to one
-  site by an OAuth token the user can revoke, and are recorded in the activity log.
-- Form endpoints are rate limited per site and per IP.
+  site by an OAuth token the user can revoke, and each batch appears in the editor's History with
+  the app's name.
+- Published sites are served on a separate origin from the editor, so their scripts never share
+  its cookies.
 
 ## Performance targets
 

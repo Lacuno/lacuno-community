@@ -9,10 +9,10 @@ release history and rollback. Docker packaging and [self-hosting documentation](
 support operators who handle their own infrastructure, domains, HTTPS, backups and updates.
 Community does not provide managed domain/TLS provisioning or a hosting-management interface.
 
-Cloud is a planned paid managed service: hosting, guided domain connection, certificate lifecycle,
-managed deployments, backups, monitoring and updates. It is not implemented and does not change
-this repository's license. See decision D014 for the product boundary and
-[Cloud integration](CLOUD.md) for the separate repository's initial scope and remaining runtime work.
+Lacuno Cloud, at [lacuno.io](https://lacuno.io), is the hosted service built on Community: it runs
+the editor and the published sites for you, so there is no server to operate. It lives in a
+separate repository and does not change this repository's license. See decision D014 for the
+product boundary and [Cloud integration](CLOUD.md) for how the two connect.
 
 ## Phase 0. Foundation — complete
 
@@ -79,52 +79,45 @@ scripts and iframes would run. Form controls follow with the forms work in Phase
 typography, radius and shadow tokens, named by group (`space.card`, `font.body`). Every matching
 style field has a token button that binds it to a token, shows the bound token's name and can
 detach it to a plain value. The canvas spacing and size handles snap to a token within 4px and
-commit the reference; Ctrl or Cmd turns snapping off
-([spec](superpowers/specs/2026-09-22-design-tokens-design.md)).
+commit the reference; Ctrl or Cmd turns snapping off.
 **Pages and SEO implemented:** **Site settings** in the Pages panel set the site name, public URL,
 language, favicon, site-wide head and body code, and redirects. Page settings add a canonical URL,
 hide from search engines, a social image and page code. A page at `/404` is the not-found page,
 built to `404.html` and left out of the sitemap with hidden pages; the head gains `og:locale` and
-`twitter:card` ([spec](superpowers/specs/2026-09-22-pages-and-seo-design.md)). Folders, page
+`twitter:card`. Folders, page
 templates, generated social images and a 500 page remain.
 **Fonts implemented:** Site settings has a Fonts section: upload a WOFF2, WOFF, TTF or OTF file,
 confirm the family, weight and style prefilled from its file name, or add a system font; each
 family has a fallback. Both font fields list the site's families before three built-in stacks.
 The published site self-hosts every face with a font-face rule and preloads each family's regular
-face; nothing is requested from a third party (D013)
-([spec](superpowers/specs/2026-09-22-fonts-design.md)).
+face; nothing is requested from a third party (D013).
 **Style source removed (2026-09-24):** the line under each style field naming where its value
 comes from, and its jump to that class, preset, token or ancestor, overloaded the ribbon and was
-taken out. The Layout ribbon fits a 1500px window
-([spec](superpowers/specs/2026-09-23-phase1-closers-design.md)).
+taken out. The Layout ribbon fits a 1500px window.
 **Ribbon removed (2026-09-27):** formatting lives in the inspector's groups, which remember being
 opened or closed; the canvas bar holds the widths, zoom and focus, and Design tokens moved to the
 sidebar rail. The canvas keeps its place in every selection state.
 **MCP preview, screenshot and diff implemented:** `page.preview` returns a route's published HTML
 without a build, or its text one line per node id; `page.screenshot` returns a PNG of a route or one
 node through Playwright's Chromium, an optional dependency; `document.diff` summarises a dry-run
-batch or the changes since another `lacuno.json`
-([spec](superpowers/specs/2026-09-23-mcp-preview-tools.md)).
+batch or the changes since another `lacuno.json`.
 **Testing implemented:** **Publish vN to testing** builds the draft for
 `<site-id>-testing.<publishing base>`, which sends `X-Robots-Tag: noindex, nofollow`. The panel
 shows Live and Testing badges; **Promote vN to production** makes the testing build live without a
 rebuild, **Send vN to testing** points testing at any successful release and **Restore vN** stays
-the production rollback. The cloud runtime's `--list` still reports production only
-([spec](superpowers/specs/2026-09-23-testing-publish-design.md)).
+the production rollback. `published-main.js --list` still reports production only.
 Managed custom domains/TLS are Cloud work. Yjs sync, realtime collaboration
 and git history remain to be built; this does not yet satisfy the full Phase 1 exit condition.
-The planned direction for editing on the canvas itself, an action bar under the selection with
-direct-manipulation controls, is written up in
-[the canvas action bar direction](superpowers/specs/2026-09-21-canvas-action-bar-direction.md). Size handles on the
+Editing moves onto the canvas where it is spatial. Size handles on the
 selection's right edge, bottom edge and corner set width and height in px by drag, previewing live
-and committing once as one undo step; Shift on the corner keeps the aspect ratio
-([spec](superpowers/specs/2026-09-22-size-handles-design.md)). The padding and margin handles are a
-mode switched on by the selection's **Spacing** chip, which also draws the padding and margin areas
+and committing once as one undo step; Shift on the corner keeps the aspect ratio. The padding and
+margin handles move a side and its opposite together, or one side with Alt, and are a mode
+switched on by the selection's **Spacing** chip, which also draws the padding and margin areas
 with their px values; focusing a sidebar spacing input or holding Alt over the element shows those
-areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.md)).
+areas without the chip.
 
-- Server with auth, workspaces, sites, SQLite, git commits. Yjs sync deferred; undo ships as
-  inverse patches.
+- Server with auth, workspaces, sites and SQLite (implemented). Git commits and Yjs sync are not
+  built; undo ships as inverse patches.
 - Editor: canvas iframe, layer tree, element palette, style panel, classes, breakpoints,
   states (implemented: hover, focus, focus-visible, active, visited, first, last, odd, even),
   design tokens, pages, page settings and SEO, assets, fonts, undo and redo (all implemented).
@@ -133,7 +126,7 @@ areas without the chip ([spec](superpowers/specs/2026-09-22-spacing-mode-design.
 - Publish to testing and production from the instance, build history, rollback (implemented).
 - Docker image and operator-written configuration via the self-hosting guide; `npx lacuno` remains planned.
 - Preview, screenshot and diff tools in MCP (implemented).
-- The Layout ribbon fitting a 1500px window (implemented). That closes Phase 1.
+- The editor fitting a 1500px window (implemented). That closes Phase 1.
 
 **Deferred out of Phase 1 (2026-09-23):** version history with restore, fluid typography and spacing
 with `clamp` scales, and restyling the default template to reference its own tokens. They are kept
@@ -147,19 +140,19 @@ TLS using the self-hosting guide; automated domain/TLS management is not a Commu
 
 Goal: the differentiator. A designer connects the AI app they already pay for to a site in one
 click, and watches it work on the canvas. Lacuno never calls a model and never holds an API key;
-the user's own subscription does the thinking, Lacuno gives it hands
-([spec](superpowers/specs/2026-09-23-connect-your-ai-design.md)).
+the user's own subscription does the thinking, Lacuno gives it hands.
 
 **First milestone implemented (2026-09-24):** `/mcp/:id` serves the existing tools over Streamable
 HTTP behind OAuth issued by the same server (consent page in the editor, dynamic registration and
 Client ID Metadata Documents, one site per token); the header's **Connect your AI** panel has cards
 for Claude Code, claude.ai, Claude Desktop, ChatGPT, Cursor, VS Code, Codex CLI and Gemini CLI with
-the registration each app documents, a connections list with Disconnect, and an activity list;
+the registration each app documents and a connections list with Disconnect, and the header's
+History lists the latest edits by you and by each app;
 committed batches stream to the open editor over server-sent events and land on the canvas live
 with a flash, queued behind the designer's own save; uploads take inline data and `site.publish`
 builds to testing. Since 2026-09-25 tokens hang off a per-user anchor session instead of the
 approving browser session, so signing out no longer ends a connection, and gateway mode serves the
-OAuth, metadata and MCP routes for Cloud milestone 12 ([gateway protocol](GATEWAY_AUTH.md)). Open:
+OAuth, metadata and MCP routes for Cloud ([gateway protocol](GATEWAY_AUTH.md)). Open:
 custom-scheme redirect URIs are refused by the provider.
 
 - A remote MCP endpoint per site on the Community server, exposing the existing tools over
@@ -243,12 +236,44 @@ title goes into unless it opts out (D024).
 
 ## Phase 5. Collaboration and scale
 
-- Realtime multiplayer with presence and element comments.
+- Live collaboration: several people and their AI apps in one site at once (design below).
+- Element comments.
 - Background jobs and schedules.
 - Postgres and S3 backends. Incremental builds.
 - Localization.
 - Code components and the plugin API.
 - Template marketplace.
+
+### Live collaboration: the design
+
+Designed, not built. Several people edit one site at the same time and see each other, and an AI
+app shows up as one more participant acting for the person who connected it.
+
+- **Sync.** The server stays the single authority and orders batches. A batch based on an older
+  revision is rebased instead of refused: positional arguments (insert and move indices, entry
+  order) are mapped through the patches committed since, then the operations are planned again
+  against the head. The same field written twice keeps the value ordered last. Operations,
+  validation, dry runs and MCP keep their meaning (D026). A whole-document CRDT was considered and
+  set aside, because a merge after validation can break invariants such as moving a node into a
+  deleted parent.
+- **Text.** At first one person types in a text at a time, under a short lease; others see who is
+  typing and keep editing everything else. Character-level merging with Yjs inside rich text only
+  may follow if leases prove too coarse.
+- **Room and transport.** One in-memory room per open site holds the head document, presence and a
+  batch log. Each editor tab keeps one WebSocket (replacing today's event stream) and updates
+  optimistically, re-planning its pending batches when others' arrive. If a proxy blocks
+  WebSockets the editor falls back to today's single-writer mode.
+- **Presence.** Who is in the site and on which page, their selections outlined on the canvas and
+  marked in the layers, in stable per-person colours.
+- **Undo per person.** Undo takes back only your own batches and skips fields someone else has
+  written since.
+- **Roles and attribution.** Viewers watch live and read only; an AI app acts with the rights of
+  the person who approved it and its batches land in that person's undo history only. A persisted
+  batch log attributes every change to a person or to "app via person", and releases list who
+  contributed.
+
+Open questions include local members for self-hosted instances (today a Community instance has one
+owner, D015), whether live text needs Yjs, and batch log retention.
 
 ## Future ideas
 
@@ -260,6 +285,8 @@ Not scheduled; recorded so they are not lost.
   than one value.
 - Default template bound to its own tokens, so a new site shows tokens working from the first edit.
 - Testing protection: a password or a private link for the testing origin.
+- More direct manipulation on the canvas: corner radius handles, scrubbing typography values, and
+  layout toggles on the selection's bar.
 
 ## Not planned
 

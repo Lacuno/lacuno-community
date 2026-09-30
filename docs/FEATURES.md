@@ -81,9 +81,9 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | --- | --- | --- |
 | Accounts, workspaces, sites | MVP | |
 | Site thumbnails in the site list | MVP | The editor draws the home page's first screen in the browser, 640×400 WebP, ten seconds after an edit settles and when it closes |
-| Roles: owner, designer, content editor, viewer | MVP | Content editors never see the style panel |
+| Roles: owner, designer, content editor, viewer | MVP | Behind a gateway: owner, editor (no publishing) and viewer (read-only). A content editor role waits for content editor mode |
 | Undo and redo across the whole document | MVP | Inverse patches of each committed batch |
-| Realtime multiplayer with presence | Next | Same Yjs document over WebSocket |
+| Realtime multiplayer with presence | Next | Designed as server-ordered operations over a WebSocket, see the roadmap. Today every open editor receives other writers' batches live |
 | Comments pinned to elements | Next | Also how humans talk to the agent about a specific element |
 | Version history and restore | Later | Browsable draft snapshots distinct from releases. Deferred out of Phase 1 |
 
@@ -92,7 +92,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Feature | When | Notes |
 | --- | --- | --- |
 | Custom code in head and body, per site and per page | MVP | |
-| HTML embed element | MVP | In: the palette's Embed with a code field in the inspector; the canvas shows a placeholder where scripts and iframes would run |
+| HTML embed element | MVP | In: the palette's Embed with a code field in the inspector; the canvas shows a placeholder where scripts and iframes would run. Published verbatim, inside a `div` only when the embed is styled |
 | Code components: register real Astro components with a props schema so they appear in the palette | Next | Plasmic-style. Islands for interactivity |
 | Plugin API for panels, elements and commands | Later | After the internal API stops moving |
 | Template and section marketplace | Later | Templates are just Lacuno documents |
@@ -104,8 +104,8 @@ See [AGENTS.md](AGENTS.md). Summary of what ships when:
 | Feature | When |
 | --- | --- |
 | MCP server over the document with progressive tool discovery | MVP |
-| Screenshot and visual diff tools | MVP |
-| Connect your AI: a remote MCP endpoint per site with OAuth, one-click registration in Claude, ChatGPT, Cursor and VS Code, a connection badge and a live view of the agent's edits on the canvas | Phase 2 |
+| Preview, screenshot and document diff tools | MVP |
+| Connect your AI: a remote MCP endpoint per site with OAuth, registration in Claude, ChatGPT, Cursor, VS Code and command-line apps, a connection badge and a live view of the agent's edits on the canvas | Phase 2 (in) |
 | Selection context through MCP, so the agent acts on "this element" | Phase 3 |
 | Skills stored in the site repository, semantic annotations, design linter | Phase 3 |
 | Background jobs: content generation, audits, translation | Later |
@@ -120,4 +120,4 @@ See [AGENTS.md](AGENTS.md). Summary of what ships when:
 | Postgres and S3 as optional backends | Next | |
 | Backup and restore documentation | MVP | Operator-managed offline volume backups; managed backups are Cloud scope |
 | Health endpoint, structured logs, metrics | MVP | |
-| Auth: email and password, magic link, OIDC | MVP for password and magic link, Next for OIDC | better-auth |
+| Auth: email and password, magic link, OIDC | MVP for password and magic link, Next for OIDC | better-auth. In: email and password with one-time owner setup, and gateway mode for an authenticating proxy |

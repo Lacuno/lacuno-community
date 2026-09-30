@@ -46,12 +46,19 @@ trusted. Agent proposals become branches. Leaving Lacuno is a clone. The databas
 accounts, CMS content and form submissions; the design document lives in git. CMS content is
 also exported to the repository on publish so the repository is always a complete site.
 
+**Status.** Not built. The server keeps each site's document in SQLite and every release as an
+immutable snapshot; the CLI works on a plain site folder. Git history remains planned.
+
 ## D006. Yjs CRDT for the live document
 
 **Alternatives.** Plain state with an operation log; add multiplayer later.
 
 **Why.** Undo and redo, multiplayer and agent co-editing all fall out of one mechanism.
 Retrofitting a CRDT is painful. The Yjs document is serialized to JSON for git commits.
+
+**Status.** Not built. The document is plain JSON changed by named operations (D026), whose patch
+vocabulary maps one to one onto Yjs map and array calls so a CRDT could be added without rewriting
+them. Live collaboration is planned separately (see the roadmap) and may replace this decision.
 
 ## D007. React for the editor
 
@@ -378,3 +385,56 @@ not the one being hit-tested, and the middle of any container meant "inside": dr
 down by one put it into the next section. Midpoints of the siblings in the container's own flow
 make one step of the pointer one step in the order, and a still page lets the eye stay on the
 target. Resting to nest keeps reordering the default without hiding nesting behind a key.
+
+## D026. Changes are named operations over a plain JSON document, and referenced records are never deleted
+
+**Decision.** Every change, from the editor, the CLI or an agent, is a named, Zod-typed operation
+such as `node.create` or `style.set`. Operations compile to five primitive patches (`set`,
+`delete`, `insert`, `remove`, `move`) with paths as arrays; a reorder is always a `move`. A batch
+names the revision it read, is planned operation by operation against the evolving draft,
+validated as a whole and committed atomically, or rejected with nothing applied. Only the store's
+commit path changes the revision, so no operation can forget it. Deleting a container removes what
+it owns (a page's tree, a node's descendants); deleting something another record points at is
+refused with the referencing paths. There is no force flag. Agents use the same catalog through a
+single MCP tool, `document.apply`, whose input is the operation union.
+
+**Alternatives.** A Yjs document from the start (D006). JSON Patch or free-form writes. Cascading
+deletes that clean up references. One MCP tool per operation.
+
+**Why.** Named operations are small, reviewable and easy for agents to target, and one schema
+serves the editor, validation, dry runs and MCP. The patch vocabulary maps onto Yjs map and array
+calls, so a CRDT stays possible without rewriting operations. A refused delete names the places
+that use a record, which lets a person or an agent decide instead of breaking a page silently. One
+atomic batch tool keeps a multi-step edit all or nothing.
+
+## D027. Testing is a second pointer to the same releases, on a sibling host
+
+**Decision.** A site has two publication pointers, production and testing, over one set of
+target-agnostic releases. Testing is served at `<site>-testing.<publishing base>` with
+`X-Robots-Tag: noindex, nofollow` on every response. Promoting points production at the build
+testing already serves, without a rebuild; any successful release can be sent to testing; restoring
+a release changes production only. Built pages link to the production address, so a promoted build
+is correct as it is.
+
+**Alternatives.** A separate staging document or draft; a testing path under the production host;
+rebuilding on promotion.
+
+**Why.** Promoting the exact bytes that were checked is the point of a testing step. Changing one
+label of the hostname keeps the operator's wildcard DNS record and certificate valid for testing,
+and a separate host keeps testing pages out of the production site and out of search results.
+
+## D028. The canvas is the compiler's HTML, loaded once and morphed in place
+
+**Decision.** The editor's canvas shows the same HTML the compiler publishes, rendered by
+`@lacuno/renderer` with node ids and original asset bytes, in an iframe sandboxed without scripts.
+The first render loads through `srcdoc`; every later render morphs the live document in place with
+idiomorph and swaps the generated stylesheet's text. The iframe is never reloaded while a page is
+open. The selection overlay, handles and menus live in a shadow root inside the iframe.
+
+**Alternatives.** A React renderer inside the iframe, as the first architecture draft had.
+Replacing `srcdoc` on every edit.
+
+**Why.** One renderer for canvas and publishing makes parity a property rather than a test target.
+A reload per edit closed open controls, lost scroll and recreated the overlay, which made repeated
+commits such as drags and colour changes jumpy; a morph keeps the document, listeners and open
+controls. The sandbox keeps site scripts away from the editor.

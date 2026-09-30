@@ -1,7 +1,8 @@
 # Technology stack
 
 Pinned September 2026. Every choice has a reason and a fallback. Upgrade deliberately, one thing at
-a time, with the test suite green.
+a time, with the test suite green. Rows marked planned name the intended choice for work that is not
+built yet.
 
 ## Runtime and tooling
 
@@ -21,8 +22,8 @@ a time, with the test suite green.
 | Concern | Choice | Why |
 | --- | --- | --- |
 | Schema | Zod 4 | Runtime validation, inferred types, JSON Schema export for MCP tool inputs. The document schema is the contract for every other package |
-| Live document | Yjs | Undo and redo, multiplayer and agent co-editing from one CRDT. Serialized to JSON for git |
-| CSS generation | Our own, no dependency | Deterministic output is the whole point. Uses `lightningcss` for minification at build time only |
+| Live document | Plain JSON with named operations (D026) | Validation, dry runs and version pinning for editor and agents alike. Yjs is not used (D006) |
+| CSS generation | Our own, no dependency | Deterministic output is the whole point. Astro minifies the result at build time |
 | Site output | Astro 7 | Static by default, islands when needed, content collections, image service, view transitions. The best static generator for content sites and it keeps improving |
 | Image processing | sharp, through Astro | Responsive sizes, AVIF and WebP |
 
@@ -30,38 +31,39 @@ a time, with the test suite green.
 
 | Concern | Choice | Why |
 | --- | --- | --- |
-| HTTP | Hono 4 | Small, fast, typed routes with a generated client, runs on Node today and on other runtimes if we ever want that |
-| Database | SQLite via better-sqlite3, WAL mode | Zero-service self-hosting. Postgres via the same Drizzle schema when a deployment needs it |
+| HTTP | Hono 4 | Small, fast, typed routes, runs on Node today and on other runtimes if we ever want that |
+| Database | SQLite via better-sqlite3, WAL mode | Zero-service self-hosting. Postgres via the same Drizzle schema is planned for deployments that need it |
 | ORM and migrations | Drizzle | Typed SQL, plain migration files, SQLite and Postgres from one schema |
-| Auth | better-auth | Email and password, magic links, OIDC, sessions, all self-hosted |
-| Realtime | ws plus y-websocket protocol | Yjs sync and presence over one WebSocket per open site |
-| Git | isomorphic-git or a thin wrapper around the git binary | Sites are repositories. Start with the binary in the container for correctness, revisit if we need pure JS |
+| Auth | better-auth, with its OAuth provider plugin | Email and password and sessions, all self-hosted; the same server issues the OAuth tokens AI apps use. Magic links and OIDC are planned |
+| Gateway assertions | jose | Verifies the signed per-request assertions of [gateway mode](GATEWAY_AUTH.md) |
+| Realtime | Server-sent events | Committed batches reach every open editor. A WebSocket for presence and collaboration is planned |
+| Git | Planned: the git binary in the container | Sites as repositories (D005) are not built yet |
 | Build queue | Child process per build | The compiler changes the working directory for Astro, so builds cannot share a process. A separate build worker service is a config option later |
-| Email | Nodemailer with SMTP, Resend as an adapter | Form notifications, magic links |
+| Email | Planned: Nodemailer with SMTP, Resend as an adapter | Form notifications, magic links |
 | TLS and domains | Operator's reverse proxy (for example Caddy or nginx) | Community documents manual setup; managed provisioning is future Cloud scope |
-| Container | Distroless-style Node image, single process, one volume | `docker run -v data:/data -p 80:80 lacuno` |
+| Container | `node:22-bookworm-slim`, non-root, one volume | Editor on port 3000, published sites on 3001, data in `/data`; see [self-hosting](SELF_HOSTING.md) |
 
 ## Editor
 
 | Concern | Choice | Why |
 | --- | --- | --- |
-| Framework | React 19 with Vite | The editor tooling ecosystem lives here: Radix, dnd-kit, Tiptap, Yjs bindings |
-| State | Yjs document plus small Zustand stores for UI state | Document state is the CRDT, UI state stays local |
-| UI primitives | Radix UI | Accessible panels, menus, popovers, dialogs |
-| Styling | CSS modules with our own design tokens | The editor should dogfood a design token system. No Tailwind in the editor |
-| Drag and drop | dnd-kit | Layer tree and canvas insertion |
+| Framework | React 19 with Vite | The editor tooling ecosystem lives here, Tiptap included |
+| State | A session module over the document plus React state | The server is the source of truth; the session holds the snapshot, pending edits and undo history |
+| UI primitives | Native elements: `dialog`, the Popover API, `details` | No component library to keep up with |
+| Styling | Plain CSS files | No Tailwind in the editor |
+| Drag and drop | Pointer events | Canvas and layer drags need hit-testing of our own (D025) |
 | Rich text | Tiptap 3 | Canvas text editing and CMS rich fields from one editor with a JSON document model |
-| Canvas | Iframe running the renderer package | Style isolation and honest media queries |
-| Icons | Lucide | |
+| Canvas | Iframe with the renderer's HTML, morphed by idiomorph | Style isolation, honest media queries, no reloads (D028) |
+| Icons | Inline SVG | Published sites inline a curated set of Lucide icons (ISC) |
 
 ## Agent
 
 | Concern | Choice | Why |
 | --- | --- | --- |
 | Protocol | MCP TypeScript SDK 1.x | Streamable HTTP on the server, stdio through the CLI. Tool inputs are Zod schemas shared with the document API |
-| Providers | Anthropic SDK, OpenAI-compatible client, Ollama | Instance owner chooses. Provider abstraction is thin: messages, tools, streaming |
-| Screenshots | Playwright Chromium | Also used for OG image rendering and parity tests |
-| Visual diff | pixelmatch plus DOM box map | Changed regions plus which nodes moved, no OCR needed because we own the DOM |
+| Providers | None | Lacuno never calls a model; the user's own AI app connects over MCP (D016) |
+| Screenshots | Playwright Chromium, an optional dependency | `page.screenshot` and the browser tests |
+| Diff | Our own document diff | `document.diff` summarises changes by page, node, style and token; no pixel diff |
 
 ## Deliberately not used
 

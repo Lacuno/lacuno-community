@@ -1,7 +1,7 @@
 # Lacuno editor
 
-The first visual editing milestone: sign in, create a site, open a page, select an element, edit its
-plain text or class styles, and save. Reloading retrieves the persisted document from the server.
+The visual editor: sign in, create a site, design its pages on a canvas, manage content, connect
+your AI app and publish. The server serves it on the same origin and keeps the document.
 
 From the repository root:
 
@@ -41,9 +41,13 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   unknown addresses; **New page** offers it as a checkbox.
 - Click the canvas or a layer to select an element. Desktop, tablet and mobile buttons change the
   iframe viewport; the canvas scales to fit available space without changing its media-query width.
-  The **Spacing** chip on the selection's top bar shows the padding and margin areas with their px
-  values and the handles that drag them; focusing a spacing input or holding Alt over the element
-  shows the areas alone.
+  Handles on the selection's right edge, bottom edge and corner set width and height in px; Shift
+  on the corner keeps the aspect ratio. Dragging past a `max-width` or `max-height` also clears it,
+  and in a flex row or column the element stops shrinking (`flex-shrink: 0`), all in the same undo
+  step. The **Spacing** chip on the selection's top bar shows the padding and margin areas with
+  their px values and the handles that drag them: a side and its opposite together, or one side
+  with Alt. Focusing a spacing input or holding Alt over the element shows the areas alone. Spacing
+  is always written per side (`padding-top` and so on), never as a shorthand.
 - Use Add element to insert a heading, paragraph, span, image, video, embed, list, section with
   starter content, or empty container, and from the **Actions** group a **Link** or a **Button**. Both are `a` elements whose
   destination starts on the current page, so they are focusable and styleable straight away; a
@@ -202,7 +206,7 @@ Failed publish attempts retain their version number; rollback restores the origi
 
 Published content is served on a separate origin. Local defaults use `<site-id>.localhost:3001`;
 see [server configuration](../server/README.md#publishing) for deployment requirements.
-Realtime Yjs sync and git history remain subsequent milestones.
+Live collaboration and git history are not built yet.
 The editing workspace currently targets desktop browsers; its mobile button previews the site.
 
 ## Connect your AI
@@ -214,10 +218,11 @@ cloud-hosted apps by pasting the address into their connector settings; those ne
 address, so their cards are disabled on a localhost instance, and Claude Desktop offers a local
 bridge snippet instead. The app then opens the editor's consent page, "Allow Claude Code to edit
 Acme?", and the header shows "Claude Code connected" once its first session opens. The panel lists
-every approved app with Disconnect, and an activity list of the last fifty batches by you and by
-the apps. Agent batches stream into the open editor and land on the canvas without a reload: the
-touched elements flash, your pending edits are never overwritten, and your undo history stays
-yours. Lacuno never calls a model itself.
+every approved app with when it last acted and Disconnect. The **History** button beside undo and
+redo lists the latest 50 edits, by you and by each app ("Claude Code, via Anna" behind a gateway),
+with a summary such as "Changed 12 styles, added 3 elements". Agent batches stream into the open
+editor and land on the canvas without a reload: the touched elements flash, your pending edits are
+never overwritten, and your undo history stays yours. Lacuno never calls a model itself.
 
 ## Try build
 
