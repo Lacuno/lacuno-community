@@ -6,6 +6,7 @@ import { EffectsControls } from './EffectsControls.js'
 import { fontChoices, weightName } from './fonts.js'
 import { formattingGroups } from './formatting.js'
 import { GradientControls } from './GradientControls.js'
+import { LayoutControls } from './LayoutControls.js'
 import { MotionControls } from './MotionControls.js'
 import { SpacingControls } from './SpacingControls.js'
 import { type StyleControls, useStyleField } from './styleField.js'
@@ -79,6 +80,8 @@ export function FormattingControls({
               <summary>{group.name}</summary>
               {group.name === 'Typography' && typography ? (
                 typography
+              ) : group.name === 'Layout' ? (
+                <LayoutControls {...controls} />
               ) : group.name === 'Motion' ? (
                 <MotionControls {...controls}>{words}</MotionControls>
               ) : group.name === 'Effects' ? (
@@ -89,9 +92,7 @@ export function FormattingControls({
                   {group.fields
                     .filter(
                       (field) =>
-                        field.property !== 'object-fit' &&
-                        field.property !== 'object-position' &&
-                        !/^(padding|margin)-/.test(field.property),
+                        field.property !== 'gap' && !/^(padding|margin)-/.test(field.property),
                     )
                     .map((field) => {
                       const { property, label } = field

@@ -44,6 +44,8 @@ const propertyGroups: Record<string, TokenGroup> = {
   'margin-bottom': 'spacing',
   'margin-left': 'spacing',
   gap: 'spacing',
+  'column-gap': 'spacing',
+  'row-gap': 'spacing',
   width: 'size',
   height: 'size',
   'min-width': 'size',

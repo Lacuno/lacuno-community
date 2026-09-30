@@ -72,12 +72,14 @@ export function Inspector({
   registerFlush,
   clearSelection,
   selectTag,
+  selectNode,
 }: {
   siteId: string
   breakpoint: string
   state: State
   clearSelection: () => void
   selectTag: (tag: RichTag) => void
+  selectNode: (id: string) => void
   previewChanged: (preview: LivePreview) => void
   registerFlush: (flush: () => Promise<boolean>) => () => void
   computed: Record<string, string>
@@ -280,12 +282,33 @@ export function Inspector({
     change: changeFormatting,
     breakpoint,
     state,
+    ...(node.parent && doc.nodes[node.parent]
+      ? {
+          parent: {
+            label: nodeLabel(doc.nodes[node.parent]!),
+            display: computed['__parent-display'] ?? '',
+            direction: computed['__parent-direction'] ?? 'row',
+            select: () => selectNode(node.parent!),
+          },
+        }
+      : {}),
   }
   const { local: current, overridden } = useStyleField(controls)
   const boundField = boundFieldLabel(doc, node)
   return (
     <aside className="inspector">
       <div className="selection-heading">
+        {node.parent && doc.nodes[node.parent] && (
+          <button
+            type="button"
+            className="inspector-parent"
+            aria-label={`Select parent: ${nodeLabel(doc.nodes[node.parent]!)}`}
+            title={`Select parent: ${nodeLabel(doc.nodes[node.parent]!)}`}
+            onClick={() => selectNode(node.parent!)}
+          >
+            <EditorIcon name="up" />
+          </button>
+        )}
         <strong>{nodeLabel(node)}</strong>
         <span className="element-badge">{'tag' in node ? node.tag.toUpperCase() : node.type}</span>
         {boundField && (

@@ -293,6 +293,12 @@ export function Editor({
           setComputed={setComputed}
         />
         <InspectorColumn
+          selectNode={(id) =>
+            void leave(() => {
+              setSelected(id)
+              setRevealSelection((value) => value + 1)
+            })
+          }
           session={session}
           editing={editing}
           siteId={siteId}

@@ -104,6 +104,13 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   breakpoint scope, and all responsive edits support undo/redo.
 - The canvas bar's zoom fits the canvas to the window or sets 50–150%; **Focus canvas** hides the
   layers and the inspector until pressed again, and editing words brings the inspector back.
+- **Layout** offers visual Flow, Row, Stack and Grid choices. Grid layouts have column-count,
+  ratio presets and per-column fraction controls; rows and stacks have an alignment pad, wrapping,
+  stretch and distribution. Horizontal and vertical gaps support spacing tokens. Child items show
+  Fit, Fill and Fixed width options, plus grid spans where applicable; the parent link selects the
+  containing layout after pending changes save. Use the existing device switcher to edit these same
+  controls at another breakpoint. **Advanced layout** preserves custom CSS templates, and
+  **Reset layout at this size** clears only the container's local layout settings in the active scope.
 - **Effects** provides opacity and scale percentages, rotation, and X/Y tilt with an 800px
   perspective. Box shadows use a popover with horizontal/vertical offsets, blur, spread, color,
   and inset controls. Existing custom transforms and complex shadows remain editable as CSS.

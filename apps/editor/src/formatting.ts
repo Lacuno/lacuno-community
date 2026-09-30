@@ -69,6 +69,19 @@ export const formattingGroups = [
         label: 'Grid columns',
         hint: 'e.g. repeat(3, minmax(0, 1fr))',
       },
+      { property: 'grid-template-rows', label: 'Grid rows' },
+      { property: 'grid-auto-flow', label: 'Grid flow' },
+      { property: 'justify-items', label: 'Align in cell' },
+      { property: 'column-gap', label: 'Horizontal gap' },
+      { property: 'row-gap', label: 'Vertical gap' },
+      { property: 'grid-column', label: 'Column span' },
+      { property: 'grid-row', label: 'Row span' },
+      { property: 'align-self', label: 'Item alignment' },
+      { property: 'justify-self', label: 'Item horizontal alignment' },
+      { property: 'flex-grow', label: 'Grow' },
+      { property: 'flex-shrink', label: 'Shrink' },
+      { property: 'flex-basis', label: 'Basis' },
+      { property: 'order', label: 'Display order' },
     ],
   },
   {
@@ -245,7 +258,7 @@ export const clearStyles = (
 export const isNumber = (text: string) => /^-?\d*\.?\d+$/.test(text.trim())
 
 const lengths =
-  /^(font-size|(min-|max-)?width|height|(padding|margin)-(top|right|bottom|left)|gap|border-(radius|width))$/
+  /^(font-size|(min-|max-)?width|height|(padding|margin)-(top|right|bottom|left)|(row-|column-)?gap|border-(radius|width))$/
 
 /** Plain numeric sizes use pixels; unitless typography values retain their meaning. */
 export function normalizeFormatting(

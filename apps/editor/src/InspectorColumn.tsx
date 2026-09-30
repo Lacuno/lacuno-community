@@ -22,6 +22,7 @@ export function InspectorColumn({
   selected,
   inner,
   selectTag,
+  selectNode,
   width,
   state,
   inlineTarget,
@@ -38,6 +39,7 @@ export function InspectorColumn({
   selected: string
   inner: InnerTag | undefined
   selectTag: (tag?: RichTag) => void
+  selectNode: (id: string) => void
   width: number
   state: State
   inlineTarget: InlineTarget | undefined
@@ -115,6 +117,7 @@ export function InspectorColumn({
   if (doc && !readOnly && selected && doc.nodes[selected])
     return (
       <Inspector
+        selectNode={selectNode}
         selectTag={selectTag}
         siteId={siteId}
         key={`${selected}-${generation}-${editingBreakpoint(doc, width)}-${state}`}

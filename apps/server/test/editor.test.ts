@@ -675,7 +675,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await openFormatting(page, 'Layout')
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
   await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
-  await page.getByLabel('Direction', { exact: true }).selectOption('column')
+  await page.getByRole('button', { name: 'Stack layout', exact: true }).click()
   await saved()
   await expect
     .poll(() =>

@@ -267,17 +267,26 @@ export function Canvas({
       element &&
       !(inner && element.hasAttribute('data-lacuno-node')) &&
       doc?.defaultView?.getComputedStyle(element)
+    const parentStyles =
+      element?.parentElement && doc?.defaultView?.getComputedStyle(element.parentElement)
     latest.current.onComputed({
       id: inner ? `${selected}|${inner.tag}` : selected,
       values: styles
-        ? Object.fromEntries(
-            formattingGroups.flatMap((group) =>
-              group.fields.map((field) => [
-                field.property,
-                styles.getPropertyValue(field.property),
-              ]),
+        ? {
+            ...Object.fromEntries(
+              formattingGroups.flatMap((group) =>
+                group.fields.map((field) => [
+                  field.property,
+                  styles.getPropertyValue(field.property),
+                ]),
+              ),
             ),
-          )
+            // Context for child sizing; measured at the canvas's active breakpoint.
+            '__parent-display': parentStyles?.display ?? '',
+            '__parent-direction': parentStyles?.flexDirection ?? '',
+            '__parent-align': parentStyles?.alignItems ?? '',
+            '__parent-justify': parentStyles?.justifyItems ?? '',
+          }
         : {},
     })
   }

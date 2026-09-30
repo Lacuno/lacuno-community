@@ -12,6 +12,7 @@ export type StyleControls = {
   changes: Record<string, CssValue | null>
   change: (property: string, value: CssValue | null) => void
   disabled: boolean
+  parent?: { label: string; display: string; direction: string; select: () => void }
   /** Where the values live instead of the element's own formatting: a tag rule of its class. */
   read?: (property: string) => CssValue | undefined
 }
