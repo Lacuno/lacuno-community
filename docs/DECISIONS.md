@@ -159,7 +159,9 @@ same server. Agent batches stream into the open editor and land on the canvas as
 which is the review; the designer's own draft is never overwritten and their undo history stays
 theirs. A proposal flow would double the mechanism for little safety, since every batch is
 version-pinned, logged and undoable by a later batch. Production publishing and site deletion
-remain human-only actions and are not exposed as tools.
+remain human-only actions and are not exposed as tools. A Cloud gateway may also connect to a
+site's MCP endpoint as the signed-in owner, with a user assertion on each request; Community
+itself still never calls a model.
 
 
 ## D017. Gradients are a structured style value

@@ -423,6 +423,74 @@ describe('connecting an AI app through the gateway', () => {
     expect(call9.status).toBe(401)
   })
 
+  it('lets Cloud connect as a user who may edit, with an assertion on every request', async () => {
+    // Cloud's client signs each request's method, target and body, like its REST calls.
+    const signed =
+      (as: object) =>
+      async (url: string | URL, init: RequestInit = {}) => {
+        const { pathname, search } = new URL(url)
+        const method = init.method ?? 'GET'
+        const headers = new Headers(init.headers)
+        const body = String(init.body ?? '')
+        headers.set(
+          'x-lacuno-assertion',
+          await assertion(pathname + search, method, body, { ...as }),
+        )
+        return server.app.request(url, { ...init, headers })
+      }
+    const client = new Client({ name: 'Lacuno onboarding', version: '1.0.0' })
+    const transport = new StreamableHTTPClientTransport(new URL(resource), {
+      fetch: signed({ sub: 'cloud-owner-6', role: 'owner' }),
+    })
+    await client.connect(transport as Transport)
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toContain('document.apply')
+    const read = await client.callTool({ name: 'document.read', arguments: {} })
+    const { revision } = JSON.parse((read.content as { text: string }[])[0]!.text)
+    const applied = await client.callTool({
+      name: 'document.apply',
+      arguments: {
+        expectedRevision: revision,
+        operations: [{ type: 'class.create', id: 'c-cloud', name: 'cloud' }],
+      },
+    })
+    expect(applied.isError).not.toBe(true)
+
+    // Each request needs its own assertion, even within the session.
+    const headers = {
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+    }
+    const list = JSON.stringify({ jsonrpc: '2.0', id: 9, method: 'tools/list' })
+    const target = `/mcp/${siteId}`
+    const session = { ...headers, 'mcp-session-id': transport.sessionId! }
+    expect((await call(target, { method: 'POST', body: list, headers: session })).status).toBe(401)
+    await client.close()
+
+    // Cloud itself, a viewer, another workspace's runtime, an expired assertion or another site.
+    const initialize = JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2025-06-18',
+        capabilities: {},
+        clientInfo: { name: 'Lacuno onboarding', version: '1.0.0' },
+      },
+    })
+    const start = (as?: object, path = target) =>
+      call(path, { method: 'POST', body: initialize, headers, ...(as && { as }) })
+    expect((await start({ sub: 'cloud-owner-6' })).status).toBe(200)
+    for (const as of [
+      { sub: 'lacuno-cloud', system: true },
+      { sub: 'cloud-viewer-6', role: 'viewer' },
+      { aud: 'http://other.editor.localhost:4000' },
+      { exp: 1 },
+      undefined,
+    ])
+      expect((await start(as)).status).toBe(401)
+    expect((await start({}, '/mcp/another-site')).status).toBe(401)
+  })
+
   it('offers publishing only to AI apps the owner approved, and viewers approve none', async () => {
     const registered = await register('198.51.100.4')
     const { client_id } = (await registered.json()) as { client_id: string }

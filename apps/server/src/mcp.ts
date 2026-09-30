@@ -10,13 +10,20 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { type siteEvents, summarize } from './events.js'
-import type { OAuth } from './oauth.js'
+import type { OAuth, Verified } from './oauth.js'
 import type { Releases } from './releases.js'
 
 export type McpDeps = {
   store: (siteId: string) => Promise<DocumentStore>
   dataDir: string
   oauth: OAuth
+  /**
+   * Behind a gateway, the grant behind an `x-lacuno-assertion` instead of a bearer, for Cloud's
+   * own client acting as the signed-in user. Like REST, each assertion binds one request: its
+   * method, its target (`/mcp/<site>` plus any query) and the sha256 hex of its body, empty for
+   * GET and DELETE.
+   */
+  assertion: ((request: Request, siteId: string) => Promise<Grant | undefined>) | undefined
   events: typeof siteEvents
   /** Absent when publishing is not configured; `site.publish` is then not offered. */
   releases: Releases | undefined
@@ -31,6 +38,9 @@ export type McpDeps = {
   /** Tells Cloud what an AI app did, for the person who connected it; absent without Cloud. */
   report: ((siteId: string, activity: Activity) => void) | undefined
 }
+
+/** Who a request acts for: an OAuth grant or a gateway user assertion. */
+export type Grant = Pick<Verified, 'userId' | 'connectionId' | 'app' | 'user'>
 
 /** What an AI app did, reported for the person who connected it. */
 export type Activity = { user: string; app: string; action: 'edited' | 'published' }
@@ -138,7 +148,9 @@ export function mcpRoutes(deps: McpDeps): Hono {
   app.use(bodyLimit({ maxSize: 30 * 1024 * 1024 }))
   app.on(['GET', 'POST', 'DELETE'], '/:id', async (c) => {
     const siteId = c.req.param('id')
-    const grant = await deps.oauth.verify(c.req.header('authorization'), siteId)
+    const grant =
+      (await deps.oauth.verify(c.req.header('authorization'), siteId)) ??
+      (await deps.assertion?.(c.req.raw, siteId))
     if (!grant) {
       const metadata = `${deps.origin}/.well-known/oauth-protected-resource/mcp/${siteId}`
       c.header('WWW-Authenticate', `Bearer resource_metadata="${metadata}"`)

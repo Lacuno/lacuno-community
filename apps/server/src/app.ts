@@ -466,6 +466,20 @@ export async function createServer(options: ServerOptions) {
         store,
         dataDir: options.dataDir,
         oauth,
+        // Cloud's own client, as a user who may edit the workspace's sites.
+        assertion:
+          gateway &&
+          (async (request, siteId) => {
+            const user = await gateway.authenticate(request).catch(() => undefined)
+            if (!user || user.system || user.role === 'viewer') return
+            if (!db.select({ id: sites.id }).from(sites).where(eq(sites.id, siteId)).get()) return
+            return {
+              userId: user.id,
+              connectionId: `gateway:${user.id}`,
+              app: 'Lacuno Cloud',
+              user: user.name,
+            }
+          }),
         events: siteEvents,
         releases,
         origin,
