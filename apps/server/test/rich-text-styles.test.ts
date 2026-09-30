@@ -2,8 +2,6 @@ import type { Page } from 'playwright'
 import { expect, it } from 'vitest'
 import { editor, openFormatting } from './harness.js'
 
-const shots =
-  '/private/tmp/claude-501/-Users-chrisweiler-source-lacuno/5b740696-812a-4e0d-8951-85ee2cf66764/scratchpad'
 
 const text = (value: string, marks?: unknown[]) => ({
   type: 'text',
@@ -89,7 +87,6 @@ it('styles the tags inside rich text per class, by clicking them', async () => {
     value: 40,
     unit: 'px',
   })
-  await page.screenshot({ path: `${shots}/rtstyle-h2.png` })
 
   // A link's hover, through the state chip on the canvas label.
   await article.locator('a').click()
@@ -105,7 +102,6 @@ it('styles the tags inside rich text per class, by clicking them', async () => {
   await expect
     .poll(() => article.locator('a').evaluate((node) => getComputedStyle(node).color))
     .toBe('rgb(255, 0, 0)')
-  await page.screenshot({ path: `${shots}/rtstyle-link-hover.png` })
   await canvas.getByRole('button', { name: /^State: / }).click()
   await canvas.getByRole('menuitemradio', { name: 'Default' }).click()
 
@@ -127,7 +123,6 @@ it('styles the tags inside rich text per class, by clicking them', async () => {
   const styles = (await document()).styles
   expect(styles['c-prose|td|mobile-p|none|min-width']).toBeDefined()
   expect(styles['c-prose|th|mobile-p|none|min-width']).toBeDefined()
-  await page.screenshot({ path: `${shots}/rtstyle-cells-mobile.png` })
 
   // A tag the content does not hold yet.
   await inspector.getByLabel('Style other tags').selectOption({ label: 'H3' })
@@ -135,7 +130,6 @@ it('styles the tags inside rich text per class, by clicking them', async () => {
     .poll(() => inspector.locator('.selection-heading strong').textContent())
     .toBe('H3 in prose')
   await page.getByRole('button', { name: 'Desktop', exact: true }).click()
-  await page.screenshot({ path: `${shots}/rtstyle-other-tags.png` })
   // The breadcrumb goes back to the block itself, which offers the tags too.
   await inspector.locator('.inspector-parent').click()
   await expect.poll(() => inspector.getByLabel('Style other tags').count()).toBe(1)
@@ -190,6 +184,5 @@ it('styles the tags inside rich text per class, by clicking them', async () => {
   expect(
     await published.evaluate(() => window.document.documentElement.scrollWidth <= innerWidth),
   ).toBe(true)
-  await published.screenshot({ path: `${shots}/rtstyle-published-375.png` })
   expect(errors).toEqual([])
 }, 180_000)

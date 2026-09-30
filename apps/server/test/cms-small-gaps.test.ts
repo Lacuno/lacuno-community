@@ -1,8 +1,6 @@
 import { expect, it } from 'vitest'
 import { editor, pageSettings } from './harness.js'
 
-const shots =
-  '/private/tmp/claude-501/-Users-chrisweiler-source-lacuno/5b740696-812a-4e0d-8951-85ee2cf66764/scratchpad'
 
 it('formats bound dates, shows fields inside text and puts titles into the site template', async () => {
   const { page, canvas, document, saved, api, siteId, server, publish } = await editor()
@@ -49,7 +47,6 @@ it('formats bound dates, shows fields inside text and puts titles into the site 
   expect((await document()).nodes['n-article-summary']).toMatchObject({
     text: { type: 'field', field: 'f-updated', format: 'long', locale: 'de-AT' },
   })
-  await page.screenshot({ path: `${shots}/rtstyle-date-format.png` })
 
   // A field inside written text, from a post chosen in the CMS, on a page of its own.
   await page.locator('.page-link').filter({ hasText: 'About' }).click()
@@ -72,7 +69,6 @@ it('formats bound dates, shows fields inside text and puts titles into the site 
   await inspector.getByLabel('Date format').selectOption('long')
   // The field stays selected, so its language is one more choice away.
   await inspector.getByLabel('Date language').waitFor()
-  await page.screenshot({ path: `${shots}/rtstyle-field-token.png` })
   await page.getByRole('button', { name: 'Done editing text', exact: true }).click()
   await saved()
   await expect.poll(() => text.textContent()).toMatch(/Last updated:\sSeptember 28, 2026$/)
@@ -80,7 +76,6 @@ it('formats bound dates, shows fields inside text and puts titles into the site 
   expect(written).toContain(
     `{"type":"field","attrs":{"field":"f-updated","entry":"${posts[0]!.id}","format":"long"}}`,
   )
-  await text.screenshot({ path: `${shots}/rtstyle-field-token-canvas.png` })
 
   // A field shown this way cannot be deleted, even once nothing else binds it.
   const refused = await apply([
@@ -105,7 +100,6 @@ it('formats bound dates, shows fields inside text and puts titles into the site 
   const settings = page.getByRole('dialog', { name: 'Page settings' })
   const own = settings.getByRole('checkbox', { name: /^Title template · / })
   expect(await own.isChecked()).toBe(true)
-  await page.screenshot({ path: `${shots}/rtstyle-title-template.png` })
   await own.uncheck()
   await settings.getByRole('button', { name: 'Save page', exact: true }).click()
   await saved()
