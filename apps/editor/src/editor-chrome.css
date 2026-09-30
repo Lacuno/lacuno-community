@@ -1997,3 +1997,51 @@
   background: #e5f5ec;
   color: #1f6e45;
 }
+
+.history-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: min(480px, calc(100vh - 80px));
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: #565d73;
+  box-shadow: 0 8px 28px #25263324;
+  font-size: 12px;
+}
+.history-popover h3 {
+  margin: 0 0 4px;
+  color: #252633;
+  font-size: 13px;
+}
+.history-popover ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.history-popover li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.history-popover li:first-child {
+  border-top: 0;
+}
+.history-popover strong {
+  color: #252633;
+}
+.history-popover time {
+  color: #747981;
+  font-size: 11px;
+}
+.history-popover .history-summary {
+  grid-column: 1 / -1;
+  margin: 0;
+}

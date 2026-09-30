@@ -166,7 +166,6 @@ export function Editor({
           role={role}
           connections={connections}
           refresh={refreshConnections}
-          activity={session.activity}
           close={() => setConnectOpen(false)}
         />
       )}

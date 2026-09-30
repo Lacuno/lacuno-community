@@ -1,9 +1,21 @@
 import type { Page } from '@lacuno/schema'
+import { useId, useRef } from 'react'
 import { Brand, type Role, SignUpLink } from './App.js'
 import { useConfig } from './api.js'
 import { type Connection, connectionLabel } from './ConnectPanel.js'
 import { EditorIcon } from './EditorIcon.js'
+import { placePopover } from './popover.js'
 import type { DocumentSession } from './session.js'
+
+/** When an edit happened, in words for recent ones. */
+function ago(at: number) {
+  const minutes = Math.round((Date.now() - at) / 60000)
+  return minutes < 1
+    ? 'Just now'
+    : minutes < 60
+      ? `${minutes} min ago`
+      : new Date(at).toLocaleString()
+}
 
 export function EditorHeader({
   session,
@@ -27,6 +39,8 @@ export function EditorHeader({
   const { doc, snapshot, error, busy, dirty, conflict, saved } = session
   const connection = connectionLabel(connections)
   const { config } = useConfig()
+  const historyId = useId()
+  const historyPanel = useRef<HTMLDivElement>(null)
   return (
     <header className="editor-header">
       <button
@@ -65,6 +79,34 @@ export function EditorHeader({
         >
           <EditorIcon name="redo" />
         </button>
+        <button
+          type="button"
+          popoverTarget={historyId}
+          onClick={(event) => placePopover(event.currentTarget, historyPanel.current)}
+          title="History"
+          aria-label="History"
+        >
+          <EditorIcon name="clock" />
+        </button>
+        <div ref={historyPanel} id={historyId} popover="auto" className="history-popover">
+          <h3>History</h3>
+          {!session.activity.length && <p>Edits by you and your AI apps will appear here.</p>}
+          <ol>
+            {session.activity.slice(0, 50).map((item) => (
+              <li key={item.revision}>
+                <strong>
+                  {item.actor.kind === 'editor'
+                    ? 'You'
+                    : item.actor.user
+                      ? `${item.actor.app}, via ${item.actor.user}`
+                      : item.actor.app}
+                </strong>
+                <time dateTime={new Date(item.at).toISOString()}>{ago(item.at)}</time>
+                <p className="history-summary">{item.summary}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
       <span
         className="save-state"

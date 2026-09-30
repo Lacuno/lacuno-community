@@ -4,7 +4,6 @@ import { api, message, useConfig } from './api.js'
 import { ConnectIcon } from './ConnectIcon.js'
 import { type ConnectApp, connectApps } from './connectApps.js'
 import { Dialog, ErrorNote } from './Dialog.js'
-import type { SiteEvent } from './liveEvents.js'
 import './publishing.css'
 
 export type Connection = {
@@ -57,7 +56,6 @@ export function ConnectPanel({
   role,
   connections,
   refresh,
-  activity,
   close,
 }: {
   siteId: string
@@ -65,7 +63,6 @@ export function ConnectPanel({
   role: Role
   connections: Connection[]
   refresh: () => Promise<void>
-  activity: SiteEvent[]
   close: () => void
 }) {
   const { config, error: configError } = useConfig()
@@ -195,25 +192,6 @@ export function ConnectPanel({
                 </button>
               )
             )}
-          </li>
-        ))}
-      </ol>
-      <h3 className="connect-heading">Activity</h3>
-      {!activity.length && <p className="hint">Edits by you and your AI apps will appear here.</p>}
-      <ol className="release-list">
-        {activity.slice(0, 50).map((item) => (
-          <li key={item.revision}>
-            <div className="release-title">
-              <strong>
-                {item.actor.kind === 'editor'
-                  ? 'You'
-                  : item.actor.user
-                    ? `${item.actor.app}, via ${item.actor.user}`
-                    : item.actor.app}
-              </strong>
-              <time dateTime={new Date(item.at).toISOString()}>{time(item.at)}</time>
-            </div>
-            <p>{item.summary}</p>
           </li>
         ))}
       </ol>

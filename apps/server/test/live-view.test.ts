@@ -122,4 +122,11 @@ it('lands outside batches on the open canvas, queueing them behind a save in fli
   })
   await canvas.locator('.flash > div').waitFor()
   await canvas.locator('.flash > div').waitFor({ state: 'detached' })
+
+  // The edits are listed under History beside undo and redo, newest first.
+  await page.getByRole('button', { name: 'History', exact: true }).click()
+  const history = page.locator('.history-popover li')
+  await expect.poll(() => history.first().textContent()).toContain('Test agent')
+  expect(await history.first().textContent()).toContain('1 change')
+  expect(await page.locator('.history-popover').textContent()).toContain('You')
 })
