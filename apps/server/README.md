@@ -205,6 +205,14 @@ verification and password recovery are not built. The CLI/MCP site-folder workfl
 Gateway mode, for a trusted proxy that authenticates users, adds the `/api/gateway/*` routes and
 changes how requests are authenticated; see [GATEWAY_AUTH.md](../../docs/GATEWAY_AUTH.md).
 
+For maintenance, `node apps/server/dist/published-main.js` runs only the published-site listener
+against an existing database opened read-only. Set `LACUNO_DATA_DIR`, `LACUNO_PUBLISH_BASE_URL`,
+`LACUNO_PUBLISH_PORT` and `HOST` explicitly. It does not migrate data, run builds, expose the editor
+or accept authenticated management requests; `--list` prints the production release of every site
+for health checks. It can serve existing releases while the editor runtime is stopped for a
+controlled upgrade; mount its data read-only and keep it away from management traffic. Backups use
+the operator tool described in the [self-hosting guide](../../docs/SELF_HOSTING.md#online-backups-with-the-operator-tool).
+
 ```sh
 pnpm --filter @lacuno/server test
 pnpm --filter @lacuno/server typecheck

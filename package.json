@@ -2,6 +2,12 @@
   "name": "lacuno",
   "private": true,
   "version": "0.0.0",
+  "homepage": "https://lacuno.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lacuno/lacuno-community"
+  },
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "packageManager": "pnpm@10.33.0",
   "engines": {

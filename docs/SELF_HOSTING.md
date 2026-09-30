@@ -137,6 +137,32 @@ docker compose --env-file .env.docker -p lacuno-restore up -d
 Verify login, draft content, asset previews, live pages and release history before switching traffic.
 Retain the original volume until recovery is confirmed. Do not import archives from untrusted sources.
 
+### Online backups with the operator tool
+
+The server's operator tool, `apps/server/dist/backup-cli.js` in the image and in a built checkout,
+can snapshot a running instance without stopping the editor or the published-site listener:
+
+```sh
+node apps/server/dist/backup-cli.js backup /absolute/live-data /absolute/new-backup
+node apps/server/dist/backup-cli.js verify /absolute/new-backup
+node apps/server/dist/backup-cli.js restore /absolute/new-backup /absolute/empty-restored-data
+node apps/server/dist/backup-cli.js import /absolute/lacuno-export.zip /absolute/empty-data
+```
+
+The SQLite online snapshot contains drafts, accounts, release history and publication pointers.
+The tool copies referenced immutable assets and every ready release's published output, then writes
+a checksummed completion manifest. Unfinished builds become failed in the restored snapshot and can
+be published again. Temporary build files and unreferenced uploads are not included. This relies on
+the current no-pruning policy for immutable assets and releases. A missing file or bad checksum
+fails the backup rather than producing a partial success.
+
+Restore verifies the complete inventory and SQLite integrity and only writes to an empty directory.
+It does not replace or restart a live instance. Use the same server version and keep the original
+environment and secrets separately; gateway instances also require the same issuer and audience.
+Backups contain sensitive account and site data, are not encrypted, and are not a substitute for
+off-host storage. Treat only operator-owned backups as trusted: checksums detect corruption, not
+forgery. `import` reads a workspace exported from Lacuno Cloud (below) with the same checks.
+
 ## Moving from Lacuno Cloud
 
 In Lacuno Cloud, open the workspace's menu → **Export** → **Export workspace**. You get an email

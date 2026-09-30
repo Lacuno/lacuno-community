@@ -222,7 +222,7 @@ every approved app with when it last acted and Disconnect. The **History** butto
 redo lists the latest 50 edits, by you and by each app ("Claude Code, via Anna" behind a gateway),
 with a summary such as "Changed 12 styles, added 3 elements". Agent batches stream into the open
 editor and land on the canvas without a reload: the touched elements flash, your pending edits are
-never overwritten, and your undo history stays yours. Lacuno never calls a model itself.
+never overwritten, and each batch is one step you can undo. Lacuno never calls a model itself.
 
 ## Try build
 

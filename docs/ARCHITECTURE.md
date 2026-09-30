@@ -132,8 +132,9 @@ and written back on the next commit.
   current revision), `OperationError` (operation index, type, and the referencing paths when a
   delete is refused), `DocumentError` (the issue list) or `PatchError` (a planner bug).
 - **Undo and redo.** In the editor, undo and redo replay a committed batch's patches inverted, so
-  one drag is one undo step. Batches from AI apps arrive over a server-sent event stream and land
-  on the canvas; they are not the designer's undo steps.
+  one drag is one undo step. Batches from AI apps arrive over a server-sent event stream, land on
+  the canvas and join the open editor's history as one step each, so the designer can take back
+  what their AI did; batches from another editor session do not.
 - **Persistence** is an interface: SQLite on the server, a folder for the CLI, IndexedDB in the
   in-browser try build and memory in tests. The server stores each site's document and revision in
   one conditional statement, so two writers cannot commit on the same revision. The folder
