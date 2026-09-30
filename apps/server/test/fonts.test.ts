@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, openFormatting } from './harness.js'
 
 it('uploads a font in site settings, picks it in the Font control and publishes it self-hosted', async () => {
   const { server, page, canvas, document, publish, saved } = await editor()
@@ -49,6 +49,7 @@ it('uploads a font in site settings, picks it in the Font control and publishes 
   const font = page.getByLabel('Font', { exact: true })
   const options = () => font.locator('option').allTextContents()
   await heading.click()
+  await openFormatting(page, 'Typography')
   expect(await options()).toEqual([
     'Inherited · Arial, Helvetica, sans-serif',
     'Arial, Helvetica, sans-serif',

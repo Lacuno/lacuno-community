@@ -8,6 +8,7 @@ import { formattingGroups } from './formatting.js'
 import { GradientControls } from './GradientControls.js'
 import { LayoutControls } from './LayoutControls.js'
 import { MotionControls } from './MotionControls.js'
+import { isOpen, setOpen } from './openSections.js'
 import { SpacingControls } from './SpacingControls.js'
 import { type StyleControls, useStyleField } from './styleField.js'
 import { TokenField } from './TokenField.js'
@@ -32,9 +33,6 @@ const choiceLabel = (value: string) =>
     .split(',')[0]!
     .replaceAll('"', '')
     .replace(/^./, (letter) => letter.toUpperCase())
-
-/** Groups opened or closed by hand stay so for the next selection, like a remembered tab. */
-const opened = new Map<string, boolean>()
 
 export function FormattingControls({
   typography,
@@ -61,11 +59,7 @@ export function FormattingControls({
           return order.indexOf(a.name) - order.indexOf(b.name)
         })
         .map((group) => {
-          const open =
-            opened.get(group.name) ??
-            (group.name === 'Size' ||
-              group.name === 'Spacing & shape' ||
-              (node.type === 'text' ? group.name === 'Typography' : group.name === 'Layout'))
+          const open = isOpen(group.name)
           return (
             <details
               data-group={group.name}
@@ -73,8 +67,7 @@ export function FormattingControls({
               open={open}
               // Mounting open fires toggle too; only a change by hand is remembered.
               onToggle={(event) => {
-                if (event.currentTarget.open !== open)
-                  opened.set(group.name, event.currentTarget.open)
+                if (event.currentTarget.open !== open) setOpen(group.name, event.currentTarget.open)
               }}
             >
               <summary>{group.name}</summary>

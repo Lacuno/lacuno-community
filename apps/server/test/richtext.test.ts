@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import type { Locator } from 'playwright'
 import { expect, it } from 'vitest'
-import { editor, pageSettings, root } from './harness.js'
+import { editor, openFormatting, pageSettings, root } from './harness.js'
 
 it('edits selected canvas words, preserves selection through tools, saves page links and restores history', async () => {
   const { page, canvas, saved } = await editor()
@@ -168,6 +168,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   await expect.poll(() => heading.textContent()).toContain(' pending')
   // Whole-text controls replace range overrides and can link the whole block without entering edit mode.
   await heading.click()
+  await openFormatting(page, 'Typography')
   await page.getByLabel('Size', { exact: true }).fill('32px')
   await saved()
   await expect

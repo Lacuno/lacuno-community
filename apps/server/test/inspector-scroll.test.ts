@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, openFormatting } from './harness.js'
 
 it('keeps the inspector scroll position across a spacing edit', async () => {
   const { page, canvas, saved } = await editor({ width: 1200, height: 700 })
@@ -8,6 +8,7 @@ it('keeps the inspector scroll position across a spacing edit', async () => {
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
+  await openFormatting(page, 'Spacing & shape')
 
   // Scroll the inspector down to the spacing inputs.
   const inspector = page.locator('aside.inspector')

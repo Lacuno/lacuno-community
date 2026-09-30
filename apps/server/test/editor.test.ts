@@ -26,7 +26,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     element.parentElement!.getAttribute('data-lacuno-node'),
   )
   await canvas.locator(`[data-lacuno-node="${selectionParentId}"]`).dispatchEvent('click')
-  await openFormatting(page, 'Layout')
+  await openFormatting(page, 'Spacing & shape')
   await page.getByLabel('Inside spacing top', { exact: true }).fill('24')
   await saved()
   await heading.dispatchEvent('click')
@@ -301,7 +301,6 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     )
     .toBe(0)
   await page.getByText('Advanced: shared classes', { exact: true }).click()
-  await page.getByText('Assign or create class', { exact: true }).click()
   await page
     .getByLabel('Assign class', { exact: true })
     .selectOption({ label: 'project-color-test' })
@@ -424,7 +423,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await heading.click()
   expect(await page.getByRole('button', { name: /^Save/ }).count()).toBe(0)
   // Opening another inspector section keeps the active autosave draft intact.
-  await openFormatting(page, 'Layout')
+  await openFormatting(page, 'Spacing & shape')
   // Each pair is linked by default (its sides equal), so top and left fill all four → padding: 16px.
   for (const side of ['top', 'left'])
     await page
@@ -881,6 +880,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByLabel('Image alt text', { exact: true }).fill('Blue sample image')
   await expect.poll(() => insertedImage.getAttribute('alt')).toBe('Blue sample image')
   await saved()
+  await openFormatting(page, 'Size')
   await page.getByLabel('Height', { exact: true }).fill('160px')
   await page.getByLabel('Image fit', { exact: true }).selectOption('contain')
   await saved()

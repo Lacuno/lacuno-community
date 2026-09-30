@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, openFormatting } from './harness.js'
 
 type Canvas = Awaited<ReturnType<typeof editor>>['canvas']
 
@@ -99,6 +99,7 @@ it('keeps range colours and the words when the whole text changes', async () => 
   // Replacing the only range size leaves plain text; the panel must not save it empty.
   await format(sized, 'Size', '40px')
   await heading.click()
+  await openFormatting(page, 'Typography')
   await page.getByLabel('Size', { exact: true }).fill('20px')
   await saved()
   await expect

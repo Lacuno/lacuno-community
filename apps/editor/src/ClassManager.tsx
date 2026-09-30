@@ -3,6 +3,7 @@ import { nodesUsingClass } from '@lacuno/document/references'
 import type { Document, Node } from '@lacuno/schema'
 import { useState } from 'react'
 import { ErrorNote } from './Dialog.js'
+import { isOpen, setOpen } from './openSections.js'
 import { nodeLabel } from './structure.js'
 import { useDirtyChanged } from './useAutosave.js'
 
@@ -86,7 +87,11 @@ export function ClassManager({
             )
           })}
       </ul>
-      <details open={node.classes.length === 0} className="class-actions">
+      <details
+        open={isOpen('Assign or create class')}
+        className="class-actions"
+        onToggle={(event) => setOpen('Assign or create class', event.currentTarget.open)}
+      >
         <summary>Assign or create class</summary>
         <form
           onSubmit={async (event) => {

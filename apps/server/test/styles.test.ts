@@ -28,6 +28,7 @@ it('edits a gradient headline: angle, stops with project colours, and text fill'
 
   // Pressing the bar adds a stop there, selected, in the colour of its nearest stop.
   const bar = colors.locator('.gradient-bar')
+  await bar.scrollIntoViewIfNeeded()
   const box = (await bar.boundingBox())!
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
   await expect.poll(() => colors.locator('.gradient-stop').count()).toBe(3)

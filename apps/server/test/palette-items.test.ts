@@ -78,7 +78,7 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
   await saved()
   await canvas.locator('[data-lacuno-placeholder="Embed"] iframe').waitFor({ state: 'attached' })
   // Styling an embed publishes a wrapper that carries its class.
-  await openFormatting(page, 'Layout')
+  await openFormatting(page, 'Spacing & shape')
   await page.locator('aside.inspector').getByLabel('Inside spacing top', { exact: true }).fill('20')
   await expect
     .poll(() =>

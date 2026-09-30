@@ -138,6 +138,7 @@ it('shows typography overrides and restores one property to inheritance', async 
   const { page, canvas, saved } = await editor()
   const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   await heading.click()
+  await openFormatting(page, 'Typography')
   const weight = page.getByLabel('Weight', { exact: true })
   const size = page.getByLabel('Size', { exact: true })
   const overridden = (field: typeof weight) =>
@@ -173,21 +174,28 @@ it('shows typography overrides and restores one property to inheritance', async 
   expect(await overridden(weight)).toBe('false')
 }, 60_000)
 
-it('keeps a formatting group open or closed across selections and breakpoints', async () => {
+it('starts formatting groups closed and remembers the ones opened, across selections and reloads', async () => {
   const { page, canvas } = await editor()
   const group = (name: string) => page.locator(`aside.inspector details[data-group="${name}"]`)
   const isOpen = (name: string) =>
     group(name).evaluate((element) => (element as HTMLDetailsElement).open)
   await canvas.locator('[data-lacuno-node="n-home-title"]').click()
   expect(await isOpen('Colors')).toBe(false)
-  expect(await isOpen('Typography')).toBe(true)
+  expect(await isOpen('Typography')).toBe(false)
   await group('Colors').locator(':scope > summary').click()
-  await group('Typography').locator(':scope > summary').click()
   await canvas.locator('[data-lacuno-node="n-home-cta"]').click()
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
   await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
   expect(await isOpen('Colors')).toBe(true)
-  expect(await isOpen('Typography')).toBe(false)
-  // Groups left alone keep their default for the element type.
+  expect(await isOpen('Size')).toBe(false)
+  await group('Colors').locator(':scope > summary').click()
+  await group('Size').locator(':scope > summary').click()
+  // The toggle event comes after the click; wait for it to be remembered.
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('lacuno:open-sections')))
+    .toBe('["Size"]')
+  await page.reload()
+  await canvas.locator('[data-lacuno-node="n-home-title"]').click()
   expect(await isOpen('Size')).toBe(true)
+  expect(await isOpen('Colors')).toBe(false)
 }, 60_000)
