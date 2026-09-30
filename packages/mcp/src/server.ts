@@ -73,8 +73,36 @@ async function insideSite(siteDir: string | undefined, file: string): Promise<st
   return target
 }
 
+/**
+ * Models fill optional fields they do not need with '' or null; every tool reads those as not
+ * given, so `page: ''` next to a component is no second target. The schemas they see stay as
+ * written.
+ */
+function lenient(shape: z.ZodRawShape): z.ZodRawShape {
+  return Object.fromEntries(
+    Object.entries(shape).map(([key, field]) => [
+      key,
+      z.safeParse(field, undefined).success
+        ? z.preprocess((value) => (value === '' || value === null ? undefined : value), field)
+        : field,
+    ]),
+  )
+}
+
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: 'lacuno', version: '0.0.0' })
+  const register = server.registerTool.bind(server)
+  server.registerTool = ((name, config, callback) =>
+    register(
+      name,
+      config.inputSchema
+        ? {
+            ...config,
+            inputSchema: lenient(config.inputSchema as z.ZodRawShape) as typeof config.inputSchema,
+          }
+        : config,
+      callback,
+    )) as typeof server.registerTool
   let buildQueue: Promise<unknown> = Promise.resolve()
 
   server.registerTool(

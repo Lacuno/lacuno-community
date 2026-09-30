@@ -70,6 +70,25 @@ describe('read tools', () => {
     expect(Object.keys((await read()).assets)).not.toContain('a-spare')
   })
 
+  it("reads optional fields a model fills with '' or null as not given", async () => {
+    const { client } = await setup()
+    const outline = await client.callTool({
+      name: 'page.outline',
+      arguments: { page: 'p-home', component: '', depth: null },
+    })
+    expect(outline.isError).toBeFalsy()
+    expect(textOf(outline).split('\n')[0]).toBe('n-home main .c-page')
+    const guide = await client.callTool({ name: 'guide', arguments: { group: '' } })
+    expect(guide.isError).toBeFalsy()
+    // The schemas the model sees keep their types.
+    const { tools } = await client.listTools()
+    expect(
+      tools.find((tool) => tool.name === 'page.outline')?.inputSchema.properties,
+    ).toMatchObject({
+      component: { type: 'string' },
+    })
+  })
+
   it('page.outline renders an indented tree with classes and text snippets', async () => {
     const { client } = await setup()
     const out = textOf(
