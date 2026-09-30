@@ -19,13 +19,13 @@ a real self-host story, and an agent that is a first-class collaborator rather t
 Lacuno is a self-hostable, open source web design and publishing tool.
 
 - You design visually with a real CSS model: classes, combo classes, breakpoints, states, design tokens.
-- Your site is a typed JSON document that lives in a git repository you own.
-- Publishing compiles that document to an Astro project and serves the static output. Zero JavaScript
-  by default, islands when a component needs interactivity.
+- Your site is a typed JSON document you own and can export.
+- Publishing compiles that document to static output, with Astro as an internal engine, and serves
+  it. Zero JavaScript by default, islands when a component needs interactivity.
 - A native CMS with collections, references and collection templates feeds the build.
-- An agent works on the same document. On the canvas, as a chat panel that sees your selection and
-  proposes visible changes. From the terminal, as an MCP server for Claude Code, Cursor or any agent.
-  In the background, as jobs that write content, audit accessibility or translate pages.
+- The AI app you already use works on the same document over MCP: Claude, ChatGPT, Cursor, VS Code
+  or any other client. Its edits land live on the canvas while you watch. Lacuno never calls a model
+  and never holds an API key.
 - It runs on your server as one container.
 
 ## Who it is for
@@ -33,8 +33,9 @@ Lacuno is a self-hostable, open source web design and publishing tool.
 Primary: freelancers, small studios and indie founders who build marketing sites, portfolios, blogs
 and documentation for themselves and for clients, and who want to own the result.
 
-Secondary: developers who want a visual layer over an Astro site without giving up the codebase, and
-teams that want an agent to draft and maintain sites under human review.
+Secondary: developers who want a visual layer that produces plain static sites and extends through
+embeds and code, and teams that want an AI app to draft and maintain sites while people watch and
+refine.
 
 Not for: web apps with authentication, dashboards, or per-user state. Lacuno builds sites, not apps.
 An island can embed an app, but Lacuno will not become one.
@@ -48,16 +49,16 @@ An island can embed an app, but Lacuno will not become one.
    and could be handed to a developer without shame. No inline style soup, no utility class dumps.
 3. **Static first.** The default output is HTML and CSS a CDN can serve. Every dynamic feature must
    justify its JavaScript.
-4. **Own your site.** Git-backed documents, exportable Astro projects, standard assets. Leaving
-   Lacuno should be a `git clone`, not a migration project.
-5. **Agents are users.** An agent gets the same document, the same permissions model, the same undo
-   history and the same audit trail as a human. Its changes are proposals until a human accepts them,
-   unless the human says otherwise.
+4. **Own your site.** A JSON document with a published schema, portable static output, standard
+   assets. Leaving Lacuno should be a download, not a migration project.
+5. **Agents are users.** An agent gets the same document, the same operations, the same permissions
+   as the person who connected it and the same history as a human. Its edits land live on the
+   canvas, which is the review; publishing to production stays a human action.
 6. **Self-hostable.** One application container, SQLite and local disk. Separate editor and publishing
    listeners keep site scripts away from authentication. Operators manage their own infrastructure.
-7. **Open builder, optional managed hosting.** The builder, CMS, publishing and agent belong in the
-   AGPL repository. Community includes self-hosting documentation; operators configure domains,
-   HTTPS, backups and updates themselves. A future paid Cloud service manages that work for them.
+7. **Open builder, optional managed hosting.** The builder, CMS, publishing and MCP server belong in
+   the AGPL repository. Community includes self-hosting documentation; operators configure domains,
+   HTTPS, backups and updates themselves. Lacuno Cloud manages that work for those who want it.
 8. **Parity is a test.** What you see on the canvas is what Astro emits. The canvas renderer and the
    compiler share one CSS generator and are snapshot-tested against each other.
 
@@ -67,8 +68,8 @@ An island can embed an app, but Lacuno will not become one.
   reading docs.
 - A developer deploys the application container and follows the self-hosting guide to connect their
   own reverse proxy, domains and TLS. No paid subscription is required to self-host.
-- A founder types "build me a landing page for a bookkeeping SaaS, use our brand skill" and gets a
-  proposal on the canvas they can accept, tweak or reject section by section.
-- Claude Code, pointed at the MCP server, adds a pricing page that respects the site's design tokens and
-  components, screenshots it, and opens a proposal branch for review.
+- A founder asks their AI app for a landing page for a bookkeeping SaaS and watches it appear on the
+  canvas, then adjusts it by hand or undoes it.
+- Claude Code, connected to the site, adds a pricing page that respects the site's design tokens and
+  components, screenshots it, and publishes it to the testing address for review.
 - A published page scores 100 on Lighthouse performance with no effort from the user.

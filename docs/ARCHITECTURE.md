@@ -24,7 +24,7 @@ The diagram includes planned services, not only implemented endpoints. The curre
 container exposes the editor/API on port 3000 and published static output on a separate listener
 on port 3001. Builds run in child processes. Operators configure their own reverse proxy, DNS and
 TLS; the application does not provision certificates or configure a proxy. Managed infrastructure
-belongs to the planned Cloud service. See [self-hosting](SELF_HOSTING.md).
+belongs to [Lacuno Cloud](CLOUD.md). See [self-hosting](SELF_HOSTING.md).
 
 ## Monorepo layout
 

@@ -1,9 +1,9 @@
 # Self-hosting Lacuno Community
 
 Community includes the builder, compiler, publishing and rollback. You operate the infrastructure:
-server provisioning, DNS, HTTPS, access control, backups, monitoring and updates. Lacuno Cloud is
-a planned paid managed service, not a requirement for using Community. This guide does not provision
-hosting or manage domains and certificates for you.
+server provisioning, DNS, HTTPS, access control, backups, monitoring and updates. Lacuno Cloud, the
+hosted service at [lacuno.io](https://lacuno.io), does that for you; it is not a requirement for
+using Community. This guide does not provision hosting or manage domains and certificates for you.
 
 Use trusted accounts, keep independent backups, and test upgrades before deploying them.
 Email verification, password recovery, storage quotas and
@@ -96,7 +96,7 @@ Published pages may contain user-authored scripts. Never serve them on the edito
 published hosts to the editor listener, or share authentication cookies with the publishing domain.
 The static listener has no auth or draft API. Its routing currently supports UUID subdomains of one
 configured publishing base, not arbitrary per-site custom-domain mappings. Managed domain connection,
-certificate provisioning and deployment orchestration belong to the planned Cloud service.
+certificate provisioning and deployment orchestration belong to Lacuno Cloud.
 
 Recreate the container after changing settings, then check editor sign-in, publishing, a public
 page, its assets and rollback through HTTPS. The Docker health check checks API liveness only, not

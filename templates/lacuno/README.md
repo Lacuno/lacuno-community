@@ -63,11 +63,9 @@ The committed source is
 distributed with this repository under its AGPL-3.0-or-later license. The starter uses a system font
 stack and has no external font or image attribution requirements.
 
-The Lacuno-operated browser builder and hosting service described in the sample copy are planned.
-No current availability, price or numeric allowance is promised. Self-hosting the builder and
-generated websites remains part of the project direction. The primary “Explore Lacuno” action
-links to `/about` because a working public project destination was not available when the starter
-was authored.
+The sample copy was written before Lacuno Cloud ran at [lacuno.io](https://lacuno.io) and describes
+the hosted builder as planned; it promises no availability, price or allowance. The primary
+“Explore Lacuno” action links to `/about`, a page inside the starter.
 
 ## Authoring and verification evidence
 
