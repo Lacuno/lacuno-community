@@ -163,8 +163,8 @@ Agent work lands as proposals reviewed in a diff.
 Lacuno therefore never calls a model and never holds a key: the editor's Connect your AI
 button registers a per-site MCP endpoint in the user's app, protected by OAuth issued by the
 same server. Agent batches stream into the open editor and land on the canvas as they happen,
-which is the review; the designer's own draft is never overwritten and their undo history stays
-theirs. A proposal flow would double the mechanism for little safety, since every batch is
+which is the review; the designer's own draft is never overwritten, and each agent batch joins
+the open editor's undo history as one step, so the designer can take back what their AI did. A proposal flow would double the mechanism for little safety, since every batch is
 version-pinned, logged and undoable by a later batch. Production publishing and site deletion
 remain human-only actions and are not exposed as tools. A Cloud gateway may also connect to a
 site's MCP endpoint as the signed-in owner, with a user assertion on each request; Community
