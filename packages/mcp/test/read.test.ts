@@ -87,6 +87,10 @@ describe('read tools', () => {
     ).toMatchObject({
       component: { type: 'string' },
     })
+    // An operation's fields beside its type are allowed in so many words.
+    expect(
+      tools.find((tool) => tool.name === 'document.apply')?.inputSchema.properties,
+    ).toMatchObject({ operations: { items: { additionalProperties: true } } })
   })
 
   it('page.outline renders an indented tree with classes and text snippets', async () => {

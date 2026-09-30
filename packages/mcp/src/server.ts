@@ -127,7 +127,11 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         'Apply a batch of operations atomically. Pass the revision you read; use dryRun to preview patches.',
       inputSchema: {
         expectedRevision: z.number().int().nonnegative(),
-        operations: z.array(z.looseObject({ type: z.string() })),
+        // Explicitly open: apps that read an object's listed properties as all it may carry
+        // (OpenAI's models) otherwise send each operation with its type alone.
+        operations: z.array(
+          z.looseObject({ type: z.string() }).meta({ additionalProperties: true }),
+        ),
         dryRun: z.boolean().optional(),
       },
     },
