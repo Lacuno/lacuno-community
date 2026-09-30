@@ -216,7 +216,10 @@ export async function createServer(options: ServerOptions) {
         setupRequired: setup?.required ?? false,
         origin,
         local: ['localhost', '127.0.0.1'].includes(new URL(origin).hostname),
-        ...(gateway ? { authentication: 'gateway', gatewayProtocol: 1 } : {}),
+        // Behind a gateway the editor links back to it: the gateway's issuer is its dashboard.
+        ...(gateway
+          ? { authentication: 'gateway', gatewayProtocol: 1, home: options.gateway!.issuer }
+          : {}),
       }),
     )
     // Require same-origin JSON writes even for endpoints outside Better Auth's CSRF checks.

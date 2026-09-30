@@ -22,11 +22,19 @@ export function SignUpLink() {
 }
 
 export function Brand() {
-  return (
-    <span className="brand">
+  const home = useConfig().config?.home
+  const content = (
+    <>
       <img className="brand-logo" src={logo} width={123} height={30} alt="Lacuno" />
       <span className="badge">EARLY ACCESS</span>
-    </span>
+    </>
+  )
+  return home ? (
+    <a className="brand" href={home} title="Workspaces">
+      {content}
+    </a>
+  ) : (
+    <span className="brand">{content}</span>
   )
 }
 
@@ -180,7 +188,8 @@ function Sites({
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   // The try editor has its one site and no account to sign out of; viewers create none.
-  const trying = useConfig().config?.try
+  const { config } = useConfig()
+  const trying = config?.try
   const creating = !trying && user.role !== 'viewer'
   useEffect(() => {
     const load = () =>
@@ -197,6 +206,11 @@ function Sites({
       <header className="workspace-header">
         <Brand />
         <div className="row">
+          {config?.home && (
+            <a className="home-link" href={config.home}>
+              Workspaces
+            </a>
+          )}
           <span className="muted">{user.name}</span>
           {!trying && (
             <button type="button" onClick={logout}>

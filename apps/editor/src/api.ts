@@ -67,6 +67,8 @@ export type Config = {
   local: boolean
   /** The try editor: one site in the browser, and sign-up instead of publishing or AI apps. */
   try?: boolean
+  /** Behind a gateway, its dashboard: the logo and Workspaces lead there. */
+  home?: string
 }
 
 /** The server's config, read when a component that needs it mounts. */

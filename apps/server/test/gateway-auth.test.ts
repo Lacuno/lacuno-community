@@ -81,6 +81,8 @@ describe('gateway mode', () => {
       authentication: 'gateway',
       setupRequired: false,
       allowSignup: false,
+      // The editor's logo and Workspaces link lead back to the gateway's dashboard.
+      home: issuer,
     })
     // Without a relay the runtime cannot fetch Client ID Metadata Documents, so it only registers.
     const metadata = await (await request('/.well-known/oauth-authorization-server')).json()
