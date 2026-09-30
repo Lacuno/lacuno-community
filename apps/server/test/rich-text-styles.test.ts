@@ -2,7 +2,6 @@ import type { Page } from 'playwright'
 import { expect, it } from 'vitest'
 import { editor, openFormatting } from './harness.js'
 
-
 const text = (value: string, marks?: unknown[]) => ({
   type: 'text',
   text: value,

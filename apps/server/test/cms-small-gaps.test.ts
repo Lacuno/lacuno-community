@@ -1,7 +1,6 @@
 import { expect, it } from 'vitest'
 import { editor, pageSettings } from './harness.js'
 
-
 it('formats bound dates, shows fields inside text and puts titles into the site template', async () => {
   const { page, canvas, document, saved, api, siteId, server, publish } = await editor()
   const errors: string[] = []
