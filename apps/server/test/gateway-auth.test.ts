@@ -11,7 +11,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import Database from 'better-sqlite3'
 import { decodeJwt, jwtVerify, SignJWT } from 'jose'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createServer } from '../src/app.js'
 import { type SiteEvent, siteEvents } from '../src/events.js'
 
@@ -75,8 +75,13 @@ describe('gateway mode', () => {
     await rm(dir, { recursive: true, force: true })
   })
 
-  it('advertises gateway authentication and rejects unsigned requests', async () => {
+  it('advertises gateway authentication and rejects unsigned requests, logging why', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     expect((await request()).status).toBe(401)
+    expect(warn).toHaveBeenCalledWith(
+      'Gateway assertion refused for GET /api/sites: Error: Missing gateway assertion',
+    )
+    warn.mockRestore()
     expect(await (await request('/api/config')).json()).toMatchObject({
       authentication: 'gateway',
       setupRequired: false,

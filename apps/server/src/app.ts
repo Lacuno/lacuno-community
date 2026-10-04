@@ -239,7 +239,9 @@ export async function createServer(options: ServerOptions) {
     if (gateway) {
       app.use('*', async (c, next) => {
         if (anonymous(c.req.method, c.req.path)) return next()
-        const user = await gateway.authenticate(c.req.raw).catch(() => undefined)
+        const user = await gateway.authenticate(c.req.raw).catch((error) => {
+          console.warn(`Gateway assertion refused for ${c.req.method} ${c.req.path}: ${error}`)
+        })
         // Cloud's own assertions are good for its two routes and nothing else.
         if (
           !user ||
