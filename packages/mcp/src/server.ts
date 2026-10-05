@@ -146,8 +146,11 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           ...(dryRun ? { dryRun } : {}),
         }
         const result = await store.apply(batch)
-        if (!dryRun) options.onApply?.(batch, result)
-        return ok(result)
+        if (dryRun) return ok(result)
+        options.onApply?.(batch, result)
+        // The patches repeat everything the batch created, several times the batch's own size.
+        const { patches: _patches, ...applied } = result
+        return ok(applied)
       } catch (e) {
         return fail(e)
       }

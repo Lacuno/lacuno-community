@@ -11,7 +11,7 @@ over a server site at `/mcp/<site id>` (Streamable HTTP, OAuth).
 | `node.get` | One node and its subtree. |
 | `styles.get` | Style declarations by class, breakpoint and state. |
 | `entries.list` | A collection's entries in order. |
-| `document.apply` | An atomic batch of operations against the revision you read; `dryRun` returns the patches. |
+| `document.apply` | An atomic batch of operations against the revision you read; answers with the revision, created ids and warnings, and `dryRun` returns the patches. |
 | `document.diff` | Readable summary of what a batch would change (dry run) or of the changes since another `lacuno.json` in the site folder (`against`); `json: true` for structured output. |
 | `asset.import` | Stores a file from the site folder (`path`), base64 bytes (`data`, small files only) or, on a server site, a public https `url` the server downloads, and registers the asset. |
 | `asset.upload` | Server only: a single-use address, valid 10 minutes, that an app with a shell PUTs a local file to (`curl -T`); the answer is the asset. |

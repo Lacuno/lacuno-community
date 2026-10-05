@@ -13,7 +13,11 @@ describe('document.apply', () => {
     const store = DocumentStore.inMemory(fixtureDocument())
     const c = await connect(store)
     close = c.close
-    const res = jsonOf<{ revision: number; created: Record<string, string[]>; patches: unknown[] }>(
+    const res = jsonOf<{
+      revision: number
+      created: Record<string, string[]>
+      patches?: unknown[]
+    }>(
       await c.client.callTool({
         name: 'document.apply',
         arguments: {
@@ -34,7 +38,7 @@ describe('document.apply', () => {
     )
     expect(res.revision).toBe(1)
     expect(res.created['0']).toEqual(['c-x'])
-    expect(res.patches).toHaveLength(2)
+    expect(res.patches).toBeUndefined()
     expect(store.read().document.classes['c-x']).toBeDefined()
     const stale = await c.client.callTool({
       name: 'document.apply',
