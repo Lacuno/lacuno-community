@@ -22,7 +22,8 @@ it('inserts a form, keeps fields inside it and edits a field name and Required',
   await expect
     .poll(() => page.getByLabel('Form name', { exact: true }).inputValue())
     .toBe('Contact form')
-  await page.getByText('Submissions are emailed to the workspace owner.').waitFor()
+  // The test server has no SMTP, so /api/config says forms do not send.
+  await page.getByText('Submissions are off on this server: set LACUNO_SMTP_URL.').waitFor()
 
   // The form stays selected, so a text field goes inside it with a name of its own.
   await insert('Text field', 'inside')
