@@ -9,7 +9,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | --- | --- | --- |
 | Canvas in an isolated iframe with click, drag, resize, marquee select | MVP | Editor chrome never leaks CSS into the site |
 | Layer tree (navigator) with drag reorder, rename, hide, lock | MVP | |
-| Element palette: div, section, container, heading, paragraph, text span, link, button, image, video, list, form controls, embed | MVP | Semantic tag is chosen per element, not implied by a component name. In: section, container, stack, row, grid, list, heading, paragraph, span, image, video, embed, link and button, plus Wrap selection in any structure or a link. A link and a button are both `a` elements; a form button waits for forms, as do the other form controls |
+| Element palette: div, section, container, heading, paragraph, text span, link, button, image, video, list, form controls, embed | MVP | Semantic tag is chosen per element, not implied by a component name. In: section, container, stack, row, grid, list, heading, paragraph, span, image, video, embed, link and button, plus Wrap selection in any structure or a link. A link and a button are both `a` elements. Form controls are plain `form`, `label`, `input`, `textarea`, `select` and `button` elements, which documents and MCP accept |
 | Style panel: box model, size, position, display, flex, grid, typography, backgrounds, borders, shadows, effects, transforms, overflow, cursor | MVP | Every CSS property reachable, common ones with visual controls |
 | Classes and combo classes | MVP | Webflow model. Styles attach to classes, elements reference classes |
 | Breakpoint cascade | MVP | Desktop-first base with tablet, mobile landscape, mobile portrait. Custom breakpoints. Container queries as a per-element option |
@@ -56,8 +56,8 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 
 | Feature | When | Notes |
 | --- | --- | --- |
-| Form builder with validation, honeypot, submissions stored on the instance | MVP | Submissions are the one runtime endpoint the published site needs |
-| Email notifications and webhooks on submission | MVP | SMTP or Resend |
+| Form builder with validation, honeypot, submissions stored on the instance | MVP | Submissions are the one runtime endpoint the published site needs. In: a `form` without its own `action` publishes with a honeypot, a time check and a script that sends it in place; the server checks field count and sizes and limits each visitor per site. Still to come: stored submissions, an inbox and CSV export (D029) |
+| Email notifications and webhooks on submission | MVP | In: each message is emailed to the workspace owner over SMTP (`LACUNO_SMTP_URL`), replying to the visitor's address. Still to come: webhooks |
 | Asset library with folders, upload, drag onto canvas, alt text | MVP | Local disk or S3-compatible |
 | Image optimization: responsive sizes, AVIF and WebP, lazy loading | MVP | Astro image pipeline with sharp |
 | Font management: self-hosted uploads, system stacks, variable fonts | MVP | Self-hosted only; no third-party font hosts, see D013. In: WOFF2, WOFF, TTF and OTF uploads, one face per file with weight and style, variable fonts as one face with a weight range (`font-weight:100 900`), system fonts with a fallback, managed in Site settings and picked from both font fields; published as font-face rules with one preload per family |

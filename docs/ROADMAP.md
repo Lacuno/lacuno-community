@@ -22,7 +22,7 @@ product boundary and [Cloud integration](CLOUD.md) for how the two connect.
 | 1. Editor MVP | A designer builds and publishes a site without the terminal | Built; `npx lacuno` open |
 | 2. Connect your AI | The user's own AI app works on the canvas, live | Built |
 | 3. Agent on the canvas | The agent works with the designer's context | Not started |
-| 4. Content and forms | Collections, content editing, forms, imports | CMS built; forms and imports open |
+| 4. Content and forms | Collections, content editing, forms, imports | CMS and forms by email built; imports open |
 | 5. Collaboration and scale | Several people and their AI apps in one site | Designed, not built |
 
 ## Phase 0. Foundation — complete
@@ -167,12 +167,14 @@ content through the document, so native content editing could wait.
 - A blog in one step when a site has no collections (D020), and a list page per collection.
 - Styling the blocks of rich text per tag, breakpoint and state (D023), and a site-wide title
   template (D024).
+- Forms by email: a published form posts to the site's own host, with a honeypot, a time check and
+  a rate limit, and each message is mailed to the workspace owner; nothing is stored (D029).
 
 **Open**
 
 - Content editor mode, roles, drafts and scheduling.
 - Components with slots and visible instance overrides in the layer tree.
-- Forms with submissions, notifications and webhooks.
+- Stored form submissions with an inbox and export, and webhooks.
 - Import from a Webflow clipboard, Webstudio JSON, HTML with CSS, Tailwind HTML and CSV.
 - Export of the static output to a git remote, and deploy hooks for external hosts.
 

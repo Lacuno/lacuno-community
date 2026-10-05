@@ -438,3 +438,19 @@ Replacing `srcdoc` on every edit.
 A reload per edit closed open controls, lost scroll and recreated the overlay, which made repeated
 commits such as drags and colour changes jumpy; a morph keeps the document, listeners and open
 controls. The sandbox keeps site scripts away from the editor.
+
+## D029. Forms email each message to the site's owner and store nothing, for now
+
+**Decision.** A published form's message is mailed to the workspace owner's account address and
+not stored. The recipient is always the owner, never an address the form names. Bots are kept out
+by a honeypot, a minimum time on the page and a per-visitor rate limit held in memory, without a
+third-party script on published pages. Self-hosted servers send over SMTP; without it, forms
+render but answer that the message could not be sent.
+
+**Alternatives.** Storing submissions on the instance with an inbox first (D005's plan); a
+recipient per form; a CAPTCHA service.
+
+**Why.** Email is what a small site's contact form needs and works without new screens, tables or
+retention rules. A fixed recipient needs no verification and cannot be used to mail strangers. A
+message whose email fails is lost and the visitor is told to try again. The database holding
+submissions, as D005 describes, remains the plan for the inbox, export and webhooks.

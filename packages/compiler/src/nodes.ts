@@ -14,6 +14,7 @@ import {
 } from '@lacuno/schema'
 import { isImage } from './assets.js'
 import { RenderError } from './errors.js'
+import { formFields } from './forms.js'
 import { type AttrMap, escapeHtml, renderAttrs, VOID_TAGS } from './html.js'
 import type { ImageResolver } from './images.js'
 import { applyQuery } from './query.js'
@@ -39,6 +40,8 @@ export type RenderState = {
   listPage?: number
   /** Collects each rendered text node's content, for a plain-text view of the page. */
   texts?: [NodeId, Resolved][]
+  /** Set once the page has a Lacuno form, which needs `FORM_SCRIPT`. */
+  forms?: true
 }
 
 /** The classes that carry a Motion field, gathered once so marking a node is a set lookup. */
@@ -156,9 +159,19 @@ function renderElement(node: ElementNode, scope: Scope, state: RenderState): str
   const { attrs, imageAsset } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
   if (node.tag === 'img' && imageAsset) return renderImage(node, attrs, imageAsset, state)
   if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
+  // A form without its own action is a Lacuno form: published, it posts to the site's endpoint.
+  const form = node.tag === 'form' && attrs.action === undefined && !state.annotateNodes
+  if (form) {
+    attrs.action = '/_lacuno/forms'
+    attrs.method = 'post'
+    state.forms = true
+  }
   const open = `<${node.tag}${renderAttrs(attrs)}>`
   if (VOID_TAGS.has(node.tag)) return open
-  return `${open}${renderChildren(node.children, scope, state)}</${node.tag}>`
+  const name = attrs['data-lacuno-form']
+  return `${open}${renderChildren(node.children, scope, state)}${
+    form ? formFields(typeof name === 'string' && name ? name : 'Contact form') : ''
+  }</${node.tag}>`
 }
 
 /** A text's content: rich text written on it, or its binding resolved. */

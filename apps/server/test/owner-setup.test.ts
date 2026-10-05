@@ -50,7 +50,13 @@ it('protects first-owner setup, serializes claims across instances, and never re
     const setupToken = await token(dir)
     expect(setupToken).toMatch(/^[a-f0-9]{64}$/)
     const config = await (await server.app.request(`${origin}/api/config`)).json()
-    expect(config).toEqual({ allowSignup: false, setupRequired: true, origin, local: true })
+    expect(config).toEqual({
+      allowSignup: false,
+      setupRequired: true,
+      origin,
+      local: true,
+      forms: false,
+    })
     expect(JSON.stringify(config)).not.toContain(setupToken)
     expect((await request(server.app, '/api/setup', { ...account, token: 'wrong' })).status).toBe(
       403,
@@ -110,6 +116,7 @@ it('protects first-owner setup, serializes claims across instances, and never re
       setupRequired: false,
       origin,
       local: true,
+      forms: false,
     })
     expect(
       (

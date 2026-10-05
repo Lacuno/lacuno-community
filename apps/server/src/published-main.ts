@@ -2,6 +2,7 @@ import path from 'node:path'
 import { serve } from '@hono/node-server'
 import Database from 'better-sqlite3'
 import { readPort } from './environment.js'
+import { smtp } from './mail.js'
 import { PublicationReader } from './publication-reader.js'
 import { publishedApp } from './published.js'
 
@@ -21,7 +22,7 @@ if (process.argv[2] === '--list') {
   sqlite.close()
 } else {
   const server = serve({
-    fetch: publishedApp(reader).fetch,
+    fetch: publishedApp(reader, smtp()).fetch,
     port,
     hostname: process.env.HOST ?? '127.0.0.1',
   })

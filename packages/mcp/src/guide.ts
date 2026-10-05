@@ -49,6 +49,10 @@ A text node may set \`rotatingWords\` (node.create or node.update; \`null\` remo
 
 Texts in step: rotating texts with as many words and the same interval turn together on the page, so several can form one phrase. For "your AI, your designer, you" make "your " its own text node right before the pill, with \`{"words":["your ",""]}\` (the same word twice holds still; the empty word shrinks it away, space included), and the pill \`{"icon":"sparkles","words":[{"text":"designer","icon":"pen-tool"},{"text":"you","icon":"smile"}]}\`. Keep the texts next to each other in one parent: siblings in step are read as one phrase per turn ("your AI, your designer, you"), from the last of them. Put the spaces inside the texts, in normal text flow; a flex \`gap\` between them stays when a word empties.
 
+## Forms
+
+A contact form is plain nodes: a \`form\` element without an \`action\` attribute, with \`data-lacuno-form\` (its name in the email, "Contact form" when left out) and \`data-success\` (the message that replaces the form once sent). Inside it, each field is a \`label\` element holding a text with the label and the control: an \`input\` (attrs \`name\`, \`type\` such as \`text\`, \`email\`, \`tel\`, \`number\`, \`url\`, \`date\` or \`checkbox\`, \`placeholder\`, \`required\`), a \`textarea\`, or a \`select\` whose children are text nodes with the tag \`option\`; give every control a \`name\`, which labels its value in the email. End with a \`button\` (a text node with that tag) with \`type\` \`submit\`. Published, each message is emailed to the workspace owner, replying to the first email address the visitor entered, and nothing is stored; the canvas shows the form but never sends it. A \`form\` with its own \`action\` (a newsletter provider's, say) publishes as it is.
+
 ## Operations
 `
 

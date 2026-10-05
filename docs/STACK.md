@@ -39,7 +39,7 @@ built yet.
 | Realtime | Server-sent events | Committed batches reach every open editor. A WebSocket for presence and collaboration is planned |
 | Git | Planned: the git binary in the container | Sites as repositories (D005) are not built yet |
 | Build queue | Child process per build | The compiler changes the working directory for Astro, so builds cannot share a process. A separate build worker service is a config option later |
-| Email | Planned: Nodemailer with SMTP, Resend as an adapter | Form notifications, magic links |
+| Email | Nodemailer with SMTP | Form messages to the site owner; magic links are planned |
 | TLS and domains | Operator's reverse proxy (for example Caddy or nginx) | Community documents manual setup; managed provisioning is future Cloud scope |
 | Container | `node:22-bookworm-slim`, non-root, one volume | Editor on port 3000, published sites on 3001, data in `/data`; see [self-hosting](SELF_HOSTING.md) |
 

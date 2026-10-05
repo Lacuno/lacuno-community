@@ -10,6 +10,8 @@ services:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       LACUNO_PUBLISH_BASE_URL: ${LACUNO_PUBLISH_BASE_URL:-http://localhost:3001}
       LACUNO_ALLOW_SIGNUP: ${LACUNO_ALLOW_SIGNUP:-false}
+      LACUNO_SMTP_URL: ${LACUNO_SMTP_URL:-}
+      LACUNO_MAIL_FROM: ${LACUNO_MAIL_FROM:-}
     ports:
       - "127.0.0.1:3000:3000"
       - "127.0.0.1:3001:3001"

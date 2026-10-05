@@ -27,6 +27,7 @@ import { migrateApplication, openDatabase, sites, workspaces } from './database.
 import { type SiteEvent, siteEvents, summarize } from './events.js'
 import { exportActivity, exportAsset, exportThumbnail } from './export.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
+import type { Send } from './mail.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
 import { createOAuth, gatewayUser, type OAuth, relayFetch } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
@@ -47,6 +48,8 @@ export type ServerOptions = {
   cimdRelay?: string
   /** Cloud's export sink, which receives every published release. Needs `gateway`. */
   export?: string
+  /** Sends published forms' messages; without it they are refused. */
+  mail?: Send
   /** Test-only: replaces the OAuth grants so tests can call the MCP endpoint with a fixed token. */
   oauth?: OAuth
 }
@@ -216,6 +219,8 @@ export async function createServer(options: ServerOptions) {
         setupRequired: setup?.required ?? false,
         origin,
         local: ['localhost', '127.0.0.1'].includes(new URL(origin).hostname),
+        // Behind a gateway, the gateway answers form posts.
+        forms: !!gateway || !!options.mail,
         // Behind a gateway the editor links back to it: the gateway's issuer is its dashboard.
         ...(gateway
           ? { authentication: 'gateway', gatewayProtocol: 1, home: options.gateway!.issuer }
@@ -699,7 +704,7 @@ export async function createServer(options: ServerOptions) {
     return {
       app,
       oauth,
-      published: releases ? publishedApp(releases) : undefined,
+      published: releases ? publishedApp(releases, options.mail) : undefined,
       close: () => {
         releases?.close()
         sqlite.close()

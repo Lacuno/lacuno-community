@@ -11,9 +11,8 @@
   Claude, ChatGPT ─►│  ├─ /mcp        MCP over streamable HTTP,     │
   Cursor, VS Code   │  │              OAuth per site, no model calls │
                     │  ├─ /build      build queue → Astro compiler   │
-                    │  ├─ /forms      form submissions (planned)     │
-  Published site ──►│  │                                             │
-                    │  └─ /sites/*    serves published static output │
+  Published site ──►│  ├─ /sites/*    serves published static output │
+                    │  └─ /_lacuno/forms  form messages, by email    │
                     │                                               │
                     │  SQLite (Drizzle)        assets (filesystem)  │
                     └──────────────────────────────────────────────┘
@@ -247,8 +246,11 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
   forwards published hosts to that listener, preserving the Host header.
 - **Assets.** Content-addressed on local disk, typed by their first bytes on upload. S3-compatible
   storage is planned.
-- **Forms** are planned: a published form posting to the instance, which validates, stores,
-  notifies and optionally forwards to a webhook, with rate limiting and a honeypot.
+- **Forms** are plain `form` elements. One without its own `action` publishes posting to
+  `/_lacuno/forms` on the site's host, with a honeypot and a small script that sends it in the
+  background and shows the result. The publishing listener validates the message, rate-limits it
+  per visitor in memory and mails it to the workspace owner over SMTP (Nodemailer); nothing is
+  stored yet (D029). Behind a gateway, the gateway answers form posts instead.
 
 ## CLI
 

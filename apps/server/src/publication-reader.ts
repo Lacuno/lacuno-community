@@ -64,6 +64,16 @@ export class PublicationReader {
         .all(siteId) as { id: string }[]
     ).map((row) => row.id)
   }
+  /** The email of the account that owns the site's workspace, which gets its form messages. */
+  ownerEmail(siteId: string) {
+    return (
+      this.sqlite
+        .prepare(
+          'SELECT user.email FROM sites JOIN workspaces ON workspaces.id = sites.workspace_id JOIN user ON user.id = workspaces.owner_id WHERE sites.id = ?',
+        )
+        .get(siteId) as { email: string }
+    ).email
+  }
   /** `--list` prints the production rows; the cloud runtime parses exactly this shape. */
   publications() {
     return this.sqlite

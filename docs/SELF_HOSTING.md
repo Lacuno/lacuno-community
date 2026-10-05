@@ -103,6 +103,21 @@ The static listener has no auth or draft API. Its routing currently supports UUI
 configured publishing base, not arbitrary per-site custom-domain mappings. Managed domain connection,
 certificate provisioning and deployment orchestration belong to Lacuno Cloud.
 
+Published forms mail each message to the workspace owner and store nothing. To turn them on, set an
+SMTP server and a sender in `.env.docker` (both, or neither; without them the editor says forms are
+off and a form answers that the message couldn't be sent):
+
+```dotenv
+LACUNO_SMTP_URL=smtps://user:password@smtp.example.com:465
+LACUNO_MAIL_FROM=Lacuno <forms@example.com>
+```
+
+The sender's domain needs the SPF and DKIM records your mail provider asks for, or messages land in
+spam. Forms limit each visitor to five messages a site in ten minutes, by the last address in
+`X-Forwarded-For`: make your proxy append the client's address (Caddy's `reverse_proxy` does by
+default; nginx with `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for`), or every
+visitor shares the proxy's.
+
 Recreate the container after changing settings, then check editor sign-in, publishing, a public
 page, its assets and rollback through HTTPS. The Docker health check checks API liveness only, not
 your DNS, certificates or individual published sites. Monitor those yourself. Run one instance per

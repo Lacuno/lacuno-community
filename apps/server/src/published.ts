@@ -2,11 +2,28 @@ import { readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { Hono } from 'hono'
 import { getMimeType } from 'hono/utils/mime'
+import { formRoute } from './forms.js'
+import type { Send } from './mail.js'
 import type { PublicationReader } from './publication-reader.js'
 
-/** This app runs on the publishing listener only: no editor, auth, or draft API routes. */
-export function publishedApp(reader: PublicationReader) {
+/**
+ * This app runs on the publishing listener only: no editor, auth, or draft API routes. Its one
+ * write is a published form's message, mailed with `send`.
+ */
+export function publishedApp(reader: PublicationReader, send: Send | undefined) {
   const app = new Hono()
+  app.route(
+    '/',
+    formRoute(send, (url) => {
+      const host = reader.siteForHost(url.hostname)
+      if (!host || !reader.current(host.siteId, host.target)) return
+      return {
+        origin: reader.url(host.siteId, host.target),
+        owner: reader.ownerEmail(host.siteId),
+        testing: host.target === 'testing',
+      }
+    }),
+  )
   app.on(['GET', 'HEAD'], '*', async (c) => {
     const url = new URL(c.req.url)
     const host = reader.siteForHost(url.hostname)

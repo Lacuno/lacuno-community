@@ -44,6 +44,8 @@ and site creation. `pnpm dev` builds the editor before starting the server.
 | `PORT` | `3000` | Listen port |
 | `LACUNO_PUBLISH_PORT` | `PORT + 1` | Separate static publishing listener |
 | `LACUNO_PUBLISH_BASE_URL` | `http://localhost:<publish port>` when auth uses `localhost`; otherwise disabled | Base origin for `<site-id>.<hostname>` published sites, or a template with `{site}` in the hostname |
+| `LACUNO_SMTP_URL` | Unset: forms are off | SMTP server for published forms' messages, such as `smtps://user:password@smtp.example.com:465`; set with `LACUNO_MAIL_FROM` |
+| `LACUNO_MAIL_FROM` | Unset | Sender of those messages, such as `Lacuno <forms@example.com>` |
 
 Relative directory settings resolve from the repository root. Both source and bundled servers
 automatically load the root `.env`; exported environment variables take precedence. Without `.env`,
@@ -102,7 +104,7 @@ and checks the persisted result.
 | Method and path | Result |
 | --- | --- |
 | `GET /health` | Unauthenticated liveness check |
-| `GET /api/config` | Public registration availability and `setupRequired`; never includes the token |
+| `GET /api/config` | Public registration availability and `setupRequired`; never includes the token. `forms` says whether published forms send (mail is configured, or a gateway answers them) |
 | `POST /api/setup` | One-time owner creation: `{name,email,password,token}`; requires the exact editor Origin |
 | `POST /api/auth/sign-up/email` | Register when enabled: `{name,email,password}` |
 | `POST /api/auth/sign-in/email` | Sign in: `{email,password}`; sets a session cookie |
@@ -173,6 +175,15 @@ preserves the Host header and routes published hosts to the publishing port. Use
 publishing domain, separate from the editor and its cookies; never proxy published files through
 the editor origin. This milestone does not provision DNS, TLS or external hosting.
 
+A form without its own `action` publishes with a honeypot and a small script that posts it to
+`POST /_lacuno/forms` on the site's host, the static listener's one write. Each message is mailed to
+the workspace owner through `LACUNO_SMTP_URL`, with Reply-To the first email address in it, and is
+not stored. Bots are answered as if sent: a filled honeypot, or a post without the script's time on
+the page or within three seconds of loading it. More than 30 fields, a value over 5,000 characters
+or a body over 64 KB is refused, and each visitor sends at most five messages to a site in ten
+minutes, counted in memory by the last `X-Forwarded-For` address (the one your proxy adds) or the
+connection's. Without mail settings the endpoint answers 503 and the editor says forms are off.
+
 Each release stores the exact document and revision in SQLite and copies hash-verified assets into
 `data/builds/<site-id>/<release-id>/`. A child process runs the compiler with a five-minute timeout.
 Optimized images carry over between a site's builds in `data/builds/<site-id>/images/`, keyed by
@@ -207,7 +218,7 @@ changes how requests are authenticated; see [GATEWAY_AUTH.md](../../docs/GATEWAY
 
 For maintenance, `node apps/server/dist/published-main.js` runs only the published-site listener
 against an existing database opened read-only. Set `LACUNO_DATA_DIR`, `LACUNO_PUBLISH_BASE_URL`,
-`LACUNO_PUBLISH_PORT` and `HOST` explicitly. It does not migrate data, run builds, expose the editor
+`LACUNO_PUBLISH_PORT` and `HOST` explicitly, and the mail settings for forms. It does not migrate data, run builds, expose the editor
 or accept authenticated management requests; `--list` prints the production release of every site
 for health checks. It can serve existing releases while the editor runtime is stopped for a
 controlled upgrade; mount its data read-only and keep it away from management traffic. Backups use

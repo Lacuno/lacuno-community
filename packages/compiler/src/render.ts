@@ -2,6 +2,7 @@ import { classNames, MOTION_SCRIPT, WORDS_SCRIPT } from '@lacuno/css'
 import { type AssetRef, type Document, type Entry, type Page, pageLang } from '@lacuno/schema'
 import { publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
+import { FORM_SCRIPT } from './forms.js'
 import { renderHead } from './head.js'
 import { renderAttrs } from './html.js'
 import type { ImageResolver } from './images.js'
@@ -82,7 +83,8 @@ export function render(
     (!ctx.annotateNodes &&
     Object.values(doc.nodes).some((node) => node.type === 'text' && node.rotatingWords)
       ? `<script>(() => {${WORDS_SCRIPT}})();</script>`
-      : '')
+      : '') +
+    (state.forms ? `<script>${FORM_SCRIPT}</script>` : '')
   return { htmlAttrs: { lang: pageLang(doc, page) }, head, body, warnings: state.warnings }
 }
 
