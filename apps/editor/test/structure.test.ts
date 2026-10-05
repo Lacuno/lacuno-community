@@ -5,6 +5,7 @@ import {
   dropEdit,
   dropTarget,
   duplicateSelection,
+  type InsertNode,
   insertionTarget,
   presetNode,
   siblingMove,
@@ -378,4 +379,72 @@ it('inserts an image without selecting an existing asset and restores its placeh
   ])
   await store.apply({ expectedRevision: store.revision, patches: edit.undo })
   expect(store.read().document.nodes[node.id]).toEqual(node)
+})
+
+it('builds a form preset of labelled, named fields with a submit button and modest styles', () => {
+  const { node, operations } = structureInsertion('form', { parent: 'n-hero-inner', index: 0 })
+  expect(node).toMatchObject({
+    tag: 'form',
+    attrs: {
+      'data-lacuno-form': { type: 'static', value: 'Contact form' },
+      'data-success': { type: 'static', value: 'Thanks! Your message was sent.' },
+    },
+  })
+  expect(node.attrs).not.toHaveProperty('action')
+  const [name, email, message, submit] = node.children!
+  for (const [field, tag, value] of [
+    [name, 'input', 'name'],
+    [email, 'input', 'email'],
+    [message, 'textarea', 'message'],
+  ] as const) {
+    expect(field).toMatchObject({
+      tag: 'label',
+      children: [{}, { tag, attrs: { name: { value }, required: { value: true } } }],
+    })
+  }
+  expect(email!.children![1]!.attrs!.type).toEqual({ type: 'static', value: 'email' })
+  expect(submit).toMatchObject({
+    type: 'text',
+    tag: 'button',
+    text: { value: 'Send' },
+    attrs: { type: { value: 'submit' } },
+  })
+  // The form, each label, control and the button get a local class; the label texts do not.
+  expect(operations.filter((operation) => operation.type === 'class.create')).toHaveLength(8)
+  expect(name!.children![0]!.classes).toEqual([])
+  const checkbox = presetNode('checkbox-field', '')
+  expect(checkbox.children![0]!.attrs!.type).toEqual({ type: 'static', value: 'checkbox' })
+  const styled = structureInsertion('checkbox-field', { parent: 'n-hero-inner', index: 0 })
+  expect(styled.node.children![0]!.classes).toEqual([])
+  expect(presetNode('dropdown-field', '').children![1]).toMatchObject({
+    tag: 'select',
+    children: [{ tag: 'option' }, { tag: 'option' }],
+  })
+})
+
+it('drops fields only inside a form, never into a field, and names them uniquely', async () => {
+  const doc = fixtureDocument()
+  const root = doc.nodes['n-hero-title']!.parent!
+  expect(() => dropTarget(doc, root, { preset: 'email-field' }, root, 0)).toThrow('inside a form')
+  expect(() => dropTarget(doc, root, { preset: 'submit' }, root, 0)).toThrow('inside a form')
+  const store = DocumentStore.inMemory(doc)
+  const form = structureInsertion('form', { parent: root, index: 0 })
+  await commit(store, form.operations)
+  const withForm = store.read().document
+  const label = form.node.children![0]!.id
+  expect(() => dropTarget(withForm, root, { preset: 'form' }, form.node.id, 0)).toThrow(
+    'another form',
+  )
+  expect(() => dropTarget(withForm, root, { preset: 'text-field' }, label, 0)).toThrow(
+    'another field',
+  )
+  expect(() => dropTarget(withForm, root, { id: form.node.children![1]!.id }, label, 0)).toThrow(
+    'another field',
+  )
+  const nameOf = (edit: { node: unknown }) => (edit.node as InsertNode).children![1]!.attrs!.name
+  const email = dropEdit(withForm, root, { preset: 'email-field' }, form.node.id, 2)
+  expect(nameOf(email)).toEqual({ type: 'static', value: 'email-2' })
+  await commit(store, email.operations)
+  const again = dropEdit(store.read().document, root, { preset: 'email-field' }, form.node.id, 2)
+  expect(nameOf(again)).toEqual({ type: 'static', value: 'email-3' })
 })

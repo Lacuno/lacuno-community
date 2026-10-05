@@ -5,14 +5,15 @@ import { listInsertion } from './binding.js'
 import { EditorIcon } from './EditorIcon.js'
 import {
   actions,
+  dropEdit,
+  dropTarget,
+  formFields,
   insertionTarget,
   type NodeAction,
   nodeLabel,
   type Placement,
   type Preset,
-  pageOf,
   siblingMove,
-  structureInsertion,
   structures,
   subtreeRestriction,
   type Wrapper,
@@ -20,6 +21,15 @@ import {
   wrapSelection,
   wrapTarget,
 } from './structure.js'
+
+const tileLabels: Partial<Record<Preset, string>> = {
+  'text-field': 'Text field',
+  'email-field': 'Email field',
+  'textarea-field': 'Text area',
+  'checkbox-field': 'Checkbox',
+  'dropdown-field': 'Dropdown',
+  submit: 'Submit button',
+}
 
 type Props = {
   doc: Document
@@ -47,7 +57,9 @@ export function InsertPanel({
   let target: ReturnType<typeof insertionTarget> | undefined
   let reason = ''
   try {
-    target = insertionTarget(doc, root, selected, placement)
+    const at = insertionTarget(doc, root, selected, placement)
+    if (preset !== 'collection') dropTarget(doc, root, { preset }, at.parent, at.index)
+    target = at
   } catch (error) {
     reason = (error as Error).message
   }
@@ -60,6 +72,7 @@ export function InsertPanel({
           { label: 'Text', items: ['heading', 'paragraph', 'span'] as const },
           { label: 'Media', items: ['image', 'video', 'embed'] as const },
           { label: 'Actions', items: actions },
+          { label: 'Forms', items: ['form', ...formFields] as const },
         ].map((group) => (
           <section className="insert-category" key={group.label}>
             <h3>{group.label}</h3>
@@ -71,14 +84,14 @@ export function InsertPanel({
                   draggable={!disabled}
                   data-drag-preset={name}
                   data-drag-class={classId}
-                  title={`Drag ${name} onto the page`}
+                  title={`Drag ${(tileLabels[name] ?? name).toLowerCase()} onto the page`}
                   aria-pressed={preset === name}
                   onClick={() => {
                     setPreset(name)
                   }}
                 >
                   <EditorIcon name={name} />
-                  {name[0]!.toUpperCase() + name.slice(1)}
+                  {tileLabels[name] ?? name[0]!.toUpperCase() + name.slice(1)}
                 </button>
               ))}
             </div>
@@ -166,13 +179,12 @@ export function InsertPanel({
               if (await save(operations)) select(node.id!)
               return
             }
-            const { node, operations } = structureInsertion(
-              preset,
-              target,
-              classId,
-              false,
-              '',
-              pageOf(doc, root),
+            const { node, operations } = dropEdit(
+              doc,
+              root,
+              { preset, classId },
+              target.parent,
+              target.index,
             )
             if (await save(operations)) select(node.id)
           }}

@@ -28,6 +28,16 @@ export const structures = ['section', 'container', 'stack', 'row', 'grid'] as co
 export type Structure = (typeof structures)[number]
 export const actions = ['link', 'button'] as const
 export type Action = (typeof actions)[number]
+/** Form parts that only go inside a form. */
+export const formFields = [
+  'text-field',
+  'email-field',
+  'textarea-field',
+  'checkbox-field',
+  'dropdown-field',
+  'submit',
+] as const
+export type FormField = (typeof formFields)[number]
 export type Preset =
   | 'heading'
   | 'paragraph'
@@ -38,6 +48,8 @@ export type Preset =
   | 'embed'
   | Structure
   | Action
+  | 'form'
+  | FormField
 /** Wrap in link builds an `a` around the selection; the palette's Link is a text node. */
 type Buildable = Preset | 'link-wrapper'
 export const wrappers = [...structures, 'link'] as const
@@ -57,6 +69,8 @@ const containers = new Set([
   'li',
   'figure',
   'figcaption',
+  'form',
+  'label',
 ])
 
 /** The id and each ancestor's id, up to the root. */
@@ -81,6 +95,13 @@ export function structureRestriction(doc: Document, id: string): string | undefi
   }
   return undefined
 }
+
+/** The nearest element with this tag, from the node itself up. */
+const closest = (doc: Document, id: string, tag: string) =>
+  [...ancestors(doc, id)].find((current) => {
+    const node = doc.nodes[current]
+    return node?.type === 'element' && node.tag === tag
+  })
 
 /** True when this node or any ancestor is locked. */
 export const isLocked = (doc: Document, id: string) =>
@@ -122,6 +143,13 @@ const tagLabels: Record<string, string> = {
   li: 'Item',
   img: 'Image',
   video: 'Video',
+  form: 'Form',
+  label: 'Field',
+  input: 'Input',
+  textarea: 'Text area',
+  select: 'Dropdown',
+  option: 'Option',
+  button: 'Button',
 }
 
 /** The name shown for an element in the layers, breadcrumbs, drag labels and the inspector. */
@@ -184,6 +212,25 @@ export function siblingMove(doc: Document, id: string, direction: -1 | 1): Opera
   return { type: 'node.move', id, parent: parent.id, index }
 }
 
+/** A dropdown's options, one text node each. */
+export const optionNodes = (values: string[]): InsertNode[] =>
+  values.map((value) => ({
+    id: `n-${crypto.randomUUID()}`,
+    type: 'text',
+    tag: 'option',
+    classes: [],
+    text: { type: 'static', value },
+  }))
+
+/** Each field preset's control and label; the field's name is the label in lower case. */
+const fieldPresets: Record<Exclude<FormField, 'submit'>, [string, string]> = {
+  'text-field': ['text', 'Name'],
+  'email-field': ['email', 'Email'],
+  'textarea-field': ['textarea', 'Message'],
+  'checkbox-field': ['checkbox', 'Subscribe to updates'],
+  'dropdown-field': ['select', 'Topic'],
+}
+
 export function presetNode(
   preset: Buildable,
   classId: string,
@@ -230,6 +277,59 @@ export function presetNode(
     }
   if (preset === 'embed')
     return { id: makeId(), type: 'embed', html: '', classes, meta: { label: 'Embed' } }
+  // A label wraps its text and control, so no id and for pair is needed.
+  const field = (kind: string, label: string, required = false): InsertNode => {
+    const control: InsertNode = {
+      id: makeId(),
+      type: 'element',
+      tag: kind === 'textarea' || kind === 'select' ? kind : 'input',
+      classes: [],
+      attrs: {
+        name: { type: 'static', value: label.toLowerCase().replaceAll(' ', '-') },
+        ...(kind === 'textarea'
+          ? { rows: { type: 'static', value: 5 } }
+          : kind === 'select'
+            ? {}
+            : { type: { type: 'static', value: kind } }),
+        ...(required ? { required: { type: 'static', value: true } } : {}),
+      },
+      children: kind === 'select' ? optionNodes(['General', 'Support']) : [],
+    }
+    const caption = text('span', 'Label', label)
+    return {
+      id: makeId(),
+      type: 'element',
+      tag: 'label',
+      classes: [],
+      meta: { label },
+      children: kind === 'checkbox' ? [control, caption] : [caption, control],
+    }
+  }
+  const submit: InsertNode = {
+    ...text('button', 'Submit', 'Send'),
+    attrs: { type: { type: 'static', value: 'submit' } },
+  }
+  if (preset === 'form')
+    return {
+      id: makeId(),
+      type: 'element',
+      tag: 'form',
+      classes,
+      attrs: {
+        'data-lacuno-form': { type: 'static', value: 'Contact form' },
+        'data-success': { type: 'static', value: 'Thanks! Your message was sent.' },
+      },
+      meta: { label: 'Form' },
+      children: [
+        field('text', 'Name', true),
+        field('email', 'Email', true),
+        field('textarea', 'Message', true),
+        submit,
+      ],
+    }
+  if (preset === 'submit') return { ...submit, classes }
+  if (preset in fieldPresets)
+    return { ...field(...fieldPresets[preset as keyof typeof fieldPresets]), classes }
   if (preset === 'list')
     return {
       id: makeId(),
@@ -278,7 +378,16 @@ export function presetNode(
 }
 
 const defaults: Record<
-  Structure | 'image' | 'video' | 'list' | 'button' | 'link-wrapper',
+  | Structure
+  | 'image'
+  | 'video'
+  | 'list'
+  | 'button'
+  | 'link-wrapper'
+  | 'form'
+  | 'field'
+  | 'control'
+  | 'submit',
   Record<string, string>
 > = {
   image: {
@@ -306,7 +415,44 @@ const defaults: Record<
     'font-weight': '600',
   },
   'link-wrapper': { display: 'block', color: 'inherit', 'text-decoration': 'none' },
+  form: { display: 'flex', 'flex-direction': 'column', gap: '16px' },
+  // A control fills the line below its text; a checkbox sits beside it.
+  field: { display: 'flex', 'flex-wrap': 'wrap', 'align-items': 'center', gap: '6px 8px' },
+  control: {
+    width: '100%',
+    'box-sizing': 'border-box',
+    padding: '10px 12px',
+    border: '1px solid #d4d4d8',
+    'border-radius': '8px',
+    font: 'inherit',
+  },
+  submit: {
+    'align-self': 'flex-start',
+    padding: '12px 20px',
+    border: 'none',
+    'border-radius': '8px',
+    background: '#6434d9',
+    color: 'white',
+    'font-family': 'inherit',
+    'font-size': 'inherit',
+    'font-weight': '600',
+    cursor: 'pointer',
+  },
 }
+
+/** The defaults of a form's parts; a checkbox keeps the browser's look. */
+const formParts: Record<string, keyof typeof defaults> = {
+  form: 'form',
+  label: 'field',
+  input: 'control',
+  textarea: 'control',
+  select: 'control',
+  button: 'submit',
+}
+const formPart = (node: InsertNode) =>
+  node.attrs?.type?.type === 'static' && node.attrs.type.value === 'checkbox'
+    ? undefined
+    : formParts['tag' in node ? node.tag : '']
 
 export function structureInsertion(
   preset: Buildable,
@@ -319,21 +465,24 @@ export function structureInsertion(
   const node = presetNode(preset, classId, assetId, pageId)
   if (empty) node.children = []
   const operations: Operation[] = []
-  if (preset in defaults) {
-    const id = `c-${crypto.randomUUID()}`
-    node.classes.push(id)
-    operations.push({ type: 'class.create', id, local: true })
-    for (const [property, value] of Object.entries(defaults[preset as keyof typeof defaults])) {
-      operations.push({
-        type: 'style.set',
-        class: id,
-        breakpoint: 'base',
-        state: 'none',
-        property,
-        value: { type: 'raw', value },
-      })
+  const style = (each: InsertNode, key = formPart(each)) => {
+    if (key) {
+      const id = `c-${crypto.randomUUID()}`
+      each.classes.push(id)
+      operations.push({ type: 'class.create', id, local: true })
+      for (const [property, value] of Object.entries(defaults[key]))
+        operations.push({
+          type: 'style.set',
+          class: id,
+          breakpoint: 'base',
+          state: 'none',
+          property,
+          value: { type: 'raw', value },
+        })
     }
+    for (const child of each.children ?? []) style(child)
   }
+  style(node, preset in defaults ? (preset as keyof typeof defaults) : undefined)
   operations.push({ type: 'node.create', ...target, node })
   return { node, operations }
 }
@@ -400,6 +549,16 @@ export function dropTarget(
       throw new Error('An element cannot contain itself.')
     if (source.parent === parent && doc.nodes[parent]!.children.indexOf(item.id) < index) index--
   }
+  const source = 'id' in item ? doc.nodes[item.id] : undefined
+  const field =
+    'preset' in item
+      ? (formFields as readonly string[]).includes(item.preset)
+      : source?.type === 'element' && source.tag === 'label'
+  if (field && closest(doc, parent, 'label')) throw new Error('A field cannot hold another field.')
+  if ('preset' in item && field && !closest(doc, parent, 'form'))
+    throw new Error('Place form fields inside a form.')
+  if ('preset' in item && item.preset === 'form' && closest(doc, parent, 'form'))
+    throw new Error('A form cannot hold another form.')
   return { parent, index }
 }
 
@@ -411,8 +570,8 @@ export function dropEdit(
   index: number,
 ) {
   const target = dropTarget(doc, root, item, parent, index)
-  if ('preset' in item)
-    return structureInsertion(
+  if ('preset' in item) {
+    const edit = structureInsertion(
       item.preset,
       target,
       item.classId,
@@ -420,6 +579,22 @@ export function dropEdit(
       item.assetId,
       pageOf(doc, root),
     )
+    // A new field's name stays unique in its form: a second Email field is email-2.
+    const form = closest(doc, target.parent, 'form')
+    const taken = new Set(
+      (form ? subtreeIds(doc, form) : []).map((id) => {
+        const name = doc.nodes[id]!.attrs?.name
+        return name?.type === 'static' ? name.value : ''
+      }),
+    )
+    for (const child of edit.node.children ?? []) {
+      const name = child.attrs?.name
+      if (name?.type !== 'static') continue
+      const base = name.value
+      for (let n = 2; taken.has(name.value); n++) name.value = `${base}-${n}`
+    }
+    return edit
+  }
   const node = doc.nodes[item.id]!
   const unchanged =
     node.parent === target.parent && doc.nodes[target.parent]!.children[target.index] === item.id

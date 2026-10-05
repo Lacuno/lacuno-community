@@ -76,6 +76,15 @@
 .video-flags input {
   width: auto;
 }
+.form-required {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+.form-required input {
+  width: auto;
+}
 .embed-section {
   display: grid;
   gap: 6px;
@@ -1777,7 +1786,8 @@
   color: var(--muted);
 }
 
-.image-controls {
+.image-controls,
+.form-controls {
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
 }

@@ -69,6 +69,8 @@ export type Config = {
   try?: boolean
   /** Behind a gateway, its dashboard: the logo and Workspaces lead there. */
   home?: string
+  /** Whether published forms email their submissions; servers before forms leave it out. */
+  forms?: boolean
 }
 
 /** The server's config, read when a component that needs it mounts. */
