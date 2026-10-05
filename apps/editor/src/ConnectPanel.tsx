@@ -25,6 +25,11 @@ const action = {
   paste: 'Copy URL',
 }
 const time = (at: number) => new Date(at).toLocaleString()
+/** The Lacuno plugin's install, in a terminal and then in Claude Code, and in a terminal for Codex. */
+const pluginCommands = `claude plugin marketplace add Lacuno/lacuno-plugins
+/plugin install lacuno@lacuno
+
+codex plugin marketplace add Lacuno/lacuno-plugins`
 
 /** The site's AI connections, polled every 10s, or every 2s while the panel is open. */
 export function useConnections(siteId: string, open: boolean) {
@@ -124,6 +129,23 @@ export function ConnectPanel({
       )}
       {config && !config.try && (
         <>
+          {config.mcp && (
+            <div className="connect-card connect-plugin">
+              <p>
+                <strong>Lacuno plugin</strong> for Claude Code and Codex, or its address for
+                claude.ai and ChatGPT: one connection for all your sites.
+              </p>
+              <pre>{pluginCommands}</pre>
+              <code>{config.mcp}</code>
+              <button type="button" onClick={() => void copy(config.mcp!, 'MCP URL copied.')}>
+                Copy URL
+              </button>
+              <p className="hint">
+                Apps connected this way are managed in your{' '}
+                <a href={config.home}>account settings</a>.
+              </p>
+            </div>
+          )}
           <p role="status" className="connect-status">
             {waiting && !arrived
               ? `Waiting for ${waiting.app}… Approve access when the app asks.`

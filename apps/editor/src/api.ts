@@ -69,6 +69,8 @@ export type Config = {
   try?: boolean
   /** Behind a gateway, its dashboard: the logo and Workspaces lead there. */
   home?: string
+  /** Behind a gateway that offers one, its MCP address for all the user's sites. */
+  mcp?: string
   /** Whether published forms email their submissions; servers before forms leave it out. */
   forms?: boolean
 }

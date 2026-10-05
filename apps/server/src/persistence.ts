@@ -4,12 +4,13 @@ import { FolderPersistence } from '@lacuno/document/folder'
 import type { Document } from '@lacuno/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { type SiteDatabase, sites } from './database.js'
-import { assetList, type ExportOptions, exportAsset } from './export.js'
+import { assetList, type ExportOptions, exportAsset, exportReport } from './export.js'
 
 /** Each request loads a fresh snapshot; the conditional UPDATE also protects across processes. */
 export class SqlitePersistence implements Persistence {
   private loadedRevision: number | undefined
   private loadedAssets: string | undefined
+  private loadedName: string | undefined
   private assets: FolderPersistence
 
   constructor(
@@ -24,6 +25,7 @@ export class SqlitePersistence implements Persistence {
   async load(): Promise<unknown> {
     const row = this.db.select().from(sites).where(eq(sites.id, this.siteId)).get()
     this.loadedRevision = row?.revision
+    this.loadedName = row?.name
     const document = row && JSON.parse(row.document)
     this.loadedAssets = document && assetList(document)
     return document
@@ -58,6 +60,9 @@ export class SqlitePersistence implements Persistence {
         ON CONFLICT(site_id) DO UPDATE SET attempts=0,next_attempt_at=0`,
       )
     this.loadedAssets = assets
+    if (this.exportOptions && document.site.name !== this.loadedName)
+      void exportReport(this.exportOptions, this.siteId, 'meta', { name: document.site.name })
+    this.loadedName = document.site.name
   }
 
   /** With the export sink, returns only once Cloud keeps the bytes too. */

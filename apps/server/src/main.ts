@@ -29,6 +29,7 @@ const server = await createServer({
   ...(publishBaseURL ? { publishBaseURL } : {}),
   ...(process.env.LACUNO_CIMD_RELAY_URL ? { cimdRelay: process.env.LACUNO_CIMD_RELAY_URL } : {}),
   ...(process.env.LACUNO_EXPORT_URL ? { export: process.env.LACUNO_EXPORT_URL } : {}),
+  ...(process.env.LACUNO_GATEWAY_MCP_URL ? { mcp: process.env.LACUNO_GATEWAY_MCP_URL } : {}),
   secret,
   editorDir: path.join(root, 'apps/editor/dist'),
   allowSignup: process.env.LACUNO_ALLOW_SIGNUP === 'true',

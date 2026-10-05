@@ -32,6 +32,7 @@ describe('export to the edge', () => {
   const pointers = new Map<string, string>()
   const lists = new Map<string, string>()
   const activity: unknown[] = []
+  const names = new Map<string, string>()
   const log: string[] = []
   let failures: { match: RegExp; status: number; times: number } | undefined
   let inflight = 0
@@ -67,6 +68,7 @@ describe('export to the edge', () => {
     if (key!.startsWith('pointer/')) pointers.set(key!.slice('pointer/'.length), body.toString())
     else if (key === 'assets') lists.set(siteId!, body.toString())
     else if (key === 'activity') activity.push(JSON.parse(body.toString()))
+    else if (key === 'meta') names.set(siteId!, JSON.parse(body.toString()).name)
     else files.set(key!, body)
     response.writeHead(204).end()
   })
@@ -144,6 +146,7 @@ describe('export to the edge', () => {
       secret: 'export-test-auth-secret-at-least-32-chars',
       templateDir: path.join(root, 'templates/lacuno'),
       gateway: { issuer, secret },
+      mcp: 'https://mcp.example.test/mcp',
       // One AI app, connected by the gateway's user, for every site.
       oauth: {
         verify: async (authorization, siteId) =>
@@ -185,7 +188,7 @@ describe('export to the edge', () => {
 
   let first = ''
   it(
-    'exports nothing without the setting, then backfills current releases once',
+    'exports nothing without the setting, then backfills current releases once and names each site at every start',
     async () => {
       first = await publish(null)
       expect(table('export_pointer')).toEqual([])
@@ -204,6 +207,9 @@ describe('export to the edge', () => {
         keys.every((key) => key.startsWith(`releases/${first}/`) || key.startsWith('immutable/')),
       ).toBe(true)
       expect(files.get(`releases/${first}/lacuno.json`)).toBeUndefined()
+      expect(names.get(site)).toBe('Exported')
+      // The gateway's one MCP address, which the Connect panel offers first.
+      expect((await call('/api/config')).mcp).toBe('https://mcp.example.test/mcp')
       expect(table('exported_release')).toEqual([{ release_id: first }])
       await expect.poll(() => table('export_pointer')).toEqual([])
 
@@ -211,7 +217,7 @@ describe('export to the edge', () => {
       log.length = 0
       server = await createServer(options)
       await new Promise((resolve) => setTimeout(resolve, 1500))
-      expect(log).toEqual([])
+      expect(log).toEqual(['PUT meta'])
     },
     build * 2,
   )
@@ -476,13 +482,16 @@ describe('export to the edge', () => {
     expect(log.filter((line) => line === 'PUT assets').length).toBeGreaterThanOrEqual(2)
     await expect.poll(() => table('export_assets')).toEqual([])
 
-    // A deleted asset leaves the list; a save that keeps the assets sends none.
+    // A deleted asset leaves the list; a save that keeps the assets sends none, a rename its name.
     await apply([{ type: 'asset.delete', id: asset.id }])
     await expect.poll(listed).not.toContain(asset.hash)
+    expect(names.get(created.id)).toBe('Listed')
     log.length = 0
     await apply([{ type: 'site.update', name: 'Renamed' }])
+    await apply([{ type: 'class.create', name: 'unrenamed' }])
     await new Promise((resolve) => setTimeout(resolve, 1500))
-    expect(log).toEqual([])
+    expect(log).toEqual(['PUT meta'])
+    expect(names.get(created.id)).toBe('Renamed')
   })
 })
 

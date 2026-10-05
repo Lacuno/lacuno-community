@@ -25,7 +25,7 @@ import { z } from 'zod'
 import type { Auth, AuthSettings } from './auth.js'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { type SiteEvent, siteEvents, summarize } from './events.js'
-import { exportActivity, exportAsset, exportThumbnail } from './export.js'
+import { exportAsset, exportReport, exportThumbnail } from './export.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
 import type { Send } from './mail.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
@@ -48,6 +48,8 @@ export type ServerOptions = {
   cimdRelay?: string
   /** Cloud's export sink, which receives every published release. Needs `gateway`. */
   export?: string
+  /** A gateway's one MCP address for all its user's sites, which the Connect panel offers first. */
+  mcp?: string
   /** Sends published forms' messages; without it they are refused. */
   mail?: Send
   /** Test-only: replaces the OAuth grants so tests can call the MCP endpoint with a fixed token. */
@@ -148,6 +150,10 @@ export async function createServer(options: ServerOptions) {
     migrateApplication(sqlite)
     if (!options.gateway && sqlite.prepare('SELECT id FROM gateway_mode WHERE id=1').get())
       throw new Error('Gateway configuration is required for this managed instance')
+    // Cloud lists the sites by name without waking this runtime; creating and renaming tell it too.
+    if (exportOptions)
+      for (const { id, name } of db.select({ id: sites.id, name: sites.name }).from(sites).all())
+        void exportReport(exportOptions, id, 'meta', { name })
     const gateway = options.gateway ? new GatewayAuth(sqlite, options.gateway, origin) : undefined
     const setup = gateway ? undefined : new OwnerSetup(sqlite, options.allowSignup ?? false)
     const authSettings = (signUp: boolean): AuthSettings => ({
@@ -223,7 +229,12 @@ export async function createServer(options: ServerOptions) {
         forms: !!gateway || !!options.mail,
         // Behind a gateway the editor links back to it: the gateway's issuer is its dashboard.
         ...(gateway
-          ? { authentication: 'gateway', gatewayProtocol: 1, home: options.gateway!.issuer }
+          ? {
+              authentication: 'gateway',
+              gatewayProtocol: 1,
+              home: options.gateway!.issuer,
+              mcp: options.mcp,
+            }
           : {}),
       }),
     )
@@ -442,6 +453,7 @@ export async function createServer(options: ServerOptions) {
         await rm(dir, { recursive: true, force: true })
         throw error
       }
+      if (exportOptions) void exportReport(exportOptions, id, 'meta', { name: document.site.name })
       return c.json(
         { id, workspaceId: c.get('workspaceId'), name: document.site.name, revision: 0 },
         201,
@@ -498,7 +510,8 @@ export async function createServer(options: ServerOptions) {
         stage,
         fetchUrl: download || undefined,
         report:
-          exportOptions && ((site, activity) => void exportActivity(exportOptions, site, activity)),
+          exportOptions &&
+          ((site, activity) => void exportReport(exportOptions, site, 'activity', activity)),
       }),
     )
     // Who is asking: behind a gateway its user, otherwise the owner.

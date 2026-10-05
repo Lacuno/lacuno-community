@@ -56,6 +56,11 @@ AI apps connect to one site at `<editor origin>/mcp/<site>` with OAuth issued by
 issuer is `<editor origin>/api/auth`. The protocol stays version 1: these are added routes, and an
 older runtime answers them with 401 or 404.
 
+**One address for all sites.** A gateway such as Lacuno Cloud may offer AI apps one MCP address of
+its own for every site a user may edit, and call `/mcp/<site>` for them as that user, with an
+assertion instead of a token (an `owner` or `editor`). Set that address in `LACUNO_GATEWAY_MCP_URL`:
+`/api/config` then reports it as `mcp`, and the editor's Connect your AI panel offers it first.
+
 **Anonymous routes.** They authenticate themselves, so the gateway forwards them without a user and
 the runtime ignores any assertion on them. Forward only `content-type`, `accept`, `authorization`,
 `mcp-session-id`, `mcp-protocol-version`, `last-event-id` and `x-lacuno-client-ip`, and pass back
@@ -142,7 +147,9 @@ hashes, sorted, one per line, from an outbox retried with backoff until the sink
 counts the files a site lists as its workspace's storage. When an editor stores a newer thumbnail
 of a site (its home page's first screen, a 640×400 WebP or JPEG the editor draws in the browser),
 `PUT <export>/sites/<site>/thumbnail` sends the image before the request answers, and a failure
-fails that request, so the editor draws it again later. After an AI app publishes, and at most
+fails that request, so the editor draws it again later. When a site is created or renamed, and for every
+site when the runtime starts, `PUT <export>/sites/<site>/meta` sends `{"name":"<site name>"}`, once
+and best effort, so the gateway lists sites without waking the runtime. After an AI app publishes, and at most
 once an hour per MCP session after it changes the document, `PUT <export>/sites/<site>/activity`
 sends `{"user":"<sub>","app":"<app name>","action":"published"|"edited"}` for the person who
 connected it, once and best effort; the sink answers 204. Before a build starts its build process,

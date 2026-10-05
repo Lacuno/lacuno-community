@@ -168,7 +168,8 @@ the open editor's undo history as one step, so the designer can take back what t
 version-pinned, logged and undoable by a later batch. Production publishing and site deletion
 remain human-only actions and are not exposed as tools. A Cloud gateway may also connect to a
 site's MCP endpoint as the signed-in owner, with a user assertion on each request; Community
-itself still never calls a model.
+itself still never calls a model. Such a gateway may also offer one MCP address across all the
+sites a user may edit, acting on each call as that user.
 
 
 ## D017. Gradients are a structured style value

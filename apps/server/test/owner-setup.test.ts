@@ -110,7 +110,12 @@ it('protects first-owner setup, serializes claims across instances, and never re
     expect(sqlite.prepare('SELECT token FROM owner_setup').get()).toEqual({ token: null })
     sqlite.close()
     server.close()
-    server = await createServer({ ...settings(dir, origin), allowSignup: true })
+    // Without a gateway there is no gateway's MCP address to offer.
+    server = await createServer({
+      ...settings(dir, origin),
+      allowSignup: true,
+      mcp: 'https://mcp.example.test/mcp',
+    })
     expect(await (await server.app.request(`${origin}/api/config`)).json()).toEqual({
       allowSignup: false,
       setupRequired: false,

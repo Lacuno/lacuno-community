@@ -133,18 +133,20 @@ export async function exportThumbnail(options: ExportOptions, site: string, imag
 }
 
 /**
- * Tells Cloud what an AI app did, for the person who connected it
- * (`PUT <export>/sites/<site>/activity`). Best effort: the app's work never waits on it.
+ * Tells Cloud, as JSON, what an AI app did for the person who connected it
+ * (`PUT <export>/sites/<site>/activity`) or a site's name, so it lists sites without waking this
+ * runtime (`meta`). Best effort: nothing waits on it.
  */
-export async function exportActivity(
+export async function exportReport(
   options: ExportOptions,
   site: string,
-  activity: { user: string; app: string; action: string },
+  key: 'activity' | 'meta',
+  value: object,
 ) {
-  const body = Buffer.from(JSON.stringify(activity))
-  const response = await send(options, 'PUT', site, 'activity', body).catch(() => undefined)
+  const body = Buffer.from(JSON.stringify(value))
+  const response = await send(options, 'PUT', site, key, body).catch(() => undefined)
   if (response?.status !== 204)
-    console.error(`Export sink answered ${response?.status ?? 'nothing'} for activity`)
+    console.error(`Export sink answered ${response?.status ?? 'nothing'} for ${key}`)
 }
 
 /**

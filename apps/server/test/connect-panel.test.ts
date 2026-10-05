@@ -1,5 +1,6 @@
+import path from 'node:path'
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, root } from './harness.js'
 
 it('connects an AI app from the header panel and disconnects it', async () => {
   const { page, siteId } = await editor()
@@ -64,4 +65,30 @@ it('connects an AI app from the header panel and disconnects it', async () => {
     .poll(() => deleted)
     .toEqual([`DELETE /api/sites/${siteId}/connections/c1 application/json`])
   await expect.poll(() => trigger.textContent()).toBe('Connect your AI')
+})
+
+it('offers a gateway’s one address for all sites first, above the site’s own', async () => {
+  const { page, siteId } = await editor()
+  const mcp = 'https://mcp.example.test/mcp'
+  await page.route('**/api/config', async (route) => {
+    const response = await route.fetch()
+    await route.fulfill({
+      response,
+      json: { ...(await response.json()), home: 'https://app.example.test', mcp },
+    })
+  })
+  await page.reload()
+  await page.locator('.connect-trigger').click()
+  const panel = page.getByRole('dialog', { name: 'Connect your AI' })
+  const card = panel.locator('.connect-plugin')
+  await card.getByText(mcp, { exact: true }).waitFor()
+  expect(await card.locator('pre').textContent()).toBe(
+    'claude plugin marketplace add Lacuno/lacuno-plugins\n/plugin install lacuno@lacuno\n\ncodex plugin marketplace add Lacuno/lacuno-plugins',
+  )
+  expect(await card.getByRole('link', { name: 'account settings' }).getAttribute('href')).toBe(
+    'https://app.example.test',
+  )
+  // The site's own address follows unchanged.
+  await panel.getByText(`/mcp/${siteId}`, { exact: false }).waitFor()
+  await panel.screenshot({ path: path.join(root, '.lacuno/editor-preview/connect-plugin.png') })
 })

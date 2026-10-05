@@ -82,7 +82,8 @@ describe('gateway mode', () => {
       'Gateway assertion refused for GET /api/sites: Error: Missing gateway assertion',
     )
     warn.mockRestore()
-    expect(await (await request('/api/config')).json()).toMatchObject({
+    const config = await (await request('/api/config')).json()
+    expect(config).toMatchObject({
       authentication: 'gateway',
       setupRequired: false,
       allowSignup: false,
@@ -91,6 +92,8 @@ describe('gateway mode', () => {
       // The gateway answers form posts.
       forms: true,
     })
+    // A gateway without one address for all sites sets none.
+    expect(config).not.toHaveProperty('mcp')
     // Without a relay the runtime cannot fetch Client ID Metadata Documents, so it only registers.
     const metadata = await (await request('/.well-known/oauth-authorization-server')).json()
     expect(metadata.registration_endpoint).toBe(`${origin}/api/auth/oauth2/register`)
