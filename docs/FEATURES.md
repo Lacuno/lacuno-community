@@ -32,7 +32,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 
 | Feature | When | Notes |
 | --- | --- | --- |
-| Pages, folders, nested routes, page settings | MVP | In: pages, page settings and site settings. Folders and nested routes in the Pages panel wait |
+| Pages, folders, nested routes, page settings | MVP | In: pages (in an order set by dragging them), page settings and site settings. Folders and nested routes in the Pages panel wait |
 | Page templates and reusable layouts | MVP | A layout is a component with a page slot |
 | Per-page SEO: title, description, canonical, robots, OG and Twitter meta | MVP | In: title, description, canonical, hide from search engines, social image, language and page code in page settings, a site title template such as `{page} — Lacuno` that a page can leave out (D024); Open Graph, `og:locale` (the page language, else the site's) and `twitter:card` in the head. Twitter title, description and image fall back to Open Graph |
 | Generated OG images from a template | Next | Rendered at build time |

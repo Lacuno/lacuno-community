@@ -48,6 +48,8 @@ export const Page = z.object({
     .optional(),
   headCode: z.string().optional(),
   bodyCode: z.string().optional(),
+  /** Position in the editor's page list; pages without one follow, home first, then by name. */
+  order: z.number().int().nonnegative().optional(),
 })
 export type Page = z.infer<typeof Page>
 

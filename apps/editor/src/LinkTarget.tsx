@@ -2,6 +2,7 @@ import { type Document, safeLinkHref } from '@lacuno/schema'
 import { useId, useRef, useState } from 'react'
 import { entryTitle } from './cms.js'
 import { ErrorNote } from './Dialog.js'
+import { orderedPages } from './pages.js'
 import { placePopover } from './popover.js'
 import './text-toolbar.css'
 
@@ -29,9 +30,7 @@ export function LinkTarget({
   const [pageId, setPageId] = useState('')
   const [url, setUrl] = useState('')
   const [error, setError] = useState('')
-  const pages = Object.values(doc.pages).sort(
-    (a, b) => Number(b.path === '/') - Number(a.path === '/') || a.name.localeCompare(b.name),
-  )
+  const pages = orderedPages(doc)
   // An entry page links to one entry at its current address.
   const entryGroups = pages.flatMap((page) => {
     const col = page.collection ? doc.collections[page.collection] : undefined

@@ -5,6 +5,8 @@ import {
   canonicalError,
   duplicatePage,
   langError,
+  movePage,
+  orderedPages,
   pagePathError,
   pageSeo,
   redirectError,
@@ -115,4 +117,22 @@ it('builds page SEO with cleared fields removed', () => {
   const form = { title: '', description: 'New', canonical: '', noindex: true, ogImage: 'a-hero' }
   expect(pageSeo(page, form)).toEqual({ description: 'New', noindex: true, ogImage: 'a-hero' })
   expect(pageSeo(undefined, { ...form, description: '', noindex: false, ogImage: '' })).toEqual({})
+})
+
+it('orders pages as dragged, keeps the order and undoes it in one step', async () => {
+  const original = fixtureDocument()
+  const ids = (doc = store.read().document) => orderedPages(doc).map((page) => page.id)
+  const store = DocumentStore.inMemory(original)
+  // Unordered: home first, then by name.
+  expect(ids()).toEqual(['p-home', 'p-not-found', 'p-post'])
+  const history = await commit(store, movePage(store.read().document, 'p-post', 0))
+  expect(ids()).toEqual(['p-post', 'p-home', 'p-not-found'])
+  expect(store.read().document.pages['p-home']?.order).toBe(1)
+  // Only pages whose position changes are updated.
+  expect(movePage(store.read().document, 'p-not-found', 1)).toEqual([
+    { type: 'page.update', id: 'p-not-found', order: 1 },
+    { type: 'page.update', id: 'p-home', order: 2 },
+  ])
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
+  expect({ ...store.read().document, revision: original.revision }).toEqual(original)
 })

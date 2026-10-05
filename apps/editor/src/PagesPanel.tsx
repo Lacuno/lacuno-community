@@ -7,7 +7,15 @@ import { entryTitle } from './cms.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { Menu, type MenuPoint, menuPoint } from './Menu.js'
-import { canonicalError, duplicatePage, langError, pagePathError, pageSeo } from './pages.js'
+import {
+  canonicalError,
+  duplicatePage,
+  langError,
+  movePage,
+  orderedPages,
+  pagePathError,
+  pageSeo,
+} from './pages.js'
 import { codeInfo, ImageChoice, SiteSettings } from './SiteSettings.js'
 
 export function PagesPanel({
@@ -30,6 +38,10 @@ export function PagesPanel({
   const [editing, setEditing] = useState<Page | 'new' | 'site'>()
   const [menu, setMenu] = useState<{ page: Page; at: MenuPoint }>()
   const [deleting, setDeleting] = useState<Page>()
+  // The page being dragged and where it would land: before the page at `index` of the list.
+  const [dragging, setDragging] = useState<string>()
+  const [dropAt, setDropAt] = useState<number>()
+  const pages = orderedPages(doc)
   const protectedPage = (page: Page) => page.path === '/' || Object.keys(doc.pages).length <= 1
   const openMenu = (page: Page, event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault()
@@ -56,42 +68,63 @@ export function PagesPanel({
           <EditorIcon name="settings" />
         </button>
       </div>
-      <div className="page-list">
-        {Object.values(doc.pages)
-          .sort(
-            (a, b) =>
-              Number(b.path === '/') - Number(a.path === '/') || a.name.localeCompare(b.name),
-          )
-          .map((page) => (
-            <div className="page-row" key={page.id}>
-              <button
-                type="button"
-                className={`page-link ${selected === page.id ? 'active' : ''}`}
-                onContextMenu={(event) => !disabled && openMenu(page, event)}
-                title={`${page.name}\n${page.path}`}
-                onClick={() => choose(page.id)}
-              >
-                <EditorIcon name={page.collection ? 'database' : 'page'} />
-                <span className="page-name">
-                  {page.name}
-                  <small className="page-path">{page.path}</small>
-                </span>
-              </button>
-              <button
-                type="button"
-                className="page-settings-trigger"
-                aria-label={`Actions for ${page.name}`}
-                aria-haspopup="menu"
-                aria-expanded={menu?.page.id === page.id}
-                title="Page actions"
-                disabled={disabled}
-                onClick={(event) => openMenu(page, event)}
-              >
-                •••
-              </button>
-            </div>
-          ))}
-      </div>
+      <ul className="page-list">
+        {pages.map((page, index) => (
+          <li
+            className={`page-row ${dropAt === index ? 'drop-before' : ''} ${dropAt === index + 1 && index === pages.length - 1 ? 'drop-after' : ''}`}
+            key={page.id}
+            draggable={!disabled}
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = 'move'
+              // Firefox starts a drag only with data set.
+              event.dataTransfer.setData('text/plain', page.id)
+              setDragging(page.id)
+            }}
+            onDragOver={(event) => {
+              if (!dragging) return
+              event.preventDefault()
+              const { top, height } = event.currentTarget.getBoundingClientRect()
+              setDropAt(index + Number(event.clientY > top + height / 2))
+            }}
+            onDrop={async (event) => {
+              event.preventDefault()
+              const from = pages.findIndex((other) => other.id === dragging)
+              if (dragging && dropAt !== undefined && from >= 0)
+                await save(movePage(doc, dragging, dropAt - Number(from < dropAt)))
+            }}
+            onDragEnd={() => {
+              setDragging(undefined)
+              setDropAt(undefined)
+            }}
+          >
+            <button
+              type="button"
+              className={`page-link ${selected === page.id ? 'active' : ''}`}
+              onContextMenu={(event) => !disabled && openMenu(page, event)}
+              title={`${page.name}\n${page.path}`}
+              onClick={() => choose(page.id)}
+            >
+              <EditorIcon name={page.collection ? 'database' : 'page'} />
+              <span className="page-name">
+                {page.name}
+                <small className="page-path">{page.path}</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="page-settings-trigger"
+              aria-label={`Actions for ${page.name}`}
+              aria-haspopup="menu"
+              aria-expanded={menu?.page.id === page.id}
+              title="Page actions"
+              disabled={disabled}
+              onClick={(event) => openMenu(page, event)}
+            >
+              •••
+            </button>
+          </li>
+        ))}
+      </ul>
       {menu && (
         <Menu
           key={menu.page.id}

@@ -3,6 +3,24 @@ import { type Document, Page, type Seo } from '@lacuno/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 import { type PageTree, pageTree } from './structure.js'
 
+/** The pages in the order the owner gave them, then home first and the rest by name. */
+export const orderedPages = (doc: Document) =>
+  Object.values(doc.pages).sort(
+    (a, b) =>
+      (a.order ?? Number.POSITIVE_INFINITY) - (b.order ?? Number.POSITIVE_INFINITY) ||
+      Number(b.path === '/') - Number(a.path === '/') ||
+      a.name.localeCompare(b.name),
+  )
+
+/** Moves `id` to `index` of the ordered list: one page.update per page whose position changes. */
+export function movePage(doc: Document, id: string, index: number): Operation[] {
+  const pages = orderedPages(doc).filter((page) => page.id !== id)
+  pages.splice(index, 0, doc.pages[id] as Page)
+  return pages.flatMap((page, order) =>
+    page.order === order ? [] : [{ type: 'page.update', id: page.id, order }],
+  )
+}
+
 export function pagePathError(
   doc: Document,
   path: string,

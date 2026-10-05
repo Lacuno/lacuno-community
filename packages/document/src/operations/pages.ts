@@ -46,6 +46,7 @@ const pageUpdate = defineOperation(
     lang: PageLang.nullable().optional(),
     headCode: z.string().nullable().optional(),
     bodyCode: z.string().nullable().optional(),
+    order: Page.shape.order.unwrap().nullable().optional(),
   }),
   (op, ctx) => {
     const page = ctx.require(ctx.doc.pages[op.id], `unknown page ${op.id}`, op.id)
