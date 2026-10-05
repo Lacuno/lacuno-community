@@ -13,12 +13,17 @@ import {
 } from './structure.js'
 
 /** The layer icon for an element's tag; other elements show their layout. */
-const tagKinds: Record<string, 'image' | 'video' | 'list' | 'section'> = {
+const tagKinds: Record<string, Parameters<typeof EditorIcon>[0]['name']> = {
   img: 'image',
   video: 'video',
   ul: 'list',
   ol: 'list',
   section: 'section',
+  form: 'form',
+  label: 'text-field',
+  input: 'text-field',
+  textarea: 'textarea-field',
+  select: 'dropdown-field',
 }
 
 type Props = {

@@ -14,6 +14,7 @@ import type { StyleEdit } from './colorWheel.js'
 import { ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
 import { FormattingControls } from './FormattingControls.js'
+import { FormControls, formTarget } from './FormControls.js'
 import {
   clearStyles,
   draftCss,
@@ -295,6 +296,7 @@ export function Inspector({
   }
   const { local: current, overridden } = useStyleField(controls)
   const boundField = boundFieldLabel(doc, node)
+  const form = formTarget(doc, node)
   return (
     <aside className="inspector">
       <div className="selection-heading">
@@ -442,6 +444,7 @@ export function Inspector({
               autoSave={autoSave}
             />
           )}
+          {form && <FormControls doc={doc} node={form} disabled={disabled} save={autoSave} />}
           {originalText !== undefined ? (
             <label>
               Content
