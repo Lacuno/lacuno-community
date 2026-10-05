@@ -83,7 +83,7 @@ it('offers a gateway’s one address for all sites first, above the site’s own
   const card = panel.locator('.connect-plugin')
   await card.getByText(mcp, { exact: true }).waitFor()
   expect(await card.locator('pre').textContent()).toBe(
-    'claude plugin marketplace add Lacuno/lacuno-plugins\n/plugin install lacuno@lacuno\n\ncodex plugin marketplace add Lacuno/lacuno-plugins',
+    'claude plugin marketplace add Lacuno/lacuno-plugins\nclaude plugin install lacuno@lacuno\n\ncodex plugin marketplace add Lacuno/lacuno-plugins',
   )
   expect(await card.getByRole('link', { name: 'account settings' }).getAttribute('href')).toBe(
     'https://app.example.test',

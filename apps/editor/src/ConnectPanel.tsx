@@ -27,7 +27,7 @@ const action = {
 const time = (at: number) => new Date(at).toLocaleString()
 /** The Lacuno plugin's install, in a terminal and then in Claude Code, and in a terminal for Codex. */
 const pluginCommands = `claude plugin marketplace add Lacuno/lacuno-plugins
-/plugin install lacuno@lacuno
+claude plugin install lacuno@lacuno
 
 codex plugin marketplace add Lacuno/lacuno-plugins`
 
