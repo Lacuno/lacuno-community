@@ -56,7 +56,8 @@ describe('page.screenshot', () => {
     const page = png(
       await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/', width: 800 } }),
     )
-    expect(page.width).toBe(800)
+    // The first screen by default, which an AI can read; a long full page it cannot.
+    expect([page.width, page.height]).toEqual([800, 800])
     const node = png(
       await c.client.callTool({
         name: 'page.screenshot',
@@ -131,7 +132,7 @@ describe('page.screenshot', () => {
     const { bytes } = png(
       await c.client.callTool({
         name: 'page.screenshot',
-        arguments: { page: '/tall', width: 800 },
+        arguments: { page: '/tall', width: 800, fullPage: true },
       }),
     )
     // The image's centre, below the 4000px spacer and the body's 8px margin, is the fixture blue.

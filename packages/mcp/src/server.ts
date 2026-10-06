@@ -392,16 +392,17 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       'page.screenshot',
       {
         description:
-          'PNG of a route in Chromium. The full page unless height is set; node crops to one element.',
+          'PNG of a route in Chromium: the first screen (height, 800 by default), the whole page with fullPage, or one element with node. A long full page reaches you shrunk until its text is unreadable, so check sections with node instead.',
         inputSchema: {
           page: z.string(),
           entry: z.string().optional(),
           width: z.number().int().positive().max(2560).optional(),
           height: z.number().int().positive().max(2560).optional(),
+          fullPage: z.boolean().optional(),
           node: z.string().optional(),
         },
       },
-      async ({ page, entry, width = 1280, height, node }) => {
+      async ({ page, entry, width = 1280, height = 800, fullPage, node }) => {
         try {
           const { siteDir } = options
           const readAsset =
@@ -419,7 +420,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
               const body = asset && (await readAsset(asset.hash))
               return body && { mime: asset.mime, body }
             },
-            { width, height, node },
+            { width, ...(fullPage ? {} : { height }), node },
           )
           const size = pngSize(png)
           return {
