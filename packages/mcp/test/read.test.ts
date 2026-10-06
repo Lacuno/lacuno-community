@@ -1,4 +1,4 @@
-import { DocumentStore } from '@lacuno/document'
+import { DocumentStore, type Operation } from '@lacuno/document'
 import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { connect, jsonOf, textOf } from './helpers.js'
@@ -108,6 +108,10 @@ describe('read tools', () => {
       await client.callTool({ name: 'page.outline', arguments: { component: 'cmp-card' } }),
     )
     expect(comp).toContain('n-card-slot [slot body]')
+    // A path works as page.preview takes it.
+    expect(textOf(await client.callTool({ name: 'page.outline', arguments: { page: '/' } }))).toBe(
+      out,
+    )
     const bad = await client.callTool({ name: 'page.outline', arguments: { page: 'nope' } })
     expect(bad.isError).toBe(true)
     expect(jsonOf(bad)).toMatchObject({ kind: 'input' })
@@ -133,20 +137,20 @@ describe('read tools', () => {
     )
     expect(Object.keys(styles)).toEqual(['c-button'])
     expect(styles['c-button']!.base!.hover!['background-color']).toEqual({
-      value: { type: 'designToken', ref: 't-surface-muted' },
+      type: 'designToken',
+      ref: 't-surface-muted',
     })
     await store.apply({
       expectedRevision: store.read().revision,
       operations: [
+        // A plain style needs neither breakpoint nor state.
         {
           type: 'style.set',
           class: 'c-button',
-          breakpoint: 'base',
-          state: 'none',
           property: 'color',
           value: { type: 'color', value: 'red' },
           important: true,
-        },
+        } as Operation,
         {
           type: 'style.set',
           class: 'c-button',
@@ -166,8 +170,26 @@ describe('read tools', () => {
       important: true,
     })
     expect(withImportant['c-button strong']!.base!.none!['font-weight']).toEqual({
-      value: { type: 'keyword', value: '800' },
+      type: 'keyword',
+      value: '800',
     })
+    // Several classes, or every class in a node's subtree, in one call.
+    const two = jsonOf<Record<string, unknown>>(
+      await client.callTool({
+        name: 'styles.get',
+        arguments: { class: ['c-button', 'c-heading'] },
+      }),
+    )
+    expect(Object.keys(two).sort()).toEqual(['c-button', 'c-button strong', 'c-heading'])
+    const hero = jsonOf<Record<string, unknown>>(
+      await client.callTool({ name: 'styles.get', arguments: { node: 'n-hero' } }),
+    )
+    expect(Object.keys(hero)).toEqual(
+      expect.arrayContaining(['c-container', 'c-hero', 'c-heading']),
+    )
+    expect(
+      (await client.callTool({ name: 'styles.get', arguments: { node: 'nope' } })).isError,
+    ).toBe(true)
     const all = jsonOf<Record<string, unknown>>(
       await client.callTool({ name: 'styles.get', arguments: {} }),
     )

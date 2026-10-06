@@ -54,6 +54,6 @@ export function describeError(e: unknown): ToolError {
 export function fail(e: unknown): CallToolResult {
   return {
     isError: true,
-    content: [{ type: 'text', text: JSON.stringify(describeError(e), null, 2) }],
+    content: [{ type: 'text', text: JSON.stringify(describeError(e)) }],
   }
 }

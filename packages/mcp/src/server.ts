@@ -10,6 +10,7 @@ import {
   referencesToAsset,
   referencesToCollection,
   referencesToEntry,
+  subtreeIds,
 } from '@lacuno/document'
 import { type AssetRef, Document, type Node, parseDocument } from '@lacuno/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
@@ -336,7 +337,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'page.outline',
     {
       description:
-        'Indented node tree of a page or a component: id, tag, classes, text snippet. Classes are shown by id, usable with styles.get and style.set.',
+        'Indented node tree of a page (by id or path, as page.preview takes it) or a component: id, tag, classes, text snippet. Classes are shown by id, usable with styles.get and style.set.',
       inputSchema: {
         page: z.string().optional(),
         component: z.string().optional(),
@@ -349,7 +350,9 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         if ((page === undefined) === (component === undefined))
           throw new InputError('pass exactly one of page or component')
         const root =
-          page !== undefined ? d.pages[page]?.root : d.components[component as string]?.root
+          page !== undefined
+            ? (d.pages[page] ?? Object.values(d.pages).find((p) => p.path === page))?.root
+            : d.components[component as string]?.root
         if (!root)
           throw new InputError(
             `unknown ${page !== undefined ? 'page' : 'component'} ${page ?? component}`,
@@ -452,22 +455,33 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'styles.get',
     {
       description:
-        'Style declarations by class (tag rules under "<class> <tag>"), breakpoint and state. All when class is omitted.',
-      inputSchema: { class: z.string().optional() },
+        'Style declarations by class (tag rules under "<class> <tag>"), breakpoint and state, as class → breakpoint → state → property → value. Pass one or more classes, or a node for the classes of it and everything inside it, in one call. All when neither is given.',
+      inputSchema: {
+        class: z.union([z.string(), z.array(z.string())]).optional(),
+        node: z.string().optional(),
+      },
     },
-    async ({ class: cls }) => {
+    async ({ class: cls, node }) => {
       const d = store.read().document
-      if (cls !== undefined && !d.classes[cls]) return fail(new InputError(`unknown class ${cls}`))
+      if (node !== undefined && !d.nodes[node]) return fail(new InputError(`unknown node ${node}`))
+      const wanted =
+        node !== undefined
+          ? new Set(subtreeIds(d, node).flatMap((id) => d.nodes[id]?.classes ?? []))
+          : cls !== undefined
+            ? new Set([cls].flat())
+            : undefined
+      const unknown = [...(wanted ?? [])].find((id) => !d.classes[id])
+      if (unknown) return fail(new InputError(`unknown class ${unknown}`))
       const out: Record<string, Record<string, Record<string, Record<string, unknown>>>> = {}
       for (const decl of Object.values(d.styles)) {
-        if (cls !== undefined && decl.class !== cls) continue
+        if (wanted && !wanted.has(decl.class)) continue
         const group = decl.tag ? `${decl.class} ${decl.tag}` : decl.class
         const byClass = out[group] ?? {}
         const byBreakpoint = byClass[decl.breakpoint] ?? {}
         const byState = byBreakpoint[decl.state] ?? {}
         byState[decl.property] = decl.important
           ? { value: decl.value, important: true }
-          : { value: decl.value }
+          : decl.value
         byBreakpoint[decl.state] = byState
         byClass[decl.breakpoint] = byBreakpoint
         out[group] = byClass

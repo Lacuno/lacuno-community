@@ -41,6 +41,8 @@ describe('guide and resources', () => {
     )
     expect(nodesOnly).toContain('### node.create')
     expect(nodesOnly).not.toContain('### style.set')
+    // Shared parts are written once: this group was about 75,000 characters.
+    expect(nodesOnly.length).toBeLessThan(15_000)
     const bad = await c.client.callTool({ name: 'guide', arguments: { group: 'nope' } })
     expect(bad.isError).toBe(true)
     expect(JSON.parse(textOf(bad))).toMatchObject({ kind: 'input' })

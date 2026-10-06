@@ -104,11 +104,12 @@ const classDelete = defineOperation(
   },
 )
 
+// A plain style is the base breakpoint without a state, so neither has to be written out.
 const coordinates = {
   class: ClassId,
   tag: RichTag.optional(),
-  breakpoint: BreakpointId,
-  state: State,
+  breakpoint: BreakpointId.default(BASE_BREAKPOINT_ID),
+  state: State.default('none'),
   property: StyleDecl.shape.property,
 }
 
