@@ -5,9 +5,10 @@ import { bodyLimit } from 'hono/body-limit'
 import { type Browser, chromium } from 'playwright'
 import { z } from 'zod'
 
+// A desktop or phone viewport; larger ones cost memory every other request in the queue waits for.
 const Options = z.strictObject({
-  width: z.number().int().positive(),
-  height: z.number().int().positive().optional(),
+  width: z.number().int().positive().max(2560),
+  height: z.number().int().positive().max(2560).optional(),
   node: z.string().optional(),
 })
 /** Chromium is relaunched after this many screenshots, which keeps its memory flat. */

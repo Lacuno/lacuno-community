@@ -393,8 +393,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         inputSchema: {
           page: z.string(),
           entry: z.string().optional(),
-          width: z.number().int().positive().optional(),
-          height: z.number().int().positive().optional(),
+          width: z.number().int().positive().max(2560).optional(),
+          height: z.number().int().positive().max(2560).optional(),
           node: z.string().optional(),
         },
       },
