@@ -29,7 +29,13 @@ const server = await createServer({
   templateDir: path.resolve(root, process.env.LACUNO_TEMPLATE_DIR ?? 'templates/lacuno'),
   baseURL,
   ...(gatewayIssuer && gatewaySecret
-    ? { gateway: { issuer: gatewayIssuer, secret: gatewaySecret } }
+    ? {
+        gateway: {
+          issuer: gatewayIssuer,
+          secret: gatewaySecret,
+          ...(process.env.LACUNO_GATEWAY_HOME ? { home: process.env.LACUNO_GATEWAY_HOME } : {}),
+        },
+      }
     : {}),
   ...(publishBaseURL ? { publishBaseURL } : {}),
   ...(process.env.LACUNO_CIMD_RELAY_URL ? { cimdRelay: process.env.LACUNO_CIMD_RELAY_URL } : {}),

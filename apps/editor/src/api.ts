@@ -67,7 +67,7 @@ export type Config = {
   local: boolean
   /** The try editor: one site in the browser, and sign-up instead of publishing or AI apps. */
   try?: boolean
-  /** Behind a gateway, its dashboard: the logo and Workspaces lead there. */
+  /** Behind a gateway, its dashboard: the logo leads there. */
   home?: string
   /** Behind a gateway that offers one, its MCP address for all the user's sites. */
   mcp?: string

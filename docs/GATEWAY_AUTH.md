@@ -8,6 +8,8 @@ Set both `LACUNO_GATEWAY_ISSUER` (the gateway's exact origin) and `LACUNO_GATEWA
 32 characters of independently generated secret material), with `BETTER_AUTH_URL` set to the exact
 public editor origin. Keep the runtime private behind the proxy and use HTTPS outside local development.
 The gateway and runtime must agree on that origin as the assertion audience.
+`LACUNO_GATEWAY_HOME` names the gateway's dashboard, where the editor's logo leads; without it the
+logo leads to the issuer.
 
 Initialization requires an instance without local accounts. It creates a passwordless managed owner;
 all gateway-authorized users act with that owner's access. It disables local signup, owner setup and

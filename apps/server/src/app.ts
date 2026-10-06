@@ -235,7 +235,7 @@ export async function createServer(options: ServerOptions) {
           ? {
               authentication: 'gateway',
               gatewayProtocol: 1,
-              home: options.gateway!.issuer,
+              home: options.gateway!.home ?? options.gateway!.issuer,
               mcp: options.mcp,
             }
           : {}),

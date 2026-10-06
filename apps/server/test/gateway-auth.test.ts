@@ -87,7 +87,7 @@ describe('gateway mode', () => {
       authentication: 'gateway',
       setupRequired: false,
       allowSignup: false,
-      // The editor's logo and Workspaces link lead back to the gateway's dashboard.
+      // Without LACUNO_GATEWAY_HOME the editor's logo leads back to the issuer.
       home: issuer,
       // The gateway answers form posts.
       forms: true,

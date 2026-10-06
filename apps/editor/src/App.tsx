@@ -30,7 +30,7 @@ export function Brand() {
     </>
   )
   return home ? (
-    <a className="brand" href={home} title="Workspaces">
+    <a className="brand" href={home} title="Back to your dashboard">
       {content}
     </a>
   ) : (
@@ -206,11 +206,6 @@ function Sites({
       <header className="workspace-header">
         <Brand />
         <div className="row">
-          {config?.home && (
-            <a className="home-link" href={config.home}>
-              Workspaces
-            </a>
-          )}
           <span className="muted">{user.name}</span>
           {!trying && (
             <button type="button" onClick={logout}>
