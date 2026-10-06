@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { localScreenshot } from '@lacuno/mcp/screenshot'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
@@ -85,6 +86,7 @@ beforeEach(async () => {
     secret: 'test-only-secret-6ea8114c2a7b4e68ba29c69b',
     allowSignup: true,
     oauth,
+    screenshot: localScreenshot()!,
   })
   const signup = await request('/api/auth/sign-up/email', {
     method: 'POST',

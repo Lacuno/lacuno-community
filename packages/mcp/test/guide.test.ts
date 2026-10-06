@@ -24,7 +24,6 @@ describe('guide and resources', () => {
       'node.get',
       'page.outline',
       'page.preview',
-      'page.screenshot',
       'site.build',
       'styles.get',
     ])

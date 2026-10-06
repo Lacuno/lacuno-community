@@ -246,6 +246,11 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
   forwards published hosts to that listener, preserving the Host header.
 - **Assets.** Content-addressed on local disk, typed by their first bytes on upload. S3-compatible
   storage is planned.
+- **Screenshots.** `page.screenshot` renders the page's preview HTML in headless Chromium, through
+  a separate screenshot service (`screenshot-main`, its own image, a fixed number of slots over one
+  browser) when `LACUNO_SCREENSHOT_URL` is set, otherwise through Playwright where it is installed;
+  without either the tool is not offered. The runtime sends the HTML and only the assets it
+  references; the browser serves those from memory and aborts every other request.
 - **Forms** are plain `form` elements. One without its own `action` publishes posting to
   `/_lacuno/forms` on the site's host, with a honeypot and a small script that sends it in the
   background and shows the result. The publishing listener validates the message, rate-limits it

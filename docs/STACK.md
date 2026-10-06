@@ -62,7 +62,7 @@ built yet.
 | --- | --- | --- |
 | Protocol | MCP TypeScript SDK 1.x | Streamable HTTP on the server, stdio through the CLI. Tool inputs are Zod schemas shared with the document API |
 | Providers | None | Lacuno never calls a model; the user's own AI app connects over MCP (D016) |
-| Screenshots | Playwright Chromium, an optional dependency | `page.screenshot` and the browser tests |
+| Screenshots | Playwright Chromium, an optional dependency or the screenshot service's image | `page.screenshot` and the browser tests |
 | Diff | Our own document diff | `document.diff` summarises changes by page, node, style and token; no pixel diff |
 
 ## Deliberately not used

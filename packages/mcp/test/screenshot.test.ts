@@ -8,7 +8,7 @@ import { DocumentStore } from '@lacuno/document'
 import { openFolder } from '@lacuno/document/folder'
 import sharp from 'sharp'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { pngSize } from '../src/screenshot.js'
+import { localScreenshot, pngSize } from '../src/screenshot.js'
 import { connect } from './helpers.js'
 
 // Chromium already refuses loopback requests from a public page; lifting that lets a local server
@@ -26,6 +26,7 @@ const chromium = await import('playwright')
   .then(() => true)
   .catch(() => false)
 
+const screenshot = localScreenshot()!
 const dirs: string[] = []
 let close: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -50,7 +51,7 @@ describe('page.screenshot', () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-shot-'))
     dirs.push(dir)
     await writeFixtureSite(dir)
-    const c = await connect(await openFolder(dir), { siteDir: dir })
+    const c = await connect(await openFolder(dir), { siteDir: dir, screenshot })
     close = c.close
     const page = png(
       await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/', width: 800 } }),
@@ -73,6 +74,7 @@ describe('page.screenshot', () => {
       const doc = await writeFixtureSite(dir)
       const read: string[] = []
       const c = await connect(DocumentStore.inMemory(doc), {
+        screenshot,
         assets: (hash) => {
           read.push(hash)
           return readFile(path.join(dir, 'assets', hash)).catch(() => undefined)
@@ -124,7 +126,7 @@ describe('page.screenshot', () => {
       },
     }
     await writeFile(path.join(dir, 'lacuno.json'), JSON.stringify(doc))
-    const c = await connect(await openFolder(dir), { siteDir: dir })
+    const c = await connect(await openFolder(dir), { siteDir: dir, screenshot })
     close = c.close
     const { bytes } = png(
       await c.client.callTool({
@@ -159,7 +161,7 @@ describe('page.screenshot', () => {
       html: `<img src="http://127.0.0.1:${port}/pixel.png"><script>fetch('http://127.0.0.1:${port}/beacon')</script>`,
     }
     await writeFile(path.join(dir, 'lacuno.json'), JSON.stringify(doc))
-    const c = await connect(await openFolder(dir), { siteDir: dir })
+    const c = await connect(await openFolder(dir), { siteDir: dir, screenshot })
     close = c.close
     try {
       png(await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/' } }))

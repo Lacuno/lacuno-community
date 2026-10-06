@@ -26,3 +26,13 @@ jobs:
             ghcr.io/lacuno/lacuno-community:${{ github.sha }}
       # Cloud pins the runtime image by this digest.
       - run: echo "ghcr.io/lacuno/lacuno-community@${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+      - id: screenshots
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: screenshots
+          push: true
+          tags: |
+            ghcr.io/lacuno/lacuno-screenshots:main
+            ghcr.io/lacuno/lacuno-screenshots:${{ github.sha }}
+      - run: echo "ghcr.io/lacuno/lacuno-screenshots@${{ steps.screenshots.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"

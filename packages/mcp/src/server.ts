@@ -1,5 +1,6 @@
 import { readFile, realpath } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
+import { publicAssetPath } from '@lacuno/compiler'
 import {
   type ApplyResult,
   applyPatches,
@@ -26,7 +27,7 @@ import {
 import { outlineLines } from './outline.js'
 import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
-import { pngSize, type ReadAsset, screenshot } from './screenshot.js'
+import { pngSize, type ReadAsset, type Screenshot } from './screenshot.js'
 
 /** What an imported file is called and described as. */
 export type AssetDetails = {
@@ -40,6 +41,8 @@ export type ServerOptions = {
   siteDir?: string
   /** Reads an asset's bytes for screenshots when they are not in `siteDir`. */
   assets?: ReadAsset
+  /** Takes `page.screenshot`'s PNGs; without it the tool is not offered. */
+  screenshot?: Screenshot
   /** Called after each committed `document.apply` batch. */
   onApply?: (batch: Batch, result: ApplyResult) => void
   /** Publishes the draft to the testing target; replaces `site.build` with `site.publish`. */
@@ -380,47 +383,53 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
   )
 
-  server.registerTool(
-    'page.screenshot',
-    {
-      description:
-        "PNG of a route through Playwright's Chromium. The full page unless height is set; node crops to one element.",
-      inputSchema: {
-        page: z.string(),
-        entry: z.string().optional(),
-        width: z.number().int().positive().optional(),
-        height: z.number().int().positive().optional(),
-        node: z.string().optional(),
+  const { screenshot } = options
+  if (screenshot)
+    server.registerTool(
+      'page.screenshot',
+      {
+        description:
+          'PNG of a route in Chromium. The full page unless height is set; node crops to one element.',
+        inputSchema: {
+          page: z.string(),
+          entry: z.string().optional(),
+          width: z.number().int().positive().optional(),
+          height: z.number().int().positive().optional(),
+          node: z.string().optional(),
+        },
       },
-    },
-    async ({ page, entry, width = 1280, height, node }) => {
-      try {
-        const { siteDir } = options
-        const readAsset =
-          options.assets ??
-          (siteDir &&
-            ((hash: string) => readFile(join(siteDir, 'assets', hash)).catch(() => undefined)))
-        if (!readAsset) throw new InputError('this server has no site folder')
-        const d = store.read().document
-        if (node !== undefined && !d.nodes[node]) throw new InputError(`unknown node ${node}`)
-        const html = previewHtml(d, resolveRoute(d, page, entry), node !== undefined)
-        const png = await screenshot(d, readAsset, html, {
-          width,
-          ...(height !== undefined ? { height } : {}),
-          ...(node !== undefined ? { node } : {}),
-        })
-        const size = pngSize(png)
-        return {
-          content: [
-            { type: 'image', data: png.toString('base64'), mimeType: 'image/png' },
-            { type: 'text', text: `${size.width}×${size.height}` },
-          ],
+      async ({ page, entry, width = 1280, height, node }) => {
+        try {
+          const { siteDir } = options
+          const readAsset =
+            options.assets ??
+            (siteDir &&
+              ((hash: string) => readFile(join(siteDir, 'assets', hash)).catch(() => undefined)))
+          if (!readAsset) throw new InputError('this server has no site folder')
+          const d = store.read().document
+          if (node !== undefined && !d.nodes[node]) throw new InputError(`unknown node ${node}`)
+          const html = previewHtml(d, resolveRoute(d, page, entry), node !== undefined)
+          const png = await screenshot(
+            html,
+            async (path) => {
+              const asset = Object.values(d.assets).find((a) => publicAssetPath(a) === path)
+              const body = asset && (await readAsset(asset.hash))
+              return body && { mime: asset.mime, body }
+            },
+            { width, height, node },
+          )
+          const size = pngSize(png)
+          return {
+            content: [
+              { type: 'image', data: png.toString('base64'), mimeType: 'image/png' },
+              { type: 'text', text: `${size.width}×${size.height}` },
+            ],
+          }
+        } catch (e) {
+          return fail(e)
         }
-      } catch (e) {
-        return fail(e)
-      }
-    },
-  )
+      },
+    )
 
   server.registerTool(
     'node.get',

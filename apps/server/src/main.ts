@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { serve } from '@hono/node-server'
+import { localScreenshot, serviceScreenshot } from '@lacuno/mcp/screenshot'
 import { createServer } from './app.js'
 import { readPort, root } from './environment.js'
 import { smtp } from './mail.js'
@@ -19,6 +20,10 @@ const publishBaseURL =
 if (publishBaseURL && publishPort === port)
   throw new Error('Publishing requires a separate LACUNO_PUBLISH_PORT')
 const mail = smtp()
+const screenshotUrl = process.env.LACUNO_SCREENSHOT_URL
+const screenshot = screenshotUrl
+  ? serviceScreenshot(screenshotUrl, process.env.LACUNO_SCREENSHOT_SECRET)
+  : localScreenshot()
 const server = await createServer({
   dataDir: path.resolve(root, process.env.LACUNO_DATA_DIR ?? 'data'),
   templateDir: path.resolve(root, process.env.LACUNO_TEMPLATE_DIR ?? 'templates/lacuno'),
@@ -34,6 +39,7 @@ const server = await createServer({
   editorDir: path.join(root, 'apps/editor/dist'),
   allowSignup: process.env.LACUNO_ALLOW_SIGNUP === 'true',
   ...(mail ? { mail } : {}),
+  ...(screenshot && { screenshot }),
 })
 const listener = serve(
   { fetch: server.app.fetch, port, hostname: process.env.HOST ?? '127.0.0.1' },

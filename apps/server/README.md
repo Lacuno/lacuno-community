@@ -46,11 +46,17 @@ and site creation. `pnpm dev` builds the editor before starting the server.
 | `LACUNO_PUBLISH_BASE_URL` | `http://localhost:<publish port>` when auth uses `localhost`; otherwise disabled | Base origin for `<site-id>.<hostname>` published sites, or a template with `{site}` in the hostname |
 | `LACUNO_SMTP_URL` | Unset: forms are off | SMTP server for published forms' messages, such as `smtps://user:password@smtp.example.com:465`; set with `LACUNO_MAIL_FROM` |
 | `LACUNO_MAIL_FROM` | Unset | Sender of those messages, such as `Lacuno <forms@example.com>` |
+| `LACUNO_SCREENSHOT_URL` | Unset: Playwright where installed, otherwise no `page.screenshot` | Screenshot service for AI apps' `page.screenshot`, such as `http://screenshots:3000` |
+| `LACUNO_SCREENSHOT_SECRET` | Unset | Bearer secret the server sends and the screenshot service requires; set on both or neither |
+| `LACUNO_SCREENSHOT_SLOTS` | `2` | Screenshot service only: pages rendered at once; others wait up to 20 seconds |
 
 Relative directory settings resolve from the repository root. Both source and bundled servers
 automatically load the root `.env`; exported environment variables take precedence. Without `.env`,
 you can supply the settings through the environment. The defaults in the table apply when a setting
 is absent. Existing `.env` files are preserved, including older registration settings.
+
+The screenshot service is `dist/screenshot-main.js` (`PORT`, `HOST`, `LACUNO_SCREENSHOT_SLOTS`,
+`LACUNO_SCREENSHOT_SECRET`, `GET /health`); its image is the Dockerfile's `screenshots` target.
 
 To run the bundled entry point:
 

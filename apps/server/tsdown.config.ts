@@ -1,21 +1,29 @@
-import { defineConfig } from 'tsdown'
+import { defineConfig, type UserConfig } from 'tsdown'
 
-export default defineConfig({
-  entry: [
-    'src/main.ts',
-    'src/build-worker.ts',
-    'src/setup-token.ts',
-    'src/backup-cli.ts',
-    'src/published-main.ts',
-    'src/auth-migrate.ts',
-  ],
+const shared: UserConfig = {
   format: 'esm',
   platform: 'node',
   target: 'node22',
-  noExternal: [/^@lacuno\//],
   // page.screenshot loads Playwright only when it is installed.
   external: ['playwright'],
   dts: false,
-  clean: true,
   fixedExtension: false,
-})
+}
+
+export default defineConfig([
+  {
+    ...shared,
+    entry: [
+      'src/main.ts',
+      'src/build-worker.ts',
+      'src/setup-token.ts',
+      'src/backup-cli.ts',
+      'src/published-main.ts',
+      'src/auth-migrate.ts',
+    ],
+    noExternal: [/^@lacuno\//],
+    clean: true,
+  },
+  // The screenshots image installs only Playwright, so everything else is bundled in.
+  { ...shared, entry: ['src/screenshot-main.ts'], noExternal: (id) => id !== 'playwright' },
+])

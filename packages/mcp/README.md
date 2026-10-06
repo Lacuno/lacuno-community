@@ -32,6 +32,7 @@ Over stdio the client and the server share one machine and one trust boundary: `
 inside the site folder, symlinks included, and the server downloads nothing. On a server site the
 HTTP endpoint checks each token's site and runs every tool as the user who approved the app.
 
-`page.screenshot` uses Playwright's Chromium, an optional peer dependency. Install it in the project
-that runs the server with `pnpm add -D playwright && npx playwright install chromium`; the other
-tools work without it.
+`page.screenshot` uses Playwright's Chromium, an optional peer dependency, or on the server a
+screenshot service (`LACUNO_SCREENSHOT_URL`). Install it in the project that runs the server with
+`pnpm add -D playwright && npx playwright install chromium`; without it the tool is not offered and
+the other tools work.

@@ -13,6 +13,7 @@ import {
   stageUpload,
   UploadInput,
 } from '@lacuno/document'
+import type { Screenshot } from '@lacuno/mcp/screenshot'
 import { renderPreview } from '@lacuno/renderer'
 import { AssetHash, hashAsset, parseDocument } from '@lacuno/schema'
 import type Database from 'better-sqlite3'
@@ -52,6 +53,8 @@ export type ServerOptions = {
   mcp?: string
   /** Sends published forms' messages; without it they are refused. */
   mail?: Send
+  /** Takes page.screenshot's PNGs; without it AI apps are not offered the tool. */
+  screenshot?: Screenshot
   /** Test-only: replaces the OAuth grants so tests can call the MCP endpoint with a fixed token. */
   oauth?: OAuth
 }
@@ -509,6 +512,7 @@ export async function createServer(options: ServerOptions) {
         canPublish: (userId) => !gateway || gateway.role(userId) === 'owner',
         stage,
         fetchUrl: download || undefined,
+        screenshot: options.screenshot,
         report:
           exportOptions &&
           ((site, activity) => void exportReport(exportOptions, site, 'activity', activity)),

@@ -4,6 +4,7 @@ import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import type { ApplyResult, Batch, DocumentStore, Operation, stageUpload } from '@lacuno/document'
 import type { AssetDetails } from '@lacuno/mcp'
+import type { Screenshot } from '@lacuno/mcp/screenshot'
 import type { AssetRef } from '@lacuno/schema'
 import type { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { Hono } from 'hono'
@@ -37,6 +38,8 @@ export type McpDeps = {
   fetchUrl: ((url: string) => Promise<Uint8Array>) | undefined
   /** Tells Cloud what an AI app did, for the person who connected it; absent without Cloud. */
   report: ((siteId: string, activity: Activity) => void) | undefined
+  /** Takes page.screenshot's PNGs; absent where neither a screenshot service nor Playwright is. */
+  screenshot: Screenshot | undefined
 }
 
 /** Who a request acts for: an OAuth grant or a gateway user assertion. */
@@ -212,6 +215,7 @@ export function mcpRoutes(deps: McpDeps): Hono {
             throw error instanceof HTTPException ? new InputError(error.message) : error
           }),
         ...(deps.fetchUrl && { fetchUrl: deps.fetchUrl }),
+        ...(deps.screenshot && { screenshot: deps.screenshot }),
         uploadUrl: (details) => {
           const now = Date.now()
           for (const [token, upload] of uploads) if (upload.expires < now) uploads.delete(token)

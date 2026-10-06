@@ -123,6 +123,30 @@ page, its assets and rollback through HTTPS. The Docker health check checks API 
 your DNS, certificates or individual published sites. Monitor those yourself. Run one instance per
 data volume; multi-host SQLite/shared-filesystem deployments are outside this guide.
 
+## Screenshots for AI apps
+
+The runtime image has no browser, so connected AI apps are offered `page.screenshot` only when a
+screenshot service is configured. Its image, `ghcr.io/lacuno/lacuno-screenshots`, is built and
+tagged with the server image (or locally with `docker build --target screenshots .`): one headless
+Chromium, a fresh browser context per screenshot and nothing written to disk. Add it to
+`compose.yaml` beside `lacuno`, without published ports:
+
+```yaml
+  screenshots:
+    image: ghcr.io/lacuno/lacuno-screenshots:<tag>
+    init: true
+    restart: unless-stopped
+    mem_limit: 1.5g
+    environment:
+      LACUNO_SCREENSHOT_SECRET: ${LACUNO_SCREENSHOT_SECRET:-}
+```
+
+and give the `lacuno` service `LACUNO_SCREENSHOT_URL: http://screenshots:3000` and the same
+`LACUNO_SCREENSHOT_SECRET`. The service renders `LACUNO_SCREENSHOT_SLOTS` pages at once (default 2);
+others wait up to 20 seconds, after which the AI app is told to try again. Each slot can take a few
+hundred MB on a long page, so size the memory limit with the slots. Pages only reach their own
+assets: web fonts and images from other sites do not appear in screenshots.
+
 ## Backup and restore
 
 Back up the entire `/data` volume and securely retain `.env.docker`, including the auth secret.

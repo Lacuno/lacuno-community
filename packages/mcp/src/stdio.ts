@@ -1,6 +1,7 @@
 import { openFolder } from '@lacuno/document/folder'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import { localScreenshot } from './screenshot.js'
 import { createServer } from './server.js'
 
 /**
@@ -12,7 +13,8 @@ export async function serveStdio(siteDir: string, transport?: Transport): Promis
   const input = transport ? undefined : process.stdin
   const connection = transport ?? new StdioServerTransport()
   const store = await openFolder(siteDir)
-  const server = createServer(store, { siteDir })
+  const screenshot = localScreenshot()
+  const server = createServer(store, { siteDir, ...(screenshot && { screenshot }) })
   await server.connect(connection)
   const prevClose = connection.onclose
   const prevError = connection.onerror
