@@ -6,6 +6,7 @@ import { flushSync } from 'react-dom'
 import { ApiError, api, message, take } from './api.js'
 import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
 import { catchUp, land, liveStream, type SiteEvent, touchedNodes } from './liveEvents.js'
+import type { Preview, PreviewQuery } from './usePreview.js'
 
 export type Snapshot = { document: Document; revision: number }
 export type DocumentSession = ReturnType<typeof useDocumentSession>
@@ -17,12 +18,15 @@ type Options = {
   blocked: boolean
   setPageId: (update: (current: string) => string) => void
   onLeave: () => void
+  /** What the canvas shows: each save asks for it rendered in the same answer (usePreview.ts). */
+  canvas: () => PreviewQuery
+  setPreview: (preview: Preview) => void
 }
 
 /** The saved document, everything that writes to it and the undo history over it. */
 export function useDocumentSession(
   siteId: string,
-  { readOnly = false, blocked, setPageId, onLeave }: Options,
+  { readOnly = false, blocked, setPageId, onLeave, canvas, setPreview }: Options,
 ) {
   const [snapshot, setSnapshot] = useState<Snapshot>()
   const [error, setError] = useState('')
@@ -177,9 +181,9 @@ export function useDocumentSession(
     setError('')
     setSaved(false)
     try {
-      const result = await api<{ revision: number; patches: Patch[] }>(
+      const result = await api<{ revision: number; patches: Patch[]; preview?: Preview }>(
         `/api/sites/${siteId}/document/apply`,
-        { expectedRevision: snapshot.revision, ...body },
+        { expectedRevision: snapshot.revision, ...body, preview: canvas() },
       )
       // The runtime answers again: an event stream it ended while stopped comes back.
       stream.current?.reopen()
@@ -195,6 +199,8 @@ export function useDocumentSession(
           { document: { ...document, revision: result.revision }, revision: result.revision },
           { keepPanels: action === 'auto' },
         )
+        // Landed with the revision it belongs to, so the canvas never shows an older one.
+        if (result.preview) setPreview(result.preview)
         // A batch that changed nothing leaves nothing to undo.
         if (step || result.patches.length)
           setEditHistory(committedHistory(editHistory, action === 'auto' ? 'edit' : action, entry))

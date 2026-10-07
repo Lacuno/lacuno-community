@@ -26,7 +26,7 @@ import {
 import { useThumbnail } from './thumbnail.js'
 import { useComponentEditing } from './useComponentEditing.js'
 import { useImageDrop } from './useImageDrop.js'
-import { usePreview } from './usePreview.js'
+import { type Preview, usePreview } from './usePreview.js'
 import { useStructureDrag } from './useStructureDrag.js'
 
 export function Editor({
@@ -70,11 +70,15 @@ export function Editor({
   const [colorPreview, setColorPreview] = useState<LivePreview>({})
   // A stable object, so the canvas repaints its draft only when a preview changes.
   const draft = useMemo(() => ({ ...livePreview, ...colorPreview }), [livePreview, colorPreview])
+  const [preview, setPreview] = useState<Preview>()
   const session = useDocumentSession(siteId, {
     readOnly: role === 'viewer',
     blocked: !!inlineTarget,
     setPageId,
     onLeave: () => setInlineTarget(undefined),
+    // Read when a save goes out, after the render that declares these below.
+    canvas: () => ({ page: pageId, entry: activeEntry, component: editing.editingId }),
+    setPreview,
   })
   const { doc, error, busy, conflict, unsettled, frozen, save, leave, setError } = session
   const page = doc?.pages[pageId]
@@ -93,12 +97,14 @@ export function Editor({
   const { editableDoc, editingRoot } = editing
   const entries = page?.collection ? (doc?.entries[page.collection] ?? []) : []
   const activeEntry = entries.find((entry) => entry.id === entryId)?.id ?? entries[0]?.id ?? ''
-  const preview = usePreview({
+  usePreview({
     siteId,
     pageId,
     activeEntry,
     editingId: editing.editingId,
     revision: session.revision,
+    preview,
+    setPreview,
     onStale: session.onStale,
     setError,
   })

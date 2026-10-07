@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { api } from './api.js'
 
 export type Preview = {
@@ -6,6 +6,8 @@ export type Preview = {
   revision: number
   warnings: { node: string; message: string }[]
 }
+/** The preview route's query: the page, its entry on a collection page, the component being edited. */
+export type PreviewQuery = { page: string; entry?: string; component?: string }
 
 type Options = {
   siteId: string
@@ -13,27 +15,31 @@ type Options = {
   activeEntry: string
   editingId: string
   revision: number | undefined
+  /** Held by the editor, since a save lands its own canvas here (session.ts). */
+  preview: Preview | undefined
+  setPreview: (preview: Preview | undefined) => void
   onStale: () => void
   setError: (message: string) => void
 }
 
-/** The rendered canvas for the page, entry or component being edited. */
+/** Fetches the canvas for the page, entry or component being edited when a save has not brought it. */
 export function usePreview({
   siteId,
   pageId,
   activeEntry,
   editingId,
   revision,
+  preview,
+  setPreview,
   onStale,
   setError,
 }: Options) {
-  const [preview, setPreview] = useState<Preview>()
   // biome-ignore lint/correctness/useExhaustiveDependencies: a different page or entry must discard the prior canvas.
   useEffect(() => {
     setPreview(undefined)
   }, [pageId, activeEntry, editingId])
   useEffect(() => {
-    if (!pageId || revision === undefined) return
+    if (!pageId || revision === undefined || preview?.revision === revision) return
     const controller = new AbortController()
     api<Preview>(
       `/api/sites/${siteId}/preview?page=${encodeURIComponent(pageId)}&entry=${encodeURIComponent(activeEntry)}${editingId ? `&component=${encodeURIComponent(editingId)}` : ''}`,
@@ -49,6 +55,5 @@ export function usePreview({
         if (!controller.signal.aborted) setError(e.message)
       })
     return () => controller.abort()
-  }, [siteId, pageId, activeEntry, revision, editingId, onStale, setError])
-  return preview
+  }, [siteId, pageId, activeEntry, revision, editingId, preview, setPreview, onStale, setError])
 }

@@ -177,8 +177,9 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
 - Its HTML comes from `@lacuno/renderer`: the compiler's renderer and the CSS generator, with node
   ids on elements and assets served from the site's authenticated URLs; an image whose size is
   known lists the server's resized variants in `srcset`, with `sizes="auto, 100vw"` so a browser
-  loads the variant for the width the image renders at. The server renders it per revision; the
-  try build renders it in a service worker.
+  loads the variant for the width the image renders at. The server renders it per revision, in
+  the answer to the editor's own save and on request after a page switch or another actor's
+  batch; the try build renders it in a service worker.
 - The editor loads the first render once and morphs every later one into the live document in
   place (D028), so scroll, selection and open controls survive an edit.
 - The selection overlay, spacing and size handles, the colour wheel and the state chip live in a

@@ -92,6 +92,14 @@ const BatchInput = z.strictObject({
   /** The patches of an earlier commit, replayed to undo or redo it. */
   patches: z.array(Patch).min(1).max(5000).optional(),
   dryRun: z.boolean().optional(),
+  /** The canvas an editor shows, as the preview route takes it: rendered into the answer. */
+  preview: z
+    .strictObject({
+      page: z.string(),
+      entry: z.string().default(''),
+      component: z.string().default(''),
+    })
+    .optional(),
 })
 /** A thumbnail's type from its first bytes: WebP, or JPEG where the browser encodes no WebP. */
 function thumbnailType(image: Buffer) {
@@ -756,8 +764,9 @@ export async function createServer(options: ServerOptions) {
       const input = BatchInput.safeParse(await c.req.json().catch(() => null))
       if (!input.success)
         return c.json({ error: 'Invalid operation batch', issues: input.error.issues }, 400)
-      const batch = input.data
-      const result = await (await store(c.req.param('id'))).apply(
+      const { preview, ...batch } = input.data
+      const site = await store(c.req.param('id'))
+      const result = await site.apply(
         batch.patches
           ? { expectedRevision: batch.expectedRevision, patches: batch.patches as Patch[] }
           : {
@@ -774,7 +783,11 @@ export async function createServer(options: ServerOptions) {
           at: Date.now(),
           summary: summarize(batch.operations as Operation[] | undefined, result.patches),
         })
-      return c.json(result)
+      // The editor's canvas at the new revision in the same answer, sparing it a second round trip.
+      // Only a page or component the batch itself removed cannot render: the editor then fetches.
+      if (!preview || batch.dryRun) return c.json(result)
+      const rendered = renderPreview(site.read().document, c.req.param('id'), preview)
+      return c.json(rendered.status === 200 ? { ...result, preview: rendered.body } : result)
     })
     if (options.editorDir) {
       // Vite names every bundle file by its content hash; index.html alone changes under its name.
