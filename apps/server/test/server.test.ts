@@ -85,6 +85,56 @@ describe('server foundation', () => {
       expect((await request(route, other)).status).toBe(404)
     }
   })
+  it('renders the canvas an edit names into the apply answer', async () => {
+    const owner = await register()
+    const { id } = await createSite(owner)
+    const edit = (expectedRevision: number, value: string, extra = {}) =>
+      request(`/api/sites/${id}/document/apply`, owner, {
+        expectedRevision,
+        operations: [{ type: 'node.update', id: 'n-home-title', text: { type: 'static', value } }],
+        ...extra,
+      })
+    // Without a preview the answer stays as it was, for MCP and other callers.
+    const plain = (await (await edit(0, 'One')).json()) as object
+    expect(Object.keys(plain).sort()).toEqual(['created', 'patches', 'revision', 'warnings'])
+    const answered = (await (await edit(1, 'Two', { preview: { page: 'p-home' } })).json()) as {
+      preview: unknown
+    }
+    expect(answered).toMatchObject({
+      revision: 2,
+      preview: { revision: 2, html: expect.stringContaining('Two') },
+    })
+    const route = await request(`/api/sites/${id}/preview?page=p-home`, owner)
+    expect(answered.preview).toEqual(await route.json())
+    // What cannot render (here a collection page without its entry) or was not committed is left out.
+    const noEntry = (await (await edit(2, 'Three', { preview: { page: 'p-article' } })).json()) as {
+      revision: number
+      preview?: unknown
+    }
+    expect(noEntry).toMatchObject({ revision: 3 })
+    expect(noEntry.preview).toBeUndefined()
+    const dry = await edit(3, 'Four', { preview: { page: 'p-home' }, dryRun: true })
+    expect(Object.keys((await dry.json()) as object)).not.toContain('preview')
+    expect((await edit(3, 'Four', { preview: { page: 1 } })).status).toBe(400)
+    // A saved edit as two requests against one; the figures are for the commit message.
+    let revision = 3
+    const measure = async (name: string, save: () => Promise<unknown>) => {
+      const start = performance.now()
+      for (let i = 0; i < 50; i++) await save()
+      console.log(`${name}: ${((performance.now() - start) / 50).toFixed(2)} ms per saved edit`)
+    }
+    for (let round = 0; round < 2; round++) {
+      await measure('apply then preview', async () => {
+        await edit(revision++, `Edit ${revision}`)
+        await request(`/api/sites/${id}/preview?page=p-home`, owner)
+      })
+      await measure('apply with preview', () =>
+        edit(revision++, `Edit ${revision}`, { preview: { page: 'p-home' } }),
+      )
+    }
+    expect((await readDocument(`/api/sites/${id}/document`, owner)).revision).toBe(revision)
+  })
+
   it('signs in, creates a template site, edits and retrieves it after restart', async () => {
     await register()
     const login = await request('/api/auth/sign-in/email', '', {
