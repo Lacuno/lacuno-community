@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { ApiError, api, unreachable } from '../src/api.js'
+import { ApiError, api, prefetch, take, unreachable } from '../src/api.js'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -51,4 +51,27 @@ it('retries a 503 with Retry-After once, after that delay', async () => {
   } finally {
     vi.useRealTimers()
   }
+})
+
+it('hands an early read over once, and reads again after a 401 made before sign-in', async () => {
+  const calls = vi.fn(async () => new Response(JSON.stringify({ sites: [] })))
+  vi.stubGlobal('fetch', calls)
+  prefetch('/api/sites')
+  expect(calls).toHaveBeenCalledTimes(1)
+  expect(await take('/api/sites')).toEqual({ sites: [] })
+  expect(calls).toHaveBeenCalledTimes(1)
+  // The second take, and a path never read early, fetch afresh.
+  await take('/api/sites')
+  await take('/api/sites/x/document')
+  expect(calls).toHaveBeenCalledTimes(3)
+
+  responds(JSON.stringify({ error: 'Authentication required' }), { status: 401 })
+  prefetch('/api/sites')
+  responds(JSON.stringify({ sites: [{ id: 'a' }] }))
+  expect(await take('/api/sites')).toEqual({ sites: [{ id: 'a' }] })
+  // Any other failure is the answer.
+  responds(JSON.stringify({ error: 'Unknown site' }), { status: 404 })
+  prefetch('/api/sites/x/document')
+  responds(JSON.stringify({ document: {} }))
+  await expect(take('/api/sites/x/document')).rejects.toMatchObject({ status: 404 })
 })

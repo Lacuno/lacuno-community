@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Brand } from './App.js'
-import { api, message } from './api.js'
+import { api, message, take } from './api.js'
 
 /** The signed authorization request an AI app sent the user here with. */
 const query = () => location.search.slice(1)
@@ -22,7 +22,7 @@ export function Consent() {
       api<{ client_name?: string }>(
         `/api/auth/oauth2/public-client?client_id=${encodeURIComponent(params.get('client_id') ?? '')}`,
       ),
-      api<{ sites: { id: string; name: string }[] }>('/api/sites'),
+      take<{ sites: { id: string; name: string }[] }>('/api/sites'),
     ])
       .then(([client, { sites }]) => {
         const { hostname } = new URL(params.get('redirect_uri') ?? '')

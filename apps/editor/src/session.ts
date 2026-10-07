@@ -3,7 +3,7 @@ import { applyPatches, invertPatches, type Patch } from '@lacuno/document/patch'
 import { type Document, parseDocument } from '@lacuno/schema'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { ApiError, api, message } from './api.js'
+import { ApiError, api, message, take } from './api.js'
 import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
 import { catchUp, land, liveStream, type SiteEvent, touchedNodes } from './liveEvents.js'
 
@@ -75,7 +75,7 @@ export function useDocumentSession(
     [setPageId],
   )
   const load = useCallback(async () => {
-    const next = await api<Snapshot>(`/api/sites/${siteId}/document`)
+    const next = await take<Snapshot>(`/api/sites/${siteId}/document`)
     acceptSnapshot({ ...next, document: parseDocument(next.document) })
     setEditHistory(emptyHistory())
   }, [siteId, acceptSnapshot])

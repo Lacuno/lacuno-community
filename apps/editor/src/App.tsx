@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ApiError, api, message, useConfig } from './api.js'
+import { ApiError, api, message, prefetch, take, useConfig } from './api.js'
 import { Consent } from './Consent.js'
 import { Editor } from './Editor.js'
 
 const logo = new URL('./logo.svg', import.meta.url).href
+
+/** The site the page opened on, from its URL. */
+const opened = new URLSearchParams(location.search).get('site') ?? ''
 
 /** Behind a gateway, the user's role in the workspace; elsewhere the user owns it. */
 export type Role = 'owner' | 'editor' | 'viewer'
@@ -193,7 +196,7 @@ function Sites({
   const creating = !trying && user.role !== 'viewer'
   useEffect(() => {
     const load = () =>
-      api<{ sites: Site[] }>('/api/sites')
+      take<{ sites: Site[] }>('/api/sites')
         .then((data) => setSites(data.sites))
         .catch((e) => setError(message(e)))
     void load()
@@ -290,8 +293,11 @@ export function App() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [site, setSite] = useState(new URLSearchParams(location.search).get('site') ?? '')
+  const [site, setSite] = useState(opened)
   useEffect(() => {
+    // That site's document, or else the workspace's sites, read alongside the session rather than
+    // after it, so the canvas is one round trip away instead of two.
+    prefetch(opened ? `/api/sites/${opened}/document` : '/api/sites')
     api<{ user: User } | null>('/api/auth/get-session')
       .then((session) => setUser(session?.user ?? null))
       .catch((e) => setError(message(e)))
