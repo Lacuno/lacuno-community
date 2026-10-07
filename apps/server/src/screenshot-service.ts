@@ -1,5 +1,5 @@
 import { InputError } from '@lacuno/mcp/errors'
-import { render } from '@lacuno/mcp/screenshot'
+import { imageInfo, render } from '@lacuno/mcp/screenshot'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { type Browser, chromium } from 'playwright'
@@ -10,6 +10,7 @@ const Options = z.strictObject({
   width: z.number().int().positive().max(2560),
   height: z.number().int().positive().max(2560).optional(),
   node: z.string().optional(),
+  maxHeight: z.number().int().positive().max(16384).optional(),
 })
 /** Chromium is relaunched after this many screenshots, which keeps its memory flat. */
 const SHOTS_PER_BROWSER = 200
@@ -18,9 +19,10 @@ type Launched = { browser: Promise<Browser>; shots: number; open: number }
 
 /**
  * page.screenshot for runtimes without Chromium. `POST /screenshot` takes multipart `request`
- * (`{ width, height?, node? }`), `html` and an `asset:<path>` part per asset the page uses, and
- * answers a PNG rendered in a fresh context of one shared Chromium. At most `slots` render at
- * once; a request that waits longer than `wait` ms for one is answered 503.
+ * (`{ width, height?, node?, maxHeight? }`), `html` and an `asset:<path>` part per asset the page
+ * uses, and answers a JPEG of the page or a PNG of the node, rendered in a fresh context of one
+ * shared Chromium. At most `slots` render at once; a request that waits longer than `wait` ms for
+ * one is answered 503.
  */
 export function screenshotService({
   slots,
@@ -95,7 +97,7 @@ export function screenshotService({
       if (++launched.shots >= SHOTS_PER_BROWSER) current = undefined
       launched.open++
       try {
-        const png = await render(
+        const image = await render(
           await launched.browser,
           html,
           async (path) => {
@@ -106,7 +108,7 @@ export function screenshotService({
           },
           options,
         )
-        return c.body(new Uint8Array(png), 200, { 'content-type': 'image/png' })
+        return c.body(new Uint8Array(image), 200, { 'content-type': imageInfo(image).mime })
       } catch (e) {
         if (e instanceof InputError) return c.json({ error: e.message }, 400)
         throw e

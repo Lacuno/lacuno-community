@@ -16,7 +16,7 @@ over a server site at `/mcp/<site id>` (Streamable HTTP, OAuth).
 | `asset.import` | Stores a file from the site folder (`path`), base64 bytes (`data`, small files only) or, on a server site, a public https `url` the server downloads, and registers the asset. |
 | `asset.upload` | Server only: a single-use address, valid 10 minutes, that an app with a shell PUTs a local file to (`curl -T`); the answer is the asset. |
 | `page.preview` | A route's full HTML as published, without a build; `text: true` gives `nodeId<TAB>text` per text node. |
-| `page.screenshot` | PNG of a route at `width` (default 1280), the full page unless `height` is set, or cropped to `node`. Lazy images are loaded and decoded before capture, so images below the fold are not blank. Requests to any other origin are aborted, so embeds and custom code reach no third party. |
+| `page.screenshot` | JPEG of a route at `width` (default 1280): the first screen (`height`, 800 by default) or with `fullPage` the whole page up to `maxHeight` (4000 px by default); a PNG cropped to `node`. Lazy images are loaded and decoded before capture, so images below the fold are not blank. Requests to any other origin are aborted, so embeds and custom code reach no third party. |
 | `site.build` | Builds the site folder to static output. `siteUrl` applies only when the document has no `site.url` of its own. |
 | `site.publish` | Server only, in place of `site.build`: publishes the draft to the testing address and returns its URL. |
 

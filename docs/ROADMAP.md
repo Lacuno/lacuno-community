@@ -89,7 +89,7 @@ Goal: a designer can build and publish a site without touching the terminal.
 - Testing: publish to `<site-id>-testing.<publishing base>` (not indexed), promote a testing
   release to production without a rebuild, or send any release to testing.
 
-**MCP:** `page.preview` (a route's published HTML or its text), `page.screenshot` (a PNG through
+**MCP:** `page.preview` (a route's published HTML or its text), `page.screenshot` (a JPEG through
 Playwright's Chromium, an optional dependency) and `document.diff`.
 
 **Open**

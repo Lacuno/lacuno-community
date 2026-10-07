@@ -7,8 +7,8 @@ import {
   type Batch,
   type DocumentStore,
   type Operation,
-  referencesToAsset,
-  referencesToCollection,
+  referencesToAssets,
+  referencesToCollections,
   referencesToEntry,
   subtreeIds,
 } from '@lacuno/document'
@@ -28,7 +28,7 @@ import {
 import { outlineLines } from './outline.js'
 import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
-import { pngSize, type ReadAsset, type Screenshot } from './screenshot.js'
+import { imageInfo, type ReadAsset, type Screenshot } from './screenshot.js'
 
 /** What an imported file is called and described as. */
 export type AssetDetails = {
@@ -42,7 +42,12 @@ export type ServerOptions = {
   siteDir?: string
   /** Reads an asset's bytes for screenshots when they are not in `siteDir`. */
   assets?: ReadAsset
-  /** Takes `page.screenshot`'s PNGs; without it the tool is not offered. */
+  /**
+   * A raster image as a WebP about `width` wide, where the runtime keeps variants; a screenshot
+   * then sends that instead of the original, a fraction of a photo's bytes.
+   */
+  images?: (asset: AssetRef, width: number) => Promise<Buffer | undefined>
+  /** Takes `page.screenshot`'s images; without it the tool is not offered. */
   screenshot?: Screenshot
   /** Called after each committed `document.apply` batch. */
   onApply?: (batch: Batch, result: ApplyResult) => void
@@ -352,15 +357,15 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         collections,
         ...overview
       } = document
-      const withUses = <T>(map: Record<string, T>, uses: (doc: Document, id: string) => string[]) =>
+      const withUses = <T>(map: Record<string, T>, uses: Map<string, string[]>) =>
         Object.fromEntries(
-          Object.entries(map).map(([id, item]) => [id, { ...item, usedBy: uses(document, id) }]),
+          Object.entries(map).map(([id, item]) => [id, { ...item, usedBy: uses.get(id) ?? [] }]),
         )
       return ok({
         revision,
         ...overview,
-        collections: withUses(collections, referencesToCollection),
-        assets: withUses(assets, referencesToAsset),
+        collections: withUses(collections, referencesToCollections(document)),
+        assets: withUses(assets, referencesToAssets(document)),
       })
     },
   )
@@ -427,17 +432,18 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       {
         annotations: reads,
         description:
-          'PNG of a route in Chromium: the first screen (height, 800 by default), the whole page with fullPage, or one element with node. A long full page reaches you shrunk until its text is unreadable, so check sections with node instead.',
+          'JPEG of a route in Chromium: the first screen (height, 800 by default) or the whole page with fullPage, cut at maxHeight (4000 by default); or a PNG of one element with node. A long full page reaches you shrunk until its text is unreadable, so check sections with node instead.',
         inputSchema: {
           page: z.string(),
           entry: z.string().optional(),
           width: z.number().int().positive().max(2560).optional(),
           height: z.number().int().positive().max(2560).optional(),
           fullPage: z.boolean().optional(),
+          maxHeight: z.number().int().positive().max(16384).optional(),
           node: z.string().optional(),
         },
       },
-      async ({ page, entry, width = 1280, height = 800, fullPage, node }) => {
+      async ({ page, entry, width = 1280, height = 800, fullPage, maxHeight, node }) => {
         try {
           const { siteDir } = options
           const readAsset =
@@ -448,19 +454,22 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           const d = store.read().document
           if (node !== undefined && !d.nodes[node]) throw new InputError(`unknown node ${node}`)
           const html = previewHtml(d, resolveRoute(d, page, entry), node !== undefined)
-          const png = await screenshot(
+          const image = await screenshot(
             html,
             async (path) => {
               const asset = Object.values(d.assets).find((a) => publicAssetPath(a) === path)
-              const body = asset && (await readAsset(asset.hash))
+              if (!asset) return undefined
+              const variant = await options.images?.(asset, width)
+              if (variant) return { mime: 'image/webp', body: variant }
+              const body = await readAsset(asset.hash)
               return body && { mime: asset.mime, body }
             },
-            { width, ...(fullPage ? {} : { height }), node },
+            { width, ...(fullPage ? { maxHeight } : { height }), node },
           )
-          const size = pngSize(png)
+          const { mime, ...size } = imageInfo(image)
           return {
             content: [
-              { type: 'image', data: png.toString('base64'), mimeType: 'image/png' },
+              { type: 'image', data: image.toString('base64'), mimeType: mime },
               { type: 'text', text: `${size.width}×${size.height}` },
             ],
           }

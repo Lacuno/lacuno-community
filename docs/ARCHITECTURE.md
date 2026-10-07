@@ -261,7 +261,10 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
   a separate screenshot service (`screenshot-main`, its own image, a fixed number of slots over one
   browser) when `LACUNO_SCREENSHOT_URL` is set, otherwise through Playwright where it is installed;
   without either the tool is not offered. The runtime sends the HTML and only the assets it
-  references; the browser serves those from memory and aborts every other request.
+  references, a raster image as the narrowest WebP variant at or above the viewport width rather
+  than its original (a 9 MB hero photo goes as 580 KB); the browser serves those from memory and
+  aborts every other request, and answers a JPEG at quality 80 of the first screen or of the full
+  page cut at 4000 px (`maxHeight`), a PNG of a node, since a photo page's PNG ran to several MB.
 - **Forms** are plain `form` elements. One without its own `action` publishes posting to
   `/_lacuno/forms` on the site's host, with a honeypot and a small script that sends it in the
   background and shows the result. The publishing listener validates the message, rate-limits it

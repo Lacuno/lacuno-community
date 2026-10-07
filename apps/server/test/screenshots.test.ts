@@ -8,7 +8,7 @@ import { serve } from '@hono/node-server'
 import { writeFixtureSite } from '@lacuno/compiler/build'
 import { DocumentStore } from '@lacuno/document'
 import { createServer } from '@lacuno/mcp'
-import { pngSize, serviceScreenshot } from '@lacuno/mcp/screenshot'
+import { imageInfo, serviceScreenshot } from '@lacuno/mcp/screenshot'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { Hono } from 'hono'
@@ -72,18 +72,23 @@ describe.skipIf(!chromium)('screenshot service', () => {
       { '/assets/red.png': red },
     )
     expect(page.status).toBe(200)
-    expect(page.headers.get('content-type')).toBe('image/png')
-    const png = Buffer.from(await page.arrayBuffer())
-    expect(pngSize(png)).toEqual({ width: 200, height: 150 })
-    const pixel = await sharp(png)
+    expect(page.headers.get('content-type')).toBe('image/jpeg')
+    const jpeg = Buffer.from(await page.arrayBuffer())
+    expect(imageInfo(jpeg)).toEqual({ mime: 'image/jpeg', width: 200, height: 150 })
+    const pixel = await sharp(jpeg)
       .extract({ left: 50, top: 50, width: 1, height: 1 })
       .raw()
       .toBuffer()
-    expect([...pixel.subarray(0, 3)]).toEqual([255, 0, 0])
+    for (const [i, value] of [255, 0, 0].entries()) expect(pixel[i]).toBeCloseTo(value, -1)
 
     const html = '<div data-lacuno-node="n-box" style="width:120px;height:30px">Box</div>'
     const node = await shoot(html, { width: 400, node: 'n-box' })
-    expect(pngSize(Buffer.from(await node.arrayBuffer()))).toEqual({ width: 120, height: 30 })
+    expect(node.headers.get('content-type')).toBe('image/png')
+    expect(imageInfo(Buffer.from(await node.arrayBuffer()))).toEqual({
+      mime: 'image/png',
+      width: 120,
+      height: 30,
+    })
     const unknown = await shoot(html, { width: 400, node: 'n-missing' })
     expect(unknown.status).toBe(400)
     expect(await unknown.json()).toEqual({ error: 'node n-missing is not rendered on this page' })
@@ -148,7 +153,7 @@ describe.skipIf(!chromium)('screenshot service', () => {
         arguments: { page: '/', width: 600, height: 400 },
       })
       const [image, size] = result.content as { mimeType?: string; text?: string }[]
-      expect(image?.mimeType).toBe('image/png')
+      expect(image?.mimeType).toBe('image/jpeg')
       expect(size?.text).toBe('600×400')
       expect(read.length).toBeGreaterThan(0)
       expect(read).not.toContain(unused.hash)
