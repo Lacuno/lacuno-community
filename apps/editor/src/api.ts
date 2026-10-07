@@ -60,6 +60,28 @@ export async function api<T>(path: string, body?: unknown, signal?: AbortSignal)
   return data as T
 }
 
+/** Reads started before the component that needs them mounts, each handed over once. */
+const early = new Map<string, Promise<unknown>>()
+
+/** Starts reading `path` now, for a `take` of the same path later. */
+export function prefetch(path: string) {
+  const pending = api(path)
+  pending.catch(() => {}) // whoever takes it reports the failure
+  early.set(path, pending)
+}
+
+/** The early read of `path` when there is one, otherwise a fresh one. */
+export function take<T>(path: string): Promise<T> {
+  const pending = early.get(path) as Promise<T> | undefined
+  early.delete(path)
+  // An early read made before sign-in got a 401: read again, signed in now.
+  return pending
+    ? pending.catch((e) =>
+        e instanceof ApiError && e.status === 401 ? api<T>(path) : Promise.reject(e),
+      )
+    : api<T>(path)
+}
+
 export type Config = {
   allowSignup: boolean
   setupRequired: boolean
