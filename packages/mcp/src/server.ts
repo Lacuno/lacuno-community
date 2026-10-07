@@ -291,7 +291,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           readOnlyHint: false,
           destructiveHint: true,
           idempotentHint: true,
-          openWorldHint: false,
+          openWorldHint: true,
         },
         description: 'Publish the saved document to the testing address; returns its URL.',
         inputSchema: { name: z.string().max(80).optional() },
