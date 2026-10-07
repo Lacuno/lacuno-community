@@ -1,3 +1,4 @@
+import { assetUrl } from '@lacuno/renderer'
 import type { AssetRef, Document } from '@lacuno/schema'
 import { useRef, useState } from 'react'
 import { AssetManager } from './AssetManager.js'
@@ -15,7 +16,6 @@ export const FONT_ACCEPT = 'font/woff2,font/woff,font/ttf,font/otf,.woff2,.woff,
 export const FONT_FORMATS = 'WOFF2, WOFF, TTF or OTF'
 /** Every file an upload takes. */
 export const ASSET_ACCEPT = `image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,${FONT_ACCEPT}`
-export const assetUrl = (siteId: string, hash: string) => `/api/sites/${siteId}/assets/${hash}`
 
 export function AssetPreview({ siteId, asset }: { siteId: string; asset: AssetRef }) {
   return asset.kind === 'video' || asset.kind === 'font' ? (
@@ -23,7 +23,7 @@ export function AssetPreview({ siteId, asset }: { siteId: string; asset: AssetRe
       {asset.kind === 'font' ? 'Aa' : '▶'}
     </i>
   ) : (
-    <img src={assetUrl(siteId, asset.hash)} alt="" draggable={false} />
+    <img src={assetUrl(siteId, asset, 320)} alt="" draggable={false} />
   )
 }
 
@@ -35,16 +35,7 @@ export async function uploadAsset(siteId: string, file: File): Promise<AssetRef>
     reader.onerror = () => reject(new Error('Could not read the file.'))
     reader.readAsDataURL(file)
   })
-  const asset = await api<AssetRef>(`/api/sites/${siteId}/assets/upload`, {
-    name: file.name,
-    data,
-  })
-  // Browsers often give fonts no type, so size by the kind the server read from the bytes.
-  if (asset.kind !== 'image') return asset
-  const bitmap = await createImageBitmap(file)
-  const size = { width: bitmap.width, height: bitmap.height }
-  bitmap.close()
-  return { ...asset, ...size }
+  return api<AssetRef>(`/api/sites/${siteId}/assets/upload`, { name: file.name, data })
 }
 
 export type AssetUploads = ReturnType<typeof useAssetUploads>

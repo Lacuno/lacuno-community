@@ -100,6 +100,12 @@ describe('renderNode: elements and text', () => {
     expect(renderNode('n-hero-image', empty, s)).toBe(
       `<img alt="Hero image" decoding="async" height="800" loading="lazy" sizes="100vw" src="/assets/${doc.assets['a-hero']!.hash}.png" width="1200">`,
     )
+    // An image nobody measured gets no size, rather than a 0 by 0 box.
+    delete doc.assets['a-hero']!.width
+    delete doc.assets['a-hero']!.height
+    expect(renderNode('n-hero-image', empty, s)).toBe(
+      `<img alt="Hero image" decoding="async" loading="lazy" sizes="100vw" src="/assets/${doc.assets['a-hero']!.hash}.png">`,
+    )
   })
 
   it('links an image asset bound to a non-src attribute through the resolver, not a dead public path', () => {

@@ -8,7 +8,7 @@ import { serializeDocument } from './serialize.js'
 import { DocumentStore } from './store.js'
 
 /** Writes to a sibling temp file and renames over the target, so a crash leaves the old file. */
-async function writeAtomic(file: string, data: string | Uint8Array): Promise<void> {
+export async function writeAtomic(file: string, data: string | Uint8Array): Promise<void> {
   const tmp = `${file}.${randomUUID()}.tmp`
   try {
     await writeFile(tmp, data, { flag: 'wx' })

@@ -5,6 +5,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serveStatic } from '@hono/node-server/serve-static'
+import { IMAGE_WIDTHS } from '@lacuno/compiler'
 import {
   DocumentStore,
   documentErrorResponse,
@@ -15,7 +16,7 @@ import {
 } from '@lacuno/document'
 import type { Screenshot } from '@lacuno/mcp/screenshot'
 import { renderPreview } from '@lacuno/renderer'
-import { AssetHash, hashAsset, parseDocument } from '@lacuno/schema'
+import { AssetHash, type AssetRef, hashAsset, parseDocument } from '@lacuno/schema'
 import type Database from 'better-sqlite3'
 import { and, eq, sql } from 'drizzle-orm'
 import { Hono, type MiddlewareHandler } from 'hono'
@@ -28,6 +29,7 @@ import { migrateApplication, openDatabase, sites, workspaces } from './database.
 import { type SiteEvent, siteEvents, summarize } from './events.js'
 import { exportAsset, exportReport, exportThumbnail } from './export.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
+import { imageSize, imageVariant } from './images.js'
 import type { Send } from './mail.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
 import { createOAuth, gatewayUser, type OAuth, relayFetch } from './oauth.js'
@@ -474,8 +476,19 @@ export async function createServer(options: ServerOptions) {
     const persistence = (id: string) =>
       new SqlitePersistence(db, id, options.dataDir, exportOptions)
     const store = (id: string) => DocumentStore.withPersistence(persistence(id))
-    const stage = async (id: string, name: string, bytes: Uint8Array) =>
-      stageUpload((await store(id)).read().document, persistence(id), name, bytes)
+    // An image's size is read from its bytes, unless the asset carries one already.
+    const stage = async (id: string, name: string, bytes: Uint8Array) => {
+      const staged = await stageUpload(
+        (await store(id)).read().document,
+        persistence(id),
+        name,
+        bytes,
+      )
+      const asset = staged.body as AssetRef
+      return asset.kind === 'image' && !asset.width
+        ? { ...staged, body: { ...asset, ...(await imageSize(bytes)) } }
+        : staged
+    }
     // A gateway runtime has no internet access: it downloads through Cloud's relay, or not at all.
     const { cimdRelay } = options
     const relay =
@@ -635,18 +648,25 @@ export async function createServer(options: ServerOptions) {
       )
       return c.json(body, status)
     })
+    // The bytes, or with `w` a raster image resized to that width as WebP (images.ts).
     app.get('/api/sites/:id/assets/:hash', async (c) => {
       const hash = c.req.param('hash')
       if (!/^[a-f0-9]{64}$/.test(hash)) return c.notFound()
+      const width = c.req.query('w')
+      if (width !== undefined && !IMAGE_WIDTHS.includes(Number(width)))
+        return c.json({ error: 'Invalid width' }, 400)
       const { document } = (await store(c.req.param('id'))).read()
       const asset = Object.values(document.assets).find((item) => item.hash === hash)
       if (!asset) return c.notFound()
+      const siteDir = path.join(options.dataDir, 'sites', c.req.param('id'))
       try {
-        const bytes = await readFile(
-          path.join(options.dataDir, 'sites', c.req.param('id'), 'assets', hash),
-        )
+        const variant =
+          width === undefined ? undefined : await imageVariant(siteDir, asset, Number(width))
+        const bytes = variant ?? (await readFile(path.join(siteDir, 'assets', hash)))
+        // Addressed by content, so a browser keeps what it fetched.
         return c.body(new Uint8Array(bytes), 200, {
-          'Content-Type': asset.mime,
+          'Content-Type': variant ? 'image/webp' : asset.mime,
+          'Cache-Control': 'private, max-age=31536000, immutable',
           'X-Content-Type-Options': 'nosniff',
           'Content-Security-Policy': "sandbox; default-src 'none'",
         })

@@ -77,7 +77,8 @@ export async function editor(viewport?: { width: number; height: number }) {
   await page.getByLabel('Site name').fill('Test site')
   await page.getByRole('button', { name: 'Create site', exact: false }).click()
   const canvas = page.frameLocator('iframe[title="Site canvas"]')
-  await canvas.locator('[data-lacuno-node]').first().waitFor()
+  // The canvas takes clicks once its load, after its images, installed the selection overlay.
+  await canvas.locator('#lacuno-selection-overlay').waitFor({ state: 'attached' })
   const siteId = new URL(page.url()).searchParams.get('site')!
 
   const api = async (route: string, body?: unknown) => {

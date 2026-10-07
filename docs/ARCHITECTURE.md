@@ -175,8 +175,9 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
 - The canvas is an iframe sandboxed with `allow-same-origin` only, plus a CSP that blocks
   scripts, forms, frames and external resources. Site scripts and embeds never run there.
 - Its HTML comes from `@lacuno/renderer`: the compiler's renderer and the CSS generator, with node
-  ids on elements and assets served from the site's authenticated URLs. The server renders it per
-  revision; the try build renders it in a service worker.
+  ids on elements and assets served from the site's authenticated URLs; an image whose size is
+  known lists the server's resized variants in `srcset`. The server renders it per revision; the
+  try build renders it in a service worker.
 - The editor loads the first render once and morphs every later one into the live document in
   place (D028), so scroll, selection and open controls survive an edit.
 - The selection overlay, spacing and size handles, the colour wheel and the state chip live in a
@@ -244,8 +245,12 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
 - **Serving.** Published output is served on its own listener and origin, with immutable caching
   for hashed assets and short caching for HTML. An operator-managed reverse proxy terminates TLS and
   forwards published hosts to that listener, preserving the Host header.
-- **Assets.** Content-addressed on local disk, typed by their first bytes on upload. S3-compatible
-  storage is planned.
+- **Assets.** Content-addressed on local disk, typed by their first bytes on upload, images
+  measured with sharp so an image asset carries its width and height. The editor's canvas and
+  thumbnails ask the asset route for a width (`?w=`, 320 to 1920); the server resizes raster images
+  to WebP with sharp on first demand, one at a time, never above the original, and keeps the
+  result in `sites/<id>/cache/images/` until the asset is deleted. Published sites get Astro's
+  AVIF and WebP variants instead. S3-compatible storage is planned.
 - **Screenshots.** `page.screenshot` renders the page's preview HTML in headless Chromium, through
   a separate screenshot service (`screenshot-main`, its own image, a fixed number of slots over one
   browser) when `LACUNO_SCREENSHOT_URL` is set, otherwise through Playwright where it is installed;

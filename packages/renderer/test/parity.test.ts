@@ -71,6 +71,8 @@ it.each([
           .replace(/<div data-lacuno-embed[^>]*>([\s\S]*?)<\/div>/g, '$1')
           .replace(/ data-lacuno-(embed|rich)/g, '')
           .replace(/ data-lacuno-node="[^"]*"/g, '')
+          // The canvas lists the server's resized variants; a build lists Astro's.
+          .replace(/ srcset="[^"]*"/g, '')
           // Structural states emit both forms in the canvas: drop the forced sibling.
           .replace(/, \S+\[data-lc-state="[^"]*"\]/g, '')
           // Interaction states emit only the forced form: map it back to its real pseudo-class.

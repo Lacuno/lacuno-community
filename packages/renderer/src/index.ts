@@ -1,10 +1,33 @@
+import { IMAGE_WIDTHS } from '@lacuno/compiler'
 import { assembleDocument, render } from '@lacuno/compiler/render'
 import { generateStylesheet, styleElement } from '@lacuno/css'
 import type { AssetRef, Document, Entry, Page } from '@lacuno/schema'
 
 export type CanvasResult = { html: string; warnings: { node: string; message: string }[] }
 
-/** The canvas uses the compiler's DOM and CSS, with selection metadata and original assets. */
+/**
+ * An asset's bytes on the editor's API; with `width`, an image whose size is known as a WebP
+ * that wide (the server serves the original where it cannot resize).
+ */
+export const assetUrl = (siteId: string, asset: AssetRef, width?: number) =>
+  `/api/sites/${encodeURIComponent(siteId)}/assets/${asset.hash}${
+    width && asset.width ? `?w=${width}` : ''
+  }`
+
+/**
+ * The canvas's sources for an image: the original, and with it the variants below its width when
+ * there are any. An image whose size is unknown, or too small to shrink, has the original alone.
+ */
+export function canvasImage(siteId: string, asset: AssetRef): { src: string; srcset: string } {
+  const src = assetUrl(siteId, asset)
+  const variants = IMAGE_WIDTHS.filter((w) => w < (asset.width ?? 0)).map(
+    (w) => `${assetUrl(siteId, asset, w)} ${w}w`,
+  )
+  if (!variants.length) return { src, srcset: '' }
+  return { src, srcset: [...variants, `${src} ${asset.width}w`].join(', ') }
+}
+
+/** The canvas uses the compiler's DOM and CSS, with selection metadata and the editor's asset URLs. */
 export function renderCanvas(
   doc: Document,
   page: Page,
@@ -43,20 +66,19 @@ export function renderCanvas(
     }
     page = { ...page, root: body }
   }
-  const assetUrl = (asset: AssetRef) =>
-    `/api/sites/${encodeURIComponent(siteId)}/assets/${asset.hash}`
+  const url = (asset: AssetRef) => assetUrl(siteId, asset)
   const result = render(doc, page, entry, {
     annotateNodes: true,
     ...(editingComponent ? { editingComponent } : {}),
-    resolveAsset: assetUrl,
+    resolveAsset: url,
     resolveImage: (asset) => ({
-      src: assetUrl(asset),
+      ...canvasImage(siteId, asset),
       width: asset.width ?? 0,
       height: asset.height ?? 0,
     }),
   })
   // Only the canvas emits the forced state selectors the editor's state picker switches on.
-  const { css } = generateStylesheet(doc, { assetUrl, previewStates: true })
+  const { css } = generateStylesheet(doc, { assetUrl: url, previewStates: true })
   // A second barrier in addition to the iframe sandbox: site code cannot execute, submit forms,
   // change the base URL, or load another frame in the editor's authenticated origin.
   const policy =

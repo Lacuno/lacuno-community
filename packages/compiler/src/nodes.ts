@@ -141,10 +141,11 @@ function renderImage(
     ...attrs,
     alt: typeof attrs.alt === 'string' ? attrs.alt : (asset.alt ?? ''),
     src: img.src,
-    width: String(img.width),
-    height: String(img.height),
     sizes,
   }
+  // A size is only known for images measured on import; 0 would collapse the element.
+  if (img.width) merged.width = String(img.width)
+  if (img.height) merged.height = String(img.height)
   if (img.srcset) merged.srcset = img.srcset
   if (node.classes.length) merged.class = classAttr(state.names, node.classes)
   const imgHtml = `<img${renderAttrs(merged)}>`

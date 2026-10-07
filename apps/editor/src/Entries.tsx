@@ -1,8 +1,8 @@
 import type { Operation } from '@lacuno/document'
 import { referencesToEntry } from '@lacuno/document/references'
+import { assetUrl } from '@lacuno/renderer'
 import type { CollectionSchema, Document, Entry } from '@lacuno/schema'
 import { useEffect, useMemo, useState } from 'react'
-import { assetUrl } from './AssetsPanel.js'
 import {
   duplicateEntry,
   type EntrySort,
@@ -156,7 +156,8 @@ export function Entries(
                             className="cms-thumb"
                             src={assetUrl(
                               props.siteId,
-                              doc.assets[entry.fields[field.id] as string]!.hash,
+                              doc.assets[entry.fields[field.id] as string]!,
+                              320,
                             )}
                             alt=""
                             loading="lazy"

@@ -4,9 +4,11 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { localScreenshot } from '@lacuno/mcp/screenshot'
+import type { AssetRef } from '@lacuno/schema'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createServer } from '../src/app.js'
 import { type SiteEvent, siteEvents } from '../src/events.js'
@@ -243,6 +245,24 @@ describe('the remote MCP endpoint', () => {
     await (client.transport as StreamableHTTPClientTransport).terminateSession()
     await client.close()
     expect((await put(late.url as string)).status).toBe(404)
+  })
+
+  it('measures an imported image unless the app says how large it is', async () => {
+    const client = await connect()
+    // Different colours, so the second file is not the first asset again.
+    const imported = async (background: string, args: Record<string, unknown>) => {
+      const png = sharp({ create: { width: 6, height: 4, channels: 3, background } }).png()
+      const data = (await png.toBuffer()).toString('base64')
+      return json<AssetRef>(
+        await client.callTool({ name: 'asset.import', arguments: { data, ...args } }),
+      )
+    }
+    expect(await imported('#000', { name: 'a.png' })).toMatchObject({ width: 6, height: 4 })
+    expect(await imported('#fff', { name: 'b.png', width: 60, height: 40 })).toMatchObject({
+      width: 60,
+      height: 40,
+    })
+    await client.close()
   })
 
   it("screenshots a page from the site's stored assets", async () => {

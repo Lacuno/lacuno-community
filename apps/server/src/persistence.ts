@@ -5,6 +5,7 @@ import type { Document } from '@lacuno/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { type SiteDatabase, sites } from './database.js'
 import { assetList, type ExportOptions, exportAsset, exportReport } from './export.js'
+import { forgetVariants } from './images.js'
 
 /** Each request loads a fresh snapshot; the conditional UPDATE also protects across processes. */
 export class SqlitePersistence implements Persistence {
@@ -54,11 +55,16 @@ export class SqlitePersistence implements Persistence {
     this.loadedRevision = document.revision
     // Cloud counts the assets a site lists as its storage; the exporter sends it the new list.
     const assets = assetList(document)
-    if (this.exportOptions && assets !== this.loadedAssets)
-      this.db.run(
-        sql`INSERT INTO export_assets(site_id) VALUES(${this.siteId})
-        ON CONFLICT(site_id) DO UPDATE SET attempts=0,next_attempt_at=0`,
-      )
+    if (assets !== this.loadedAssets) {
+      if (this.exportOptions)
+        this.db.run(
+          sql`INSERT INTO export_assets(site_id) VALUES(${this.siteId})
+          ON CONFLICT(site_id) DO UPDATE SET attempts=0,next_attempt_at=0`,
+        )
+      // The editor's resized variants go with the last asset that carried their image.
+      for (const hash of this.loadedAssets!.split('\n'))
+        if (hash && !assets.includes(hash)) await forgetVariants(this.assets.siteDir, hash)
+    }
     this.loadedAssets = assets
     if (this.exportOptions && document.site.name !== this.loadedName)
       void exportReport(this.exportOptions, this.siteId, 'meta', { name: document.site.name })

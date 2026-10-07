@@ -24,12 +24,14 @@ const encode = (canvas: HTMLCanvasElement, type: string) =>
  * cannot encode WebP.
  */
 export async function drawThumbnail(html: string) {
-  const urls = new Set(html.match(/\/api\/sites\/[^/"'()\s]+\/assets\/[a-f0-9]{64}/g))
-  for (const url of urls)
-    html = html.replaceAll(url, await dataUrl(await (await fetch(url)).blob()))
   const page = new DOMParser().parseFromString(html, 'text/html')
   for (const element of page.querySelectorAll('meta[http-equiv], link, script')) element.remove()
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${VIEWPORT.width}" height="${VIEWPORT.height}"><foreignObject width="100%" height="100%">${new XMLSerializer().serializeToString(page.documentElement)}</foreignObject></svg>`
+  // Each image is inlined once, as its original: the canvas's resized variants are not fetched.
+  for (const image of page.querySelectorAll('img[srcset]')) image.removeAttribute('srcset')
+  let markup = new XMLSerializer().serializeToString(page.documentElement)
+  for (const url of new Set(markup.match(/\/api\/sites\/[^/"'()\s]+\/assets\/[a-f0-9]{64}/g)))
+    markup = markup.replaceAll(url, await dataUrl(await (await fetch(url)).blob()))
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${VIEWPORT.width}" height="${VIEWPORT.height}"><foreignObject width="100%" height="100%">${markup}</foreignObject></svg>`
   const image = new Image()
   image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
   await image.decode()

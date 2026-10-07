@@ -121,8 +121,8 @@ and checks the persisted result.
 | `POST /api/sites` | Create a site from the template: `{name}`; or from a document: `{name,document,assets}` with each referenced asset's bytes as base64 by hash (up to 90 MB) |
 | `GET /api/sites/:id/document` | `{document,revision}` |
 | `GET /api/sites/:id/preview?page=<id>&entry=<id>` | Canvas HTML, warnings and revision; entry required for collection pages |
-| `POST /api/sites/:id/assets/upload` | `{name,data}` (base64, up to 10 MB) → staged asset reference; PNG, JPEG, WebP, GIF, MP4, WebM, WOFF2, WOFF, TTF or OTF, typed by its bytes |
-| `GET /api/sites/:id/assets/:hash` | Authenticated asset bytes belonging to the site |
+| `POST /api/sites/:id/assets/upload` | `{name,data}` (base64, up to 10 MB) → staged asset reference; PNG, JPEG, WebP, GIF, MP4, WebM, WOFF2, WOFF, TTF or OTF, typed by its bytes; images carry their width and height |
+| `GET /api/sites/:id/assets/:hash` | Authenticated asset bytes belonging to the site, cached as immutable. `?w=320`, `640`, `960`, `1280` or `1920` serves a PNG, JPEG or WebP image resized to that width as WebP, resized once on demand; a width at or above the image's own, or another format, serves the original |
 | `POST /api/sites/:id/document/apply` | `{expectedRevision,operations,dryRun?}`, or `{expectedRevision,patches}` to replay an earlier commit → operation result |
 | `GET /api/sites/:id/releases` | `enabled`, `publishedId` and `url` (production), `testingId` and `testingUrl`, and release history; `{enabled:false,releases:[]}` when publishing is not configured |
 | `POST /api/sites/:id/releases` | `{expectedRevision,expectedId,name?,target?}` → `202 {id,target}`; enqueue an immutable snapshot that goes live on `target` (`production` by default) when it is built |
@@ -152,6 +152,8 @@ even across simultaneous setup requests. Owner passwords and sessions still use 
 revisions. Drizzle handles application queries; Better Auth's built-in SQLite adapter owns auth
 migrations, run before auth starts. Lacuno's separate migration ledger versions application tables.
 Assets live under `data/sites/<id>/assets/`; their hashes are checked when copying the template.
+The editor's resized image variants live beside them in `data/sites/<id>/cache/images/`, named
+`<hash>-<width>.webp`; a deleted asset takes its variants with it, and backups leave the cache out.
 
 ## Publishing
 

@@ -1,7 +1,8 @@
 import type { Operation } from '@lacuno/document'
+import { assetUrl } from '@lacuno/renderer'
 import type { AssetRef, Document } from '@lacuno/schema'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { ASSET_ACCEPT, type AssetUploads, assetUrl } from './AssetsPanel.js'
+import { ASSET_ACCEPT, type AssetUploads } from './AssetsPanel.js'
 import {
   type AssetSort,
   type AssetUse,
@@ -16,11 +17,12 @@ import './assets.css'
 /** A font asset as a type specimen: the file is loaded as a face under its own family name. */
 function FontSpecimen({ siteId, asset }: { siteId: string; asset: AssetRef }) {
   const family = `lacuno-asset-${asset.hash.slice(0, 16)}`
+  const url = assetUrl(siteId, asset)
   useEffect(() => {
-    const face = new FontFace(family, `url(${assetUrl(siteId, asset.hash)})`)
+    const face = new FontFace(family, `url(${url})`)
     document.fonts.add(face)
     face.load().catch(() => {})
-  }, [siteId, asset.hash, family])
+  }, [url, family])
   return (
     <span className="asset-specimen" style={{ fontFamily: `"${family}", system-ui` }}>
       Aa
@@ -28,17 +30,19 @@ function FontSpecimen({ siteId, asset }: { siteId: string; asset: AssetRef }) {
   )
 }
 
-/** A large preview: images drawn, a video's first frame, a font's specimen, else the format. */
+/** A preview `width` wide: images drawn, a video's first frame, a font's specimen, else the format. */
 function Preview({
   siteId,
   asset,
+  width,
   measure,
 }: {
   siteId: string
   asset: AssetRef
+  width: number
   measure?: (size: [number, number]) => void
 }) {
-  const url = assetUrl(siteId, asset.hash)
+  const url = assetUrl(siteId, asset, width)
   if (asset.kind === 'image' || asset.kind === 'svg')
     return (
       <img
@@ -96,7 +100,7 @@ function Details({
   return (
     <>
       <div className="asset-details-preview">
-        <Preview siteId={siteId} asset={asset} measure={setMeasured} />
+        <Preview siteId={siteId} asset={asset} width={960} measure={setMeasured} />
       </div>
       <h3 className="asset-details-name">{asset.name}</h3>
       <dl className="asset-facts">
@@ -388,7 +392,7 @@ export function AssetManager({
                     }
                   >
                     <div className="asset-tile-preview">
-                      <Preview siteId={siteId} asset={asset} />
+                      <Preview siteId={siteId} asset={asset} width={320} />
                       {!readOnly && (
                         <span
                           className="asset-check"

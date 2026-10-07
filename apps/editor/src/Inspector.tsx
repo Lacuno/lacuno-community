@@ -1,8 +1,8 @@
 import { classNames, contextFromDocument, selectorFor, serializeValue } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
+import { assetUrl, canvasImage } from '@lacuno/renderer'
 import type { CssValue, Document, Node, RichTag, State } from '@lacuno/schema'
 import { useEffect, useRef, useState } from 'react'
-import { assetUrl } from './AssetsPanel.js'
 import { BindingControls, ListSettings } from './BindingControls.js'
 import { boundFieldLabel } from './binding.js'
 import { breakpointMedia } from './breakpoints.js'
@@ -245,8 +245,11 @@ export function Inspector({
               ...(node.attrs?.alt?.type === 'static' || imageAlt !== originalAlt
                 ? { alt: imageAlt }
                 : {}),
+              // As the canvas renders it, so the sources of a picked image show at once.
               ...(doc.assets[imageAsset]
-                ? { src: assetUrl(siteId, doc.assets[imageAsset]!.hash) }
+                ? isVideo
+                  ? { src: assetUrl(siteId, doc.assets[imageAsset]!) }
+                  : canvasImage(siteId, doc.assets[imageAsset]!)
                 : {}),
             },
           }
