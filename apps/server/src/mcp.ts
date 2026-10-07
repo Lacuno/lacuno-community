@@ -56,7 +56,7 @@ type Session = {
   user: string | undefined
   /** The client's name from the MCP `initialize` handshake, until then the approved app name. */
   app: string
-  /** The site's store as of the current request; a store holds the snapshot it loaded. */
+  /** The site's store, the same one the editor's requests use. */
   store: DocumentStore
   transport: WebStandardStreamableHTTPServerTransport
   expiry?: ReturnType<typeof setTimeout>
@@ -178,7 +178,7 @@ export function mcpRoutes(deps: McpDeps): Hono {
       return c.json({ error: 'Session not found' }, 404)
     if (!session && !isInitializeRequest(body))
       return c.json({ error: 'Initialize a session first' }, 400)
-    // Reloaded per request, so the session sees the editor's saves since its last call.
+    // The site's one store, shared with the editor's requests, so the session sees their saves.
     const store = await deps.store(siteId)
     if (!session) {
       const { releases } = deps

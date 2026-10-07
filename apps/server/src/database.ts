@@ -27,6 +27,9 @@ export function openDatabase(dataDir: string): {
   mkdirSync(dataDir, { recursive: true })
   const sqlite = new Database(path.join(dataDir, 'lacuno.sqlite'))
   sqlite.pragma('journal_mode = WAL')
+  // WAL stays consistent after a process crash; only the last commits before a power cut can be
+  // lost, which the Litestream replica bounds. Saves an fsync per write.
+  sqlite.pragma('synchronous = NORMAL')
   sqlite.pragma('foreign_keys = ON')
   sqlite.pragma('busy_timeout = 5000')
   return { sqlite, db: drizzle(sqlite) }

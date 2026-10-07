@@ -166,6 +166,53 @@ describe('gateway mode', () => {
     expect((await as('admin', '/api/sites')).status).toBe(401)
   })
 
+  it('writes a role when it changes, again after a revoke, and refuses a replayed nonce', async () => {
+    const sqlite = new Database(path.join(dir, 'lacuno.sqlite'), { readonly: true })
+    const role = () =>
+      sqlite.prepare('SELECT role FROM gateway_role WHERE user_id = ?').get('cloud-shifter')
+    const as = async (role: string) =>
+      request(
+        '/api/sites',
+        'GET',
+        '',
+        await assertion('/api/sites', 'GET', '', { sub: 'cloud-shifter', role }),
+      )
+    try {
+      expect((await as('editor')).status).toBe(200)
+      expect(role()).toEqual({ role: 'editor' })
+      expect((await as('viewer')).status).toBe(200)
+      expect(role()).toEqual({ role: 'viewer' })
+      const once = await assertion('/api/sites', 'GET', '', {
+        sub: 'cloud-shifter',
+        role: 'viewer',
+      })
+      expect((await request('/api/sites', 'GET', '', once)).status).toBe(200)
+      expect((await request('/api/sites', 'GET', '', once)).status).toBe(401)
+      const revoke = JSON.stringify({ userId: 'cloud-shifter' })
+      const system = {
+        sub: 'lacuno-cloud',
+        name: 'Lacuno Cloud',
+        email: 'system@lacuno.invalid',
+        system: true,
+      }
+      expect(
+        (
+          await request(
+            '/api/gateway/revoke-user',
+            'POST',
+            revoke,
+            await assertion('/api/gateway/revoke-user', 'POST', revoke, system),
+          )
+        ).status,
+      ).toBe(200)
+      expect(role()).toBeUndefined()
+      expect((await as('viewer')).status).toBe(200)
+      expect(role()).toEqual({ role: 'viewer' })
+    } finally {
+      sqlite.close()
+    }
+  })
+
   it('persists gateway identity and consumed nonces across restarts', async () => {
     server.close()
     const { gateway: _, ...local } = settings(dir)

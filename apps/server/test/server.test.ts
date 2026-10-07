@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -231,8 +231,50 @@ describe('server foundation', () => {
       ])
       expect(responses.map((r) => r.status).sort()).toEqual([200, 409])
       expect((await readDocument(`/api/sites/${id}/document`, cookie)).revision).toBe(1)
+      // The loser dropped the store another process overtook; the winner's is stale in turn.
+      const apply = (instance: typeof server, expectedRevision: number) =>
+        instance.app.request(route, {
+          ...init,
+          body: JSON.stringify({
+            expectedRevision,
+            operations: [{ type: 'site.update', name: 'Next' }],
+          }),
+        })
+      const [winner, loser] = responses[0]!.status === 200 ? [server, second] : [second, server]
+      expect((await apply(loser, 1)).status).toBe(200)
+      expect((await apply(winner, 1)).status).toBe(409)
+      expect((await apply(winner, 2)).status).toBe(200)
+      expect((await readDocument(`/api/sites/${id}/document`, cookie)).revision).toBe(3)
     } finally {
       second.close()
+    }
+  })
+
+  it('compresses JSON for clients that accept it and caches the editor bundle as immutable', async () => {
+    const cookie = await register()
+    const { id } = await createSite(cookie)
+    const editorDir = path.join(options.dataDir, 'editor')
+    await mkdir(path.join(editorDir, 'assets'), { recursive: true })
+    await writeFile(path.join(editorDir, 'index.html'), '<!doctype html>')
+    await writeFile(path.join(editorDir, 'assets', 'main-C7VWWsM4.js'), 'console.log(1)')
+    const editor = await createServer({ ...options, editorDir })
+    try {
+      const get = (route: string, headers: Record<string, string> = {}) =>
+        editor.app.request(`${origin}${route}`, { headers: { cookie, ...headers } })
+      const plain = await get(`/api/sites/${id}/document`)
+      const gzipped = await get(`/api/sites/${id}/document`, { 'accept-encoding': 'gzip' })
+      expect(plain.headers.get('content-encoding')).toBeNull()
+      expect(gzipped.headers.get('content-encoding')).toBe('gzip')
+      expect((await gzipped.arrayBuffer()).byteLength).toBeLessThan(
+        (await plain.arrayBuffer()).byteLength / 4,
+      )
+      const bundle = await get('/assets/main-C7VWWsM4.js')
+      expect(bundle.status).toBe(200)
+      expect(bundle.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+      expect((await get('/assets/missing.js')).headers.get('cache-control')).toBeNull()
+      expect((await get('/')).headers.get('cache-control')).toBeNull()
+    } finally {
+      editor.close()
     }
   })
 

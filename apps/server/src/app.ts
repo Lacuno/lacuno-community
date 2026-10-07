@@ -21,6 +21,7 @@ import type Database from 'better-sqlite3'
 import { and, eq, sql } from 'drizzle-orm'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
+import { compress } from 'hono/compress'
 import { HTTPException } from 'hono/http-exception'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
@@ -194,6 +195,8 @@ export async function createServer(options: ServerOptions) {
       c.header('Cache-Control', 'no-store')
       await next()
     })
+    // Documents and previews are large JSON; event streams and images pass through untouched.
+    app.use(compress())
     app.use('/api/*', (c, next) =>
       bodyLimit({
         maxSize:
@@ -473,9 +476,23 @@ export async function createServer(options: ServerOptions) {
       if (!site) return c.json({ error: 'Site not found' }, 404)
       await next()
     })
-    const persistence = (id: string) =>
-      new SqlitePersistence(db, id, options.dataDir, exportOptions)
-    const store = (id: string) => DocumentStore.withPersistence(persistence(id))
+    const persistence = (id: string, stale?: () => void) =>
+      new SqlitePersistence(db, id, options.dataDir, exportOptions, stale)
+    // One store per site for the life of the process: nothing but a store writes a site's row, so
+    // a store is dropped only when its save finds another process wrote first.
+    const stores = new Map<string, Promise<DocumentStore>>()
+    const store = (id: string) => {
+      let loading = stores.get(id)
+      if (!loading) {
+        const drop = () => {
+          if (stores.get(id) === loading) stores.delete(id)
+        }
+        loading = DocumentStore.withPersistence(persistence(id, drop))
+        loading.catch(drop)
+        stores.set(id, loading)
+      }
+      return loading
+    }
     // Images added before the server measured them get their size now, once, so the canvas can
     // list their variants; nothing waits on it.
     void (async () => {
@@ -760,6 +777,11 @@ export async function createServer(options: ServerOptions) {
       return c.json(result)
     })
     if (options.editorDir) {
+      // Vite names every bundle file by its content hash; index.html alone changes under its name.
+      app.get('/assets/*', async (c, next) => {
+        await next()
+        if (c.res.ok) c.header('Cache-Control', 'public, max-age=31536000, immutable')
+      })
       app.get('/assets/*', serveStatic({ root: options.editorDir }))
       for (const route of ['/', '/consent'])
         app.get(route, serveStatic({ path: path.join(options.editorDir, 'index.html') }))

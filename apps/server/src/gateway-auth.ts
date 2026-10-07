@@ -39,6 +39,7 @@ const Claims = z.object({
   workspace: z.string().min(1).max(200).optional(),
 })
 export type Role = 'owner' | 'editor' | 'viewer'
+const EMPTY_BODY_HASH = createHash('sha256').digest('hex')
 
 /**
  * Why a role refuses a request, or undefined: viewers read and approve no AI app, editors neither
@@ -55,6 +56,9 @@ export function refusal(role: Role, method: string, path: string) {
 /** Generic opt-in authenticated reverse-proxy mode. No browser assertion or cookie is trusted. */
 export class GatewayAuth {
   readonly ownerId = 'lacuno-gateway-owner'
+  /** Each user's role as this process last wrote it, so an unchanged role costs no write. */
+  private roles = new Map<string, Role>()
+  private nonceSweep = 0
   constructor(
     private sqlite: Database.Database,
     private options: GatewayOptions,
@@ -106,25 +110,38 @@ export class GatewayAuth {
     const claims = Claims.parse(payload)
     const now = Math.floor(Date.now() / 1000)
     const url = new URL(request.url)
+    // The gateway hashes an empty body for a request without one.
+    const bodyHash = request.body
+      ? createHash('sha256')
+          .update(Buffer.from(await request.clone().arrayBuffer()))
+          .digest('hex')
+      : EMPTY_BODY_HASH
     if (
       claims.exp > claims.iat + 30 ||
       claims.method !== request.method ||
       claims.target !== url.pathname + url.search ||
-      claims.bodyHash !==
-        createHash('sha256')
-          .update(Buffer.from(await request.clone().arrayBuffer()))
-          .digest('hex')
+      claims.bodyHash !== bodyHash
     )
       throw new Error('Invalid gateway request binding')
-    rememberNonce(this.sqlite, claims.jti, claims.exp, now)
+    // Expired nonces go at most once a minute, not with every request.
+    if (now - this.nonceSweep >= 60) {
+      this.nonceSweep = now
+      this.sqlite.prepare('DELETE FROM gateway_nonce WHERE expires_at <= ?').run(now)
+    }
+    // The primary key provides replay protection across processes sharing this runtime database.
+    this.sqlite
+      .prepare('INSERT INTO gateway_nonce(id,expires_at) VALUES(?,?)')
+      .run(claims.jti, claims.exp)
     const role = claims.role ?? 'owner'
     // The role as last asserted: an MCP request carries a token, not an assertion.
-    if (!claims.system)
+    if (!claims.system && this.roles.get(claims.sub) !== role) {
       this.sqlite
         .prepare(
           'INSERT INTO gateway_role(user_id,role) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role',
         )
         .run(claims.sub, role)
+      this.roles.set(claims.sub, role)
+    }
     return {
       id: claims.sub,
       name: claims.name,
@@ -145,16 +162,7 @@ export class GatewayAuth {
   }
 
   forget(userId: string) {
+    this.roles.delete(userId)
     this.sqlite.prepare('DELETE FROM gateway_role WHERE user_id=?').run(userId)
   }
-}
-
-function rememberNonce(sqlite: Database.Database, id: string, expires: number, now: number) {
-  sqlite
-    .transaction(() => {
-      sqlite.prepare('DELETE FROM gateway_nonce WHERE expires_at <= ?').run(now)
-      // The primary key provides replay protection across processes sharing this runtime database.
-      sqlite.prepare('INSERT INTO gateway_nonce(id,expires_at) VALUES(?,?)').run(id, expires)
-    })
-    .immediate()
 }
