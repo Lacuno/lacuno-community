@@ -24,5 +24,12 @@ export { applyQuery } from './query.js'
 export { assembleDocument, type RenderContext, type RenderResult, render } from './render.js'
 export { richTextInlineHtml, richTextToHtml } from './richtext.js'
 export { entrySlug, enumerateRoutes, listPagePath, type Route, routePath } from './routes.js'
-export { cssImageAssets, ROUTE_SOURCE, type ScaffoldInput, writeScaffold } from './scaffold.js'
+export {
+  cssImageAssets,
+  IMAGES_SOURCE,
+  linkFile,
+  ROUTE_SOURCE,
+  type ScaffoldInput,
+  writeScaffold,
+} from './scaffold.js'
 export { entryPath, type Frame, type Resolved, resolveBinding, type Scope } from './scope.js'

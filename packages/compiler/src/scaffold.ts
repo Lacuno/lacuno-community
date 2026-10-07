@@ -1,4 +1,4 @@
-import { copyFile, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { copyFile, link as hardLink, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { CssValue, Document } from '@lacuno/schema'
 import { assetFileName, isImage } from './assets.js'
@@ -23,16 +23,9 @@ export type ScaffoldInput = {
  * the only thing that varies between sites is data. Keep it small and boring.
  */
 export const ROUTE_SOURCE = `---
-import { getImage } from 'astro:assets'
-import {
-  enumerateRoutes,
-  imageResolverFrom,
-  parseDocument,
-  render,
-  resolveAllImages,
-} from '@lacuno/compiler/render'
+import { enumerateRoutes, imageResolverFrom, parseDocument, render } from '@lacuno/compiler/render'
 import raw from '../data/document.json'
-import build from '../data/build.json'
+import { images } from '../data/images'
 import '../styles/site.css'
 
 export function getStaticPaths() {
@@ -43,8 +36,6 @@ export function getStaticPaths() {
 }
 
 const doc = parseDocument(raw)
-const metas = import.meta.glob('../assets/*', { eager: true, import: 'default' })
-const images = await resolveAllImages(doc, metas, getImage, build.maxImageWidth)
 const { route } = Astro.props
 const page = doc.pages[route.page]
 const entry = route.entry
@@ -59,6 +50,19 @@ const result = render(doc, page, entry, {
   <head><Fragment set:html={result.head} /></head>
   <body><Fragment set:html={result.body} /></body>
 </html>
+`
+
+/**
+ * The route's images, resolved in a module of their own: a module runs once per build, where the
+ * route's frontmatter runs for every page, and getImage for every image at every width with it.
+ */
+export const IMAGES_SOURCE = `import { getImage } from 'astro:assets'
+import { parseDocument, resolveAllImages } from '@lacuno/compiler/render'
+import raw from './document.json'
+import build from './build.json'
+
+const metas = import.meta.glob('../assets/*', { eager: true, import: 'default' })
+export const images = await resolveAllImages(parseDocument(raw), metas, getImage, build.maxImageWidth)
 `
 
 function collectImageAssets(value: CssValue, into: Set<string>): void {
@@ -95,6 +99,21 @@ export async function link(target: string, at: string): Promise<void> {
   await symlink(target, at, process.platform === 'win32' ? 'junction' : 'dir')
 }
 
+/**
+ * Gives `target` a content-addressed file's bytes without copying them: a hard link, or a copy
+ * when the two are on different filesystems. A file there already, by the same hash, stays.
+ */
+export async function linkFile(source: string, target: string): Promise<void> {
+  try {
+    await hardLink(source, target)
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code
+    if (code === 'EEXIST') return
+    if (code !== 'EXDEV') throw e
+    await copyFile(source, target)
+  }
+}
+
 export async function writeScaffold(input: ScaffoldInput): Promise<void> {
   const { root, siteDir, doc } = input
   await rm(root, { recursive: true, force: true })
@@ -104,6 +123,7 @@ export async function writeScaffold(input: ScaffoldInput): Promise<void> {
   await link(input.astroDir, path.join(root, 'node_modules', 'astro'))
   await link(input.compilerDir, path.join(root, 'node_modules', '@lacuno', 'compiler'))
   await writeFile(path.join(root, 'src/pages/[...path].astro'), ROUTE_SOURCE)
+  await writeFile(path.join(root, 'src/data/images.ts'), IMAGES_SOURCE)
   await writeFile(path.join(root, 'src/styles/site.css'), input.css)
   await writeFile(path.join(root, 'src/data/document.json'), JSON.stringify(doc))
   await writeFile(
@@ -123,7 +143,7 @@ export async function writeScaffold(input: ScaffoldInput): Promise<void> {
       targets.push(path.join(root, 'public/assets', file))
     for (const target of targets) {
       try {
-        await copyFile(source, target)
+        await linkFile(source, target)
       } catch (e) {
         if ((e as NodeJS.ErrnoException).code === 'ENOENT')
           throw new BuildError(

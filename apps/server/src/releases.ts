@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { hashAsset, parseDocument } from '@lacuno/schema'
+import { linkFile } from '@lacuno/compiler'
+import { parseDocument } from '@lacuno/schema'
 import type Database from 'better-sqlite3'
 import { HTTPException } from 'hono/http-exception'
 import { buildSlot, Exporter, type ExportOptions } from './export.js'
@@ -110,7 +111,6 @@ export class Releases extends PublicationReader {
         return this.queue(siteId, revision, site.document, name, target)
       })
       .immediate()
-    void this.tick()
     return { id }
   }
 
@@ -130,6 +130,10 @@ export class Releases extends PublicationReader {
         "INSERT INTO releases(id,site_id,revision,version,name,target,document,status,created_at) VALUES(?,?,?,?,?,?,?,'queued',?)",
       )
       .run(id, siteId, revision, version, name, target, document, Date.now())
+    // The build starts once the caller's transaction has committed, not at the timer's next second.
+    queueMicrotask(() => {
+      void this.tick()
+    })
     return id
   }
 
@@ -157,7 +161,6 @@ export class Releases extends PublicationReader {
         this.refresh(siteId)
       })
       .immediate()
-    void this.tick()
   }
 
   /**
@@ -326,14 +329,14 @@ export class Releases extends PublicationReader {
     const doc = parseDocument(JSON.parse(job.document))
     await mkdir(path.join(directory, 'assets'), { recursive: true })
     await writeFile(path.join(directory, 'lacuno.json'), JSON.stringify(doc))
+    // The snapshot shares each asset's bytes with the site: an asset is content-addressed, hashed
+    // on upload and never rewritten, so a link is the copy, with no hash to check.
     for (const asset of Object.values(doc.assets)) {
       if (this.stopped) throw new Error('Server stopped')
-      const bytes = await readFile(
+      await linkFile(
         path.join(this.dataDir, 'sites', job.site_id, 'assets', asset.hash),
+        path.join(directory, 'assets', asset.hash),
       )
-      if ((await hashAsset(bytes)) !== asset.hash)
-        throw new Error(`Asset checksum mismatch: ${asset.name}`)
-      await writeFile(path.join(directory, 'assets', asset.hash), bytes)
     }
     if (this.stopped) throw new Error('Server stopped')
     // Cloud runs only so many builds at once on the server; a build takes about 0.5 GB for seconds.
