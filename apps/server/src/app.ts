@@ -29,7 +29,7 @@ import { migrateApplication, openDatabase, sites, workspaces } from './database.
 import { type SiteEvent, siteEvents, summarize } from './events.js'
 import { exportAsset, exportReport, exportThumbnail } from './export.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
-import { imageSize, imageVariant, RESIZABLE } from './images.js'
+import { imageSize, imageVariant, RESIZABLE, warmVariants } from './images.js'
 import type { Send } from './mail.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
 import { createOAuth, gatewayUser, type OAuth, relayFetch } from './oauth.js'
@@ -501,7 +501,8 @@ export async function createServer(options: ServerOptions) {
         })
       }
     })().catch((error) => console.error('Measuring images failed:', error))
-    // An image's size is read from its bytes, unless the asset carries one already.
+    // An image's size is read from its bytes, unless the asset carries one already, and its first
+    // variants are resized in the background so the editor finds them in the cache.
     const stage = async (id: string, name: string, bytes: Uint8Array) => {
       const staged = await stageUpload(
         (await store(id)).read().document,
@@ -510,9 +511,9 @@ export async function createServer(options: ServerOptions) {
         bytes,
       )
       const asset = staged.body as AssetRef
-      return asset.kind === 'image' && !asset.width
-        ? { ...staged, body: { ...asset, ...(await imageSize(bytes)) } }
-        : staged
+      if (asset.kind !== 'image') return staged
+      warmVariants(path.join(options.dataDir, 'sites', id), asset)
+      return asset.width ? staged : { ...staged, body: { ...asset, ...(await imageSize(bytes)) } }
     }
     // A gateway runtime has no internet access: it downloads through Cloud's relay, or not at all.
     const { cimdRelay } = options

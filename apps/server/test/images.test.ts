@@ -86,6 +86,10 @@ it('measures uploaded images, serves them resized to a listed width once, and ne
   const rotated = await image(1000, 500).jpeg().withMetadata({ orientation: 6 }).toBuffer()
   expect(await add('rotated.jpg', rotated)).toMatchObject({ width: 500, height: 1000 })
 
+  // The widths the editor asks for first are resized in the background; the rest on demand.
+  await expect
+    .poll(() => existsSync(variant(asset.hash, 320)) && existsSync(variant(asset.hash, 960)))
+    .toBe(true)
   const route = `/api/sites/${siteId}/assets/${asset.hash}`
   const resized = await request(`${route}?w=640`)
   expect(resized.status).toBe(200)

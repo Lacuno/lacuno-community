@@ -5,6 +5,8 @@ import { RenderError } from './errors.js'
 export type ResolvedImage = {
   src: string
   srcset?: string
+  /** For an image whose node sets no `sizes`; the published site takes the whole viewport. */
+  sizes?: string
   width: number
   height: number
 }

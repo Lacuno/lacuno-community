@@ -19,11 +19,13 @@ it('renders the canvas image with the variants below its width, then the origina
   const hero = doc.assets['a-hero']!
   const url = `/api/sites/s/assets/${hero.hash}`
   const srcset = `${url}?w=320 320w, ${url}?w=640 640w, ${url}?w=960 960w, ${url} 1200w`
-  expect(canvasImage('s', hero)).toEqual({ src: url, srcset })
-  expect(canvasImage('s', { ...hero, width: undefined })).toEqual({ src: url, srcset: '' })
-  expect(canvasImage('s', { ...hero, width: 320 })).toEqual({ src: url, srcset: '' })
+  const sizes = 'auto, 100vw'
+  expect(canvasImage('s', hero)).toEqual({ src: url, srcset, sizes })
+  expect(canvasImage('s', { ...hero, width: undefined })).toEqual({ src: url, srcset: '', sizes })
+  expect(canvasImage('s', { ...hero, width: 320 })).toEqual({ src: url, srcset: '', sizes })
   const { body } = renderPreview(doc, 's', { page: 'p-home' })
+  // The browser picks for the rendered width; a node's own sizes would win (compiler nodes.ts).
   expect((body as { html: string }).html).toContain(
-    `sizes="100vw" src="${url}" srcset="${srcset}" width="1200"`,
+    `sizes="auto, 100vw" src="${url}" srcset="${srcset}" width="1200"`,
   )
 })
