@@ -36,8 +36,10 @@ describe('export to the edge', () => {
   const log: string[] = []
   let failures: { match: RegExp; status: number; times: number } | undefined
   let inflight = 0
-  // Cloud's build slots: 202 while `full`, as when the server runs as many builds as it takes.
+  // Cloud's build slots: 202 while `full`, as when the server runs as many builds as it takes;
+  // held with the plan's largest image width when it has one.
   let full = false
+  let maxImageWidth: number | undefined
   let peak = 0
   const sink = createHttpServer(async (request, response) => {
     peak = Math.max(peak, ++inflight)
@@ -62,8 +64,12 @@ describe('export to the edge', () => {
     if (!valid) return response.writeHead(401).end()
     if (failures?.match.test(`${request.method} ${key}`) && failures.times-- > 0)
       return response.writeHead(failures.status).end()
-    if (key === 'build')
-      return response.writeHead(request.method === 'PUT' && full ? 202 : 204).end()
+    if (key === 'build') {
+      if (request.method === 'PUT' && full) return response.writeHead(202).end()
+      if (request.method === 'PUT' && maxImageWidth)
+        return response.writeHead(200).end(JSON.stringify({ maxImageWidth }))
+      return response.writeHead(204).end()
+    }
     if (request.method === 'HEAD') return response.writeHead(files.has(key!) ? 200 : 404).end()
     if (key!.startsWith('pointer/')) pointers.set(key!.slice('pointer/'.length), body.toString())
     else if (key === 'assets') lists.set(siteId!, body.toString())
@@ -272,6 +278,7 @@ describe('export to the edge', () => {
     async () => {
       log.length = 0
       full = true
+      maxImageWidth = 640
       // A changed draft: a document built already is copied without a slot.
       const { revision } = await call(`/api/sites/${site}/document`)
       await call(`/api/sites/${site}/document/apply`, {
@@ -294,6 +301,11 @@ describe('export to the edge', () => {
       second = id
       expect(log.indexOf('DELETE build')).toBeGreaterThan(-1)
       expect(log.indexOf('DELETE build')).toBeLessThan(log.indexOf(`PUT releases/${id}/index.html`))
+      // The slot came with the plan's largest image width, which the build kept to.
+      const html = files.get(`releases/${id}/index.html`)?.toString()
+      expect(html).toContain('width="640"')
+      expect(html).not.toContain(' 1440w')
+      maxImageWidth = undefined
 
       // A Cloud without build slots refuses the key: the build starts at once.
       log.length = 0

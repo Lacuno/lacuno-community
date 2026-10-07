@@ -193,8 +193,9 @@ minutes, counted in memory by the last `X-Forwarded-For` address (the one your p
 connection's. Without mail settings the endpoint answers 503 and the editor says forms are off.
 
 Each release stores the exact document and revision in SQLite and copies hash-verified assets into
-`data/builds/<site-id>/<release-id>/`. A child process runs the compiler with a five-minute timeout.
-Optimized images carry over between a site's builds in `data/builds/<site-id>/images/`, keyed by
+`data/builds/<site-id>/<release-id>/`. A child process runs the compiler with a five-minute timeout,
+optimizing one image at a time as WebP, up to the largest width a Cloud build slot allows; a worker
+the kernel kills for memory fails the release with its signal. Optimized images carry over between a site's builds in `data/builds/<site-id>/images/`, keyed by
 source hash and transform, so a publish re-encodes only new or changed images. A successful build
 leaves exactly the images it output there; backups leave the cache out, since any build refills it.
 Publishing a document that already has a successful release, such as the draft just sent to testing,

@@ -202,14 +202,15 @@ generates is meant to be read, edited or kept.
   through `getStaticPaths`, calls the renderer, and wraps the result in real html, head and body
   tags so Astro can inline or link the stylesheet as it sees fit.
 - Astro's programmatic build then produces `dist/`: compressed HTML, one minified stylesheet
-  inlined when small, images optimized to AVIF and WebP with a width set, hashed asset names,
+  inlined when small, images optimized to WebP with a width set, hashed asset names,
   redirects as meta-refresh pages, robots and a sitemap when the site URL is known.
 - Every route is rendered once before Astro runs, so reference errors and warnings surface with
   node and page ids instead of being buried in bundler output. Warnings never fail a build; a
   missing reference always does. Errors are reported as `document` (invalid file), `render` (with
   node and page) or `engine` (Astro or sharp).
-- Images bound to an asset become a `<picture>` with AVIF and WebP sources at widths from 320 to
-  1920 and an `<img>` carrying `width` and `height` from the asset, `loading="lazy"` and
+- Images bound to an asset become an `<img>` with a WebP `srcset` at widths from 320 to 1920 up
+  to the original's or the build's `maxImageWidth` (Cloud's plans cap it; a publish learns it with
+  its build slot), carrying the `width` and `height` of its largest variant, `loading="lazy"` and
   `decoding="async"` unless the node sets its own, and `sizes` defaulting to `100vw`. Alt text comes
   from the node, then the asset, then an empty string. Images used in CSS `url()` values are copied
   unoptimized.
@@ -252,7 +253,7 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
   result in `sites/<id>/cache/images/` until the asset is deleted. Uploads and imports record an
   image's size from its bytes, and a start measures images registered without one, so every
   raster image lists its variants. Published sites get Astro's
-  AVIF and WebP variants instead. S3-compatible storage is planned.
+  WebP variants instead. S3-compatible storage is planned.
 - **Screenshots.** `page.screenshot` renders the page's preview HTML in headless Chromium, through
   a separate screenshot service (`screenshot-main`, its own image, a fixed number of slots over one
   browser) when `LACUNO_SCREENSHOT_URL` is set, otherwise through Playwright where it is installed;

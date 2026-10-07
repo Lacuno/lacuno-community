@@ -89,10 +89,9 @@ describe('renderNode: elements and text', () => {
       srcset: '/_astro/h-640.webp 640w, /_astro/h.webp 1200w',
       width: 1200,
       height: 800,
-      sources: [{ type: 'image/avif', srcset: '/_astro/h.avif 1200w' }],
     })
     expect(renderNode('n-hero-image', empty, s)).toBe(
-      '<picture><source sizes="100vw" srcset="/_astro/h.avif 1200w" type="image/avif"><img alt="A blue rectangle standing in for a hero image" decoding="async" height="800" loading="eager" sizes="100vw" src="/_astro/h.webp" srcset="/_astro/h-640.webp 640w, /_astro/h.webp 1200w" width="1200"></picture>',
+      '<img alt="A blue rectangle standing in for a hero image" decoding="async" height="800" loading="eager" sizes="100vw" src="/_astro/h.webp" srcset="/_astro/h-640.webp 640w, /_astro/h.webp 1200w" width="1200">',
     )
     const img = doc.nodes['n-hero-image'] as Extract<Node, { type: 'element' }>
     img.attrs = { src: { type: 'asset', asset: 'a-hero' } }

@@ -18,6 +18,15 @@ afterEach(async () => {
 })
 
 describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () => {
+  it('stops at the largest image width given, with the dimensions of that variant', async () => {
+    const dir = await tmp()
+    await writeFixtureSite(dir)
+    await build(dir, { quiet: true, maxImageWidth: 640 })
+    const home = await readFile(path.join(dir, 'dist/index.html'), 'utf8')
+    expect(home).toMatch(/<img [^>]*height="427"[^>]*srcset="[^"]* 640w"[^>]*width="640">/)
+    expect(home).not.toContain(' 1200w')
+  })
+
   it('builds the fixture site to static output and is idempotent', async () => {
     const dir = await tmp()
     await writeFixtureSite(dir)
@@ -29,9 +38,7 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     expect(result.outDir).toBe(path.join(dir, 'dist'))
 
     const home = await readFile(path.join(dir, 'dist/index.html'), 'utf8')
-    expect(home).toContain('<picture>')
-    expect(home).toContain('type="image/avif"')
-    expect(home).toMatch(/\.webp \d+w/)
+    expect(home).toMatch(/<img [^>]*height="800"[^>]*srcset="[^"]* 1200w"[^>]*width="1200">/)
     // Astro inlines the stylesheet when it is small and links it otherwise. Either is fine.
     const inlined = home.includes('--color-brand:#3b5bdb')
     const linked = /<link rel="stylesheet" href="\/_astro\/[^"]+\.css">/.test(home)
@@ -95,7 +102,7 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     await writeFixtureSite(cold)
     await build(cold, { quiet: true, imageCache: cache })
     const optimized = (await readdir(path.join(cold, 'dist/_astro'))).filter((name) =>
-      /\.(avif|webp)$/.test(name),
+      /\.webp$/.test(name),
     )
     expect(optimized.length).toBeGreaterThan(0)
     expect((await readdir(cache)).sort()).toEqual(optimized.sort())
