@@ -140,7 +140,8 @@ Application routes require a session cookie; `/mcp/:id` takes an OAuth bearer to
 (opaque, one hour, refreshable, bound to one site through its audience and revoked with the
 connection). Dynamic client registration and Client ID Metadata Documents are both accepted, loopback
 redirect URIs match without regard to port, and `iss` is returned in the authorization response. JSON writes reject cross-origin requests; API responses
-disable caching. Unknown or inaccessible sites return `404`, missing sessions `401`, invalid input
+disable caching and are gzip-compressed for clients that accept it, while the editor's hashed bundle
+files under `/assets/` are cached as immutable. Unknown or inaccessible sites return `404`, missing sessions `401`, invalid input
 `400`, and stale edits `409` with `currentRevision`. Request bodies are limited to 2 MiB and batches
 to 1,000 operations or 5,000 patches. Authentication endpoints use Better Auth's rate limiting and CSRF checks.
 The setup endpoint additionally requires a 256-bit server-side token. SQLite enforces one owner
@@ -148,8 +149,11 @@ even across simultaneous setup requests. Owner passwords and sessions still use 
 
 ## Persistence and scope
 
-`data/lacuno.sqlite` uses WAL mode. SQLite stores auth data, workspaces, site documents and
-revisions. Drizzle handles application queries; Better Auth's built-in SQLite adapter owns auth
+`data/lacuno.sqlite` uses WAL mode with `synchronous = NORMAL`: consistent after a process crash,
+and a power cut can lose only the last commits, which Cloud's Litestream replica bounds. SQLite
+stores auth data, workspaces, site documents and revisions. A site's document stays loaded in
+memory once read; a save's conditional UPDATE on the revision it loaded still protects across
+processes, and a save another process beat reloads it. Drizzle handles application queries; Better Auth's built-in SQLite adapter owns auth
 migrations, run before auth starts. Lacuno's separate migration ledger versions application tables.
 Assets live under `data/sites/<id>/assets/`; their hashes are checked when copying the template.
 The editor's resized image variants live beside them in `data/sites/<id>/cache/images/`, named

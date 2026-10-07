@@ -7,7 +7,11 @@ import { type SiteDatabase, sites } from './database.js'
 import { assetList, type ExportOptions, exportAsset, exportReport } from './export.js'
 import { forgetVariants } from './images.js'
 
-/** Each request loads a fresh snapshot; the conditional UPDATE also protects across processes. */
+/**
+ * A store keeps the snapshot it loaded for the life of the process (app.ts), so requests no longer
+ * parse the document; the conditional UPDATE on the loaded revision still protects across
+ * processes, and a save it refuses calls `stale` so the store is dropped and loaded afresh.
+ */
 export class SqlitePersistence implements Persistence {
   private loadedRevision: number | undefined
   private loadedAssets: string | undefined
@@ -19,6 +23,7 @@ export class SqlitePersistence implements Persistence {
     private siteId: string,
     dataDir: string,
     private exportOptions?: ExportOptions,
+    private stale?: () => void,
   ) {
     this.assets = new FolderPersistence(path.join(dataDir, 'sites', siteId))
   }
@@ -44,6 +49,7 @@ export class SqlitePersistence implements Persistence {
       .where(and(eq(sites.id, this.siteId), eq(sites.revision, this.loadedRevision)))
       .run()
     if (result.changes !== 1) {
+      this.stale?.()
       const current = this.db
         .select({ revision: sites.revision })
         .from(sites)
