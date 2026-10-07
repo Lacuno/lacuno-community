@@ -116,23 +116,7 @@ describe('server foundation', () => {
     const dry = await edit(3, 'Four', { preview: { page: 'p-home' }, dryRun: true })
     expect(Object.keys((await dry.json()) as object)).not.toContain('preview')
     expect((await edit(3, 'Four', { preview: { page: 1 } })).status).toBe(400)
-    // A saved edit as two requests against one; the figures are for the commit message.
-    let revision = 3
-    const measure = async (name: string, save: () => Promise<unknown>) => {
-      const start = performance.now()
-      for (let i = 0; i < 50; i++) await save()
-      console.log(`${name}: ${((performance.now() - start) / 50).toFixed(2)} ms per saved edit`)
-    }
-    for (let round = 0; round < 2; round++) {
-      await measure('apply then preview', async () => {
-        await edit(revision++, `Edit ${revision}`)
-        await request(`/api/sites/${id}/preview?page=p-home`, owner)
-      })
-      await measure('apply with preview', () =>
-        edit(revision++, `Edit ${revision}`, { preview: { page: 'p-home' } }),
-      )
-    }
-    expect((await readDocument(`/api/sites/${id}/document`, owner)).revision).toBe(revision)
+    expect((await readDocument(`/api/sites/${id}/document`, owner)).revision).toBe(3)
   })
 
   it('signs in, creates a template site, edits and retrieves it after restart', async () => {
