@@ -98,63 +98,94 @@ function nodeRefs(node: Node): Refs {
   return refs
 }
 
+type Uses = Map<string, string[]>
+
+/** Notes `ref` as a use of each of `ids`, except of `self`. */
+function addUses(uses: Uses, ids: Iterable<string>, ref: string, self?: string): void {
+  for (const id of ids) {
+    if (id === self) continue
+    const list = uses.get(id)
+    if (list) list.push(ref)
+    else uses.set(id, [ref])
+  }
+}
+
+/** Every design token's or asset's uses at once: style values, other design tokens, node bindings. */
+function referencesToEach(doc: Document, kind: keyof Refs): Uses {
+  const uses: Uses = new Map()
+  for (const [key, decl] of Object.entries(doc.styles))
+    addUses(uses, valueRefs([decl.value])[kind], `styles.${key}`)
+  for (const token of Object.values(doc.designTokens))
+    addUses(
+      uses,
+      valueRefs(Object.values(token.values))[kind],
+      `designTokens.${token.id}`,
+      token.id,
+    )
+  for (const node of Object.values(doc.nodes))
+    addUses(uses, nodeRefs(node)[kind], `nodes.${node.id}`)
+  return uses
+}
+
 /** Where a design token or an asset is used: style values, other design tokens, node bindings. */
 export function referencesTo(doc: Document, kind: keyof Refs, id: string): string[] {
-  const out: string[] = []
-  for (const [key, decl] of Object.entries(doc.styles))
-    if (valueRefs([decl.value])[kind].has(id)) out.push(`styles.${key}`)
-  for (const token of Object.values(doc.designTokens))
-    if (token.id !== id && valueRefs(Object.values(token.values))[kind].has(id))
-      out.push(`designTokens.${token.id}`)
-  for (const node of Object.values(doc.nodes))
-    if (nodeRefs(node)[kind].has(id)) out.push(`nodes.${node.id}`)
-  return out.sort()
+  return (referencesToEach(doc, kind).get(id) ?? []).sort()
 }
 
 export function referencesToDesignToken(doc: Document, id: string): string[] {
   return referencesTo(doc, 'designTokens', id)
 }
 
-export function referencesToAsset(doc: Document, id: string): string[] {
-  const out = referencesTo(doc, 'assets', id)
+/**
+ * Every asset's uses at once, sorted, which document.read lists for each asset; one walk, where a
+ * lookup per asset would walk the document once per asset.
+ */
+export function referencesToAssets(doc: Document): Uses {
+  const uses = referencesToEach(doc, 'assets')
   doc.site.fonts.forEach((f, i) => {
-    if (f.asset === id) out.push(`site.fonts.${i}`)
+    if (f.asset) addUses(uses, [f.asset], `site.fonts.${i}`)
   })
-  if (doc.site.favicon === id) out.push('site.favicon')
+  if (doc.site.favicon) addUses(uses, [doc.site.favicon], 'site.favicon')
   for (const page of Object.values(doc.pages))
-    if (page.seo?.ogImage === id) out.push(`pages.${page.id}.seo.ogImage`)
-  out.push(...entriesWith(doc, (f) => f.type === 'image' || f.type === 'file', id))
-  return out.sort()
+    if (page.seo?.ogImage) addUses(uses, [page.seo.ogImage], `pages.${page.id}.seo.ogImage`)
+  entriesWith(doc, (f) => f.type === 'image' || f.type === 'file', uses)
+  for (const refs of uses.values()) refs.sort()
+  return uses
 }
 
-/** The entries (`entries.<collection>.<index>`) whose value of a matching field is or lists `id`. */
-function entriesWith(doc: Document, match: (field: FieldDef) => boolean, id: string): string[] {
-  const out: string[] = []
+export function referencesToAsset(doc: Document, id: string): string[] {
+  return referencesToAssets(doc).get(id) ?? []
+}
+
+/** Notes each entry (`entries.<collection>.<index>`) as a use of the ids its matching fields hold or list. */
+function entriesWith(doc: Document, match: (field: FieldDef) => boolean, into: Uses): void {
   for (const col of Object.values(doc.collections)) {
     const fields = col.fields.filter(match).map((f) => f.id)
     if (!fields.length) continue
     doc.entries[col.id]?.forEach((entry, index) => {
-      if (
-        fields.some((f) => {
+      const ids = fields
+        .flatMap((f) => {
           const value = entry.fields[f]
-          return value === id || (Array.isArray(value) && value.includes(id))
+          return Array.isArray(value) ? value : [value]
         })
-      )
-        out.push(`entries.${col.id}.${index}`)
+        .filter((value): value is string => typeof value === 'string')
+      addUses(into, new Set(ids), `entries.${col.id}.${index}`)
     })
   }
-  return out
 }
 
-/** The nodes and pages that read one of the entries directly: bindings and `seo.entry`. */
-function readersOfEntries(doc: Document, ids: ReadonlySet<string>): string[] {
-  const out: string[] = []
-  for (const node of Object.values(doc.nodes))
-    if (nodeBindings(node).some((b) => b.type === 'field' && b.entry && ids.has(b.entry)))
-      out.push(`nodes.${node.id}`)
+/** The nodes and pages that read each entry directly, by entry id: bindings and `seo.entry`. */
+function readersOfEntries(doc: Document): Uses {
+  const readers: Uses = new Map()
+  for (const node of Object.values(doc.nodes)) {
+    const entries = nodeBindings(node).flatMap((b) =>
+      b.type === 'field' && b.entry ? [b.entry] : [],
+    )
+    addUses(readers, new Set(entries), `nodes.${node.id}`)
+  }
   for (const page of Object.values(doc.pages))
-    if (page.seo?.entry && ids.has(page.seo.entry)) out.push(`pages.${page.id}`)
-  return out
+    if (page.seo?.entry) addUses(readers, [page.seo.entry], `pages.${page.id}`)
+  return readers
 }
 
 /**
@@ -162,11 +193,13 @@ function readersOfEntries(doc: Document, ids: ReadonlySet<string>): string[] {
  * bindings and pages that read it.
  */
 export function referencesToEntry(doc: Document, collection: string, id: string): string[] {
-  const out = entriesWith(
+  const uses: Uses = new Map()
+  entriesWith(
     doc,
     (f) => (f.type === 'reference' || f.type === 'multi-reference') && f.reference === collection,
-    id,
+    uses,
   )
+  const out = uses.get(id) ?? []
   for (const node of Object.values(doc.nodes))
     if (
       node.type === 'collection-list' &&
@@ -175,26 +208,31 @@ export function referencesToEntry(doc: Document, collection: string, id: string)
       )
     )
       out.push(`nodes.${node.id}`)
-  out.push(...readersOfEntries(doc, new Set([id])))
+  out.push(...(readersOfEntries(doc).get(id) ?? []))
   return [...new Set(out)].sort()
 }
 
-export function referencesToCollection(doc: Document, id: string): string[] {
-  const out: string[] = []
+/** Every collection's uses at once, sorted, which document.read lists for each collection. */
+export function referencesToCollections(doc: Document): Uses {
+  const uses: Uses = new Map()
   for (const page of Object.values(doc.pages))
-    if (page.collection === id) out.push(`pages.${page.id}`)
+    if (page.collection) addUses(uses, [page.collection], `pages.${page.id}`)
   for (const node of Object.values(doc.nodes))
-    if (node.type === 'collection-list' && node.collection === id) out.push(`nodes.${node.id}`)
+    if (node.type === 'collection-list') addUses(uses, [node.collection], `nodes.${node.id}`)
   for (const col of Object.values(doc.collections))
     for (const f of col.fields)
-      if (
-        (f.type === 'reference' || f.type === 'multi-reference') &&
-        f.reference === id &&
-        col.id !== id
-      )
-        out.push(`collections.${col.id}.fields.${f.id}`)
-  out.push(...readersOfEntries(doc, new Set(doc.entries[id]?.map((entry) => entry.id))))
-  return [...new Set(out)].sort()
+      if (f.type === 'reference' || f.type === 'multi-reference')
+        addUses(uses, [f.reference], `collections.${col.id}.fields.${f.id}`, col.id)
+  const readers = readersOfEntries(doc)
+  for (const [collection, entries] of Object.entries(doc.entries))
+    for (const entry of entries)
+      for (const ref of readers.get(entry.id) ?? []) addUses(uses, [collection], ref)
+  for (const [id, refs] of uses) uses.set(id, [...new Set(refs)].sort())
+  return uses
+}
+
+export function referencesToCollection(doc: Document, id: string): string[] {
+  return referencesToCollections(doc).get(id) ?? []
 }
 
 /** Whether rich text, or any JSON holding it, has a link mark to the page. */

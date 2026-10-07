@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -265,7 +265,7 @@ describe('the remote MCP endpoint', () => {
     await client.close()
   })
 
-  it("screenshots a page from the site's stored assets", async () => {
+  it("screenshots a page from the site's stored assets, raster images as variants", async () => {
     const client = await connect()
     const result = await client.callTool({
       name: 'page.screenshot',
@@ -273,8 +273,16 @@ describe('the remote MCP endpoint', () => {
     })
     expect(result.isError).not.toBe(true)
     const [image, size] = result.content as { type: string; mimeType?: string; text?: string }[]
-    expect(image).toMatchObject({ type: 'image', mimeType: 'image/png' })
+    expect(image).toMatchObject({ type: 'image', mimeType: 'image/jpeg' })
     expect(size?.text).toBe('600×400')
+    // The template's home page shows a 1440 px wide PNG, sent as the 640 variant for a 600 viewport.
+    const { assets } = json<{ assets: Record<string, AssetRef> }>(
+      await client.callTool({ name: 'document.read', arguments: {} }),
+    )
+    const preview = Object.values(assets).find((a) => a.width === 1440)!
+    expect(await readdir(path.join(dataDir, 'sites', siteId, 'cache', 'images'))).toContain(
+      `${preview.hash}-640.webp`,
+    )
     await client.close()
   })
 

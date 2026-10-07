@@ -54,7 +54,7 @@ from a repository without a server, and for building templates.
   with the current version so the agent re-reads and retries instead of overwriting. Dry run
   returns the resulting patches without applying them.
 - **Looking.** `page.preview` returns a route's HTML as published, or its visible text with node
-  ids; `page.screenshot` returns a PNG of a route or a node through an optional Playwright
+  ids; `page.screenshot` returns a JPEG of a route or a PNG of a node through an optional Playwright
   Chromium; `document.diff` summarises a dry-run batch or the changes since another document.
 - **Assets and publishing.** Files never have to pass through the model: `asset.import` takes a
   public https `url` the server downloads, a `path` in the site folder over stdio, or base64

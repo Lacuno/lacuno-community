@@ -8,7 +8,7 @@ import { DocumentStore } from '@lacuno/document'
 import { openFolder } from '@lacuno/document/folder'
 import sharp from 'sharp'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { localScreenshot, pngSize } from '../src/screenshot.js'
+import { imageInfo, localScreenshot } from '../src/screenshot.js'
 import { connect } from './helpers.js'
 
 // Chromium already refuses loopback requests from a public page; lifting that lets a local server
@@ -36,14 +36,18 @@ afterEach(async () => {
 
 type Content = { type: string; data?: string; mimeType?: string; text?: string }
 
-function png(result: Record<string, unknown>): { width: number; height: number; bytes: Buffer } {
+/** The screenshot of a result: a JPEG of a page, a PNG of a node. */
+function shot(
+  result: Record<string, unknown>,
+  mime = 'image/jpeg',
+): { width: number; height: number; bytes: Buffer } {
   const [image, size] = result.content as Content[]
-  expect(image?.mimeType).toBe('image/png')
+  expect(image?.mimeType).toBe(mime)
   const bytes = Buffer.from(image?.data ?? '', 'base64')
-  expect(bytes.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-  const out = { ...pngSize(bytes), bytes }
+  const { mime: sniffed, ...out } = imageInfo(bytes)
+  expect(sniffed).toBe(mime)
   expect(size?.text).toBe(`${out.width}×${out.height}`)
-  return out
+  return { ...out, bytes }
 }
 
 describe('page.screenshot', () => {
@@ -53,16 +57,17 @@ describe('page.screenshot', () => {
     await writeFixtureSite(dir)
     const c = await connect(await openFolder(dir), { siteDir: dir, screenshot })
     close = c.close
-    const page = png(
+    const page = shot(
       await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/', width: 800 } }),
     )
     // The first screen by default, which an AI can read; a long full page it cannot.
     expect([page.width, page.height]).toEqual([800, 800])
-    const node = png(
+    const node = shot(
       await c.client.callTool({
         name: 'page.screenshot',
         arguments: { page: '/', width: 800, node: 'n-hero-title' },
       }),
+      'image/png',
     )
     expect(node.width * node.height).toBeLessThan(page.width * page.height)
   })
@@ -82,7 +87,7 @@ describe('page.screenshot', () => {
         },
       })
       close = c.close
-      const page = png(
+      const page = shot(
         await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/', width: 800 } }),
       )
       expect(page.width).toBe(800)
@@ -90,7 +95,35 @@ describe('page.screenshot', () => {
     },
   )
 
-  it.skipIf(!chromium)('captures lazy images far below the fold', async () => {
+  it.skipIf(!chromium)('sends a variant of a raster image in place of its original', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-shot-'))
+    dirs.push(dir)
+    const doc = await writeFixtureSite(dir)
+    const hero = doc.assets['a-hero']!
+    const read: string[] = []
+    const widths: number[] = []
+    const c = await connect(DocumentStore.inMemory(doc), {
+      screenshot,
+      assets: (hash) => {
+        read.push(hash)
+        return readFile(path.join(dir, 'assets', hash)).catch(() => undefined)
+      },
+      images: async (asset, width) => {
+        widths.push(width)
+        if (asset.id !== hero.id) return undefined
+        return sharp(await readFile(path.join(dir, 'assets', asset.hash)))
+          .resize({ width })
+          .webp()
+          .toBuffer()
+      },
+    })
+    close = c.close
+    shot(await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/', width: 640 } }))
+    expect(widths).toContain(640)
+    expect(read).not.toContain(hero.hash)
+  })
+
+  it.skipIf(!chromium)('captures lazy images far below the fold, cut at maxHeight', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-shot-'))
     dirs.push(dir)
     const doc = await writeFixtureSite(dir)
@@ -129,18 +162,25 @@ describe('page.screenshot', () => {
     await writeFile(path.join(dir, 'lacuno.json'), JSON.stringify(doc))
     const c = await connect(await openFolder(dir), { siteDir: dir, screenshot })
     close = c.close
-    const { bytes } = png(
+    const full = await c.client.callTool({
+      name: 'page.screenshot',
+      arguments: { page: '/tall', width: 800, fullPage: true },
+    })
+    expect(shot(full).height).toBe(4000)
+    const { bytes, height } = shot(
       await c.client.callTool({
         name: 'page.screenshot',
-        arguments: { page: '/tall', width: 800, fullPage: true },
+        arguments: { page: '/tall', width: 800, fullPage: true, maxHeight: 4400 },
       }),
     )
-    // The image's centre, below the 4000px spacer and the body's 8px margin, is the fixture blue.
+    expect(height).toBeGreaterThan(4000)
+    // The image's centre, below the 4000px spacer and the body's 8px margin, is the fixture blue,
+    // give or take the JPEG's rounding.
     const pixel = await sharp(bytes)
       .extract({ left: 208, top: 4158, width: 1, height: 1 })
       .raw()
       .toBuffer()
-    expect([...pixel.subarray(0, 3)]).toEqual([59, 91, 219])
+    for (const [i, value] of [59, 91, 219].entries()) expect(pixel[i]).toBeCloseTo(value, -1)
   })
 
   it.skipIf(!chromium)('sends no request beyond the preview origin', async () => {
@@ -165,7 +205,7 @@ describe('page.screenshot', () => {
     const c = await connect(await openFolder(dir), { siteDir: dir, screenshot })
     close = c.close
     try {
-      png(await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/' } }))
+      shot(await c.client.callTool({ name: 'page.screenshot', arguments: { page: '/' } }))
       expect(requests).toBe(0)
     } finally {
       thirdParty.closeAllConnections()

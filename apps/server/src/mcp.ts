@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { IMAGE_WIDTHS } from '@lacuno/compiler'
 import type { ApplyResult, Batch, DocumentStore, Operation, stageUpload } from '@lacuno/document'
 import type { AssetDetails } from '@lacuno/mcp'
 import type { Screenshot } from '@lacuno/mcp/screenshot'
@@ -11,6 +12,7 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { type siteEvents, summarize } from './events.js'
+import { imageVariant } from './images.js'
 import type { OAuth, Verified } from './oauth.js'
 import type { Releases } from './releases.js'
 
@@ -38,7 +40,7 @@ export type McpDeps = {
   fetchUrl: ((url: string) => Promise<Uint8Array>) | undefined
   /** Tells Cloud what an AI app did, for the person who connected it; absent without Cloud. */
   report: ((siteId: string, activity: Activity) => void) | undefined
-  /** Takes page.screenshot's PNGs; absent where neither a screenshot service nor Playwright is. */
+  /** Takes page.screenshot's images; absent where neither a screenshot service nor Playwright is. */
   screenshot: Screenshot | undefined
 }
 
@@ -209,6 +211,14 @@ export function mcpRoutes(deps: McpDeps): Hono {
       const server = createServer(live, {
         assets: (hash) =>
           readFile(path.join(deps.dataDir, 'sites', siteId, 'assets', hash)).catch(() => undefined),
+        // The narrowest editor variant that is not narrower than the viewport, so the cache holds
+        // only the widths deleting the asset removes.
+        images: (asset, width) =>
+          imageVariant(
+            path.join(deps.dataDir, 'sites', siteId),
+            asset,
+            IMAGE_WIDTHS.find((w) => w >= width) ?? 1920,
+          ).catch(() => undefined),
         onApply: (batch, result) => applied(deps, created, batch, result),
         importAsset: (asset) =>
           importFile(deps, created, created.store, asset).catch((error) => {
