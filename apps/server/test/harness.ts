@@ -237,6 +237,9 @@ export async function clippedFocusRings(page: Page, scope: string) {
 
 /** Opens a page's settings from its actions menu in the Pages panel. */
 export async function pageSettings(page: Page, name: string) {
-  await page.getByRole('button', { name: `Actions for ${name}`, exact: true }).click()
+  const actions = page.getByRole('button', { name: `Actions for ${name}`, exact: true })
+  // Disabled while a save is in flight, which a loaded machine can stretch past a click's wait.
+  await expect.poll(() => actions.isEnabled(), { timeout: 30_000 }).toBe(true)
+  await actions.click()
   await page.getByRole('menuitem', { name: 'Page settings' }).click()
 }
