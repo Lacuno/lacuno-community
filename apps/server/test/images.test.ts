@@ -48,15 +48,17 @@ const image = (width: number, height: number) =>
 const variant = (hash: string, width: number) =>
   path.join(dataDir, 'sites', siteId, 'cache', 'images', `${hash}-${width}.webp`)
 
+const settings = () => ({
+  dataDir,
+  templateDir: fileURLToPath(new URL('../../../templates/lacuno', import.meta.url)),
+  baseURL: origin,
+  secret: 'test-only-secret-6ea8114c2a7b4e68ba29c69b',
+  allowSignup: true,
+})
+
 beforeEach(async () => {
   dataDir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-images-'))
-  server = await createServer({
-    dataDir,
-    templateDir: fileURLToPath(new URL('../../../templates/lacuno', import.meta.url)),
-    baseURL: origin,
-    secret: 'test-only-secret-6ea8114c2a7b4e68ba29c69b',
-    allowSignup: true,
-  })
+  server = await createServer(settings())
   const signup = await request('/api/auth/sign-up/email', {
     name: 'Owner',
     email: 'owner@example.test',
@@ -117,4 +119,25 @@ it('serves a GIF as it is', async () => {
   const response = await request(`/api/sites/${siteId}/assets/${asset.hash}?w=320`)
   expect(response.headers.get('content-type')).toBe('image/gif')
   expect(Buffer.from(await response.arrayBuffer())).toEqual(gif)
+})
+
+it('measures images registered without a size when it starts', async () => {
+  const upload = await request(`/api/sites/${siteId}/assets/upload`, {
+    name: 'old.jpg',
+    data: (await image(800, 600).jpeg().toBuffer()).toString('base64'),
+  })
+  // Registered the way an app did before the server measured: no size.
+  const { width: _w, height: _h, ...unmeasured } = (await upload.json()) as AssetRef
+  await apply({ type: 'asset.create', ...unmeasured })
+  server.close()
+  server = await createServer(settings())
+  const measured = async () =>
+    (
+      (await (await request(`/api/sites/${siteId}/document`)).json()) as {
+        document: { assets: Record<string, AssetRef> }
+      }
+    ).document.assets[unmeasured.id]
+  await expect.poll(measured, { timeout: 10_000 }).toMatchObject({ width: 800, height: 600 })
+  const thumb = await request(`/api/sites/${siteId}/assets/${unmeasured.hash}?w=320`)
+  expect(thumb.headers.get('content-type')).toBe('image/webp')
 })

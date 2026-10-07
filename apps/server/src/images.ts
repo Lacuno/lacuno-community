@@ -28,7 +28,8 @@ export async function imageSize(
   }
 }
 
-const RESIZABLE = new Set(['image/png', 'image/jpeg', 'image/webp'])
+/** The formats sharp resizes; the editor measures these and lists their variants. */
+export const RESIZABLE = new Set(['image/png', 'image/jpeg', 'image/webp'])
 
 const variantFile = (siteDir: string, hash: string, width: number) =>
   path.join(siteDir, 'cache', 'images', `${hash}-${width}.webp`)

@@ -34,10 +34,13 @@ const assetUpdate = defineOperation(
     id: AssetId,
     name: AssetRef.shape.name.optional(),
     alt: z.string().nullable().optional(),
+    width: AssetRef.shape.width.optional(),
+    height: AssetRef.shape.height.optional(),
   }),
   (op, ctx) => {
     const asset = ctx.require(ctx.doc.assets[op.id], `unknown asset ${op.id}`, op.id)
-    return partialPatches(['assets', op.id], { name: op.name, alt: op.alt }, asset)
+    const { type: _type, id: _id, ...values } = op
+    return partialPatches(['assets', op.id], values, asset)
   },
 )
 

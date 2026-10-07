@@ -29,7 +29,14 @@ describe('assets', () => {
         mime: 'image/svg+xml',
         size: 10,
       },
-      { type: 'asset.update', id: 'a-logo', name: 'brand.svg', alt: 'Brand' },
+      {
+        type: 'asset.update',
+        id: 'a-logo',
+        name: 'brand.svg',
+        alt: 'Brand',
+        width: 64,
+        height: 32,
+      },
       {
         type: 'asset.create',
         name: 'again.svg',
@@ -47,6 +54,8 @@ describe('assets', () => {
       mime: 'image/svg+xml',
       size: 10,
       alt: 'Brand',
+      width: 64,
+      height: 32,
     })
     expect(warnings).toEqual([
       { operation: 2, message: 'an asset with the same hash already exists: a-logo' },

@@ -249,7 +249,9 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
   measured with sharp so an image asset carries its width and height. The editor's canvas and
   thumbnails ask the asset route for a width (`?w=`, 320 to 1920); the server resizes raster images
   to WebP with sharp on first demand, one at a time, never above the original, and keeps the
-  result in `sites/<id>/cache/images/` until the asset is deleted. Published sites get Astro's
+  result in `sites/<id>/cache/images/` until the asset is deleted. Uploads and imports record an
+  image's size from its bytes, and a start measures images registered without one, so every
+  raster image lists its variants. Published sites get Astro's
   AVIF and WebP variants instead. S3-compatible storage is planned.
 - **Screenshots.** `page.screenshot` renders the page's preview HTML in headless Chromium, through
   a separate screenshot service (`screenshot-main`, its own image, a fixed number of slots over one

@@ -29,7 +29,7 @@ import { migrateApplication, openDatabase, sites, workspaces } from './database.
 import { type SiteEvent, siteEvents, summarize } from './events.js'
 import { exportAsset, exportReport, exportThumbnail } from './export.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
-import { imageSize, imageVariant } from './images.js'
+import { imageSize, imageVariant, RESIZABLE } from './images.js'
 import type { Send } from './mail.js'
 import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
 import { createOAuth, gatewayUser, type OAuth, relayFetch } from './oauth.js'
@@ -476,6 +476,31 @@ export async function createServer(options: ServerOptions) {
     const persistence = (id: string) =>
       new SqlitePersistence(db, id, options.dataDir, exportOptions)
     const store = (id: string) => DocumentStore.withPersistence(persistence(id))
+    // Images added before the server measured them get their size now, once, so the canvas can
+    // list their variants; nothing waits on it.
+    void (async () => {
+      for (const { id } of db.select({ id: sites.id }).from(sites).all()) {
+        const site = await store(id)
+        const operations: Operation[] = []
+        for (const asset of Object.values(site.read().document.assets)) {
+          if (asset.width || !RESIZABLE.has(asset.mime)) continue
+          const bytes = await readFile(
+            path.join(options.dataDir, 'sites', id, 'assets', asset.hash),
+          ).catch(() => undefined)
+          const size = bytes && (await imageSize(bytes))
+          if (size) operations.push({ type: 'asset.update', id: asset.id, ...size })
+        }
+        if (!operations.length) continue
+        const result = await site.apply({ expectedRevision: site.revision, operations })
+        siteEvents.emit(id, {
+          revision: result.revision,
+          patches: result.patches,
+          actor: { kind: 'editor' },
+          at: Date.now(),
+          summary: summarize(operations, result.patches),
+        })
+      }
+    })().catch((error) => console.error('Measuring images failed:', error))
     // An image's size is read from its bytes, unless the asset carries one already.
     const stage = async (id: string, name: string, bytes: Uint8Array) => {
       const staged = await stageUpload(
