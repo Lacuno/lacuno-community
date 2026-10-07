@@ -424,6 +424,20 @@ export function Canvas({
       cleanup?.()
     }
   }, [])
+  // The iframe's load, which installs the canvas's own click handling below, waits for the images
+  // in view; until then a click on a link would navigate the canvas, so links are inert as soon
+  // as the srcdoc document exists.
+  useEffect(() => {
+    let raf = 0
+    const guard = () => {
+      const doc = frame.current?.contentDocument
+      if (doc?.URL === 'about:srcdoc')
+        doc.addEventListener('click', (event) => event.preventDefault(), true)
+      else raf = requestAnimationFrame(guard)
+    }
+    guard()
+    return () => cancelAnimationFrame(raf)
+  }, [])
   return (
     <div ref={shell} className="canvas-shell" style={{ width: width * zoom }}>
       <iframe
