@@ -52,7 +52,8 @@ describe('guide and resources', () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const size = Buffer.byteLength(JSON.stringify(await c.client.listTools()), 'utf8')
-    expect(size).toBeLessThan(5500)
+    // The annotations on every tool take about a kilobyte of it.
+    expect(size).toBeLessThan(7000)
   })
 
   it('refuses asset.create and points at asset.import', async () => {

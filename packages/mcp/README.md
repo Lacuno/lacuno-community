@@ -5,7 +5,7 @@ over a server site at `/mcp/<site id>` (Streamable HTTP, OAuth).
 
 | Tool | What it does |
 | --- | --- |
-| `guide` | The document model, the workflow and the operation catalog; pass `group` for its schemas. |
+| `guide` | Documentation only: the document model, the workflow and the catalog of operations `document.apply` accepts; pass `group` for its schemas. |
 | `document.read` | Revision and overview: site, pages, folders, classes, breakpoints, tokens, components, collections, assets. |
 | `page.outline` | Indented node tree of a page or component with ids, tags, classes and text snippets. |
 | `node.get` | One node and its subtree. |

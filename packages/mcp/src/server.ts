@@ -82,6 +82,20 @@ async function insideSite(siteDir: string | undefined, file: string): Promise<st
  * given, so `page: ''` next to a component is no second target. The schemas they see stay as
  * written.
  */
+/** What each tool may do, for the apps that call it: reads change nothing; adds create without destroying. */
+const reads = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+}
+const adds = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+}
+
 function lenient(shape: z.ZodRawShape): z.ZodRawShape {
   return Object.fromEntries(
     Object.entries(shape).map(([key, field]) => [
@@ -112,7 +126,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'guide',
     {
-      description: `How the Lacuno document works and the operation catalog. Groups: ${operationGroups().join(', ')}.`,
+      annotations: reads,
+      description: `Documentation only, changes nothing: how the Lacuno document works and the catalog of the ${MCP_OPERATIONS.length} operations document.apply accepts, each with its fields. Groups: ${operationGroups().join(', ')}.`,
       inputSchema: { group: z.string().optional() },
     },
     async ({ group }) => {
@@ -127,8 +142,14 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'document.apply',
     {
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
       description:
-        'Apply a batch of operations atomically. Pass the revision you read; use dryRun to preview patches.',
+        'The one tool that changes a site: applies a batch of operations from the catalog in guide to the site document, atomically, each validated against its own schema. Pass the revision you read; use dryRun to preview patches.',
       inputSchema: {
         expectedRevision: z.number().int().nonnegative(),
         operations: z.array(z.looseObject({ type: z.string() })),
@@ -164,8 +185,9 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'document.diff',
     {
+      annotations: reads,
       description:
-        'Summary of what operations would change (dry run) or of what changed since the lacuno.json at path against, inside the site folder. json: structured output.',
+        'Read-only: what a batch of operations would change (a dry run), or what changed since the lacuno.json at path against, inside the site folder. json: structured output.',
       inputSchema: {
         operations: z.array(z.looseObject({ type: z.string() })).optional(),
         against: z.string().optional(),
@@ -207,6 +229,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'asset.import',
     {
+      annotations: { ...adds, openWorldHint: true },
       description:
         'Import a file and return the asset reference. Pass one of: url, a public https address the server downloads; path, relative to the site folder and inside it; data, base64 (small files only: every byte costs tokens). For a local file on a connected site, use asset.upload instead.',
       inputSchema: {
@@ -245,6 +268,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     server.registerTool(
       'asset.upload',
       {
+        annotations: adds,
         description:
           "For a file on your machine: returns a single-use https address, valid 10 minutes. PUT the file to it, for example `curl -sS -T photo.jpg '<url>'`; the answer is the asset reference.",
         inputSchema: details,
@@ -263,6 +287,12 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     server.registerTool(
       'site.publish',
       {
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
         description: 'Publish the saved document to the testing address; returns its URL.',
         inputSchema: { name: z.string().max(80).optional() },
       },
@@ -278,6 +308,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     server.registerTool(
       'site.build',
       {
+        annotations: { ...adds, idempotentHint: true },
         description:
           'Build the site folder to static output with the compiler. siteUrl is used only when the document has no site.url.',
         inputSchema: { siteUrl: z.url().optional() },
@@ -305,6 +336,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'document.read',
     {
+      annotations: reads,
       description:
         'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, components, collections, assets. No nodes, styles or entries. Each asset and collection lists `usedBy`, the places that reference it (empty when unused, so asset.delete can remove it).',
     },
@@ -336,6 +368,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'page.outline',
     {
+      annotations: reads,
       description:
         'Indented node tree of a page (by id or path, as page.preview takes it) or a component: id, tag, classes, text snippet. Classes are shown by id, usable with styles.get and style.set.',
       inputSchema: {
@@ -367,6 +400,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'page.preview',
     {
+      annotations: reads,
       description:
         "A route's HTML as published, without a build. page: id or path; entry: id or slug on a collection page; text: one line per text node, `nodeId<TAB>text`.",
       inputSchema: {
@@ -391,6 +425,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     server.registerTool(
       'page.screenshot',
       {
+        annotations: reads,
         description:
           'PNG of a route in Chromium: the first screen (height, 800 by default), the whole page with fullPage, or one element with node. A long full page reaches you shrunk until its text is unreadable, so check sections with node instead.',
         inputSchema: {
@@ -438,6 +473,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'node.get',
     {
+      annotations: reads,
       description: 'One node and its subtree as a nested tree.',
       inputSchema: { id: z.string() },
     },
@@ -455,6 +491,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'styles.get',
     {
+      annotations: reads,
       description:
         'Style declarations by class (tag rules under "<class> <tag>"), breakpoint and state, as class → breakpoint → state → property → value. Pass one or more classes, or a node for the classes of it and everything inside it, in one call. All when neither is given.',
       inputSchema: {
@@ -494,6 +531,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   server.registerTool(
     'entries.list',
     {
+      annotations: reads,
       description:
         'Entries of a collection in order. Each lists `usedBy`, the places that reference it (empty when unused, so entry.delete can remove it).',
       inputSchema: { collection: z.string(), limit: z.number().int().positive().optional() },
