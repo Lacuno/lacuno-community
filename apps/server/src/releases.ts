@@ -337,9 +337,9 @@ export class Releases extends PublicationReader {
     }
     if (this.stopped) throw new Error('Server stopped')
     // Cloud runs only so many builds at once on the server; a build takes about 0.5 GB for seconds.
-    let release: (() => void) | undefined
+    let slot: Awaited<ReturnType<typeof buildSlot>> | undefined
     try {
-      release =
+      slot =
         this.exportOptions &&
         (await buildSlot(
           this.exportOptions,
@@ -353,56 +353,69 @@ export class Releases extends PublicationReader {
       this.waiting = undefined
     }
     try {
-      return await this.spawn(job, directory)
+      return await this.spawn(job, directory, slot?.maxImageWidth)
     } finally {
-      release?.()
+      slot?.release()
     }
   }
 
   /** Builds a snapshot directory in a child process, whose memory leaves with it. */
-  private async spawn(job: ReleaseRow, directory: string): Promise<unknown[]> {
+  private async spawn(
+    job: ReleaseRow,
+    directory: string,
+    maxImageWidth?: number,
+  ): Promise<unknown[]> {
     const source = import.meta.url.endsWith('.ts')
     const worker = fileURLToPath(
       new URL(source ? './build-worker.ts' : './build-worker.js', import.meta.url),
     )
-    const code = await new Promise<number | null>((resolve, reject) => {
-      const child = spawn(
-        process.execPath,
-        [
-          // A runaway build fails alone: the default template's heap peaks at about 110 MB.
-          '--max-old-space-size=384',
-          ...(source ? ['--import', import.meta.resolve('tsx')] : []),
-          worker,
-          directory,
-          job.origin!,
-          // Optimized images carry over between the site's builds; backups leave them out.
-          path.join(this.dataDir, 'builds', job.site_id, 'images'),
-        ],
-        { stdio: 'ignore' },
-      )
-      this.child = child
-      const timeout = setTimeout(() => {
-        child.kill('SIGKILL')
-        reject(new Error('Build exceeded the five-minute limit'))
-      }, 300_000)
-      child.once('error', (error) => {
-        clearTimeout(timeout)
-        reject(error)
-      })
-      child.once('exit', (code) => {
-        clearTimeout(timeout)
-        this.child = undefined
-        resolve(code)
-      })
-    })
+    const exited = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
+      (resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          [
+            // A runaway build fails alone: the default template's heap peaks at about 110 MB.
+            '--max-old-space-size=384',
+            ...(source ? ['--import', import.meta.resolve('tsx')] : []),
+            worker,
+            directory,
+            job.origin!,
+            // Optimized images carry over between the site's builds; backups leave them out.
+            path.join(this.dataDir, 'builds', job.site_id, 'images'),
+            ...(maxImageWidth ? [String(maxImageWidth)] : []),
+          ],
+          // libvips threads cost memory, not time, on a runtime's one CPU.
+          { stdio: 'ignore', env: { ...process.env, VIPS_CONCURRENCY: '1' } },
+        )
+        this.child = child
+        const timeout = setTimeout(() => {
+          child.kill('SIGKILL')
+          reject(new Error('Build exceeded the five-minute limit'))
+        }, 300_000)
+        child.once('error', (error) => {
+          clearTimeout(timeout)
+          reject(error)
+        })
+        child.once('exit', (code, signal) => {
+          clearTimeout(timeout)
+          this.child = undefined
+          resolve({ code, signal })
+        })
+      },
+    )
     if (this.stopped) throw new Error('Server stopped')
     let result: { warnings?: unknown[]; error?: string }
     try {
       result = JSON.parse(await readFile(path.join(directory, 'result.json'), 'utf8'))
     } catch {
-      throw new Error('Build worker exited without a result. Publish again to retry.')
+      // Its output goes nowhere, so the kill (the kernel's, for memory) is named here.
+      const how = exited.signal
+        ? `was killed (${exited.signal}), probably out of memory`
+        : `exited with code ${exited.code} and no result`
+      console.error(`Build worker for release ${job.id} ${how}`)
+      throw new Error(`Build worker ${how}. Publish again to retry.`)
     }
-    if (code !== 0 || result.error) throw new Error(result.error ?? 'Build worker failed')
+    if (exited.code !== 0 || result.error) throw new Error(result.error ?? 'Build worker failed')
     return result.warnings ?? []
   }
 

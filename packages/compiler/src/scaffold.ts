@@ -14,6 +14,8 @@ export type ScaffoldInput = {
   astroDir: string
   /** The compiler package directory, linked as `node_modules/@lacuno/compiler`. */
   compilerDir: string
+  /** The largest width an image variant may have; without it, the original's. */
+  maxImageWidth?: number
 }
 
 /**
@@ -30,6 +32,7 @@ import {
   resolveAllImages,
 } from '@lacuno/compiler/render'
 import raw from '../data/document.json'
+import build from '../data/build.json'
 import '../styles/site.css'
 
 export function getStaticPaths() {
@@ -41,7 +44,7 @@ export function getStaticPaths() {
 
 const doc = parseDocument(raw)
 const metas = import.meta.glob('../assets/*', { eager: true, import: 'default' })
-const images = await resolveAllImages(doc, metas, getImage)
+const images = await resolveAllImages(doc, metas, getImage, build.maxImageWidth)
 const { route } = Astro.props
 const page = doc.pages[route.page]
 const entry = route.entry
@@ -103,6 +106,10 @@ export async function writeScaffold(input: ScaffoldInput): Promise<void> {
   await writeFile(path.join(root, 'src/pages/[...path].astro'), ROUTE_SOURCE)
   await writeFile(path.join(root, 'src/styles/site.css'), input.css)
   await writeFile(path.join(root, 'src/data/document.json'), JSON.stringify(doc))
+  await writeFile(
+    path.join(root, 'src/data/build.json'),
+    JSON.stringify({ maxImageWidth: input.maxImageWidth }),
+  )
   await writeFile(path.join(root, 'public/robots.txt'), robots(doc.site.url))
 
   const inCss = cssImageAssets(doc)

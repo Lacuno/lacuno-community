@@ -73,9 +73,9 @@ function isRichText(v: Resolved): v is RichText {
  * Attributes from bindings. Booleans toggle the attribute; assets become paths.
  *
  * An image asset bound to `src` on an `<img>` is held back as `imageAsset` so the caller can
- * hand it to `renderImage` (which emits a full `<picture>`/`<img>` with dimensions and a
- * srcset). An image asset on any other attribute — including `src` on any other tag — is
- * resolved to its optimized `src` directly: the scaffold only copies an optimized image's
+ * hand it to `renderImage` (which emits an `<img>` with dimensions and a srcset). An image asset
+ * on any other attribute — including `src` on any other tag — is resolved to its optimized `src`
+ * directly: the scaffold only copies an optimized image's
  * original bytes to `public/` when a stylesheet references it, so `publicAssetPath` would
  * otherwise point at a file that does not exist in dist.
  */
@@ -148,12 +148,7 @@ function renderImage(
   if (img.height) merged.height = String(img.height)
   if (img.srcset) merged.srcset = img.srcset
   if (node.classes.length) merged.class = classAttr(state.names, node.classes)
-  const imgHtml = `<img${renderAttrs(merged)}>`
-  if (!img.sources?.length) return imgHtml
-  const sources = img.sources
-    .map((s) => `<source${renderAttrs({ type: s.type, srcset: s.srcset, sizes })}>`)
-    .join('')
-  return `<picture>${sources}${imgHtml}</picture>`
+  return `<img${renderAttrs(merged)}>`
 }
 
 function renderElement(node: ElementNode, scope: Scope, state: RenderState): string {

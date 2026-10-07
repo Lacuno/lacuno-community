@@ -27,6 +27,8 @@ export type BuildOptions = {
    * never leaves a partial file there, and the cache never outgrows the site's current images.
    */
   imageCache?: string
+  /** The largest width an image variant may have; without it, the original's. */
+  maxImageWidth?: number
 }
 
 export type BuildResult = {
@@ -229,6 +231,7 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
     css,
     astroDir: packageDir('astro'),
     compilerDir: packageDir('@lacuno/compiler'),
+    ...(options.maxImageWidth ? { maxImageWidth: options.maxImageWidth } : {}),
   })
   await linkSharp(site)
 

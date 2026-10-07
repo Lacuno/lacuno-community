@@ -25,7 +25,7 @@ built yet.
 | Live document | Plain JSON with named operations (D026) | Validation, dry runs and version pinning for editor and agents alike. Yjs is not used (D006) |
 | CSS generation | Our own, no dependency | Deterministic output is the whole point. Astro minifies the result at build time |
 | Site output | Astro 7 | Static by default, islands when needed, content collections, image service, view transitions. The best static generator for content sites and it keeps improving |
-| Image processing | sharp, through Astro | Responsive sizes, AVIF and WebP |
+| Image processing | sharp, through Astro | Responsive sizes as WebP |
 
 ## Server
 

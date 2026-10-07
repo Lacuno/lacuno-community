@@ -58,29 +58,40 @@ export async function withRetries(
 }
 
 /**
- * Waits for one of Cloud's build slots (`PUT <export>/sites/<site>/build`: 204 held, 202 waiting in
- * line), so the server runs only so many builds at once; `waiting` is called while it waits. A
- * runtime holds at most one, leased: it is renewed every 10 s while held, and this resolves to a
- * function that gives it back (`DELETE`). A Cloud without build slots refuses the key, and the
- * build starts at once; a sink that does not answer is asked again, like a full line, for up to
- * ten minutes.
+ * Waits for one of Cloud's build slots (`PUT <export>/sites/<site>/build`: 200 held, with the
+ * build's limits as JSON, 204 held without any, 202 waiting in line), so the server runs only so
+ * many builds at once; `waiting` is called while it waits. A runtime holds at most one, leased: it
+ * is renewed every 10 s while held, and this resolves to a function that gives it back
+ * (`DELETE`) and the largest width the plan allows an image, when it caps it. A Cloud without
+ * build slots refuses the key, and the build starts at once; a sink that does not answer is asked
+ * again, like a full line, for up to ten minutes.
  */
 export async function buildSlot(
   options: ExportOptions,
   site: string,
   waiting: () => void,
   stopped: () => boolean,
-) {
+): Promise<{ release: () => void; maxImageWidth?: number }> {
   const key = 'build'
-  const ask = async () => {
+  const ask = async (): Promise<{
+    status: number | undefined
+    limits?: { maxImageWidth?: number }
+  }> => {
     const response = await send(options, 'PUT', site, key, Buffer.alloc(0)).catch(() => undefined)
+    if (response?.status === 200)
+      return { status: 200, limits: await response.json().catch(() => undefined) }
     await response?.body?.cancel()
-    return response?.status
+    return { status: response?.status }
   }
+  let limits: { maxImageWidth?: number } | undefined
   for (const deadline = Date.now() + 600_000; ; ) {
-    const status = await ask()
-    if (status === 204) break
-    if (status && status !== 202 && status !== 429 && status < 500) return () => {}
+    const answer = await ask()
+    if (answer.status === 200 || answer.status === 204) {
+      limits = answer.limits
+      break
+    }
+    const { status } = answer
+    if (status && status !== 202 && status !== 429 && status < 500) return { release: () => {} }
     if (stopped()) throw new Error('Server stopped')
     if (Date.now() > deadline)
       throw new Error('Too many sites are being published right now. Publish again in a minute.')
@@ -89,11 +100,14 @@ export async function buildSlot(
   }
   const renew = setInterval(() => void ask(), 10_000)
   renew.unref()
-  return () => {
-    clearInterval(renew)
-    void send(options, 'DELETE', site, key)
-      .then((response) => response.body?.cancel())
-      .catch(() => {})
+  return {
+    ...(limits?.maxImageWidth ? { maxImageWidth: limits.maxImageWidth } : {}),
+    release: () => {
+      clearInterval(renew)
+      void send(options, 'DELETE', site, key)
+        .then((response) => response.body?.cancel())
+        .catch(() => {})
+    },
   }
 }
 

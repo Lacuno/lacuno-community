@@ -59,7 +59,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Form builder with validation, honeypot, submissions stored on the instance | MVP | Submissions are the one runtime endpoint the published site needs. In: a `form` without its own `action` publishes with a honeypot, a time check and a script that sends it in place; the server checks field count and sizes and limits each visitor per site. Still to come: stored submissions, an inbox and CSV export (D029) |
 | Email notifications and webhooks on submission | MVP | In: each message is emailed to the workspace owner over SMTP (`LACUNO_SMTP_URL`), replying to the visitor's address. Still to come: webhooks |
 | Asset library with folders, upload, drag onto canvas, alt text | MVP | Local disk or S3-compatible |
-| Image optimization: responsive sizes, AVIF and WebP, lazy loading | MVP | Astro image pipeline with sharp. In the editor, the canvas and thumbnails load WebP variants the server resizes on demand and caches, so originals stay out of the browser |
+| Image optimization: responsive sizes as WebP, lazy loading | MVP | Astro image pipeline with sharp. In the editor, the canvas and thumbnails load WebP variants the server resizes on demand and caches, so originals stay out of the browser |
 | Font management: self-hosted uploads, system stacks, variable fonts | MVP | Self-hosted only; no third-party font hosts, see D013. In: WOFF2, WOFF, TTF and OTF uploads, one face per file with weight and style, variable fonts as one face with a weight range (`font-weight:100 900`), system fonts with a fallback, managed in Site settings and picked from both font fields; published as font-face rules with one preload per family |
 | SVG and icon sets | Next | |
 
