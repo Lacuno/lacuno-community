@@ -64,6 +64,17 @@ export async function imageVariant(
   return bytes
 }
 
+/**
+ * Resizes a new image to the widths the editor asks for first (the assets panel, asset manager and
+ * CMS table load 320 or 960 wide) so they come from the cache; nothing waits on it, and an image
+ * sharp cannot resize is skipped as it would be on demand.
+ */
+export function warmVariants(siteDir: string, asset: AssetRef): void {
+  void (async () => {
+    for (const width of [320, 960]) await imageVariant(siteDir, asset, width)
+  })().catch(() => {})
+}
+
 /** Removes an image's variants, once no asset of the site carries its hash. */
 export const forgetVariants = (siteDir: string, hash: string) =>
   Promise.all(IMAGE_WIDTHS.map((width) => rm(variantFile(siteDir, hash, width), { force: true })))

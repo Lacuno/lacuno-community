@@ -176,7 +176,8 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
   scripts, forms, frames and external resources. Site scripts and embeds never run there.
 - Its HTML comes from `@lacuno/renderer`: the compiler's renderer and the CSS generator, with node
   ids on elements and assets served from the site's authenticated URLs; an image whose size is
-  known lists the server's resized variants in `srcset`. The server renders it per revision; the
+  known lists the server's resized variants in `srcset`, with `sizes="auto, 100vw"` so a browser
+  loads the variant for the width the image renders at. The server renders it per revision; the
   try build renders it in a service worker.
 - The editor loads the first render once and morphs every later one into the live document in
   place (D028), so scroll, selection and open controls survive an edit.
@@ -251,8 +252,8 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
   thumbnails ask the asset route for a width (`?w=`, 320 to 1920); the server resizes raster images
   to WebP with sharp on first demand, one at a time, never above the original, and keeps the
   result in `sites/<id>/cache/images/` until the asset is deleted. Uploads and imports record an
-  image's size from its bytes, and a start measures images registered without one, so every
-  raster image lists its variants. Published sites get Astro's
+  image's size from its bytes and start its 320 and 960 variants in the background, and a start
+  measures images registered without one, so every raster image lists its variants. Published sites get Astro's
   WebP variants instead. S3-compatible storage is planned.
 - **Screenshots.** `page.screenshot` renders the page's preview HTML in headless Chromium, through
   a separate screenshot service (`screenshot-main`, its own image, a fixed number of slots over one

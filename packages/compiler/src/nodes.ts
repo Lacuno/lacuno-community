@@ -134,7 +134,7 @@ function renderImage(
   state: RenderState,
 ): string {
   const img = state.resolveImage(asset)
-  const sizes = typeof attrs.sizes === 'string' ? attrs.sizes : DEFAULT_SIZES
+  const sizes = typeof attrs.sizes === 'string' ? attrs.sizes : (img.sizes ?? DEFAULT_SIZES)
   const merged: AttrMap = {
     loading: 'lazy',
     decoding: 'async',

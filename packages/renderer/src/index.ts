@@ -17,14 +17,21 @@ export const assetUrl = (siteId: string, asset: AssetRef, width?: number) =>
 /**
  * The canvas's sources for an image: the original, and with it the variants below its width when
  * there are any. An image whose size is unknown, or too small to shrink, has the original alone.
+ * The canvas cannot know how wide an image lays out, so `sizes` leaves the choice to the browser:
+ * `auto` picks the variant for the rendered width of a lazily loaded image (a thumbnail its 320,
+ * a hero still the original), and a browser without it takes the whole canvas as it did before.
  */
-export function canvasImage(siteId: string, asset: AssetRef): { src: string; srcset: string } {
+export function canvasImage(
+  siteId: string,
+  asset: AssetRef,
+): { src: string; srcset: string; sizes: string } {
   const src = assetUrl(siteId, asset)
+  const sizes = 'auto, 100vw'
   const variants = IMAGE_WIDTHS.filter((w) => w < (asset.width ?? 0)).map(
     (w) => `${assetUrl(siteId, asset, w)} ${w}w`,
   )
-  if (!variants.length) return { src, srcset: '' }
-  return { src, srcset: [...variants, `${src} ${asset.width}w`].join(', ') }
+  if (!variants.length) return { src, srcset: '', sizes }
+  return { src, srcset: [...variants, `${src} ${asset.width}w`].join(', '), sizes }
 }
 
 /** The canvas uses the compiler's DOM and CSS, with selection metadata and the editor's asset URLs. */
