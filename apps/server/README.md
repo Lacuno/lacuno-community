@@ -197,8 +197,10 @@ or a body over 64 KB is refused, and each visitor sends at most five messages to
 minutes, counted in memory by the last `X-Forwarded-For` address (the one your proxy adds) or the
 connection's. Without mail settings the endpoint answers 503 and the editor says forms are off.
 
-Each release stores the exact document and revision in SQLite and copies hash-verified assets into
-`data/builds/<site-id>/<release-id>/`. A child process runs the compiler with a five-minute timeout,
+Each release stores the exact document and revision in SQLite and hard-links the site's assets into
+`data/builds/<site-id>/<release-id>/` (copied when the data directory spans filesystems): an asset
+is content-addressed, hashed on upload and never rewritten, so the snapshot has nothing to verify.
+A child process runs the compiler with a five-minute timeout,
 optimizing one image at a time as WebP, up to the largest width a Cloud build slot allows; a worker
 the kernel kills for memory fails the release with its signal. Optimized images carry over between a site's builds in `data/builds/<site-id>/images/`, keyed by
 source hash and transform, so a publish re-encodes only new or changed images. A successful build

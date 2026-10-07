@@ -197,11 +197,12 @@ generates is meant to be read, edited or kept.
 - A pure renderer turns a document and a page into head and body HTML. It resolves bindings,
   components, slots, collection lists and rich text, and never touches the filesystem, so it is
   tested with plain snapshots.
-- The build writes a fixed scaffold into `.lacuno/astro`: one catch-all route, the generated
-  stylesheet, the document as JSON, copied assets, and a `node_modules` directory holding
-  symlinks to the installed Astro and compiler packages. The route enumerates every output path
-  through `getStaticPaths`, calls the renderer, and wraps the result in real html, head and body
-  tags so Astro can inline or link the stylesheet as it sees fit.
+- The build writes a fixed scaffold into `.lacuno/astro`: one catch-all route, a module that
+  optimizes every image once per build, the generated stylesheet, the document as JSON, the assets
+  hard-linked in, and a `node_modules` directory holding symlinks to the installed Astro and
+  compiler packages. The route enumerates every output path through `getStaticPaths`, calls the
+  renderer, and wraps the result in real html, head and body tags so Astro can inline or link the
+  stylesheet as it sees fit.
 - Astro's programmatic build then produces `dist/`: compressed HTML, one minified stylesheet
   inlined when small, images optimized to WebP with a width set, hashed asset names,
   redirects as meta-refresh pages, robots and a sitemap when the site URL is known.

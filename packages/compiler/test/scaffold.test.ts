@@ -5,7 +5,7 @@ import path from 'node:path'
 import { styleKey } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { writeFixtureSite } from '../src/fixture-site.js'
-import { cssImageAssets, ROUTE_SOURCE, writeScaffold } from '../src/scaffold.js'
+import { cssImageAssets, IMAGES_SOURCE, ROUTE_SOURCE, writeScaffold } from '../src/scaffold.js'
 
 const dirs: string[] = []
 async function tmp(): Promise<string> {
@@ -30,7 +30,7 @@ describe('writeFixtureSite', () => {
 })
 
 describe('writeScaffold', () => {
-  it('writes files, copies assets by kind and links packages', async () => {
+  it('writes files, links assets by kind and links packages', async () => {
     const siteDir = await tmp()
     const doc = await writeFixtureSite(siteDir)
     const fake = await tmp()
@@ -38,11 +38,13 @@ describe('writeScaffold', () => {
     await writeScaffold({ root, siteDir, doc, css: 'body{}', astroDir: fake, compilerDir: fake })
     const hero = doc.assets['a-hero']!
     expect(await readFile(path.join(root, 'src/pages/[...path].astro'), 'utf8')).toBe(ROUTE_SOURCE)
+    expect(await readFile(path.join(root, 'src/data/images.ts'), 'utf8')).toBe(IMAGES_SOURCE)
     expect(await readFile(path.join(root, 'src/styles/site.css'), 'utf8')).toBe('body{}')
     expect(JSON.parse(await readFile(path.join(root, 'src/data/document.json'), 'utf8'))).toEqual(
       doc,
     )
-    expect(existsSync(path.join(root, 'src/assets', `${hero.hash}.png`))).toBe(true)
+    // The image shares the site's file: a hard link, not a copy.
+    expect((await lstat(path.join(root, 'src/assets', `${hero.hash}.png`))).nlink).toBe(2)
     expect(existsSync(path.join(root, 'public/assets', `${hero.hash}.png`))).toBe(false)
     expect(await readFile(path.join(root, 'public/robots.txt'), 'utf8')).toBe(
       'User-agent: *\nAllow: /\n',

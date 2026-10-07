@@ -240,12 +240,29 @@ describe('export to the edge', () => {
       const puts = log.filter((line) => line.startsWith('PUT '))
       expect(puts).toContain(`PUT releases/${second}/index.html`)
       expect(puts.filter((line) => line.startsWith('PUT immutable/'))).toEqual([])
-      expect(log.some((line) => line.startsWith('HEAD immutable/_astro/'))).toBe(true)
+      // Files this runtime sent before are skipped without asking the sink.
+      expect(log.filter((line) => line.startsWith('HEAD '))).toEqual([])
+      expect(table('exported_immutable').length).toBeGreaterThan(0)
       // The release files are all up before the pointer moves.
       await expect.poll(() => pointers.get('production')).toBe(second)
       expect(log.indexOf('PUT pointer/production')).toBeGreaterThan(
         log.lastIndexOf(`PUT releases/${second}/index.html`),
       )
+    },
+    build,
+  )
+
+  it(
+    'asks the sink about immutable files it has not sent, as after a restore, and remembers its answer',
+    async () => {
+      const { sqlite } = openDatabase(dir)
+      sqlite.prepare('DELETE FROM exported_immutable').run()
+      sqlite.close()
+      log.length = 0
+      second = await publish(second)
+      expect(log.some((line) => line.startsWith('HEAD immutable/_astro/'))).toBe(true)
+      expect(log.filter((line) => line.startsWith('PUT immutable/'))).toEqual([])
+      expect(table('exported_immutable').length).toBeGreaterThan(0)
     },
     build,
   )

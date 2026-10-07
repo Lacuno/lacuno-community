@@ -214,10 +214,22 @@ export class Exporter {
 
   /**
    * Uploads a release's files, `parallelUploads` at a time, each retried through a sink outage.
-   * Content-addressed files the sink has already are skipped.
+   * Content-addressed files the sink has already are skipped: without asking, once this runtime
+   * has sent or seen one there (`exported_immutable`), so a repeat publish does not spend a HEAD
+   * per image variant; a file first seen after a restore is still asked about.
    */
   async upload(siteId: string, releaseId: string) {
     const root = this.dist(siteId, releaseId)
+    const known = new Set(
+      (
+        this.sqlite.prepare('SELECT key FROM exported_immutable WHERE site_id=?').all(siteId) as {
+          key: string
+        }[]
+      ).map((row) => row.key),
+    )
+    const remember = this.sqlite.prepare(
+      'INSERT OR IGNORE INTO exported_immutable(site_id,key) VALUES(?,?)',
+    )
     const files = (await readdir(root, { recursive: true, withFileTypes: true }))
       .map((entry) => ({
         entry,
@@ -235,6 +247,10 @@ export class Exporter {
         // Content-addressed files are shared by every release of the site.
         const immutable = ['assets', '_astro'].includes(parts[0]!)
         const key = `${immutable ? 'immutable' : `releases/${releaseId}`}/${parts.map(encodeURIComponent).join('/')}`
+        if (immutable && known.has(key)) {
+          sent.skipped++
+          continue
+        }
         if (immutable) {
           const head = await withRetries(
             () => send(this.options, 'HEAD', siteId, key),
@@ -242,6 +258,7 @@ export class Exporter {
             stopped,
           )
           if (head?.status === 200) {
+            remember.run(siteId, key)
             sent.skipped++
             continue
           }
@@ -256,6 +273,7 @@ export class Exporter {
           failed = true
           throw new Error(`Export sink answered ${response?.status ?? 'nothing'} for ${key}`)
         }
+        if (immutable) remember.run(siteId, key)
         sent.files++
         sent.bytes += body.length
       }

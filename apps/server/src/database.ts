@@ -166,4 +166,19 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM lacuno_migrations WHERE version = 7').get()) return
+      // The content-addressed files of each site's releases that Cloud's sink has, so an upload
+      // asks it only about the files it has not sent before (export.ts).
+      sqlite.exec(`
+      CREATE TABLE exported_immutable (
+        site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        key TEXT NOT NULL,
+        PRIMARY KEY(site_id, key)
+      );
+      INSERT INTO lacuno_migrations (version) VALUES (7);
+    `)
+    })
+    .immediate()
 }
