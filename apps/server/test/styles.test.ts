@@ -19,7 +19,7 @@ it('edits a gradient headline: angle, stops with project colours, and text fill'
   const computed = (property: string) =>
     heading.evaluate((el, property) => getComputedStyle(el).getPropertyValue(property), property)
   await heading.click()
-  const colors = await openFormatting(page, 'Colors')
+  const colors = await openFormatting(page, 'Appearance')
   await colors.getByRole('button', { name: 'Add gradient' }).click()
   await saved()
   await colors.getByLabel('Gradient angle').fill('90')
@@ -88,7 +88,7 @@ it('shapes and places a radial gradient: circle, a preset centre and a typed one
     heading.evaluate((el) => getComputedStyle(el).getPropertyValue('background-image'))
   const gradient = async () => (await localStyles(document))['background-image']
   await heading.click()
-  const colors = await openFormatting(page, 'Colors')
+  const colors = await openFormatting(page, 'Appearance')
   await colors.getByRole('button', { name: 'Add gradient' }).click()
   await saved()
   await colors.getByLabel('Gradient type').selectOption('radial')

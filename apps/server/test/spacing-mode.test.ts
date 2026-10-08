@@ -90,7 +90,7 @@ it('switches spacing mode with the chip: nubs, labelled boxes, sidebar focus, te
   await chip.click()
   await expect.poll(() => shown('.strip.padding.top')).toBe(false)
   expect(await shown('.handle.padding.top')).toBe(false)
-  await openFormatting(page, 'Spacing & shape')
+  await openFormatting(page, 'Spacing')
   const input = page.locator('aside.inspector').getByLabel('Inside spacing top', { exact: true })
   await input.focus()
   await expect.poll(() => shown('.strip.padding.top')).toBe(true)

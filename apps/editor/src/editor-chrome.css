@@ -100,14 +100,6 @@
   font-family: ui-monospace, monospace;
 }
 
-.section-label {
-  border-top: 1px solid var(--border);
-  padding-top: 24px;
-  margin-top: 25px;
-  font-size: 9px;
-  letter-spacing: 1px;
-  font-weight: 650;
-}
 .canvas-shell {
   flex-shrink: 0;
   height: 100%;
@@ -145,9 +137,6 @@
   border-bottom: 1px solid var(--border);
   padding-bottom: 16px;
   margin-bottom: 20px;
-}
-.class-manager .section-label {
-  margin-top: 12px;
 }
 .class-manager form {
   margin: 12px 0;
@@ -328,8 +317,7 @@
   border-top: 1px solid var(--border);
   padding: 14px 0;
 }
-.formatting-controls summary,
-.advanced-classes > summary {
+.formatting-controls summary {
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
@@ -987,9 +975,6 @@
   margin: 0;
   min-width: 0;
 }
-.inspector-presets {
-  border-top: 1px solid var(--border);
-}
 .formatting-reset,
 .page-context > button {
   display: flex;
@@ -1403,16 +1388,6 @@
 .editor .inspector-formatting select {
   height: 33px;
   font-size: 11px;
-}
-.editor .advanced-classes {
-  border-top: 1px solid var(--border);
-  margin-top: 17px;
-  padding-top: 17px;
-}
-.editor .advanced-classes > summary {
-  font-size: 10px;
-  font-weight: 500;
-  color: #7d8191;
 }
 .editor .inspector-fields > .hint[role="status"] {
   font-size: 9px;

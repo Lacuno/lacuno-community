@@ -28,7 +28,7 @@ export const formattingGroups = [
     ],
   },
   {
-    name: 'Colors',
+    name: 'Appearance',
     fields: [
       { property: 'color', label: 'Text color' },
       { property: 'background-color', label: 'Background color' },
@@ -94,7 +94,7 @@ export const formattingGroups = [
     ],
   },
   {
-    name: 'Spacing & shape',
+    name: 'Spacing',
     fields: [
       { property: 'padding-top', label: 'Inside spacing top' },
       { property: 'padding-right', label: 'Inside spacing right' },

@@ -39,8 +39,8 @@ it('keeps the compact canvas in place across selection and formatting states', a
       'Typography',
       'Layout',
       'Size',
-      'Spacing & shape',
-      'Colors',
+      'Spacing',
+      'Appearance',
       'Effects',
       'Motion',
     ]) {
@@ -181,30 +181,28 @@ it('opens the relevant formatting group and remembers explicit choices across se
   const isOpen = (name: string) =>
     group(name).evaluate((element) => (element as HTMLDetailsElement).open)
   await canvas.locator('[data-lacuno-node="n-home-title"]').click()
-  expect(await isOpen('Colors')).toBe(false)
+  expect(await isOpen('Appearance')).toBe(false)
   expect(await isOpen('Typography')).toBe(true)
   await group('Typography').locator(':scope > summary').click()
-  await group('Colors').locator(':scope > summary').click()
+  await group('Appearance').locator(':scope > summary').click()
   await canvas.locator('[data-lacuno-node="n-home-cta"]').click()
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
   await expect
     .poll(() => page.getByLabel('Editing breakpoint').locator('option:checked').textContent())
     .toContain('Mobile')
-  expect(await isOpen('Colors')).toBe(true)
+  expect(await isOpen('Appearance')).toBe(true)
   expect(await isOpen('Size')).toBe(false)
-  await group('Colors').locator(':scope > summary').click()
+  await group('Appearance').locator(':scope > summary').click()
   await openFormatting(page, 'Size')
   // The toggle event comes after the click; wait for it to be remembered.
   await expect
     .poll(() =>
-      page.evaluate(() =>
-        JSON.parse(localStorage.getItem('lacuno:open-sections') ?? '[]').includes('Size'),
-      ),
+      page.evaluate(() => JSON.parse(localStorage.getItem('lacuno:open-sections') ?? '{}').Size),
     )
     .toBe(true)
   await page.reload()
   await canvas.locator('[data-lacuno-node="n-home-title"]').click()
   expect(await isOpen('Size')).toBe(true)
-  expect(await isOpen('Colors')).toBe(false)
+  expect(await isOpen('Appearance')).toBe(false)
   expect(await isOpen('Typography')).toBe(false)
 }, 60_000)

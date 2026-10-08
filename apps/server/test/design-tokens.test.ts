@@ -45,7 +45,7 @@ it('creates a spacing token, binds a field to it, snaps a handle to it, detaches
 
   // Bind the top padding from the inspector: the field shows the token, the canvas its value.
   await cta.click()
-  await openFormatting(page, 'Spacing & shape')
+  await openFormatting(page, 'Spacing')
   const inspector = page.locator('aside.inspector')
   const top = inspector.getByLabel('Inside spacing top', { exact: true })
   const pickToken = async (side: string, name: string) => {
