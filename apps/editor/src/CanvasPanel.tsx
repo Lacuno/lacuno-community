@@ -238,6 +238,9 @@ export function CanvasPanel({
             selected={selected}
             inner={inner}
             selectedName={selectedName}
+            selectedParentName={
+              node?.parent && doc?.nodes[node.parent] ? nodeLabel(doc.nodes[node.parent]!) : ''
+            }
             selectedField={node && doc && !inner ? boundFieldLabel(doc, node) : ''}
             select={(id, tag) => {
               reveal()

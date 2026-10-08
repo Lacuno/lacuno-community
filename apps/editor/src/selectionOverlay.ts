@@ -13,7 +13,12 @@ import {
   wheelColor,
 } from './colorWheel.js'
 import { layoutAxis } from './dragTarget.js'
-import { childAlignment, type Position } from './layout.js'
+import {
+  type AlignmentAxis,
+  childAlignmentPosition,
+  childAxisAlignment,
+  type Position,
+} from './layout.js'
 import { STATES, stateInfo } from './states.js'
 import { type Snap, snapTo, tokenPx } from './tokens.js'
 
@@ -21,6 +26,7 @@ type Side = 'top' | 'right' | 'bottom' | 'left'
 
 export type Selection = {
   name: string
+  parentName: string
   /** The CMS field the element shows, if it is bound to one. */
   field: string
   /** The breakpoint being edited, as shown to the designer. */
@@ -56,6 +62,15 @@ const ALIGN_ICON =
   '<rect x="2" y="2" width="12" height="12" rx="1"/><rect x="6.5" y="6.5" width="3" height="3" fill="currentColor"/>'
 const DISTRIBUTE_ICON =
   '<path d="M2 3v10M14 3v10"/><rect x="4.5" y="5.5" width="2.5" height="5"/><rect x="9" y="5.5" width="2.5" height="5"/>'
+
+const alignmentIcon = (axis: AlignmentAxis, position: Position) => {
+  const at = position === 'start' ? 2 : position === 'center' ? 8 : 14
+  const left = (width: number) =>
+    position === 'start' ? 4 : position === 'center' ? 8 - width / 2 : 12 - width
+  return svg(
+    `<g${axis === 'vertical' ? ' transform="rotate(90 8 8)"' : ''}><path d="M${at} 2v12"/><rect x="${left(7)}" y="4" width="7" height="3" rx=".5"/><rect x="${left(4)}" y="9" width="4" height="3" rx=".5"/></g>`,
+  )
+}
 
 const SIDES = ['top', 'right', 'bottom', 'left']
 const POSITIONS: Position[] = ['start', 'center', 'end']
@@ -111,13 +126,22 @@ export function selectionOverlay(
     .state-menu button[aria-checked="true"] small { color:#ffffffcc; }
     .state-menu strong { display:block;font-weight:600; }
     .state-menu small { display:block;color:#655484;font-size:10px; }
-    .align-menu { display:grid;gap:4px; }
-    .align-grid { display:grid;grid-template-columns:repeat(3, 1fr);gap:3px;padding:5px;border:1px solid #e3ddf0;border-radius:8px;background:#f8f7fb; }
-    .align-grid button { display:grid;place-items:center;width:28px;height:22px;padding:0;border:1px solid transparent;border-radius:4px;background:transparent;cursor:pointer; }
-    .align-grid button:hover, .align-grid button:focus-visible { background:#eae3fb;border-color:#c6b7ec;outline:none; }
-    .align-grid i { width:4px;height:4px;border-radius:50%;background:#7452c5; }
-    .distribute { display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer; }
-    .distribute:hover, .distribute:focus-visible { background:#f1ecfd;outline:none; }
+    .align-menu { width:252px;max-width:calc(100vw - 8px);padding:12px;border:1px solid #e5e1ed;color:#292432;box-shadow:0 6px 24px #29203324; }
+    .align-heading { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:12px; }
+    .align-heading span { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .align-heading strong { font-weight:600; }
+    .align-close { display:grid;place-items:center;flex-shrink:0;width:24px;height:24px;padding:0;border:0;border-radius:4px;background:transparent;color:#777080;cursor:pointer; }
+    .align-axis + .align-axis { margin-top:12px; }
+    .align-axis-label { display:block;margin-bottom:6px;font-size:11px;color:#756d80; }
+    .align-options { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px; }
+    .align-options button { display:flex;flex-direction:column;align-items:center;gap:6px;min-height:48px;padding:8px 3px;border:1px solid #e7e2ee;border-radius:6px;background:white;color:inherit;font:inherit;font-size:11px;cursor:pointer; }
+    .align-options button[aria-pressed="true"] { border-color:#bba6f5;background:#f1ebff;color:#6434d9; }
+    .align-icon svg { display:block;width:18px;height:18px; }
+    .align-menu button:hover { background:#f4efff; }
+    .align-menu button:focus-visible { outline:2px solid #9470ea;outline-offset:1px; }
+    .align-note { margin-top:12px;padding-top:10px;border-top:1px solid #eeeaf4;color:#756d80;font-size:11px; }
+    .distribute { display:flex;align-items:center;gap:8px;width:100%;margin-top:10px;padding:7px 6px;border:0;border-top:1px solid #eeeaf4;border-radius:0 0 4px 4px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer; }
+    .bar .align[aria-expanded="true"] { background:white;color:#6434d9; }
     .color-menu { display:grid;grid-template-columns:minmax(0, 1fr);gap:8px;padding:12px;width:${WHEEL_SIZE + 24}px; }
     .color-menu > * { min-width:0; }
     .wheel { position:relative;width:${WHEEL_SIZE}px;height:${WHEEL_SIZE}px;border-radius:50%;cursor:crosshair;touch-action:none;box-shadow:inset 0 0 0 1px #0002; }
@@ -165,7 +189,7 @@ export function selectionOverlay(
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
   </style><svg class="frame"><g class="hover"></g><rect class="selection-base"/><rect class="selection-dashes"/></svg>
-  <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button><button class="align" type="button" aria-haspopup="menu" aria-expanded="false">${svg(ALIGN_ICON)}Align</button></div>
+  <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button><button class="align" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(ALIGN_ICON)}Align</button></div>
   <div class="bar bar-bottom"><button class="swatch text" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(TEXT_ICON)}<i></i></button><button class="swatch background" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(BACKGROUND_ICON)}<i></i></button></div>
   <div class="menu state-menu" role="menu" aria-label="Element state" hidden>${Object.entries(
     STATES,
@@ -175,15 +199,12 @@ export function selectionOverlay(
         `<button type="button" role="menuitemradio" aria-checked="false" data-state="${value}">${svg(info.icon)}<span><strong>${info.label}</strong><small>${info.hint}</small></span></button>`,
     )
     .join('')}</div>
-  <div class="menu align-menu" role="menu" aria-label="Align within parent" hidden><div class="align-grid">${POSITIONS.flatMap(
-    (y, yi) =>
-      POSITIONS.map(
-        (x, xi) =>
-          `<button type="button" role="menuitem" aria-label="Align ${['left', 'center', 'right'][xi]} ${['top', 'middle', 'bottom'][yi]}" data-x="${x}" data-y="${y}"><i></i></button>`,
-      ),
-  ).join(
-    '',
-  )}</div><button class="distribute" type="button" role="menuitem">${svg(DISTRIBUTE_ICON)}Distribute</button></div>
+  <div class="menu align-menu" role="dialog" aria-label="Align within parent" hidden>
+    <div class="align-heading"><span>Align within <strong></strong></span><button class="align-close" type="button" aria-label="Close alignment controls">${svg('<path d="m4 4 8 8M12 4l-8 8"/>')}</button></div>
+    ${(['horizontal', 'vertical'] as const).map((axis) => `<div class="align-axis" data-axis="${axis}" role="group" aria-label="${axis === 'horizontal' ? 'Horizontal' : 'Vertical'} alignment"><span class="align-axis-label">${axis === 'horizontal' ? 'Horizontal' : 'Vertical'}</span><div class="align-options">${POSITIONS.map((position) => `<button type="button" data-axis="${axis}" data-position="${position}" aria-pressed="false"><span class="align-icon"></span><span class="align-option-label"></span></button>`).join('')}</div></div>`).join('')}
+    <div class="align-note">This element only</div>
+    <button class="distribute" type="button">${svg(DISTRIBUTE_ICON)}Distribute siblings</button>
+  </div>
   <div class="menu color-menu" role="dialog" aria-label="Color" hidden>
     <div class="wheel"><div class="wheel-thumb"></div></div>
     <label>Saturation<input class="saturation" type="range" min="0" max="100" aria-label="Saturation"></label>
@@ -329,50 +350,117 @@ export function selectionOverlay(
     const style = view.getComputedStyle(parent)
     return { parent, display: style.display, horizontal: layoutAxis(style).horizontal }
   }
-  // A block parent only places a child sideways, so the grid shrinks to its middle row;
-  // Distribute spreads the children of a Row or Stack, so it needs two of them.
-  const openAlign = () => {
+  const paintAlignment = () => {
     const layout = parentLayout()
-    if (!layout) return
-    closeMenus()
+    if (!layout || !element) return
     const flex = layout.display.includes('flex')
-    for (const item of alignMenu.querySelectorAll<HTMLElement>('[data-y]'))
-      item.hidden = !flex && !layout.display.includes('grid') && item.dataset.y !== 'center'
+    const grid = layout.display.includes('grid')
+    const parentStyle = view.getComputedStyle(layout.parent)
+    const own = view.getComputedStyle(element)
+    const typed = element.computedStyleMap?.()
+    const values = Object.fromEntries(
+      ['margin-left', 'margin-right', 'margin-top', 'margin-bottom'].map((property) => [
+        property,
+        typed?.get(property)?.toString() ?? own.getPropertyValue(property),
+      ]),
+    )
+    values['align-self'] = own.alignSelf === 'auto' ? parentStyle.alignItems : own.alignSelf
+    values['justify-self'] = own.justifySelf === 'auto' ? parentStyle.justifyItems : own.justifySelf
+    alignMenu.querySelector('strong')!.textContent =
+      latest().parentName || layout.parent.tagName.toLowerCase()
+    for (const axis of ['horizontal', 'vertical'] as const) {
+      const group = alignMenu.querySelector<HTMLElement>(`.align-axis[data-axis="${axis}"]`)!
+      group.hidden = axis === 'vertical' && !flex && !grid
+      const along = flex && (axis === 'horizontal') === layout.horizontal
+      const selected = childAlignmentPosition(axis, layout.display, layout.horizontal, values)
+      for (const button of group.querySelectorAll<HTMLButtonElement>('button')) {
+        const position = button.dataset.position as Position
+        const index = POSITIONS.indexOf(position)
+        const label =
+          along && position === 'start'
+            ? 'In flow'
+            : (axis === 'horizontal' ? ['Left', 'Center', 'Right'] : ['Top', 'Middle', 'Bottom'])[
+                index
+              ]!
+        button.setAttribute(
+          'aria-label',
+          `${axis === 'horizontal' ? 'Horizontal' : 'Vertical'}: ${label}`,
+        )
+        button.setAttribute('aria-pressed', String(position === selected))
+        button.querySelector('.align-option-label')!.textContent = label
+        const icon =
+          along && position === 'start'
+            ? svg(
+                layout.horizontal
+                  ? '<path d="M2 8h12m-4-4 4 4-4 4"/>'
+                  : '<path d="M8 2v12m-4-4 4 4 4-4"/>',
+              )
+            : alignmentIcon(axis, position)
+        const glyph = button.querySelector<HTMLElement>('.align-icon')!
+        const key =
+          along && position === 'start' ? `flow-${layout.horizontal}` : `${axis}-${position}`
+        if (glyph.dataset.icon !== key) {
+          glyph.dataset.icon = key
+          glyph.innerHTML = icon
+        }
+      }
+    }
     distribute.hidden =
       !flex || layout.parent.querySelectorAll(':scope > [data-lacuno-node]').length < 2
+  }
+  const openAlign = () => {
+    if (!parentLayout()) return
+    closeMenus()
     alignMenu.hidden = false
     alignChip.setAttribute('aria-expanded', 'true')
     open = { el: alignMenu, anchor: alignChip }
-    alignMenu.querySelector<HTMLElement>('[data-y]:not([hidden])')?.focus()
+    paintAlignment()
+    const firstGroup = alignMenu.querySelector('.align-axis:not([hidden])')
+    ;(
+      firstGroup?.querySelector<HTMLElement>('[aria-pressed="true"]') ??
+      firstGroup?.querySelector<HTMLElement>('button')
+    )?.focus()
   }
   alignChip.addEventListener('click', (event) => {
     event.stopPropagation()
     if (open?.el === alignMenu) closeMenus()
     else openAlign()
   })
-  alignMenu.addEventListener('click', (event) => {
-    const item = (event.target as Element).closest<HTMLElement>('[role="menuitem"]')
-    const layout = parentLayout()
-    if (!item || !layout) return
-    event.stopPropagation()
+  alignMenu.querySelector('.align-close')!.addEventListener('click', () => {
     closeMenus()
-    if (item === distribute)
+    alignChip.focus()
+  })
+  alignMenu.addEventListener('click', (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>('button')
+    const layout = parentLayout()
+    if (!button || !layout) return
+    event.stopPropagation()
+    if (button === distribute) {
       onStyle({
         id: layout.parent.getAttribute('data-lacuno-node')!,
         changes: { 'justify-content': kw('space-between') },
         phase: 'commit',
       })
-    else
+    } else if (button.dataset.position) {
       onStyle({
-        changes: childAlignment(
-          item.dataset.x as Position,
-          item.dataset.y as Position,
+        changes: childAxisAlignment(
+          button.dataset.axis as AlignmentAxis,
+          button.dataset.position as Position,
           layout.display,
           layout.horizontal,
         ),
         phase: 'commit',
       })
+    }
   })
+  let pendingAlignment: { id: string; until: number } | undefined
+  const alignAfterDrop = (event: Event) => {
+    pendingAlignment = {
+      id: (event as CustomEvent<string>).detail,
+      until: performance.now() + 2000,
+    }
+  }
+  doc.addEventListener('lacuno:align-after-drop', alignAfterDrop)
   spacingChip.addEventListener('click', (event) => {
     event.stopPropagation()
     spacingMode = !spacingMode
@@ -651,7 +739,10 @@ export function selectionOverlay(
   })
 
   const outside = (event: Event) => {
-    if (open && !event.composedPath().includes(host)) closeMenus()
+    if (!event.composedPath().includes(host)) {
+      pendingAlignment = undefined
+      if (open) closeMenus()
+    }
   }
   const key = (event: KeyboardEvent) => {
     if (!open || event.key !== 'Escape') return
@@ -871,12 +962,38 @@ export function selectionOverlay(
         bounds.left,
         bottomFits ? bounds.bottom + 4 : Math.max(2, topTop - bottomBar.offsetHeight - 4),
       )
+      if (pendingAlignment) {
+        if (performance.now() > pendingAlignment.until) pendingAlignment = undefined
+        else if (
+          !editing &&
+          !selection.inner &&
+          selected!.getAttribute('data-lacuno-node') === pendingAlignment.id
+        ) {
+          pendingAlignment = undefined
+          openAlign()
+        }
+      }
+      if (open?.el === alignMenu) paintAlignment()
       if (open) {
         const anchor = open.anchor.getBoundingClientRect()
         const under = anchor.bottom + 4
         const fits = under + open.el.offsetHeight <= view.innerHeight - 4
-        open.el.style.left = `${Math.max(4, Math.min(anchor.left, view.innerWidth - open.el.offsetWidth - 4))}px`
-        open.el.style.top = `${fits ? under : Math.max(4, anchor.top - open.el.offsetHeight - 4)}px`
+        let left = Math.max(4, Math.min(anchor.left, view.innerWidth - open.el.offsetWidth - 4))
+        let top = fits ? under : Math.max(4, anchor.top - open.el.offsetHeight - 4)
+        if (open.el === alignMenu) {
+          // Keep the dropped element available to grab again. Prefer below it, then above or beside
+          // it; a viewport-filling selection falls back to the chip's clamped popover.
+          const below = bounds.bottom + (bottomBar.hidden ? 0 : bottomBar.offsetHeight) + 8
+          const above = bounds.top - topBar.offsetHeight - open.el.offsetHeight - 8
+          if (below + open.el.offsetHeight <= view.innerHeight - 4) top = below
+          else if (above >= 4) top = above
+          else if (bounds.right + open.el.offsetWidth + 12 <= view.innerWidth)
+            left = bounds.right + 8
+          else if (bounds.left - open.el.offsetWidth - 8 >= 4)
+            left = bounds.left - open.el.offsetWidth - 8
+        }
+        open.el.style.left = `${left}px`
+        open.el.style.top = `${top}px`
       }
       // Handles ride the edges every frame, but not while the element's text is being edited.
       // Spacing nubs show in spacing mode; the boxes also while a sidebar spacing input has focus
@@ -906,6 +1023,7 @@ export function selectionOverlay(
     doc.removeEventListener('pointerdown', outside, true)
     doc.removeEventListener('pointermove', alt)
     doc.removeEventListener('pointerleave', leave)
+    doc.removeEventListener('lacuno:align-after-drop', alignAfterDrop)
     host.remove()
   }
 }

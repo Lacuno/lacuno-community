@@ -28,7 +28,8 @@ async function rowOfTiles(launched: Awaited<ReturnType<typeof session>>) {
       expectedRevision: (await document()).revision,
       operations: [
         { type: 'class.create', id: 'c-row', local: true },
-        { type: 'class.create', id: 'c-tile', local: true },
+        { type: 'class.create', id: 'c-tile', name: 'Test tile', local: false },
+        ...[1, 2, 3].map((i) => ({ type: 'class.create', id: `c-tile-${i}`, local: true })),
         ...Object.entries({
           display: 'flex',
           gap: '24px',
@@ -52,7 +53,7 @@ async function rowOfTiles(launched: Awaited<ReturnType<typeof session>>) {
               id: `n-tile-${i}`,
               type: 'text',
               tag: 'p',
-              classes: ['c-tile'],
+              classes: ['c-tile', `c-tile-${i}`],
               text: { type: 'static', value: `Tile ${i}` },
               children: [],
             })),
@@ -80,15 +81,13 @@ const committed = async (
   )
 }
 
-it('aligns a dropped item to the band it lands in, in one write and one undo step', async () => {
+it('drops without alignment edits, then aligns explicitly on each axis with separate undo steps', async () => {
   const launched = await session()
-  const { page, canvas, node, undo, saved, writes, document, errors } = launched
+  const { page, canvas, node, saved, writes, undo, document, errors, shot } = launched
   await rowOfTiles(launched)
+  const originalStyles = (await document()).styles
   const row = (await node('n-row').boundingBox())!
   const second = (await node('n-tile-2').boundingBox())!
-  const computed = (id: string, property: string) =>
-    node(id).evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property)
-  // The bottom third between the second and third tile: after the second, aligned to the end.
   await drag(page, await grabPoint(node('n-tile-1')), {
     x: second.x + second.width + 12,
     y: row.y + row.height * 0.8,
@@ -96,39 +95,69 @@ it('aligns a dropped item to the band it lands in, in one write and one undo ste
   await expect.poll(() => childIds(canvas, 'n-row')).toEqual(['n-tile-2', 'n-tile-1', 'n-tile-3'])
   await saved()
   expect(writes()).toBe(1)
-  expect(await computed('n-tile-1', 'align-self')).toBe('flex-end')
+  expect((await document()).styles).toEqual(originalStyles)
+  const menu = canvas.getByRole('dialog', { name: 'Align within parent' })
+  await expect.poll(() => menu.isVisible()).toBe(true)
+  const selectedBox = (await node('n-tile-1').boundingBox())!
+  const menuBox = (await menu.boundingBox())!
+  expect(
+    menuBox.y >= selectedBox.y + selectedBox.height ||
+      menuBox.y + menuBox.height <= selectedBox.y ||
+      menuBox.x >= selectedBox.x + selectedBox.width ||
+      menuBox.x + menuBox.width <= selectedBox.x,
+  ).toBe(true)
+  await shot('alignment-controls')
+  await menu.getByRole('button', { name: 'Vertical: Bottom', exact: true }).click()
+  await saved()
+  expect(writes()).toBe(2)
   expect((await committed(document, 'n-tile-1'))['align-self']).toEqual({
     type: 'keyword',
     value: 'flex-end',
   })
-  expect((await node('n-tile-1').boundingBox())!.y).toBeGreaterThan(row.y + row.height / 2)
+  await expect
+    .poll(() => menu.getByRole('button', { name: 'Vertical: Bottom' }).getAttribute('aria-pressed'))
+    .toBe('true')
+  await menu.getByRole('button', { name: 'Horizontal: Right', exact: true }).click()
+  await saved()
+  expect(writes()).toBe(3)
+  await shot('alignment-changed')
+  expect(await committed(document, 'n-tile-1')).toMatchObject({
+    'align-self': { type: 'keyword', value: 'flex-end' },
+    'margin-left': { type: 'keyword', value: 'auto' },
+  })
+  expect((await committed(document, 'n-tile-2'))['align-self']).toBeUndefined()
+  expect((await committed(document, 'n-tile-3'))['margin-left']).toBeUndefined()
+  await undo()
+  await saved()
+  expect((await committed(document, 'n-tile-1'))['margin-left']).toBeUndefined()
+  expect((await committed(document, 'n-tile-1'))['align-self']).toEqual({
+    type: 'keyword',
+    value: 'flex-end',
+  })
+  await undo()
+  await saved()
+  expect((await document()).styles).toEqual(originalStyles)
   await undo()
   await expect.poll(() => childIds(canvas, 'n-row')).toEqual(['n-tile-1', 'n-tile-2', 'n-tile-3'])
-  expect(await computed('n-tile-1', 'align-self')).not.toBe('flex-end')
-  expect((await committed(document, 'n-tile-1'))['align-self']).toBeUndefined()
-  // The same band again writes nothing new: the alignment is what it already is.
-  await drag(page, await grabPoint(node('n-tile-3')), {
-    x: second.x + second.width + 12,
-    y: row.y + row.height * 0.5,
-  })
-  await saved()
-  expect((await committed(document, 'n-tile-3'))['align-self']).toEqual({
-    type: 'keyword',
-    value: 'center',
-  })
-  await drag(page, await grabPoint(node('n-tile-3')), {
-    x: second.x - 12,
-    y: row.y + row.height * 0.5,
-  })
-  await expect.poll(() => childIds(canvas, 'n-row')).toEqual(['n-tile-1', 'n-tile-3', 'n-tile-2'])
-  await saved()
-  // Three drops and the undo, each one request.
-  expect(writes()).toBe(4)
-  expect((await committed(document, 'n-tile-3'))['align-self']).toEqual({
-    type: 'keyword',
-    value: 'center',
-  })
   expect(errors).toEqual([])
+}, 60_000)
+
+it('offers alignment after a drop in the original slot without writing a no-op move', async () => {
+  const launched = await session()
+  const { page, canvas, node, document, writes } = launched
+  await rowOfTiles(launched)
+  const revision = (await document()).revision
+  const row = (await node('n-row').boundingBox())!
+  const third = (await node('n-tile-3').boundingBox())!
+  await drag(page, await grabPoint(node('n-tile-3')), {
+    x: third.x + third.width - 10,
+    y: row.y + row.height * 0.5,
+  })
+  await expect
+    .poll(() => canvas.getByRole('dialog', { name: 'Align within parent' }).isVisible())
+    .toBe(true)
+  expect(writes()).toBe(0)
+  expect((await document()).revision).toBe(revision)
 }, 60_000)
 
 it('reorders a stretched Stack child plainly, with no band to align to', async () => {
@@ -148,39 +177,61 @@ it('reorders a stretched Stack child plainly, with no band to align to', async (
   expect((await committed(document, 'n-home-note-copy'))['align-self']).toBeUndefined()
 }, 60_000)
 
-it('pushes an item to the end with an auto margin that a later drop clears', async () => {
+it('preserves explicit auto margins and alignment when an item is reordered', async () => {
   const launched = await session()
-  const { page, canvas, node, saved, writes, document } = launched
+  const { page, canvas, node, saved, document } = launched
   await rowOfTiles(launched)
-  const row = (await node('n-row').boundingBox())!
-  const third = (await node('n-tile-3').boundingBox())!
-  const marginLeft = () =>
-    node('n-tile-3').evaluate((element) => Number.parseFloat(getComputedStyle(element).marginLeft))
-  // Past the last tile by more than the gap: it stays last and moves to the row's far end.
-  await drag(page, await grabPoint(node('n-tile-3')), {
-    x: third.x + third.width + 24 + 40,
-    y: row.y + row.height / 2,
-  })
+  await node('n-tile-3').dispatchEvent('click')
+  await canvas.getByRole('button', { name: 'Align', exact: true }).click()
+  const menu = canvas.getByRole('dialog', { name: 'Align within parent' })
+  await menu.getByRole('button', { name: 'Horizontal: Right', exact: true }).click()
   await saved()
-  expect(writes()).toBe(1)
-  expect((await committed(document, 'n-tile-3'))['margin-left']).toEqual({
-    type: 'keyword',
-    value: 'auto',
-  })
-  await expect.poll(marginLeft).toBeGreaterThan(100)
-  expect((await node('n-tile-3').boundingBox())!.x + third.width).toBeCloseTo(row.x + row.width, 0)
-  expect(await childIds(canvas, 'n-row')).toEqual(['n-tile-1', 'n-tile-2', 'n-tile-3'])
-  // Dropped between the first two, it is an ordinary item again.
+  await menu.getByRole('button', { name: 'Vertical: Bottom', exact: true }).click()
+  await saved()
+  await page.keyboard.press('Escape')
+  const before = (await document()).styles
   const second = (await node('n-tile-2').boundingBox())!
+  const row = (await node('n-row').boundingBox())!
   await drag(page, await grabPoint(node('n-tile-3')), {
     x: second.x - 12,
-    y: row.y + row.height / 2,
+    y: row.y + row.height * 0.5,
   })
   await expect.poll(() => childIds(canvas, 'n-row')).toEqual(['n-tile-1', 'n-tile-3', 'n-tile-2'])
   await saved()
-  expect(writes()).toBe(2)
-  expect((await committed(document, 'n-tile-3'))['margin-left']).toBeUndefined()
-  expect(await marginLeft()).toBe(0)
+  expect((await document()).styles).toEqual(before)
+
+  // Returning to flow on Tablet overrides inherited Desktop auto margins without erasing them.
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Tablet', exact: true }).click()
+  await node('n-tile-3').scrollIntoViewIfNeeded()
+  await canvas.getByRole('button', { name: 'Align', exact: true }).click()
+  await menu.getByRole('button', { name: 'Horizontal: In flow', exact: true }).click()
+  await saved()
+  expect(
+    await node('n-tile-3').evaluate((el) => String(el.computedStyleMap().get('margin-left'))),
+  ).toBe('0px')
+  const styles = (await document()).styles
+  for (const [key, value] of Object.entries(before)) expect(styles[key]).toEqual(value)
+  expect(
+    Object.values(styles).filter(
+      (style) => style.class === 'c-tile-3' && style.breakpoint === 'tablet',
+    ),
+  ).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        property: 'margin-left',
+        value: { type: 'unit', value: 0, unit: 'px' },
+      }),
+      expect.objectContaining({
+        property: 'margin-right',
+        value: { type: 'unit', value: 0, unit: 'px' },
+      }),
+    ]),
+  )
+  await page.getByRole('button', { name: 'Desktop', exact: true }).click()
+  await expect
+    .poll(() => node('n-tile-3').evaluate((el) => String(el.computedStyleMap().get('margin-left'))))
+    .toBe('auto')
 }, 60_000)
 
 it('makes a Row of two Stack siblings once rested on the side of one, in the dropped order', async () => {
@@ -188,7 +239,6 @@ it('makes a Row of two Stack siblings once rested on the side of one, in the dro
     await session()
   await node('n-home-note-top').scrollIntoViewIfNeeded()
   const top = (await node('n-home-note-top').boundingBox())!
-  const copy = (await node('n-home-note-copy').boundingBox())!
   const held = await hold(page, await grabPoint(node('n-home-note-copy')), {
     x: top.x + top.width * 0.1,
     y: top.y + top.height / 2,
@@ -198,14 +248,13 @@ it('makes a Row of two Stack siblings once rested on the side of one, in the dro
   expect(await label()).toBe('aside')
   await held.rest(1200)
   await expect.poll(label).toBe('Row with Paragraph')
-  // The sibling is outlined and the ghost stands beside it, as tall as it is.
-  const outline = (await indicator.locator('div').nth(0).boundingBox())!
+  // The side rail marks the new Row inside the sibling's bounds, without an off-canvas ghost.
+  const outline = (await indicator.locator('[data-lacuno-drop-parent]').boundingBox())!
   expect(outline.x).toBeCloseTo(top.x, 0)
   expect(outline.width).toBeCloseTo(top.width, 0)
-  const ghost = (await indicator.locator('[data-lacuno-ghost]').boundingBox())!
-  expect(ghost.x + ghost.width).toBeCloseTo(top.x, 0)
-  expect(ghost.height).toBeCloseTo(top.height, 0)
-  expect(ghost.width).toBeCloseTo(copy.width, 0)
+  expect(await indicator.locator('[data-lacuno-ghost]').count()).toBe(0)
+  const rail = (await indicator.locator('[data-lacuno-insertion]').boundingBox())!
+  expect(rail.x).toBeCloseTo(top.x - 1, 0)
   await held.release(true)
   await expect.poll(() => parentOf(canvas, 'n-home-note-top')).not.toBe('n-home-hero-note')
   await saved()
@@ -227,35 +276,26 @@ it('makes a Row of two Stack siblings once rested on the side of one, in the dro
   expect((await document()).nodes[rowId]).toBeUndefined()
 }, 60_000)
 
-it('shows the siblings, the ghost and a gap-sized bar while dragging in a Row', async () => {
+it('shows only the target and a two-screen-pixel insertion line while dragging', async () => {
   const launched = await session()
   const { page, node, indicator, shown } = launched
   await rowOfTiles(launched)
   const row = (await node('n-row').boundingBox())!
-  const first = (await node('n-tile-1').boundingBox())!
   const second = (await node('n-tile-2').boundingBox())!
-  const third = (await node('n-tile-3').boundingBox())!
   const held = await hold(page, await grabPoint(node('n-tile-1')), {
     x: second.x + second.width + 12,
     y: row.y + row.height * 0.5,
   })
   await expect.poll(shown).toBe('block')
-  // The other two tiles are outlined faintly; the dragged one is not.
-  const siblings = indicator.locator('[data-lacuno-sibling]')
-  await expect.poll(() => siblings.count()).toBe(2)
-  expect((await siblings.nth(0).boundingBox())!.x).toBeCloseTo(second.x, 0)
-  expect((await siblings.nth(1).boundingBox())!.x).toBeCloseTo(third.x, 0)
-  // The ghost is the dragged tile's size, centred on the line and in the row's middle band.
-  const ghost = (await indicator.locator('[data-lacuno-ghost]').boundingBox())!
-  expect(ghost.width).toBeCloseTo(first.width, 0)
-  expect(ghost.height).toBeCloseTo(first.height, 0)
-  expect(ghost.x + ghost.width / 2).toBeCloseTo((second.x + second.width + third.x) / 2, 0)
-  expect(ghost.y + ghost.height / 2).toBeCloseTo(row.y + row.height / 2, 0)
-  // The bar fills the 24 px gap between the tiles, measured in the canvas's own pixels.
-  const bar = indicator.locator('div').nth(1)
-  expect(await bar.evaluate((element) => element.getBoundingClientRect().width)).toBeCloseTo(24, 0)
-  expect((await bar.boundingBox())!.x).toBeCloseTo(second.x + second.width, 0)
-  expect(await indicator.locator('[data-lacuno-flow]').textContent()).toBe('→')
+  expect(
+    await indicator
+      .locator('[data-lacuno-ghost], [data-lacuno-sibling], [data-lacuno-flow]')
+      .count(),
+  ).toBe(0)
+  expect((await indicator.locator('[data-lacuno-insertion]').boundingBox())!.width).toBeCloseTo(
+    2,
+    0,
+  )
   await held.cancel()
   await expect.poll(shown).toBe('none')
 }, 60_000)

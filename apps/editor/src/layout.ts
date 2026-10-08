@@ -1,4 +1,4 @@
-import { type CssValue, kw } from '@lacuno/schema'
+import { type CssValue, kw, px } from '@lacuno/schema'
 
 /** The visual controls only interpret templates they can round-trip without losing CSS. */
 export function gridTracks(template: string): number[] | undefined {
@@ -95,6 +95,57 @@ export const containerLayoutProperties = [
 ]
 
 export type Position = 'start' | 'center' | 'end'
+export type AlignmentAxis = 'horizontal' | 'vertical'
+
+/** One axis at a time, so changing horizontal alignment preserves vertical placement. */
+export function childAxisAlignment(
+  axis: AlignmentAxis,
+  position: Position,
+  display: string,
+  horizontal: boolean,
+): Record<string, CssValue | null> {
+  const changes = childAlignment(position, position, display, horizontal)
+  const properties = display.includes('grid')
+    ? [axis === 'horizontal' ? 'justify-self' : 'align-self']
+    : display.includes('flex') && (axis === 'horizontal') !== horizontal
+      ? ['align-self']
+      : axis === 'horizontal'
+        ? ['margin-left', 'margin-right']
+        : ['margin-top', 'margin-bottom']
+  return Object.fromEntries(
+    Object.entries(changes)
+      .filter(([property]) => properties.includes(property))
+      // An explicit reset must override auto inherited from a shared class or a wider breakpoint.
+      .map(([property, value]) => [property, value ?? px(0)]),
+  )
+}
+
+/** Values include effective self alignment and typed margins, which retain the `auto` keyword. */
+export function childAlignmentPosition(
+  axis: AlignmentAxis,
+  display: string,
+  horizontal: boolean,
+  values: Record<string, string>,
+): Position | undefined {
+  const property = display.includes('grid')
+    ? axis === 'horizontal'
+      ? 'justify-self'
+      : 'align-self'
+    : display.includes('flex') && (axis === 'horizontal') !== horizontal
+      ? 'align-self'
+      : undefined
+  if (property) {
+    const value = values[property] ?? ''
+    if (value === 'center') return 'center'
+    if (value.endsWith('start') || value === 'left') return 'start'
+    if (value.endsWith('end') || value === 'right') return 'end'
+    return undefined
+  }
+  const [leading, trailing] = axis === 'horizontal' ? ['left', 'right'] : ['top', 'bottom']
+  if (values[`margin-${leading}`] === 'auto')
+    return values[`margin-${trailing}`] === 'auto' ? 'center' : 'end'
+  return 'start'
+}
 /**
  * The styles that put a child at a place within its parent, as the canvas Align menu writes
  * them: a grid child by `justify-self` and `align-self`; a flex child by `align-self` across the

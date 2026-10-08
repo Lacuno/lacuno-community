@@ -98,6 +98,7 @@ export function Canvas({
   selected,
   inner,
   selectedName,
+  selectedParentName,
   selectedField,
   select,
   onHistory,
@@ -122,6 +123,7 @@ export function Canvas({
   selected: string
   inner: InnerTag | undefined
   selectedName: string
+  selectedParentName: string
   selectedField: string
   select: (id: string, inner?: InnerTag) => void
   onHistory: (direction: 'undo' | 'redo') => void
@@ -351,6 +353,7 @@ export function Canvas({
   // Everything the iframe listeners read long after the render that installed them.
   const current = {
     selectedName,
+    selectedParentName,
     selectedField,
     onNodeAction,
     onEditText,
@@ -523,6 +526,7 @@ export function Canvas({
             doc,
             () => ({
               name: latest.current.selectedName,
+              parentName: latest.current.selectedParentName,
               field: latest.current.selectedField,
               scope: latest.current.scope,
               state: latest.current.state,

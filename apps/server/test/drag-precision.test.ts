@@ -64,7 +64,7 @@ it('reorders cards along a row, and into a card only after resting on it', async
   const target = (await node(second).boundingBox())!
   const held = await hold(page, from, { x: target.x + target.width * 0.75, y: from.y })
   await expect.poll(shown).toBe('block')
-  // The bar stands upright in the gap between the second and third card, filling it.
+  // The bar stands upright in the gap between the second and third card.
   const line = await canvas.locator('[data-lacuno-drop-indicator] > div').nth(1).boundingBox()
   const thirdBox = (await node(third).boundingBox())!
   expect(line!.height).toBeGreaterThan(line!.width)
@@ -362,9 +362,8 @@ it('moves the selection with Alt and the arrow keys, one undo step each', async 
   await expect.poll(() => childIds(canvas, 'n-home-main')).toEqual(down)
 }, 60_000)
 
-it('keeps the line at least two screen pixels thick at any canvas zoom, the gap where there is one', async () => {
+it('keeps the insertion line two screen pixels thick at any canvas zoom', async () => {
   const { page, node, indicator, shown } = await session({ width: 1200, height: 1000 })
-  const frame = page.locator('iframe[title="Site canvas"]')
   for (const preset of ['Desktop', 'Tablet']) {
     await page.getByRole('button', { name: preset, exact: true }).click()
     await node('n-home-title').scrollIntoViewIfNeeded()
@@ -374,15 +373,9 @@ it('keeps the line at least two screen pixels thick at any canvas zoom, the gap 
       y: lead.y + lead.height * 0.8,
     })
     await expect.poll(shown).toBe('block')
-    const zoom = await frame.evaluate(
-      (element) => element.getBoundingClientRect().width / (element as HTMLElement).offsetWidth,
-    )
-    const gap = await node('n-home-hero-copy').evaluate(
-      (element) => Number.parseFloat(getComputedStyle(element).rowGap) || 0,
-    )
     const height = (await indicator.locator('div').nth(1).boundingBox())!.height
     expect(height).toBeGreaterThanOrEqual(1.5)
-    expect(height).toBeCloseTo(Math.max(2, gap * zoom), 0)
+    expect(height).toBeCloseTo(2, 0)
     await held.cancel()
   }
 }, 60_000)
