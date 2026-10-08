@@ -183,7 +183,7 @@ it('pushes an item to the end with an auto margin that a later drop clears', asy
   expect(await marginLeft()).toBe(0)
 }, 60_000)
 
-it('makes a Row of two Stack siblings from a drop on the side of one, in the dropped order', async () => {
+it('makes a Row of two Stack siblings once rested on the side of one, in the dropped order', async () => {
   const { page, canvas, node, label, shown, indicator, saved, writes, undo, document } =
     await session()
   await node('n-home-note-top').scrollIntoViewIfNeeded()
@@ -194,7 +194,10 @@ it('makes a Row of two Stack siblings from a drop on the side of one, in the dro
     y: top.y + top.height / 2,
   })
   await expect.poll(shown).toBe('block')
-  expect(await label()).toBe('Row with Paragraph')
+  // Passing over the side reorders within the Stack; resting on it for a moment offers the Row.
+  expect(await label()).toBe('aside')
+  await held.rest(1200)
+  await expect.poll(label).toBe('Row with Paragraph')
   // The sibling is outlined and the ghost stands beside it, as tall as it is.
   const outline = (await indicator.locator('div').nth(0).boundingBox())!
   expect(outline.x).toBeCloseTo(top.x, 0)
@@ -203,7 +206,7 @@ it('makes a Row of two Stack siblings from a drop on the side of one, in the dro
   expect(ghost.x + ghost.width).toBeCloseTo(top.x, 0)
   expect(ghost.height).toBeCloseTo(top.height, 0)
   expect(ghost.width).toBeCloseTo(copy.width, 0)
-  await held.release()
+  await held.release(true)
   await expect.poll(() => parentOf(canvas, 'n-home-note-top')).not.toBe('n-home-hero-note')
   await saved()
   expect(writes()).toBe(1)

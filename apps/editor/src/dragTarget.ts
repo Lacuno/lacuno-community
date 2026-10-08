@@ -13,8 +13,8 @@ export type Band = 'start' | 'center' | 'end'
 /**
  * A drop between the parent's children: `slot` counts the laid-out children before it. In a flex
  * parent the pointer's `band` across the flow, offered when the item has room there, becomes its
- * alignment, and `end` pushes it to the far end. On a sibling's outer side in a vertical flow the
- * drop instead makes a Row of the two, at the sibling's place, the item `first` or second.
+ * alignment, and `end` pushes it to the far end. Rested on a sibling's outer side in a vertical
+ * flow, the drop instead makes a Row of the two at the sibling's place, the item `first` or second.
  */
 export type DropSlot = {
   parent: string
@@ -33,7 +33,10 @@ export type DropSlot = {
   first?: boolean
 }
 
-/** How long the pointer rests on a sibling before a drop goes into it instead of beside it. */
+/**
+ * How long the pointer rests on a sibling before a drop goes into it, or on its side makes a Row
+ * of the two, instead of beside it.
+ */
 export const DWELL = 800
 
 export function layoutAxis(
@@ -275,7 +278,8 @@ const valid = (doc: SiteDocument, root: string, item: DragItem, parent: string) 
  * Drop slots on the canvas. The layout never moves during a drag, so each box is measured once
  * and again only after a scroll. The pointer goes into the deepest container whose inner area it
  * is over; a container's edges along its parent's flow mean before or after it. A dragged element
- * stays among its siblings until the pointer rests on one of them for DWELL ms.
+ * stays among its siblings until the pointer rests for DWELL ms inside one of them, or on a
+ * sibling's side to make a Row of the two.
  */
 export function canvasSlots(surface: Document, doc: SiteDocument, root: string, item: DragItem) {
   const view = surface.defaultView!
@@ -325,7 +329,7 @@ export function canvasSlots(surface: Document, doc: SiteDocument, root: string, 
   const contains = (rect: Box, x: number, y: number) =>
     x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom
   let previous: DropSlot | undefined
-  let rest = { id: '', x: 0, y: 0, since: 0 }
+  let rest = { on: '', x: 0, y: 0, since: 0 }
   const locate = (x: number, y: number, now = performance.now()): DropSlot | undefined => {
     // The nearest rendered node of this page under the point; a component's insides are not.
     let hit = surface.elementFromPoint(x, y)?.closest<HTMLElement>('[data-lacuno-node]')
@@ -351,39 +355,44 @@ export function canvasSlots(surface: Document, doc: SiteDocument, root: string, 
       break
     }
     if (!parent) return
-    // Resting still on a sibling's inside for DWELL ms drops into it; passing over it reorders.
-    if (
+    // Resting still for DWELL ms settles the drop on what is under the pointer: a sibling
+    // container's inside, or a sibling's side in a Row with it. Moving more than 8 px, or onto
+    // something else, starts over, so passing over either only reorders.
+    const resting = (on: string) => {
+      if (rest.on !== on || Math.hypot(x - rest.x, y - rest.y) > 8) rest = { on, x, y, since: now }
+      return !!on && now - rest.since >= DWELL
+    }
+    const nest =
       home &&
       parent !== home &&
       isDescendant(doc, home, parent) &&
       doc.nodes[parent]!.children.length
-    ) {
-      if (rest.id !== parent || Math.hypot(x - rest.x, y - rest.y) > 8)
-        rest = { id: parent, x, y, since: now }
-      if (now - rest.since < DWELL) parent = home
-    } else rest = { id: '', x, y, since: now }
+    if (nest && !resting(parent)) parent = home!
     const children = doc.nodes[parent]!.children
     const laidOut = children.filter((id) => box(id))
     const { flow: flowOf, content, gap, flex, items } = layout(parent)
     const rects = laidOut.map((id) => box(id)!)
     const common = { parent, flow: flowOf, boxes: rects, content, gap }
     // On the outer quarter of a sibling's side, where a vertical flow has no before or after, the
-    // two become a Row; in a horizontal flow the sides already mean before and after.
-    if (!flowOf.horizontal) {
-      const over = laidOut.find((id) => id !== dragged && contains(box(id)!, x, y))
-      const rect = over && box(over)!
-      const first = rect ? x < rect.left + (rect.right - rect.left) / 4 : false
-      const last = rect ? x > rect.right - (rect.right - rect.left) / 4 : false
-      if (over && (first || last) && typeof wrapTarget(doc, over, 'row') !== 'string') {
-        previous = {
-          ...common,
-          slot: laidOut.indexOf(over),
-          index: children.indexOf(over),
-          wrap: over,
-          first,
-        }
-        return previous
+    // two become a Row; in a horizontal flow the sides already mean before and after. A sibling
+    // container's inside claims the rest, so no side is offered while the pointer is in one.
+    const over = flowOf.horizontal
+      ? undefined
+      : laidOut.find((id) => id !== dragged && contains(box(id)!, x, y))
+    const rect = over && box(over)!
+    const first = rect ? x < rect.left + (rect.right - rect.left) / 4 : false
+    const last = rect ? x > rect.right - (rect.right - rect.left) / 4 : false
+    const side =
+      over && (first || last) && typeof wrapTarget(doc, over, 'row') !== 'string' ? over : ''
+    if (!nest && resting(side)) {
+      previous = {
+        ...common,
+        slot: laidOut.indexOf(side),
+        index: children.indexOf(side),
+        wrap: side,
+        first,
       }
+      return previous
     }
     const slot = stableIndex(
       rects,

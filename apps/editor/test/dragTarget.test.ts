@@ -1,8 +1,10 @@
-import { fixtureDocument, styleKey } from '@lacuno/schema'
+import { fixtureDocument, type Document as SiteDocument, styleKey } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import {
+  canvasSlots,
   crossAlignment,
   crossBand,
+  DWELL,
   ghostRect,
   insertionIndex,
   insertionLine,
@@ -242,4 +244,58 @@ it('writes the band only when it changes the alignment, and auto margins for end
       value: { type: 'keyword', value: 'flex-end' },
     },
   ])
+})
+
+/**
+ * A rendered page for canvasSlots: plain blocks at the given boxes, listed outer to inner, so the
+ * last box under a point is the element hit there.
+ */
+function surface(doc: SiteDocument, boxes: Record<string, ReturnType<typeof box>>) {
+  // Every other computed value reads as 0: no border, padding or gap, so a content box is its box.
+  const computed = new Proxy(style as Record<string, string>, {
+    get: (values, key) => values[key as string] ?? '0',
+  })
+  const elements = new Map<string, object>()
+  for (const [id, rect] of Object.entries(boxes))
+    elements.set(id, {
+      dataset: { lacunoNode: id },
+      get parentElement() {
+        return elements.get(doc.nodes[id]!.parent ?? '') ?? null
+      },
+      closest: () => elements.get(id),
+      getClientRects: () => [rect],
+      getBoundingClientRect: () => rect,
+    })
+  const under = (x: number, y: number) =>
+    Object.entries(boxes).findLast(
+      ([, b]) => x >= b.left && x < b.right && y >= b.top && y < b.bottom,
+    )?.[0]
+  return {
+    defaultView: { getComputedStyle: () => computed },
+    querySelectorAll: () => elements.values(),
+    elementFromPoint: (x: number, y: number) => elements.get(under(x, y) ?? '') ?? null,
+  } as unknown as Document
+}
+
+it('offers a Row with a sibling only once the pointer has rested on its side', () => {
+  const doc = fixtureDocument()
+  // The hero's inner Stack: a heading, an image and a button, each on its own line.
+  const page = surface(doc, {
+    'n-home': box(0, 0, 1000, 1000),
+    'n-hero': box(0, 0, 1000, 600),
+    'n-hero-inner': box(100, 100, 800, 400),
+    'n-hero-title': box(100, 100, 800, 100),
+    'n-hero-image': box(100, 220, 800, 100),
+    'n-hero-cta': box(100, 340, 200, 60),
+  })
+  const { locate } = canvasSlots(page, doc, 'n-home', { id: 'n-hero-cta' })
+  // Passing through the heading's left quarter: before it, as anywhere on its upper half.
+  expect(locate(150, 150, 0)).toMatchObject({ parent: 'n-hero-inner', index: 0 })
+  expect(locate(150, 150, DWELL - 1)?.wrap).toBeUndefined()
+  // Resting there: a Row with the heading, the button first.
+  expect(locate(150, 150, DWELL)).toMatchObject({ index: 0, wrap: 'n-hero-title', first: true })
+  // Moving on, even by 9 px, starts over; rested on the right quarter, the button goes second.
+  expect(locate(159, 150, DWELL + 1)?.wrap).toBeUndefined()
+  expect(locate(850, 150, DWELL + 2)?.wrap).toBeUndefined()
+  expect(locate(850, 150, 2 * DWELL + 2)).toMatchObject({ wrap: 'n-hero-title', first: false })
 })

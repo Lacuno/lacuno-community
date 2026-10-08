@@ -22,12 +22,8 @@ it('reorders sections by exactly one place, with nothing moving until the drop',
     Promise.all(main.filter((id) => id !== moved).map(async (id) => node(id).boundingBox()))
   const before = await boxes()
   const target = (await node(next).boundingBox())!
-  // Over the next section's middle: its outer quarters would offer a Row with it instead.
   const from = await grabPoint(node(moved))
-  const held = await hold(page, from, {
-    x: target.x + target.width / 2,
-    y: target.y + target.height * 0.75,
-  })
+  const held = await hold(page, from, { x: from.x, y: target.y + target.height * 0.75 })
   await expect.poll(shown).toBe('block')
   expect(await label()).toBe('main')
   // The page keeps its layout: the dragged section dims in place and no sibling shifts.
@@ -49,7 +45,7 @@ it('reorders sections by exactly one place, with nothing moving until the drop',
   await node(moved).evaluate((element) => element.scrollIntoView({ block: 'center' }))
   const back = await grabPoint(node(moved))
   const above = (await node(next).boundingBox())!
-  await drag(page, back, { x: above.x + above.width / 2, y: above.y + above.height * 0.25 })
+  await drag(page, back, { x: back.x, y: above.y + above.height * 0.25 })
   await expect.poll(() => childIds(canvas, 'n-home-main')).toEqual(main)
   await saved()
   await undo()
