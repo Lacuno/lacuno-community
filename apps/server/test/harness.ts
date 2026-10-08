@@ -6,7 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import type { Document } from '@lacuno/schema'
-import { type Browser, chromium, type FrameLocator, type Page } from 'playwright'
+import { type Browser, chromium, type FrameLocator, type Locator, type Page } from 'playwright'
 import { expect, onTestFinished } from 'vitest'
 import { createServer } from '../src/app.js'
 
@@ -249,4 +249,121 @@ export async function pageSettings(page: Page, name: string) {
   await expect.poll(() => actions.isEnabled(), { timeout: 30_000 }).toBe(true)
   await actions.click()
   await page.getByRole('menuitem', { name: 'Page settings' }).click()
+}
+
+// The native-drag toolkit the canvas drag tests share.
+const shots = process.env.LACUNO_DND_SHOTS
+
+export type Point = { x: number; y: number }
+
+/** A point on the element itself, not on a child, in page coordinates: where a press grabs it. */
+export async function grabPoint(element: Locator) {
+  const box = (await element.boundingBox())!
+  const at = await element.evaluate((node) => {
+    const rect = node.getBoundingClientRect()
+    for (const fy of [0.5, 0.3, 0.7, 0.1, 0.9])
+      for (const dx of [4, 8, 16, 24, 40, 64]) {
+        const hit = node.ownerDocument.elementFromPoint(rect.left + dx, rect.top + rect.height * fy)
+        if (hit?.closest('[data-lacuno-node]') === node) return { fx: dx / rect.width, fy }
+      }
+    throw new Error('No bare point on the element')
+  })
+  return { x: box.x + at.fx * box.width, y: box.y + at.fy * box.height }
+}
+
+export const center = async (element: Locator, fx = 0.5, fy = 0.5) => {
+  const box = (await element.boundingBox())!
+  return { x: box.x + box.width * fx, y: box.y + box.height * fy }
+}
+
+/** A real native drag with raw CDP input, held until released or cancelled. */
+export async function hold(page: Page, from: Point, to: Point) {
+  const cdp = await page.context().newCDPSession(page)
+  let at = from
+  const mouse = (type: 'mouseMoved' | 'mousePressed' | 'mouseReleased', point: Point) =>
+    cdp.send('Input.dispatchMouseEvent', {
+      type,
+      ...point,
+      button: 'left',
+      buttons: type === 'mouseReleased' ? 0 : 1,
+      clickCount: type === 'mouseMoved' ? 0 : 1,
+    })
+  const move = async (to: Point, steps = 20) => {
+    const start = at
+    for (let step = 1; step <= steps; step++)
+      await mouse('mouseMoved', {
+        x: start.x + ((to.x - start.x) * step) / steps,
+        y: start.y + ((to.y - start.y) * step) / steps,
+      })
+    at = to
+    for (let i = 0; i < 3; i++) await mouse('mouseMoved', to)
+  }
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...from })
+  await mouse('mousePressed', from)
+  await move(to)
+  return {
+    move,
+    /** Keeps the pointer still for `ms`, the way a resting hand sends no new moves. */
+    rest: (ms: number) => page.waitForTimeout(ms),
+    /**
+     * Drops. Unless `resting`, a small wiggle first stands for a hand that moved just before
+     * letting go, so slow test steps while held never count as resting on a sibling.
+     */
+    release: async (resting = false) => {
+      if (!resting) for (const dy of [9, 0]) await mouse('mouseMoved', { x: at.x, y: at.y + dy })
+      await mouse('mouseReleased', at)
+      await cdp.detach()
+    },
+    cancel: async () => {
+      await cdp.send('Input.cancelDragging')
+      await mouse('mouseReleased', at)
+      await cdp.detach()
+    },
+  }
+}
+
+export const childIds = (canvas: FrameLocator, id: string) =>
+  canvas
+    .locator(`[data-lacuno-node="${id}"]`)
+    .evaluate((element) =>
+      Array.from(element.children, (child) => child.getAttribute('data-lacuno-node')).filter(
+        (child): child is string => !!child,
+      ),
+    )
+
+export const parentOf = (canvas: FrameLocator, id: string) =>
+  canvas
+    .locator(`[data-lacuno-node="${id}"]`)
+    .evaluate((element) =>
+      element.parentElement?.closest('[data-lacuno-node]')?.getAttribute('data-lacuno-node'),
+    )
+
+export async function dragSession(viewport?: { width: number; height: number }) {
+  const launched = await editor(viewport)
+  const { page, canvas } = launched
+  const errors: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  let writes = 0
+  page.on('request', (request) => {
+    if (request.url().endsWith('/document/apply')) writes++
+  })
+  const node = (id: string) => canvas.locator(`[data-lacuno-node="${id}"]`)
+  const indicator = canvas.locator('[data-lacuno-drop-indicator]')
+  const shown = () => indicator.evaluate((element) => getComputedStyle(element).display)
+  const label = () => indicator.locator('span').textContent()
+  const undo = () => page.getByRole('button', { name: 'Undo', exact: true }).click()
+  const shot = async (name: string) => {
+    if (shots) await page.screenshot({ path: `${shots}/dnd-${name}.png` })
+  }
+  return {
+    ...launched,
+    errors,
+    writes: () => writes,
+    node,
+    indicator,
+    shown,
+    label,
+    undo,
+    shot,
+  }
 }

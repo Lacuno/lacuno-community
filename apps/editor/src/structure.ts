@@ -562,13 +562,44 @@ export function dropTarget(
   return { parent, index }
 }
 
+/**
+ * The drop as one batch: a move, a preset's insertion, or with `wrap` a new Row in the sibling's
+ * place holding the sibling and then the item, first or second. Indexes follow the earlier
+ * operations: the row takes the sibling's index before the sibling leaves, and the item goes
+ * into a row that holds only the sibling.
+ */
 export function dropEdit(
   doc: Document,
   root: string,
   item: DragItem,
   parent: string,
   index: number,
+  wrap?: { sibling: string; first?: boolean },
 ) {
+  if (wrap) {
+    const target = wrapTarget(doc, wrap.sibling, 'row')
+    if (typeof target === 'string') throw new Error(target)
+    dropTarget(doc, root, item, target.parent, 0)
+    if ('id' in item && (item.id === wrap.sibling || isDescendant(doc, item.id, wrap.sibling)))
+      throw new Error('An element cannot contain itself.')
+    const page = pageOf(doc, root)
+    const row = structureInsertion(
+      'row',
+      { ...target, index: target.index - 1 },
+      '',
+      true,
+      '',
+      page,
+    )
+    row.operations.push({ type: 'node.move', id: wrap.sibling, parent: row.node.id, index: 0 })
+    const at = { parent: row.node.id, index: wrap.first ? 0 : 1 }
+    if ('preset' in item) {
+      const added = structureInsertion(item.preset, at, item.classId, false, item.assetId, page)
+      return { node: added.node, operations: [...row.operations, ...added.operations] }
+    }
+    row.operations.push({ type: 'node.move', id: item.id, ...at })
+    return { node: doc.nodes[item.id]!, operations: row.operations }
+  }
   const target = dropTarget(doc, root, item, parent, index)
   if ('preset' in item) {
     const edit = structureInsertion(
