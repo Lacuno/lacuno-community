@@ -506,9 +506,9 @@ export function selectionOverlay(
       firstGroup?.querySelector<HTMLElement>('button:enabled')
     )?.focus()
   }
-  // A chip click keeps the focus where it was, so the keys still reach the canvas afterwards.
-  for (const bar of [topBar, bottomBar])
-    bar.addEventListener('pointerdown', (event) => event.preventDefault())
+  // A chip click keeps the focus where it was, so the keys still reach the canvas afterwards. The
+  // bottom bar's colour menu has an input of its own, which a pointer must be able to focus.
+  topBar.addEventListener('pointerdown', (event) => event.preventDefault())
   alignChip.addEventListener('click', (event) => {
     event.stopPropagation()
     if (open?.el === alignMenu) closeMenus()

@@ -105,8 +105,9 @@ it('creates a spacing token, binds a field to it, snaps a handle to it, detaches
     await release()
     return readout
   }
-  expect(await drag(-3)).toBe('space.card')
-  await saved()
+  // The readout names the token and, since the snap replaced 35px, how to keep that instead.
+  expect(await drag(-3)).toMatch(/^space\.card · (⌘|Ctrl) for 35px$/)
+  // Both sides already carry the token the snap landed on, so the release writes nothing.
   await expect.poll(() => ctaPadding('bottom')).toEqual({ type: 'designToken', ref: card.id })
   expect(await ctaPadding('top')).toEqual({ type: 'designToken', ref: card.id })
   await expect.poll(() => top.inputValue()).toBe('card')
