@@ -112,6 +112,14 @@ it('opens the editor read-only for a viewer, whose writes the runtime refuses', 
   expect(await page.locator('aside.inspector.page-inspector').count()).toBe(1)
   expect(await page.getByRole('button', { name: 'Page settings' }).isDisabled()).toBe(true)
   expect(await canvas.getByLabel('Canvas text editor').count()).toBe(0)
+  // The selection bar says so and offers no handles, chips or swatches.
+  await expect.poll(() => canvas.locator('.bar-top .field').textContent()).toBe('View only')
+  expect(await canvas.locator('.handle.size.right').evaluate((el) => el.checkVisibility())).toBe(
+    false,
+  )
+  for (const name of ['Spacing', 'Align'])
+    expect(await canvas.getByRole('button', { name, exact: true }).count()).toBe(0)
+  expect(await canvas.getByRole('button', { name: /^Background color: / }).count()).toBe(0)
 
   // The asset manager shows every file and where it is used, and changes nothing.
   await page.getByRole('button', { name: 'Assets', exact: true }).click()

@@ -242,6 +242,13 @@ export function CanvasPanel({
               node?.parent && doc?.nodes[node.parent] ? nodeLabel(doc.nodes[node.parent]!) : ''
             }
             selectedField={node && doc && !inner ? boundFieldLabel(doc, node) : ''}
+            restriction={
+              session.readOnly || session.conflict
+                ? 'View only'
+                : doc && node && isLocked(doc, selected)
+                  ? 'Locked'
+                  : ''
+            }
             select={(id, tag) => {
               reveal()
               if (id !== selected || JSON.stringify(tag) !== JSON.stringify(inner))

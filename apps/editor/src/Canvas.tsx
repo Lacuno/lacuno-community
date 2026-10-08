@@ -100,6 +100,7 @@ export function Canvas({
   selectedName,
   selectedParentName,
   selectedField,
+  restriction,
   select,
   onHistory,
   onComputed,
@@ -125,6 +126,8 @@ export function Canvas({
   selectedName: string
   selectedParentName: string
   selectedField: string
+  /** Why the selection cannot be edited from the canvas ("Locked", "View only"), or empty. */
+  restriction: string
   select: (id: string, inner?: InnerTag) => void
   onHistory: (direction: 'undo' | 'redo') => void
   onComputed: (value: { id: string; values: Record<string, string> }) => void
@@ -401,6 +404,7 @@ export function Canvas({
     selectedName,
     selectedParentName,
     selectedField,
+    restriction,
     onNodeAction,
     onEditText,
     livePreview,
@@ -601,6 +605,8 @@ export function Canvas({
               tokens: latest.current.tokens,
               spacingFocus: spacingFocus.current,
               inner: !!latest.current.inner,
+              editable: !latest.current.restriction,
+              restriction: latest.current.restriction,
               flash: Date.now() < flash.current.until ? flash.current.ids : [],
             }),
             (next) => latest.current.onState(next),

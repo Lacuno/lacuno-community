@@ -28,6 +28,7 @@ import {
 import { LinkTarget } from './LinkTarget.js'
 import { MediaControls } from './MediaControls.js'
 import { PresetManager } from './PresetManager.js'
+import { winningStyles } from './presets.js'
 import { TagPicker } from './RichTagInspector.js'
 import { RotatingWordsControls } from './RotatingWordsControls.js'
 import { isRichBlock } from './richTags.js'
@@ -189,14 +190,26 @@ export function Inspector({
     dirtyChanged,
     registerFlush,
   })
+  // A commit whose every value the node's classes already give it here, like Distribute on a
+  // parent that is distributed, writes nothing and takes no undo step.
+  const unchanged = (target: Node, changes: Record<string, CssValue | null>) => {
+    const winners = winningStyles(doc, target, breakpoint, state)
+    return Object.entries(changes).every(
+      ([property, value]) =>
+        JSON.stringify(value) === JSON.stringify(winners[property]?.value ?? null) &&
+        !(target === node && hasInlineOverride(property)),
+    )
+  }
   // The canvas bar edits through the same draft as the panel: preview while dragging, one commit.
   const canvasStyle = useRef((_: StyleEdit & { id: string }) => {})
   canvasStyle.current = (edit) => {
-    if (disabled) return
+    // A class or preset name being typed does not hold the canvas back: its commit goes straight
+    // through formattingOperations and never touches those drafts.
+    if (conflict || locked) return
     // An edit for another node, such as Distribute on the parent, has no draft here: it commits.
     if (edit.id !== node.id) {
       const other = doc.nodes[edit.id]
-      if (other && 'changes' in edit && edit.phase === 'commit')
+      if (other && 'changes' in edit && edit.phase === 'commit' && !unchanged(other, edit.changes))
         void autoSave(formattingOperations(doc, other, edit.changes, undefined, breakpoint, state))
       return
     }
@@ -230,6 +243,7 @@ export function Inspector({
     }
     // Commit once when the drag ends as a single undoable edit. Like the panel's autosave, it keeps
     // the panel and its draft, so the canvas shows the new value until the new render lands.
+    if (unchanged(node, changed)) return
     void autoSave(
       formattingOperations(doc, node, changed, () => classId.current, breakpoint, state),
     )
