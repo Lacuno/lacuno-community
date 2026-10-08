@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, openInspectorTab } from './harness.js'
 
 it('opens a collection on its fields until it has entries, and lists it on a page to link to', async () => {
   const { page, canvas, server, document: site, saved, publish } = await editor()
@@ -58,6 +58,7 @@ it('opens a collection on its fields until it has entries, and lists it on a pag
   await page.getByRole('button', { name: 'Button', exact: true }).click()
   await page.getByRole('button', { name: 'Insert element', exact: true }).click()
   await saved()
+  await openInspectorTab(page, 'Content')
   const target = page.locator('.link-target-row')
   const choose = async (label: string) => {
     await target.getByRole('button', { name: 'Change', exact: true }).click()

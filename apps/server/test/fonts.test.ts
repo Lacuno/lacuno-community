@@ -51,7 +51,7 @@ it('uploads a font in site settings, picks it in the Font control and publishes 
   await heading.click()
   await openFormatting(page, 'Typography')
   expect(await options()).toEqual([
-    'Inherited · Arial, Helvetica, sans-serif',
+    'Arial',
     'Arial, Helvetica, sans-serif',
     value,
     ...stacks,

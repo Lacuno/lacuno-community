@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor, pageSettings } from './harness.js'
+import { editor, openInspectorTab, pageSettings } from './harness.js'
 
 it('inserts a button, points it at a page and follows the page through a path change', async () => {
   const { server, page, canvas, publish, saved } = await editor()
@@ -22,6 +22,7 @@ it('inserts a button, points it at a page and follows the page through a path ch
   await page.keyboard.press('Escape')
 
   // The inspector's link target writes a page reference, not a path.
+  await openInspectorTab(page, 'Content')
   const target = page.locator('.link-target-row')
   const destination = page.locator('.link-target-row > strong')
   await expect.poll(() => destination.textContent()).toBe('Home')
