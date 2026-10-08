@@ -3,7 +3,13 @@ import { DocumentStore } from '@lacuno/document'
 import { fixtureDocument } from '@lacuno/schema'
 import { expect, it } from 'vitest'
 import { formattingOperations, normalizeFormatting } from '../src/formatting.js'
-import { gridTemplate, gridTracks, itemSizeChanges, layoutChanges } from '../src/layout.js'
+import {
+  childAlignment,
+  gridTemplate,
+  gridTracks,
+  itemSizeChanges,
+  layoutChanges,
+} from '../src/layout.js'
 import { presetValues } from '../src/presets.js'
 import { commit } from './helpers.js'
 
@@ -101,4 +107,39 @@ it('fills a row using flex growth and fixes its width without shrink', () => {
     'flex-shrink': '0',
   })
   expect(itemSizeChanges('fill', false, '100px')).toEqual({ width: '100%' })
+})
+
+it('places a child within its parent: grid self alignment, flex align-self plus auto margins, block margins', () => {
+  const auto = { type: 'keyword', value: 'auto' }
+  expect(childAlignment('end', 'center', 'grid', true)).toEqual({
+    'justify-self': { type: 'keyword', value: 'end' },
+    'align-self': { type: 'keyword', value: 'center' },
+  })
+  // In a Row the vertical place is align-self and the horizontal one the side margins.
+  expect(childAlignment('end', 'start', 'flex', true)).toEqual({
+    'align-self': { type: 'keyword', value: 'flex-start' },
+    'margin-left': auto,
+    'margin-right': null,
+  })
+  expect(childAlignment('center', 'end', 'flex', true)).toEqual({
+    'align-self': { type: 'keyword', value: 'flex-end' },
+    'margin-left': auto,
+    'margin-right': auto,
+  })
+  expect(childAlignment('start', 'center', 'inline-flex', true)).toEqual({
+    'align-self': { type: 'keyword', value: 'center' },
+    'margin-left': null,
+    'margin-right': null,
+  })
+  // In a Stack the axes swap: the vertical place is the margins, the horizontal align-self.
+  expect(childAlignment('start', 'end', 'flex', false)).toEqual({
+    'align-self': { type: 'keyword', value: 'flex-start' },
+    'margin-top': auto,
+    'margin-bottom': null,
+  })
+  // A block parent only places a child sideways.
+  expect(childAlignment('center', 'end', 'block', false)).toEqual({
+    'margin-left': auto,
+    'margin-right': auto,
+  })
 })

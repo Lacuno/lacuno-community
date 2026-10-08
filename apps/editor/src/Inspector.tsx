@@ -192,7 +192,14 @@ export function Inspector({
   // The canvas bar edits through the same draft as the panel: preview while dragging, one commit.
   const canvasStyle = useRef((_: StyleEdit & { id: string }) => {})
   canvasStyle.current = (edit) => {
-    if (edit.id !== node.id || disabled) return
+    if (disabled) return
+    // An edit for another node, such as Distribute on the parent, has no draft here: it commits.
+    if (edit.id !== node.id) {
+      const other = doc.nodes[edit.id]
+      if (other && 'changes' in edit && edit.phase === 'commit')
+        void autoSave(formattingOperations(doc, other, edit.changes, undefined, breakpoint, state))
+      return
+    }
     // The panel's autosave stays disabled while a canvas drag previews through its draft.
     setDragging('phase' in edit && edit.phase === 'drag')
     if ('token' in edit) {

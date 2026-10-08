@@ -76,6 +76,15 @@ it('switches spacing mode with the chip: nubs, labelled boxes, sidebar focus, te
     .poll(async () => (await strip('.strip.padding.top')).label)
     .toBe(String(Math.round(dragged)))
 
+  // A margin pushed to the end reads "auto" instead of the distance it resolves to.
+  await canvas.getByRole('button', { name: 'Align', exact: true }).click()
+  await canvas.getByRole('menuitem', { name: 'Align right middle', exact: true }).click()
+  await saved()
+  await expect.poll(async () => (await strip('.strip.margin.left')).label).toBe('auto')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await saved()
+  await expect.poll(async () => (await strip('.strip.margin.left')).label).not.toBe('auto')
+
   // Chip off: focusing a sidebar spacing input shows the boxes (not the nubs) until it blurs.
   await chip.click()
   await expect.poll(() => shown('.strip.padding.top')).toBe(false)

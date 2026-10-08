@@ -6,7 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import type { Document } from '@lacuno/schema'
-import { type Browser, chromium, type Page } from 'playwright'
+import { type Browser, chromium, type FrameLocator, type Page } from 'playwright'
 import { expect, onTestFinished } from 'vitest'
 import { createServer } from '../src/app.js'
 
@@ -182,12 +182,17 @@ export async function openFormatting(page: Page, name: string) {
 
 /**
  * Focuses every control inside `scope` in turn and lists the ones whose focus ring, on the control
- * or the ancestor that draws it, reaches past what a scrolling or clipping ancestor shows.
+ * or the ancestor that draws it, reaches past what a scrolling or clipping ancestor shows. `within`
+ * is where the scope lives when it is not the page itself, such as the canvas frame.
  */
-export async function clippedFocusRings(page: Page, scope: string) {
+export async function clippedFocusRings(
+  page: Page,
+  scope: string,
+  within: Page | FrameLocator = page,
+) {
   // A key press first, so the focus that follows is shown as keyboard focus.
   await page.keyboard.press('Shift')
-  return page.locator(scope).evaluate((root) => {
+  return within.locator(scope).evaluate((root) => {
     const clipped: string[] = []
     const controls = Array.from(
       root.querySelectorAll<HTMLElement>(
@@ -197,7 +202,9 @@ export async function clippedFocusRings(page: Page, scope: string) {
     for (const control of controls) {
       if (!control.checkVisibility()) continue
       control.focus()
-      if (document.activeElement !== control) continue
+      // Inside a shadow root the document only knows the host; the root knows the control.
+      if ((root.getRootNode() as unknown as DocumentOrShadowRoot).activeElement !== control)
+        continue
       // As moving the focus with the keyboard does.
       control.scrollIntoView({ block: 'nearest', inline: 'nearest' })
       for (let ring: Element | null = control; ring && ring !== root; ring = ring.parentElement) {

@@ -1,3 +1,5 @@
+import { type CssValue, kw } from '@lacuno/schema'
+
 /** The visual controls only interpret templates they can round-trip without losing CSS. */
 export function gridTracks(template: string): number[] | undefined {
   const text = template.trim()
@@ -91,3 +93,30 @@ export const containerLayoutProperties = [
   'column-gap',
   'row-gap',
 ]
+
+export type Position = 'start' | 'center' | 'end'
+/**
+ * The styles that put a child at a place within its parent, as the canvas Align menu writes
+ * them: a grid child by `justify-self` and `align-self`; a flex child by `align-self` across the
+ * flow and auto margins along it (start clears them, center sets both, end the leading side); a
+ * child of anything else by its horizontal margins alone. Auto margins name visual sides, so a
+ * reversed flow needs no mapping, and the cross axis never reverses with the direction.
+ */
+export function childAlignment(
+  x: Position,
+  y: Position,
+  display: string,
+  horizontal: boolean,
+): Record<string, CssValue | null> {
+  if (display.includes('grid')) return { 'justify-self': kw(x), 'align-self': kw(y) }
+  const margins = (at: Position, leading: string, trailing: string) => ({
+    [`margin-${leading}`]: at === 'start' ? null : kw('auto'),
+    [`margin-${trailing}`]: at === 'center' ? kw('auto') : null,
+  })
+  if (!display.includes('flex')) return margins(x, 'left', 'right')
+  const across = horizontal ? y : x
+  return {
+    'align-self': kw(across === 'center' ? 'center' : `flex-${across}`),
+    ...(horizontal ? margins(x, 'left', 'right') : margins(y, 'top', 'bottom')),
+  }
+}
