@@ -78,9 +78,10 @@ it('switches spacing mode with the chip: nubs, labelled boxes, sidebar focus, te
 
   // A margin pushed to the end reads "auto" instead of the distance it resolves to.
   await canvas.getByRole('button', { name: 'Align', exact: true }).click()
-  await canvas.getByRole('menuitem', { name: 'Align right middle', exact: true }).click()
+  await canvas.getByRole('button', { name: 'Horizontal: Right', exact: true }).click()
   await saved()
   await expect.poll(async () => (await strip('.strip.margin.left')).label).toBe('auto')
+  await canvas.getByRole('button', { name: 'Close alignment controls', exact: true }).click()
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await saved()
   await expect.poll(async () => (await strip('.strip.margin.left')).label).not.toBe('auto')

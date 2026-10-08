@@ -105,3 +105,26 @@ it("outlines the hovered node's parent and siblings, with an arrow along the flo
   await page.mouse.move(5, 5)
   await expect.poll(() => parent.count()).toBe(0)
 }, 60_000)
+
+it('keeps the selection bar inside the Mobile canvas, with the Align chip in reach', async () => {
+  const { page, canvas } = await editor({ width: 1200, height: 1000 })
+  const image = canvas.locator('[data-lacuno-node="n-home-preview-image"]')
+  await image.waitFor()
+  await page.getByRole('button', { name: 'Mobile', exact: true }).click()
+  await expect
+    .poll(() => page.locator('iframe[title="Site canvas"]').evaluate((el) => el.clientWidth))
+    .toBe(390)
+  // A long label ("Rendered About page preview") gives way to the chips, which stay in view.
+  await image.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+  await image.dispatchEvent('click')
+  const chip = canvas.getByRole('button', { name: 'Align', exact: true })
+  await chip.waitFor()
+  const frame = (await page.locator('iframe[title="Site canvas"]').boundingBox())!
+  const bar = (await canvas.locator('.bar-top').boundingBox())!
+  const align = (await chip.boundingBox())!
+  expect(bar.x + bar.width).toBeLessThanOrEqual(frame.x + frame.width + 0.5)
+  expect(align.x + align.width).toBeLessThanOrEqual(frame.x + frame.width + 0.5)
+  expect(await canvas.locator('.bar-top .name').textContent()).toBe('Rendered About page preview')
+  await chip.click()
+  await expect.poll(() => chip.getAttribute('aria-expanded')).toBe('true')
+}, 60_000)

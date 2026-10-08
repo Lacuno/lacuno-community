@@ -44,6 +44,10 @@ export type Selection = {
   flash: string[]
   /** A tag inside rich text is selected: its styles live in the inspector, so no handles. */
   inner: boolean
+  /** False when the node is locked, the session read-only or in conflict: no handles or chips. */
+  editable: boolean
+  /** Why not, shown in the bar where the field chip goes: "Locked" or "View only". */
+  restriction: string
 }
 
 const svg = (icon: string) =>
@@ -92,6 +96,8 @@ export function selectionOverlay(
 ): () => void {
   const view = doc.defaultView
   if (!view) return () => {}
+  // The modifier that turns token snapping off while a handle drags, named in the readout.
+  const freeKey = /Mac|iP/.test(view.navigator.platform) ? '⌘' : 'Ctrl'
   const host = doc.createElement('div')
   host.setAttribute('data-lacuno-selection-overlay', '')
   // A unique id keeps the morph from ever matching a server node against this host.
@@ -105,9 +111,9 @@ export function selectionOverlay(
     rect { fill:none;vector-effect:non-scaling-stroke; }
     .selection-base { stroke:white;stroke-width:3; }
     .selection-dashes { stroke:#6434d9;stroke-width:2;stroke-dasharray:5 5;animation:selection-march 1.2s linear infinite; }
-    .bar { position:absolute;display:flex;align-items:stretch;max-width:420px;border:1px solid white;border-radius:6px;background:#6434d9;color:white;box-shadow:0 2px 8px #0004;overflow:hidden; }
+    .bar { position:absolute;display:flex;align-items:stretch;max-width:min(420px, calc(100vw - 4px));border:1px solid white;border-radius:6px;background:#6434d9;color:white;box-shadow:0 2px 8px #0004;overflow:hidden; }
     .name { padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-    .field { margin:3px 0;padding:1px 7px;border-radius:999px;background:#ffffff2e;white-space:nowrap;font-weight:500; }
+    .field { margin:3px 0;padding:1px 7px;border-radius:999px;background:#ffffff2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500; }
     .field:empty { display:none; }
     .scope { padding:4px 8px;border-left:1px solid #ffffff55;color:#ffffffcc;font-weight:500;white-space:nowrap; }
     .bar button { pointer-events:auto;display:flex;align-items:center;gap:5px;padding:4px 8px;border:0;border-left:1px solid #ffffff55;background:#ffffff22;color:inherit;font:inherit;cursor:pointer;white-space:nowrap; }
@@ -179,6 +185,7 @@ export function selectionOverlay(
     .strip.thin.left span { right:100%;padding-right:2px; }
     .strip.thin.right span { left:100%;padding-left:2px; }
     .tag { position:absolute;padding:2px 6px;border-radius:4px;background:#1f1533;color:white;box-shadow:0 2px 8px #0004;pointer-events:none;white-space:nowrap; }
+    .tag.limited::after { content:' · limited'; }
     .hover rect { stroke:#8775ed;stroke-width:1; }
     .hover .parent { stroke-dasharray:4 3; }
     .hover .sibling { stroke-opacity:.35; }
@@ -582,7 +589,8 @@ export function selectionOverlay(
   type Axis = 'x' | 'y'
   // Each target writes max(min, from + sign × the pointer delta on its axis), plus `also`: what
   // would hold a size back. `max` is its computed max cap in px (NaN when there is none or it is
-  // not in px, like an image's 100%), and `snap` the tokens it may snap to.
+  // not in px, like an image's 100%), `inset` what the border box adds to a content-box size, and
+  // `snap` the tokens it may snap to.
   type Target = {
     property: string
     axis: Axis
@@ -590,6 +598,7 @@ export function selectionOverlay(
     from: number
     min: number
     max: number
+    inset: number
     also: Record<string, CssValue>
     snap: Snap[]
   }
@@ -605,27 +614,32 @@ export function selectionOverlay(
         ratio: number
         /** Ctrl or Cmd is held, so nothing snaps. */
         free: boolean
+        /** The border-box sizes the last few frames of a size drag asked for. */
+        asked: Record<string, number>[]
       }
     | undefined
   const targetValue = (target: Target) => {
-    const value = Math.max(
+    const raw = Math.max(
       target.min,
       Math.round(target.from + target.sign * handleDrag!.delta[target.axis]),
     )
-    const snap = handleDrag!.free ? undefined : snapTo(value, target.snap)
-    return { value: snap?.px ?? value, snap }
+    const snap = handleDrag!.free ? undefined : snapTo(raw, target.snap)
+    return { value: snap?.px ?? raw, snap, raw }
   }
   const emitHandle = (phase: 'drag' | 'commit') => {
     if (!handleDrag) return
     const changes: Record<string, CssValue> = {}
+    const asked: Record<string, number> = {}
     for (const target of handleDrag.targets) {
       const { value, snap } = targetValue(target)
       changes[target.property] = snap ? { type: 'designToken', ref: snap.ref } : px(value)
+      asked[target.property] = value + target.inset
       // Past its max cap the drag clears the cap, and keeps it cleared for the rest of the drag so
       // the preview's draft and the commit agree.
       if (value > target.max) target.also[`max-${target.property}`] = kw('none')
       Object.assign(changes, target.also)
     }
+    if (handleDrag.kind === 'size') handleDrag.asked = [...handleDrag.asked.slice(-2), asked]
     onStyle({ changes, phase })
   }
   const releaseHandle = () => {
@@ -635,6 +649,7 @@ export function selectionOverlay(
     if (!tag.hidden) emitHandle('commit')
     handleDrag = undefined
     tag.hidden = true
+    tag.classList.remove('limited')
     doc.removeEventListener('pointerup', releaseHandle)
     doc.removeEventListener('mouseup', releaseHandle)
   }
@@ -666,21 +681,30 @@ export function selectionOverlay(
           ? 'x'
           : 'y'
         : undefined
-    const size = (property: string, axis: Axis, total: number, a: string, b: string): Target => ({
-      property,
-      axis,
-      sign: 1,
-      min: 1,
-      max: Number(style.getPropertyValue(`max-${property}`).replace(/px$/, '')),
-      also: axis === mainAxis && style.flexShrink !== '0' ? { 'flex-shrink': num(0) } : {},
-      snap: snaps('size'),
-      from: contentBox
-        ? total -
-          [`padding-${a}`, `padding-${b}`, `border-${a}-width`, `border-${b}-width`]
+    // An inline element ignores width, height and vertical margins, so such a drag also makes it
+    // inline-block in the same commit.
+    const inline = style.display === 'inline' ? { display: kw('inline-block') } : {}
+    const size = (property: string, axis: Axis, total: number, a: string, b: string): Target => {
+      const inset = contentBox
+        ? [`padding-${a}`, `padding-${b}`, `border-${a}-width`, `border-${b}-width`]
             .map((p) => cssPx(el, p))
             .reduce((sum, n) => sum + n)
-        : total,
-    })
+        : 0
+      return {
+        property,
+        axis,
+        sign: 1,
+        min: 1,
+        max: Number(style.getPropertyValue(`max-${property}`).replace(/px$/, '')),
+        inset,
+        also: {
+          ...(axis === mainAxis && style.flexShrink !== '0' ? { 'flex-shrink': num(0) } : {}),
+          ...inline,
+        },
+        snap: snaps('size'),
+        from: total - inset,
+      }
+    }
     const axis: Axis = side === 'left' || side === 'right' ? 'x' : 'y'
     const targets =
       kind === 'size'
@@ -695,7 +719,8 @@ export function selectionOverlay(
             from: cssPx(el, `${kind}-${s}`),
             min: kind === 'padding' ? 0 : -Infinity,
             max: Number.NaN,
-            also: {},
+            inset: 0,
+            also: kind === 'margin' && axis === 'y' ? inline : {},
             snap: snaps('spacing'),
           }))
     handleDrag = {
@@ -705,6 +730,7 @@ export function selectionOverlay(
       targets,
       ratio: side === 'corner' ? box.height / box.width : 0,
       free: event.ctrlKey || event.metaKey,
+      asked: [],
     }
     handlesLayer.setPointerCapture(event.pointerId)
     doc.addEventListener('pointerup', releaseHandle)
@@ -725,12 +751,14 @@ export function selectionOverlay(
     handleDrag.free = event.ctrlKey || event.metaKey
     emitHandle('drag')
     // Spacing shows the dragged side; size shows width, height, or both for the corner. A snapped
-    // value shows its token's name.
+    // value shows its token's name and, when the snap replaced a different value, that value with
+    // the key that turns snapping off.
     const shown = handleDrag.kind === 'size' ? handleDrag.targets : handleDrag.targets.slice(0, 1)
     tag.textContent = shown
       .map((target) => {
-        const { value, snap } = targetValue(target)
-        return snap ? snap.name : `${value}px`
+        const { value, snap, raw } = targetValue(target)
+        if (!snap) return `${value}px`
+        return snap.px === raw ? snap.name : `${snap.name} · ${freeKey} for ${raw}px`
       })
       .join(' × ')
     tag.hidden = false
@@ -921,11 +949,11 @@ export function selectionOverlay(
     host.toggleAttribute('data-idle', !visible)
     if (visible) {
       const info = stateInfo(selection.state)
-      const key = `${selection.name}|${selection.field}|${selection.scope}|${selection.state}|${selection.states.join()}`
+      const key = `${selection.name}|${selection.field}|${selection.restriction}|${selection.scope}|${selection.state}|${selection.states.join()}`
       if (key !== shown) {
         shown = key
         name.textContent = selection.name || selected!.tagName.toLowerCase()
-        field.textContent = selection.field
+        field.textContent = selection.restriction || selection.field
         scope.textContent = selection.scope
         chip.innerHTML = `${svg(info.icon)}${info.label}`
         chip.setAttribute('aria-label', `State: ${info.label}`)
@@ -995,16 +1023,33 @@ export function selectionOverlay(
         open.el.style.left = `${left}px`
         open.el.style.top = `${top}px`
       }
-      // Handles ride the edges every frame, but not while the element's text is being edited.
-      // Spacing nubs show in spacing mode; the boxes also while a sidebar spacing input has focus
-      // or Alt is held over the element. Align needs a parent node to align within.
-      handlesLayer.hidden = editing || selection.inner
-      spacingChip.hidden = editing || selection.inner
-      alignChip.hidden =
-        editing || selection.inner || !selected!.parentElement?.hasAttribute('data-lacuno-node')
-      if (alignChip.hidden && open?.el === alignMenu) closeMenus()
-      bottomBar.hidden = selection.inner
-      if (!editing && !selection.inner) {
+      // Handles ride the edges every frame, but not while the element's text is being edited or
+      // the element cannot be edited from the canvas. Spacing nubs show in spacing mode; the boxes
+      // also while a sidebar spacing input has focus or Alt is held over the element. Align needs
+      // a parent node to align within.
+      const still = editing || selection.inner || !selection.editable
+      handlesLayer.hidden = still
+      spacingChip.hidden = still
+      alignChip.hidden = still || !selected!.parentElement?.hasAttribute('data-lacuno-node')
+      bottomBar.hidden = selection.inner || !selection.editable
+      if (
+        (alignChip.hidden && open?.el === alignMenu) ||
+        (bottomBar.hidden && open?.el === colorMenu)
+      )
+        closeMenus()
+      // A size the box did not follow (a percentage cap, a Fill child, a min size) reads
+      // "limited": the box matches none of the last few asked sizes, so a frame of lag never counts.
+      if (handleDrag?.kind === 'size')
+        tag.classList.toggle(
+          'limited',
+          handleDrag.asked.length > 0 &&
+            !handleDrag.asked.some((asked) =>
+              Object.entries(asked).every(
+                ([property, size]) => Math.abs(bounds[property as 'width' | 'height'] - size) <= 1,
+              ),
+            ),
+        )
+      if (!still) {
         const showStrips =
           spacingMode || !!selection.spacingFocus || (altHeld && selected!.matches(':hover'))
         handlesLayer.classList.toggle('spacing-mode', spacingMode)
