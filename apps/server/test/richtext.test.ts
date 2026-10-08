@@ -11,26 +11,12 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   await heading.click()
   const canvasPosition = await page.locator('.canvas-workspace').boundingBox()
-  let releasePreview!: () => void
-  const heldPreview = new Promise<void>((resolve) => {
-    releasePreview = resolve
-  })
-  const holdPreview = async (route: import('playwright').Route) => {
-    await heldPreview
-    await route.continue()
-  }
-  await page.route('**/preview?*', holdPreview)
-  const requestedPreview = page.waitForRequest((request) => request.url().includes('/preview?'))
+  // The editor's own save brings the canvas back in its answer; nothing arrives later.
   await page.getByLabel('Text', { exact: true }).fill('Made with Lacuno.')
   await saved()
-  await requestedPreview
   await heading.dblclick()
   const editable = canvas.getByLabel('Canvas text editor')
   await editable.waitFor()
-  const returnedPreview = page.waitForResponse((response) => response.url().includes('/preview?'))
-  releasePreview()
-  await returnedPreview
-  await page.unroute('**/preview?*', holdPreview)
   const selectText = async (element: Locator, word: string) =>
     element.evaluate((element, word) => {
       const document = element.ownerDocument
