@@ -239,6 +239,23 @@ describe('renderNode: components, slots, lists, embeds', () => {
     )
   })
 
+  it("renders an instance's own classes on its root, where its canvas edits land", () => {
+    const doc = fixtureDocument()
+    doc.classes['l-pushed'] = { id: 'l-pushed', kind: 'local' }
+    doc.nodes.inst = {
+      id: 'inst',
+      type: 'component',
+      parent: null,
+      children: [],
+      classes: ['l-pushed'],
+      component: 'cmp-card',
+      props: { title: { type: 'static', value: 'Pushed' } },
+    }
+    expect(renderNode('inst', empty, state(doc))).toBe(
+      '<article class="card lc-l-pushed"><h3>Pushed</h3></article>',
+    )
+  })
+
   it('renders slot content in the outer scope and nests instances', () => {
     const doc = fixtureDocument()
     const scope: Scope = {

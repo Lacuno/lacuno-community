@@ -185,7 +185,7 @@ export function Editor({
     // A pending draft is no reason to refuse a drag: the drop flushes it first.
     disabled: busy || conflict || session.readOnly || !!inlineTarget || uploadingImage,
     flush: session.flushPending,
-    notice: setError,
+    notice: notify,
     save,
     select: (id) => {
       setSelected(id)

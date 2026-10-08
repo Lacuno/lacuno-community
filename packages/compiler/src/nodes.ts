@@ -127,11 +127,27 @@ function resolveAttrs(
   return imageAsset ? { attrs: out, imageAsset } : { attrs: out }
 }
 
+/**
+ * A node's classes with those of every instance it is the root of: an instance's own styles, such
+ * as the margins, alignment and size set on the canvas, belong on the element that renders it.
+ */
+function classesOf(node: Node, scope: Scope, state: RenderState): Node['classes'] {
+  const classes = [...node.classes]
+  let root = node.id
+  for (let at = scope.frames.length - 1; at >= 0; at--) {
+    const frame = scope.frames[at]!
+    if (frame.component.root !== root) break
+    classes.push(...state.doc.nodes[frame.instance]!.classes)
+    root = frame.instance
+  }
+  return classes
+}
+
 function renderImage(
-  node: ElementNode,
   attrs: AttrMap,
   asset: AssetRef,
   state: RenderState,
+  classes: Node['classes'],
 ): string {
   const img = state.resolveImage(asset)
   const sizes = typeof attrs.sizes === 'string' ? attrs.sizes : (img.sizes ?? DEFAULT_SIZES)
@@ -147,14 +163,16 @@ function renderImage(
   if (img.width) merged.width = String(img.width)
   if (img.height) merged.height = String(img.height)
   if (img.srcset) merged.srcset = img.srcset
-  if (node.classes.length) merged.class = classAttr(state.names, node.classes)
+  if (classes.length) merged.class = classAttr(state.names, classes)
   return `<img${renderAttrs(merged)}>`
 }
 
 function renderElement(node: ElementNode, scope: Scope, state: RenderState): string {
   const { attrs, imageAsset } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
-  if (node.tag === 'img' && imageAsset) return renderImage(node, attrs, imageAsset, state)
-  if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
+  if (node.tag === 'img' && imageAsset)
+    return renderImage(attrs, imageAsset, state, classesOf(node, scope, state))
+  const classes = classesOf(node, scope, state)
+  if (classes.length) attrs.class = classAttr(state.names, classes)
   // A form without its own action is a Lacuno form: published, it posts to the site's endpoint.
   const form = node.tag === 'form' && attrs.action === undefined && !state.annotateNodes
   if (form) {
@@ -177,7 +195,8 @@ function textContent(node: TextNode, scope: Scope, state: RenderState): Resolved
 
 function renderText(node: TextNode, scope: Scope, state: RenderState): string {
   const { attrs } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
-  if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
+  const classes = classesOf(node, scope, state)
+  if (classes.length) attrs.class = classAttr(state.names, classes)
   const warn = (message: string) => state.warnings.push({ node: node.id, message })
   const v = textContent(node, scope, state)
   state.texts?.push([node.id, v])
@@ -326,7 +345,8 @@ function renderList(
 ): string {
   const collection = state.doc.collections[node.collection]!
   const { attrs } = resolveAttrs(node.attrs, scope, state, node.id, node.tag)
-  if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
+  const classes = classesOf(node, scope, state)
+  if (classes.length) attrs.class = classAttr(state.names, classes)
   const listPage = node.query?.paginate ? (state.listPage ?? 1) : 1
   const query =
     listPage > 1 && node.query?.limit
@@ -382,7 +402,8 @@ export function renderNode(id: NodeId, scope: Scope, state: RenderState): string
       // An embed with classes or attributes publishes in a wrapper that carries them; the canvas
       // always wraps it so it can be selected and sized. Otherwise the markup goes out as it is.
       const { attrs } = resolveAttrs(node.attrs, scope, state, node.id)
-      if (node.classes.length) attrs.class = classAttr(state.names, node.classes)
+      const classes = classesOf(node, scope, state)
+      if (classes.length) attrs.class = classAttr(state.names, classes)
       if (state.annotateNodes) attrs['data-lacuno-embed'] = true
       if (!Object.keys(attrs).length) return node.html
       return `<div${renderAttrs(attrs)}>${node.html}</div>`

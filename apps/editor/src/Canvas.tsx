@@ -1,5 +1,5 @@
 import { MOTION_CSS, sizeWords, TABLE_CSS } from '@lacuno/css'
-import { px, RichTag, type State } from '@lacuno/schema'
+import { kw, px, RichTag, type State } from '@lacuno/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
 import type { StyleEdit, Swatch } from './colorWheel.js'
@@ -310,15 +310,19 @@ export function Canvas({
         changes: Record<string, number>
         timer?: ReturnType<typeof setTimeout>
         held: boolean
+        inlineBlock?: boolean
       }
     | undefined
   >(undefined)
   const emitNudge = (phase: 'drag' | 'commit') =>
     canvasStyle({
       id: nudge.current!.id,
-      changes: Object.fromEntries(
-        Object.entries(nudge.current!.changes).map(([property, value]) => [property, px(value)]),
-      ),
+      changes: {
+        ...Object.fromEntries(
+          Object.entries(nudge.current!.changes).map(([property, value]) => [property, px(value)]),
+        ),
+        ...(nudge.current!.inlineBlock ? { display: kw('inline-block') } : {}),
+      },
       phase,
     })
   const commitNudge = () => {
@@ -362,9 +366,11 @@ export function Canvas({
       burst.timer = setTimeout(commitNudge, 1500)
       return true
     }
+    const style = view.getComputedStyle(element)
+    // A vertical margin does nothing on an inline box, so the nudge makes it inline-block too.
+    if (property === 'margin-top' && style.display === 'inline') burst.inlineBlock = true
     const from =
-      burst.changes[property] ??
-      (Number.parseFloat(view.getComputedStyle(element).getPropertyValue(property)) || 0)
+      burst.changes[property] ?? (Number.parseFloat(style.getPropertyValue(property)) || 0)
     const sign = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1
     burst.changes[property] = from + sign * (event.shiftKey ? 10 : 1)
     burst.timer = setTimeout(commitNudge, 250)

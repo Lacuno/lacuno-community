@@ -246,6 +246,15 @@ export function Inspector({
     if (unchanged(node, changed)) return
     void autoSave(
       formattingOperations(doc, node, changed, () => classId.current, breakpoint, state),
+    ).then(() =>
+      // Once saved, the draft lets go of what it committed, so it no longer paints over a later
+      // edit of the same property from elsewhere, such as the Align controls after a nudge.
+      setChanges((previous) => {
+        const next = { ...previous }
+        for (const [property, value] of Object.entries(changed))
+          if (JSON.stringify(next[property]) === JSON.stringify(value)) delete next[property]
+        return next
+      }),
     )
   }
   useEffect(() => {
