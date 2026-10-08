@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import type { Locator } from 'playwright'
 import { expect, it } from 'vitest'
-import { editor, openFormatting, pageSettings, root } from './harness.js'
+import { editor, openFormatting, openInspectorTab, pageSettings, root } from './harness.js'
 
 it('edits selected canvas words, preserves selection through tools, saves page links and restores history', async () => {
   const { page, canvas, saved } = await editor()
@@ -12,6 +12,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   await heading.click()
   const canvasPosition = await page.locator('.canvas-workspace').boundingBox()
   // The editor's own save brings the canvas back in its answer; nothing arrives later.
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Made with Lacuno.')
   await saved()
   await heading.dblclick()
@@ -58,6 +59,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   await page.getByRole('button', { name: 'Bold', exact: true }).click()
   await expect.poll(() => editable.locator('strong').textContent()).toBe('Lacuno')
   await page.getByRole('button', { name: 'Italic', exact: true }).click()
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('')
   await page.getByLabel('Size', { exact: true }).pressSequentially('48px')
   expect(await page.getByLabel('Size', { exact: true }).inputValue()).toBe('48px')
@@ -75,7 +77,9 @@ it('edits selected canvas words, preserves selection through tools, saves page l
         .evaluate((el) => getComputedStyle(el).color),
     )
     .toBe('rgb(204, 34, 68)')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Font', { exact: true }).selectOption('Georgia, serif')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Alignment', { exact: true }).selectOption('center')
   expect(await heading.evaluate((el) => getComputedStyle(el).textAlign)).toBe('center')
   await page.getByRole('button', { name: 'Link', exact: true }).click()
@@ -155,6 +159,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   // Whole-text controls replace range overrides and can link the whole block without entering edit mode.
   await heading.click()
   await openFormatting(page, 'Typography')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('32px')
   await saved()
   await expect
@@ -185,12 +190,15 @@ it('edits selected canvas words, preserves selection through tools, saves page l
   await editable.waitFor()
   await editable.press('ArrowRight')
   await expect.poll(() => page.locator('.text-scope').textContent()).toBe('Whole text')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('24px')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('calc(12px + 1vw)')
   expect(await page.getByRole('button', { name: 'Done editing text' }).isDisabled()).toBe(true)
   expect(
     await page.getByRole('region', { name: 'Text formatting' }).getByRole('alert').textContent(),
   ).toContain('Use a font size')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('.5rem')
   expect(await page.getByRole('button', { name: 'Done editing text' }).isEnabled()).toBe(true)
   await expect
@@ -201,6 +209,7 @@ it('edits selected canvas words, preserves selection through tools, saves page l
         .then((parts) => parts.join('')),
     )
     .toBe(await editable.textContent())
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Alignment', { exact: true }).selectOption('right')
   await page.getByRole('button', { name: 'Cancel text edit', exact: true }).click()
   await expect.poll(() => heading.evaluate((el) => getComputedStyle(el).textAlign)).toBe('center')

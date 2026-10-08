@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net'
 import path from 'node:path'
 import { chromium } from 'playwright'
 import { expect, it, onTestFinished } from 'vitest'
-import { openFormatting, root } from './harness.js'
+import { openFormatting, openInspectorTab, root } from './harness.js'
 
 const types: Record<string, string> = {
   '.html': 'text/html',
@@ -69,6 +69,7 @@ it('edits the template in the browser with a service worker as its server', asyn
   }
 
   await heading.click()
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Made in the browser.')
   await saved()
   await openFormatting(page, 'Colors')
@@ -82,6 +83,7 @@ it('edits the template in the browser with a service worker as its server', asyn
   expect(await background()).toBe('rgb(255, 0, 0)')
   expect(await page.getByRole('button', { name: 'Undo', exact: true }).isDisabled()).toBe(true)
   await heading.click()
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Undo me')
   await saved()
   await page.getByRole('button', { name: 'Undo', exact: true }).click()

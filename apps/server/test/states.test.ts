@@ -20,9 +20,7 @@ it('edits a hover state in the canvas, publishes its rule and undoes it', async 
 
   await pickState('Hover')
   await expect.poll(() => canvas.getByRole('button', { name: 'State: Hover' }).count()).toBe(1)
-  await expect
-    .poll(() => page.getByTitle('Every change here applies to this state').textContent())
-    .toBe('Hover')
+  await expect.poll(() => page.getByLabel('Editing state').inputValue()).toBe('hover')
   await expect.poll(() => cta.getAttribute('data-lc-state')).toBe('hover')
   await openFormatting(page, 'Colors')
   await page.getByLabel('Background color', { exact: true }).fill('#ff0000')

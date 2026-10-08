@@ -1,6 +1,6 @@
 import type { CollectionListNode } from '@lacuno/schema'
 import { expect, it } from 'vitest'
-import { editor, pageSettings } from './harness.js'
+import { editor, openInspectorTab, pageSettings } from './harness.js'
 
 it('lists, binds and publishes collection content on the canvas', async () => {
   const { page, canvas, document: site, saved, api, siteId, server, publish } = await editor()
@@ -46,6 +46,7 @@ it('lists, binds and publishes collection content on the canvas', async () => {
   expect(await inList.locator('a').first().getAttribute('href')).toMatch(/^\/blog\//)
 
   // Filter, sort, limit and split into pages.
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Sort by').selectOption({ label: 'Title' })
   await saved()
   await inspector.getByLabel('Sort order').selectOption('desc')
@@ -82,9 +83,11 @@ it('lists, binds and publishes collection content on the canvas', async () => {
   await summary.click()
   await expect.poll(() => page.locator('.field-chip').textContent()).toBe('Summary')
   await expect.poll(() => canvas.locator('.selection-label .field').textContent()).toBe('Summary')
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Content from').selectOption({ label: 'Posts · Slug' })
   await saved()
   await expect.poll(() => summary.textContent()).toBe('your-website-your-rules')
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Content from').selectOption({ label: 'Written text' })
   await saved()
   const summaryId = (await summary.getAttribute('data-lacuno-node'))!
@@ -97,9 +100,11 @@ it('lists, binds and publishes collection content on the canvas', async () => {
   // Image and link: the cover and alt text come from the entry, the link from its slug or URL.
   await inList.locator('img').first().click()
   await expect.poll(() => inspector.getByLabel('Image from').inputValue()).toBe('f-cover')
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Alt text from').selectOption({ label: 'Written text' })
   await saved()
   expect(await inList.locator('img').first().getAttribute('alt')).toBe('')
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Alt text from').selectOption({ label: 'Posts · Title' })
   await saved()
   expect(await inList.locator('img').first().getAttribute('alt')).toBe(
@@ -109,6 +114,7 @@ it('lists, binds and publishes collection content on the canvas', async () => {
   await expect
     .poll(() => page.locator('.link-target-row > strong').textContent())
     .toBe('Field: Slug')
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Link from').selectOption({ label: 'Posts · URL' })
   await saved()
   expect(await inList.locator('a').first().getAttribute('href')).toBe(

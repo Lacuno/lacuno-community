@@ -319,6 +319,8 @@ export function Editor({
           selectTag={(tag) => void leave(() => setSelected(selected, tag && { tag, index: 0 }))}
           width={width}
           state={state}
+          setWidth={setWidth}
+          setState={setState}
           inlineTarget={inlineTarget}
           setInlineTarget={setInlineTarget}
           page={page}

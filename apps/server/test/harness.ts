@@ -173,11 +173,23 @@ export const drag = async (
 
 /** Opens a contextual formatting section without toggling a section that is already open. */
 export async function openFormatting(page: Page, name: string) {
+  await openInspectorTab(page, 'Style')
   const section = page.locator(`aside.inspector details[data-group="${name}"]`)
   await section.waitFor({ state: 'attached' })
+  const ancestors = section.locator('xpath=ancestor::details')
+  for (const ancestor of await ancestors.all()) {
+    if (!(await ancestor.evaluate((element) => (element as HTMLDetailsElement).open)))
+      await ancestor.locator(':scope > summary').click()
+  }
   if (!(await section.evaluate((element) => (element as HTMLDetailsElement).open)))
     await section.locator(':scope > summary').click()
   return section
+}
+
+/** Inline text and component inspectors have their own controls and do not show these tabs. */
+export async function openInspectorTab(page: Page, name: 'Style' | 'Content' | 'Advanced') {
+  const tab = page.locator('aside.inspector').getByRole('tab', { name, exact: true })
+  if (await tab.count()) await tab.click()
 }
 
 /**

@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { expect, it } from 'vitest'
-import { editor, root } from './harness.js'
+import { editor, openInspectorTab, root } from './harness.js'
 
 it('creates, customizes, edits and detaches reusable components through distinct controls', async () => {
   const { page, canvas, document } = await editor()
@@ -84,6 +84,7 @@ it('creates, customizes, edits and detaches reusable components through distinct
   await page.getByRole('button', { name: 'Edit shared component', exact: true }).click()
   await expect.poll(() => canvas.locator('[data-lacuno-node="n-home-note-copy"]').count()).toBe(1)
   await canvas.locator('[data-lacuno-node="n-home-note-copy"]').click()
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Shared text changed on the canvas')
   await expect
     .poll(async () => {

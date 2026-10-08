@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { siteEvents } from '../src/events.js'
-import { editor } from './harness.js'
+import { editor, openInspectorTab } from './harness.js'
 
 /** A new paragraph at the top of the home page's main, as a second client would add it. */
 const paragraph = (id: string, text: string) => ({
@@ -94,6 +94,7 @@ it('lands outside batches on the open canvas, queueing them behind a save in fli
     },
     { times: 1 },
   )
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Saved first')
   await saved()
   await expect
@@ -103,6 +104,7 @@ it('lands outside batches on the open canvas, queueing them behind a save in fli
   expect(await conflict.count()).toBe(0)
 
   // The editor keeps saving on top of the batches it took in.
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Saved after')
   await saved()
   expect((await document()).nodes['n-home-title']).toMatchObject({
