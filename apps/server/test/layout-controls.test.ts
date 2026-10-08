@@ -30,7 +30,9 @@ it('edits visual grid tracks and gaps, switches only mobile to a stack, and undo
     .toEqual(['24px', '32px'])
   expect((await document()).nodes['n-home-choice-grid']!.children).toEqual(children)
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
-  await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
+  await expect
+    .poll(() => page.getByLabel('Editing breakpoint').locator('option:checked').textContent())
+    .toContain('Mobile')
   await page.getByRole('button', { name: 'Stack layout', exact: true }).click()
   await saved()
   await expect

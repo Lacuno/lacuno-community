@@ -1,0 +1,276 @@
+/* The element inspector: selection and scope, then one focused set of controls. */
+.editor .focused-inspector {
+  --inspector-field: #f5f5f7;
+  --inspector-line: #e9e9ef;
+  --inspector-muted: #747180;
+  color: #252332;
+}
+.editor .focused-inspector .selection-heading {
+  padding: 19px 18px 14px;
+  gap: 10px;
+}
+.editor .focused-inspector .inspector-element-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border: 1px solid var(--inspector-line);
+  border-radius: 8px;
+  color: var(--inspector-muted);
+}
+.editor .focused-inspector .inspector-selection-context {
+  flex: 1;
+  min-width: 0;
+}
+.editor .focused-inspector .selection-heading strong {
+  display: block;
+  max-width: none;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.editor .focused-inspector .inspector-location {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--inspector-muted);
+}
+.editor .focused-inspector .inspector-location > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.editor .focused-inspector .inspector-parent {
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: inherit;
+}
+.editor .focused-inspector .inspector-binding {
+  margin: 0 18px 12px;
+}
+.editor .focused-inspector .inspector-binding .field-chip {
+  max-width: 100%;
+}
+.editor .focused-inspector .inspector-scope {
+  display: flex;
+  gap: 8px;
+  margin: 0 18px 13px;
+  color: var(--inspector-muted);
+}
+.editor .focused-inspector .inspector-breakpoint {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1.2;
+  padding-left: 9px;
+  gap: 4px;
+  background: var(--inspector-field);
+  border-radius: 6px;
+  margin: 0;
+}
+.editor .focused-inspector .inspector-breakpoint .editor-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+.editor .focused-inspector .inspector-scope select {
+  width: 100%;
+  min-width: 0;
+  height: 33px;
+  font-size: 11px;
+  padding: 5px 4px;
+  background: var(--inspector-field);
+  border-color: transparent;
+  color: #252332;
+  border-radius: 6px;
+}
+.editor .focused-inspector .inspector-scope > select {
+  flex: 1;
+}
+.editor .focused-inspector .scope-info-button {
+  flex-shrink: 0;
+  width: 20px;
+  padding: 2px;
+}
+.editor .focused-inspector .inspector-body {
+  padding: 0 18px 20px;
+  border-top: 0;
+}
+.editor .focused-inspector .inspector-tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--inspector-line);
+  margin: 0 -18px;
+  padding: 0 18px;
+}
+.editor .focused-inspector .inspector-tabs button {
+  background: transparent;
+  color: var(--inspector-muted);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 8px 0 11px;
+  font-size: 12px;
+  font-weight: 450;
+}
+.editor .focused-inspector .inspector-tabs button[aria-selected="true"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.editor .focused-inspector .inspector-tab-panel[hidden] {
+  display: none;
+}
+.editor
+  .focused-inspector
+  .inspector-tab-panel
+  :is(input, select, textarea):not([type="checkbox"]):not([type="color"]) {
+  background-color: var(--inspector-field);
+  border-color: transparent;
+  border-radius: 6px;
+}
+.editor .focused-inspector .inspector-tab-panel [data-overridden="true"] :is(input, select),
+.editor .focused-inspector .inspector-tab-panel :is(input, select)[data-overridden="true"] {
+  background-color: #faf8ff;
+  border-color: #b8a1f5;
+}
+.editor .focused-inspector .inspector-tab-panel :is(input, select, textarea):focus-visible {
+  border-color: var(--accent);
+}
+.editor .focused-inspector .inspector-presets {
+  border: 0;
+}
+.editor .focused-inspector .preset-manager {
+  grid-template-rows: auto auto;
+  margin: 17px 0;
+}
+.editor .focused-inspector .preset-manager > label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--inspector-muted);
+}
+.editor .focused-inspector .preset-customized {
+  text-align: left;
+  padding-top: 6px;
+}
+.editor .focused-inspector .preset-actions-trigger {
+  border-color: transparent;
+  background: var(--inspector-field);
+  border-radius: 6px;
+}
+.editor .focused-inspector .inspector-formatting > details {
+  border-color: var(--inspector-line);
+  padding: 0;
+}
+.editor .focused-inspector .inspector-formatting > details > summary,
+.editor .focused-inspector details.formatting-subsection > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 0;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 550;
+}
+.editor .focused-inspector .inspector-formatting > details > summary::-webkit-details-marker,
+.editor .focused-inspector details.formatting-subsection > summary::-webkit-details-marker {
+  display: none;
+}
+.editor .focused-inspector .formatting-summary {
+  margin-left: auto;
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--inspector-muted);
+}
+.editor .focused-inspector .inspector-formatting summary > .editor-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--inspector-muted);
+  flex-shrink: 0;
+}
+.editor .focused-inspector .inspector-formatting details[open] > summary > .editor-icon {
+  transform: rotate(90deg);
+}
+.editor .focused-inspector .inspector-formatting > details[open] > :last-child {
+  margin-bottom: 17px;
+}
+.editor .focused-inspector .inspector-formatting .formatting-subsection {
+  padding: 0;
+  border-top: 0;
+}
+.editor .focused-inspector details.formatting-subsection > summary {
+  padding: 10px 0;
+  color: var(--inspector-muted);
+  font-size: 11px;
+}
+.editor .focused-inspector .inspector-formatting .formatting-grid {
+  margin-top: 0;
+}
+.editor .focused-inspector .inspector-formatting .formatting-subsection[open] > :last-child {
+  margin: 5px 0 15px;
+}
+.editor .focused-inspector .inspector-formatting .formatting-grid label {
+  font-size: 11px;
+  color: var(--inspector-muted);
+}
+.editor .focused-inspector .text-toolbar {
+  padding: 0;
+}
+.editor .focused-inspector .text-toolbar-fields {
+  gap: 12px 8px;
+}
+.editor .focused-inspector .text-toolbar-footer {
+  display: none;
+}
+.editor .focused-inspector .text-toolbar-fields > button {
+  border-color: var(--inspector-line);
+  border-radius: 6px;
+}
+.editor .focused-inspector .inspector-tab-content,
+.editor .focused-inspector .inspector-tab-advanced {
+  padding-top: 19px;
+}
+.editor .focused-inspector .inspector-tab-content .binding-controls {
+  border: 0;
+  padding: 0 0 4px;
+}
+.editor .focused-inspector .inspector-tab-content textarea {
+  min-height: 148px;
+  line-height: 1.6;
+  padding: 10px;
+}
+.editor .focused-inspector .inspector-tab-content .inspector-fields > label {
+  margin-top: 14px;
+}
+.editor .focused-inspector .inspector-shared-classes h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 550;
+}
+.editor .focused-inspector .inspector-shared-classes .section-label {
+  display: none;
+}
+.editor .focused-inspector .inspector-reset {
+  border-top: 1px solid var(--inspector-line);
+  margin-top: 20px;
+  padding-top: 14px;
+}
+.editor .focused-inspector .inspector-feedback:empty {
+  display: none;
+}
+.editor .focused-inspector .inspector-feedback .hint {
+  font-size: 11px;
+}

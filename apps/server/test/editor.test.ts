@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { account, editor, openFormatting, pageSettings } from './harness.js'
+import { account, editor, openFormatting, openInspectorTab, pageSettings } from './harness.js'
 
 it('edits a real template in the browser, persists changes, and protects drafts on conflict', async () => {
   const { context, page, canvas, origin, siteId, saved } = await editor()
@@ -36,10 +36,12 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await saved()
   await heading.dispatchEvent('click')
   await openFormatting(page, 'Typography')
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Made with Lacuno.')
   await expect.poll(() => heading.textContent()).toBe('Made with Lacuno.')
   expect(await page.getByRole('button', { name: 'Save changes', exact: true }).count()).toBe(0)
   await saved()
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('42px')
   await saved()
   await expect
@@ -63,6 +65,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
     .toBe('42px')
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).focus()
   await page.keyboard.press('End')
   await page.keyboard.type('!')
@@ -86,6 +89,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await heading.click()
   await page.locator('[data-drag-node="n-home-title"]').click()
   expect(await page.getByLabel('Text', { exact: true }).inputValue()).toBe('Made with Lacuno.')
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Autosaved on navigation')
   await page.getByRole('button', { name: 'Pages', exact: true }).click()
   await page.locator('.page-link').filter({ hasText: 'About' }).click()
@@ -94,8 +98,10 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.locator('.page-link').filter({ hasText: 'Home' }).click()
   await expect.poll(() => heading.textContent()).toBe('Autosaved on navigation')
   await heading.click()
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Made with Lacuno.')
   await saved()
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Unsaved draft')
   const snapshotResponse = await context.request.get(`${origin}/api/sites/${siteId}/document`)
   const snapshot = await snapshotResponse.json()
@@ -121,6 +127,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     .toBe('Made with Lacuno.')
   await expect.poll(() => heading.textContent()).toBe('Made with Lacuno.')
   expect(await page.title()).toBe('Lacuno — Editor')
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Temporary undo target')
   await saved()
   await expect.poll(() => heading.textContent()).toBe('Temporary undo target')
@@ -199,11 +206,13 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   const originalInsertedSize = await inserted.evaluate(
     (element) => getComputedStyle(element).fontSize,
   )
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('31')
   await saved()
   await expect
     .poll(() => inserted.evaluate((element) => getComputedStyle(element).fontSize))
     .toBe('31px')
+  await openInspectorTab(page, 'Advanced')
   await page.getByRole('button', { name: 'Reset formatting', exact: true }).click()
   await expect
     .poll(() => inserted.evaluate((element) => getComputedStyle(element).fontSize))
@@ -213,7 +222,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     .poll(() => inserted.evaluate((element) => getComputedStyle(element).fontSize))
     .toBe('31px')
   // Classes and project colors retain references through edits, history and reloads.
-  await page.getByText('Advanced: shared classes', { exact: true }).click()
+  await openInspectorTab(page, 'Advanced')
   await page.getByText('Assign or create class', { exact: true }).click()
   await page.getByLabel('New class name', { exact: true }).fill('project-color-test')
   await page.getByRole('button', { name: 'Create and assign', exact: true }).click()
@@ -293,14 +302,14 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect.poll(paragraphColor).toBe('rgb(171, 205, 239)')
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
   await expect.poll(insertedColor).toBe('rgb(34, 68, 102)')
-  await page.getByText('Advanced: shared classes', { exact: true }).click()
+  await openInspectorTab(page, 'Advanced')
   await page.getByRole('button', { name: 'Remove class project-color-test', exact: true }).click()
   await expect
     .poll(() =>
       page.getByRole('button', { name: 'Remove class project-color-test', exact: true }).count(),
     )
     .toBe(0)
-  await page.getByText('Advanced: shared classes', { exact: true }).click()
+  await openInspectorTab(page, 'Advanced')
   await page
     .getByLabel('Assign class', { exact: true })
     .selectOption({ label: 'project-color-test' })
@@ -367,11 +376,14 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     }
     await route.continue()
   })
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('First pending edit')
   await writeReceived
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Latest typing while saving')
   await expect.poll(() => heading.textContent()).toBe('Latest typing while saving')
   expect(await page.getByLabel('Text', { exact: true }).isEnabled()).toBe(true)
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('47')
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
@@ -389,18 +401,21 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   ).json()
   expect(afterTyping.document.nodes['n-home-title'].text.value).toBe('Latest typing while saving')
   await page.unroute('**/document/apply')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('')
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
     .not.toBe('47px')
   await saved()
   // Invalid partial values stay editable and cannot be silently discarded by navigation.
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('not-a-size')
   await page.getByRole('alert').waitFor()
   page.once('dialog', (dialog) => dialog.dismiss())
   await page.getByRole('button', { name: 'Pages', exact: true }).click()
   await page.locator('.page-link').filter({ hasText: 'About' }).click()
   expect(await page.getByLabel('Size', { exact: true }).inputValue()).toBe('not-a-size')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('')
   // Failed writes keep the live draft and offer retry without a Save button.
   await page.route(
@@ -413,6 +428,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
       }),
     { times: 1 },
   )
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Recovered autosave')
   await page.getByRole('button', { name: 'Retry changes', exact: true }).waitFor()
   expect(await heading.textContent()).toBe('Recovered autosave')
@@ -436,6 +452,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).padding))
     .toBe('16px')
+  await openInspectorTab(page, 'Advanced')
   await page.getByRole('button', { name: 'Reset formatting', exact: true }).click()
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).padding))
@@ -492,6 +509,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).opacity))
     .toBe('0.65')
+  await openInspectorTab(page, 'Advanced')
   await page.getByRole('button', { name: 'Reset formatting', exact: true }).click()
   await saved()
   await expect
@@ -527,10 +545,12 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await expect.poll(() => heading.evaluate((element) => element.getAnimations().length)).toBe(0)
   await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await openInspectorTab(page, 'Advanced')
   await page.getByRole('button', { name: 'Reset formatting', exact: true }).click()
   await saved()
   await openFormatting(page, 'Typography')
   // Presets retain shared formatting while ordinary edits remain local.
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('38px')
   await saved()
   await page.getByRole('button', { name: 'Preset actions', exact: true }).click()
@@ -540,6 +560,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await saved()
   await expect.poll(() => page.getByLabel('Preset', { exact: true }).inputValue()).not.toBe('')
   const presetId = await page.getByLabel('Preset', { exact: true }).inputValue()
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('44px')
   await saved()
   await page.getByRole('button', { name: 'Preset actions', exact: true }).click()
@@ -547,6 +568,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
     .toBe('38px')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('46px')
   await saved()
   await page.getByRole('button', { name: 'Preset actions', exact: true }).click()
@@ -578,6 +600,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await lowerHeading.evaluate(() => {
     document.documentElement.dataset.scrollTest = 'before'
   })
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Publish your site')
   await saved()
   await expect.poll(() => lowerHeading.textContent()).toBe('Publish your site')
@@ -591,13 +614,16 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   // Responsive edits are isolated, including a pending edit flushed while switching sizes.
   await heading.click()
   await openFormatting(page, 'Typography')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('60px')
   await saved()
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
   await expect.poll(() => page.getByLabel('Size', { exact: true }).inputValue()).toBe('')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('24px')
   await page.getByRole('button', { name: 'Tablet', exact: true }).click()
   await expect.poll(() => page.getByLabel('Size', { exact: true }).inputValue()).toBe('')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('32px')
   await saved()
   await page.getByRole('button', { name: 'Desktop', exact: true }).click()
@@ -608,6 +634,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
     .toBe('24px')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('')
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
@@ -617,6 +644,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
     .toBe('24px')
+  await openInspectorTab(page, 'Advanced')
   await page.getByRole('button', { name: 'Reset formatting', exact: true }).click()
   await expect
     .poll(() => heading.evaluate((element) => getComputedStyle(element).fontSize))
@@ -631,7 +659,9 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByLabel('Motion easing', { exact: true }).selectOption('linear')
   await page.getByLabel('Motion duration', { exact: true }).fill('900')
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
-  await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
+  await expect
+    .poll(() => page.getByLabel('Editing breakpoint').locator('option:checked').textContent())
+    .toContain('Mobile')
   await page.getByLabel('Motion duration', { exact: true }).fill('300')
   await page.getByRole('button', { name: 'Desktop', exact: true }).click()
   await expect
@@ -644,7 +674,9 @@ it('edits a real template in the browser, persists changes, and protects drafts 
       'false',
     )
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
-  await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
+  await expect
+    .poll(() => page.getByLabel('Editing breakpoint').locator('option:checked').textContent())
+    .toContain('Mobile')
   await expect
     .poll(() => page.getByLabel('Motion duration', { exact: true }).inputValue())
     .toBe('300')
@@ -673,7 +705,9 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     .toBe('flex')
   await openFormatting(page, 'Layout')
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
-  await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
+  await expect
+    .poll(() => page.getByLabel('Editing breakpoint').locator('option:checked').textContent())
+    .toContain('Mobile')
   await page.getByRole('button', { name: 'Stack layout', exact: true }).click()
   await saved()
   await expect
@@ -882,6 +916,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     .poll(() => insertedImage.evaluate((element) => (element as HTMLImageElement).naturalWidth))
     .toBe(40)
   const uploadedSrc = await insertedImage.getAttribute('src')
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Image alt text', { exact: true }).fill('Blue sample image')
   await expect.poll(() => insertedImage.getAttribute('alt')).toBe('Blue sample image')
   await saved()
@@ -893,13 +928,16 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     .poll(() => insertedImage.evaluate((element) => getComputedStyle(element).objectFit))
     .toBe('contain')
   await page.getByRole('button', { name: 'Mobile', exact: true }).click()
-  await expect.poll(() => page.locator('.responsive-scope').textContent()).toContain('Mobile')
+  await expect
+    .poll(() => page.getByLabel('Editing breakpoint').locator('option:checked').textContent())
+    .toContain('Mobile')
   await page.getByLabel('Image focal point', { exact: true }).selectOption('100% 0%')
   await saved()
   await page.getByRole('button', { name: 'Desktop', exact: true }).click()
   await expect
     .poll(() => insertedImage.evaluate((element) => getComputedStyle(element).objectPosition))
     .toBe('50% 50%')
+  await openInspectorTab(page, 'Content')
   await page.getByRole('button', { name: 'Change image', exact: true }).click()
   const library = page.getByRole('dialog', { name: 'Image library' })
   await library.waitFor()
@@ -935,6 +973,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await expect.poll(() => placeholder.evaluate((element) => element.tagName)).toBe('DIV')
   await expect.poll(() => placeholder.getAttribute('src')).toBe(null)
   await placeholder.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+  await openInspectorTab(page, 'Content')
   await page.getByRole('button', { name: 'Choose image', exact: true }).click()
   await page
     .getByRole('dialog', { name: 'Image library' })

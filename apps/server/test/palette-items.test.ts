@@ -1,6 +1,6 @@
 import type { Locator } from 'playwright'
 import { expect, it } from 'vitest'
-import { editor, openFormatting } from './harness.js'
+import { editor, openFormatting, openInspectorTab } from './harness.js'
 
 it('inserts a list, span, video and embed from the palette and publishes them', async () => {
   const { server, page, canvas, publish, saved } = await editor()
@@ -24,6 +24,7 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
 
   // A list is a ul of three items; the inspector switches it to numbered in place.
   await insert('List')
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('List type', { exact: true }).selectOption('ol')
   await saved()
   const item = canvas.locator('ol > li', { hasText: 'Second item' })
@@ -47,6 +48,7 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
   await page.getByRole('button', { name: 'Insert clip.mp4', exact: true }).waitFor()
   await insert('Video')
   await canvas.locator('[data-lacuno-placeholder="Video"]').waitFor()
+  await openInspectorTab(page, 'Content')
   await page.getByRole('button', { name: 'Choose video', exact: true }).click()
   await page
     .getByRole('dialog', { name: 'Video library' })
@@ -68,12 +70,14 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
 
   // Embed code never runs on the canvas, so an iframe-only embed shows a labelled placeholder.
   await insert('Embed')
+  await openInspectorTab(page, 'Content')
   await page.getByRole('button', { name: 'About embed code' }).click()
   await page.getByText('Paste the HTML snippet a service gives you').waitFor({ state: 'visible' })
   await page.keyboard.press('Escape')
   await page
     .getByLabel('Embed code', { exact: true })
     .fill('<iframe src="https://example.com"></iframe>')
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Embed code', { exact: true }).blur()
   await saved()
   await canvas.locator('[data-lacuno-placeholder="Embed"] iframe').waitFor({ state: 'attached' })

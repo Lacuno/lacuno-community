@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, openInspectorTab } from './harness.js'
 
 it('inserts a form, keeps fields inside it and edits a field name and Required', async () => {
   const { page, canvas, document, saved } = await editor()
@@ -18,6 +18,7 @@ it('inserts a form, keeps fields inside it and edits a field name and Required',
   await page.getByText('Place form fields inside a form.').waitFor()
 
   await insert('Form')
+  await openInspectorTab(page, 'Content')
   await canvas.locator('form label', { hasText: 'Message' }).locator('textarea').waitFor()
   await expect
     .poll(() => page.getByLabel('Form name', { exact: true }).inputValue())

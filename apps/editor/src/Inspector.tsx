@@ -2,7 +2,7 @@ import { classNames, contextFromDocument, selectorFor, serializeValue } from '@l
 import type { Operation } from '@lacuno/document'
 import { assetUrl, canvasImage } from '@lacuno/renderer'
 import type { CssValue, Document, Node, RichTag, State } from '@lacuno/schema'
-import { useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { BindingControls, ListSettings } from './BindingControls.js'
 import { boundFieldLabel } from './binding.js'
 import { breakpointMedia } from './breakpoints.js'
@@ -25,6 +25,7 @@ import {
   normalizeFormatting,
   saveStatus,
 } from './formatting.js'
+import { type InspectorTab, InspectorTabs } from './InspectorTabs.js'
 import { LinkTarget } from './LinkTarget.js'
 import { MediaControls } from './MediaControls.js'
 import { PresetManager } from './PresetManager.js'
@@ -32,12 +33,13 @@ import { winningStyles } from './presets.js'
 import { TagPicker } from './RichTagInspector.js'
 import { RotatingWordsControls } from './RotatingWordsControls.js'
 import { isRichBlock } from './richTags.js'
-import { stateInfo } from './states.js'
+import { applicableStates, stateInfo } from './states.js'
 import { hasAnchorParent, isLocked, isShared, nodeLabel } from './structure.js'
 import { useStyleField } from './styleField.js'
 import { TextToolbar } from './TextToolbar.js'
 import { textLink, textProperties, wholeText } from './textFormatting.js'
 import { useAutosave } from './useAutosave.js'
+import './inspector.css'
 
 function editableText(node: Node): string | undefined {
   if (node.type !== 'text') return undefined
@@ -75,7 +77,17 @@ export function Inspector({
   clearSelection,
   selectTag,
   selectNode,
+  tab,
+  setTab,
+  pageName,
+  changeBreakpoint,
+  changeState,
 }: {
+  tab: InspectorTab
+  setTab: (tab: InspectorTab) => void
+  pageName: string
+  changeBreakpoint: (id: string) => void
+  changeState: (state: State) => void
   siteId: string
   breakpoint: string
   state: State
@@ -330,28 +342,267 @@ export function Inspector({
   const { local: current, overridden } = useStyleField(controls)
   const boundField = boundFieldLabel(doc, node)
   const form = formTarget(doc, node)
+  const flushOnEnter = (event: KeyboardEvent<HTMLFieldSetElement>) => {
+    if (
+      event.key === 'Enter' &&
+      event.target instanceof HTMLInputElement &&
+      !event.target.closest('form')
+    ) {
+      event.preventDefault()
+      void autosave.flush()
+    }
+  }
+  const content = (
+    <>
+      {isLink && (
+        <div className="link-target-row">
+          <span>Link target</span>
+          <strong>
+            {linkHref?.type === 'field'
+              ? `Field: ${boundField}`
+              : link && 'pageId' in link
+                ? (doc.pages[link.pageId]?.name ?? 'Unknown page')
+                : (link?.href ?? 'No destination yet')}
+          </strong>
+          <LinkTarget
+            doc={doc}
+            label="Change"
+            disabled={disabled || !settled}
+            current={link}
+            apply={(value) =>
+              void save([
+                {
+                  type: 'node.update',
+                  id: node.id,
+                  attrs: {
+                    ...node.attrs,
+                    href: value.pageId
+                      ? { type: 'page', page: value.pageId }
+                      : { type: 'static', value: value.href ?? '' },
+                  },
+                },
+              ])
+            }
+          />
+        </div>
+      )}
+      <BindingControls
+        key={node.id}
+        doc={doc}
+        node={node}
+        disabled={disabled || !settled}
+        save={save}
+      />
+      {node.type === 'collection-list' && (
+        <ListSettings doc={doc} node={node} disabled={disabled || !settled} save={save} />
+      )}
+      <fieldset
+        aria-label="Element properties"
+        className="inspector-fields"
+        onKeyDown={flushOnEnter}
+      >
+        {'tag' in node && (node.tag === 'ul' || node.tag === 'ol') && (
+          <label>
+            List type
+            <select
+              aria-label="List type"
+              value={node.tag}
+              disabled={disabled}
+              onChange={(event) =>
+                void autoSave([{ type: 'node.update', id: node.id, tag: event.target.value }])
+              }
+            >
+              <option value="ul">Bulleted</option>
+              <option value="ol">Numbered</option>
+            </select>
+          </label>
+        )}
+        {node.type === 'embed' && (
+          <CodeField
+            label="Embed code"
+            info="Paste the HTML snippet a service gives you, such as a YouTube video, a map, a form or a social post. It is published exactly as written. The canvas shows only its static parts; scripts and iframes run on the published site, so a placeholder stands in here. The code saves when you leave the field."
+            rows={8}
+            placeholder={'<iframe src="https://…"></iframe>'}
+            value={embedHtml}
+            disabled={disabled}
+            change={setEmbedHtml}
+            commit={() => {
+              if (embedHtml !== node.html)
+                void autoSave([{ type: 'node.update', id: node.id, html: embedHtml }])
+            }}
+          />
+        )}
+        {(isImage || isVideo) && (
+          <MediaControls
+            {...controls}
+            siteId={siteId}
+            alt={imageAlt}
+            setAlt={setImageAlt}
+            asset={imageAsset}
+            setAsset={setImageAsset}
+            autoSave={autoSave}
+          />
+        )}
+        {form && <FormControls doc={doc} node={form} disabled={disabled} save={autoSave} />}
+        {originalText !== undefined ? (
+          <label>
+            Content
+            <textarea
+              aria-label="Text"
+              rows={3}
+              value={text}
+              disabled={disabled}
+              onChange={(event) => setText(event.target.value)}
+            />
+          </label>
+        ) : node.type === 'text' && node.text.type !== 'field' ? (
+          <p className="note">
+            {node.text.type === 'doc'
+              ? 'Double-click this text on the canvas to edit words, formatting, and links.'
+              : 'This text is bound to content and cannot be edited directly.'}
+          </p>
+        ) : null}
+      </fieldset>
+      {!isLink &&
+        !isImage &&
+        !isVideo &&
+        !form &&
+        node.type === 'element' &&
+        node.tag !== 'ul' &&
+        node.tag !== 'ol' && (
+          <p className="selection-hint">
+            Select a text, image, or other child element to edit its content.
+          </p>
+        )}
+    </>
+  )
+  const style = (
+    <>
+      <div className="inspector-presets">
+        <PresetManager
+          breakpoint={breakpoint}
+          doc={doc}
+          node={node}
+          computed={computed}
+          disabled={!settled || classDraft}
+          save={save}
+          draftChanged={setPresetDraft}
+        />
+      </div>
+      {isRichBlock(doc, node) && <TagPicker disabled={disabled || !settled} choose={selectTag} />}
+      <fieldset aria-label="Element styling" className="inspector-fields" onKeyDown={flushOnEnter}>
+        <FormattingControls
+          {...controls}
+          focused
+          words={
+            node.type === 'text' ? (
+              <RotatingWordsControls node={node} disabled={disabled} save={autoSave} />
+            ) : undefined
+          }
+          typography={
+            node.type === 'text' ? (
+              <TextToolbar
+                compact
+                doc={doc}
+                scope="Whole text"
+                currentLink={textLink(node)}
+                placeholders={computed}
+                disabled={disabled}
+                values={Object.fromEntries(
+                  textProperties.map((property) => {
+                    const value = current(property)
+                    return [property, value ? serializeValue(value, context) : '']
+                  }),
+                )}
+                change={(property, value) =>
+                  changeFormatting(property, value ? { type: 'raw', value } : null)
+                }
+                tokens={{ value: current, set: changeFormatting }}
+                overridden={overridden}
+                linkDisabled={
+                  !settled ||
+                  (node.text.type !== 'doc' && node.text.type !== 'static') ||
+                  node.tag === 'a' ||
+                  hasAnchorParent(doc, node)
+                }
+                link={(attrs) =>
+                  void save([
+                    { type: 'node.update', id: node.id, text: wholeText(node, [], attrs) },
+                  ])
+                }
+              />
+            ) : undefined
+          }
+        />
+      </fieldset>
+    </>
+  )
+  const advanced = (
+    <>
+      <section className="inspector-shared-classes" aria-label="Shared classes">
+        <h3>Shared classes</h3>
+        <p className="hint">
+          Reusable styles underneath this element. Direct formatting takes priority.
+        </p>
+        <ClassManager
+          doc={doc}
+          node={node}
+          disabled={!settled || presetDraft}
+          save={save}
+          draftChanged={setClassDraft}
+        />
+      </section>
+      <div className="inspector-reset">
+        <button
+          type="button"
+          className="formatting-reset"
+          aria-label="Reset formatting"
+          title="Reset local formatting"
+          disabled={disabled || !settled || !overrides.length}
+          onClick={() => void save(clearStyles(doc, node, overrides, breakpoint, state))}
+        >
+          <EditorIcon name="reset" /> Reset formatting
+        </button>
+      </div>
+    </>
+  )
   return (
-    <aside className="inspector">
+    <aside className="inspector focused-inspector">
       <div className="selection-heading">
-        {node.parent && doc.nodes[node.parent] && (
-          <button
-            type="button"
-            className="inspector-parent"
-            aria-label={`Select parent: ${nodeLabel(doc.nodes[node.parent]!)}`}
-            title={`Select parent: ${nodeLabel(doc.nodes[node.parent]!)}`}
-            onClick={() => selectNode(node.parent!)}
-          >
-            <EditorIcon name="up" />
-          </button>
-        )}
-        <strong>{nodeLabel(node)}</strong>
-        <span className="element-badge">{'tag' in node ? node.tag.toUpperCase() : node.type}</span>
-        {boundField && (
-          <span className="field-chip" title={boundField}>
-            <EditorIcon name="database" />
-            <span>{boundField}</span>
-          </span>
-        )}
+        <span className="inspector-element-icon" title={'tag' in node ? node.tag : node.type}>
+          <EditorIcon
+            name={
+              node.type === 'text'
+                ? 'text'
+                : isImage
+                  ? 'image'
+                  : isVideo
+                    ? 'video'
+                    : node.type === 'embed'
+                      ? 'embed'
+                      : 'container'
+            }
+          />
+        </span>
+        <div className="inspector-selection-context">
+          <strong>{nodeLabel(node)}</strong>
+          <div className="inspector-location">
+            <span>{pageName}</span>
+            {node.parent && doc.nodes[node.parent] && (
+              <>
+                <span aria-hidden="true">/</span>
+                <button
+                  type="button"
+                  className="inspector-parent"
+                  aria-label={`Select parent: ${nodeLabel(doc.nodes[node.parent]!)}`}
+                  onClick={() => selectNode(node.parent!)}
+                >
+                  {nodeLabel(doc.nodes[node.parent]!)}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
         <button
           type="button"
           className="inspector-close"
@@ -361,226 +612,74 @@ export function Inspector({
           <EditorIcon name="close" />
         </button>
       </div>
-      <div className="inspector-body">
-        <div className="responsive-scope">
-          <span>{doc.breakpoints[breakpoint]?.label ?? breakpoint}</span>
-          {state !== 'none' && (
-            <span className="state-badge" title="Every change here applies to this state">
-              {stateInfo(state).label}
-            </span>
-          )}
-          <InfoButton label="About responsive editing">
-            {breakpoint === 'base' && state === 'none'
-              ? `${overrides.length} local base styles. These apply to all sizes unless overridden.`
-              : `${overrides.length} local overrides. Purple fields override this size or state; reset restores inheritance.`}{' '}
-            Text and preset assignment apply to all sizes.
-          </InfoButton>
+      {boundField && (
+        <div className="inspector-binding">
+          <span className="field-chip" title={boundField}>
+            <EditorIcon name="database" />
+            <span>{boundField}</span>
+          </span>
         </div>
-        {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
-        {locked && <p className="note">This element or its parent is locked.</p>}
-        {isLink && (
-          <div className="link-target-row">
-            <span>Link target</span>
-            <strong>
-              {linkHref?.type === 'field'
-                ? `Field: ${boundField}`
-                : link && 'pageId' in link
-                  ? (doc.pages[link.pageId]?.name ?? 'Unknown page')
-                  : (link?.href ?? 'No destination yet')}
-            </strong>
-            <LinkTarget
-              doc={doc}
-              label="Change"
-              disabled={disabled || !settled}
-              current={link}
-              apply={(value) =>
-                void save([
-                  {
-                    type: 'node.update',
-                    id: node.id,
-                    attrs: {
-                      ...node.attrs,
-                      href: value.pageId
-                        ? { type: 'page', page: value.pageId }
-                        : { type: 'static', value: value.href ?? '' },
-                    },
-                  },
-                ])
-              }
-            />
-          </div>
-        )}
-        <BindingControls
-          key={node.id}
-          doc={doc}
-          node={node}
-          disabled={disabled || !settled}
-          save={save}
-        />
-        {isRichBlock(doc, node) && <TagPicker disabled={disabled || !settled} choose={selectTag} />}
-        {node.type === 'collection-list' && (
-          <ListSettings doc={doc} node={node} disabled={disabled || !settled} save={save} />
-        )}
-        <fieldset
-          aria-label="Element properties"
-          className="inspector-fields"
-          onKeyDown={(event) => {
-            if (
-              event.key === 'Enter' &&
-              event.target instanceof HTMLInputElement &&
-              !event.target.closest('form')
-            ) {
-              event.preventDefault()
-              void autosave.flush()
-            }
-          }}
-        >
-          {'tag' in node && (node.tag === 'ul' || node.tag === 'ol') && (
-            <label>
-              List type
-              <select
-                aria-label="List type"
-                value={node.tag}
-                disabled={disabled}
-                onChange={(event) =>
-                  void autoSave([{ type: 'node.update', id: node.id, tag: event.target.value }])
-                }
-              >
-                <option value="ul">Bulleted</option>
-                <option value="ol">Numbered</option>
-              </select>
-            </label>
-          )}
-          {node.type === 'embed' && (
-            <CodeField
-              label="Embed code"
-              info="Paste the HTML snippet a service gives you, such as a YouTube video, a map, a form or a social post. It is published exactly as written. The canvas shows only its static parts; scripts and iframes run on the published site, so a placeholder stands in here. The code saves when you leave the field."
-              rows={8}
-              placeholder={'<iframe src="https://…"></iframe>'}
-              value={embedHtml}
-              disabled={disabled}
-              change={setEmbedHtml}
-              commit={() => {
-                if (embedHtml !== node.html)
-                  void autoSave([{ type: 'node.update', id: node.id, html: embedHtml }])
-              }}
-            />
-          )}
-          {(isImage || isVideo) && (
-            <MediaControls
-              {...controls}
-              siteId={siteId}
-              alt={imageAlt}
-              setAlt={setImageAlt}
-              asset={imageAsset}
-              setAsset={setImageAsset}
-              autoSave={autoSave}
-            />
-          )}
-          {form && <FormControls doc={doc} node={form} disabled={disabled} save={autoSave} />}
-          {originalText !== undefined ? (
-            <label>
-              Content
-              <textarea
-                aria-label="Text"
-                rows={3}
-                value={text}
-                disabled={disabled}
-                onChange={(event) => setText(event.target.value)}
-              />
-            </label>
-          ) : node.type === 'text' && node.text.type !== 'field' ? (
-            <p className="note">
-              {node.text.type === 'doc'
-                ? 'Double-click this text on the canvas to edit words, formatting, and links.'
-                : 'This text is bound to content and cannot be edited directly.'}
-            </p>
-          ) : null}
-          <FormattingControls
-            {...controls}
-            words={
-              node.type === 'text' ? (
-                <RotatingWordsControls node={node} disabled={disabled} save={autoSave} />
-              ) : undefined
-            }
-            typography={
-              node.type === 'text' ? (
-                <TextToolbar
-                  doc={doc}
-                  scope="Whole text"
-                  currentLink={textLink(node)}
-                  placeholders={computed}
-                  disabled={disabled}
-                  values={Object.fromEntries(
-                    textProperties.map((property) => {
-                      const value = current(property)
-                      return [property, value ? serializeValue(value, context) : '']
-                    }),
-                  )}
-                  change={(property, value) =>
-                    changeFormatting(property, value ? { type: 'raw', value } : null)
-                  }
-                  tokens={{ value: current, set: changeFormatting }}
-                  overridden={overridden}
-                  linkDisabled={
-                    !settled ||
-                    (node.text.type !== 'doc' && node.text.type !== 'static') ||
-                    node.tag === 'a' ||
-                    hasAnchorParent(doc, node)
-                  }
-                  link={(attrs) =>
-                    void save([
-                      { type: 'node.update', id: node.id, text: wholeText(node, [], attrs) },
-                    ])
-                  }
-                />
-              ) : undefined
+      )}
+      <div className="inspector-scope responsive-scope">
+        <label className="inspector-breakpoint">
+          <EditorIcon
+            name={
+              breakpoint === 'base'
+                ? 'desktop'
+                : breakpoint.startsWith('mobile')
+                  ? 'mobile'
+                  : 'tablet'
             }
           />
+          <select
+            aria-label="Editing breakpoint"
+            value={breakpoint}
+            disabled={busy || conflict}
+            onChange={(event) => changeBreakpoint(event.target.value)}
+          >
+            {Object.values(doc.breakpoints).map((bp) => (
+              <option key={bp.id} value={bp.id}>
+                {bp.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <select
+          aria-label="Editing state"
+          value={state}
+          disabled={busy || conflict}
+          onChange={(event) => changeState(event.target.value as State)}
+        >
+          {applicableStates(doc, node).map((item) => (
+            <option key={item} value={item}>
+              {stateInfo(item).label}
+            </option>
+          ))}
+        </select>
+        <InfoButton label="About responsive editing">
+          {breakpoint === 'base' && state === 'none'
+            ? `${overrides.length} local base styles. These apply to all sizes unless overridden.`
+            : `${overrides.length} local overrides. Purple fields override this size or state; reset restores inheritance.`}{' '}
+          Text and preset assignment apply to all sizes.
+        </InfoButton>
+      </div>
+      <div className="inspector-body">
+        {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
+        {locked && <p className="note">This element or its parent is locked.</p>}
+        <InspectorTabs active={tab} change={setTab} panels={{ style, content, advanced }} />
+        <div className="inspector-feedback" aria-live="polite">
           <ErrorNote message={validation || tokenError} />
-          <p className="hint" role="status">
-            {saveStatus({ conflict, validation, busy, pending: edits })}
-          </p>
+          {(conflict || busy || edits || autosave.hasFailed) && (
+            <p className="hint" role="status">
+              {saveStatus({ conflict, validation, busy, pending: edits })}
+            </p>
+          )}
           {autosave.hasFailed && !conflict && (
             <button type="button" onClick={autosave.retry}>
               Retry changes
             </button>
           )}
-        </fieldset>
-        <div className="inspector-presets">
-          <PresetManager
-            breakpoint={breakpoint}
-            doc={doc}
-            node={node}
-            computed={computed}
-            disabled={!settled || classDraft}
-            save={save}
-            draftChanged={setPresetDraft}
-          />
-          <button
-            type="button"
-            className="formatting-reset"
-            aria-label="Reset formatting"
-            title="Reset local formatting"
-            disabled={disabled || !settled || !overrides.length}
-            onClick={() => void save(clearStyles(doc, node, overrides, breakpoint, state))}
-          >
-            <EditorIcon name="reset" /> Reset formatting
-          </button>
         </div>
-        <details className="advanced-classes">
-          <summary>Advanced: shared classes</summary>
-          <p className="hint">
-            Reusable styles underneath this element. Direct formatting takes priority.
-          </p>
-          <ClassManager
-            doc={doc}
-            node={node}
-            disabled={!settled || presetDraft}
-            save={save}
-            draftChanged={setClassDraft}
-          />
-        </details>
       </div>
     </aside>
   )

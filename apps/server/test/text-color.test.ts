@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor, openFormatting } from './harness.js'
+import { editor, openFormatting, openInspectorTab } from './harness.js'
 
 type Canvas = Awaited<ReturnType<typeof editor>>['canvas']
 
@@ -100,6 +100,7 @@ it('keeps range colours and the words when the whole text changes', async () => 
   await format(sized, 'Size', '40px')
   await heading.click()
   await openFormatting(page, 'Typography')
+  await openInspectorTab(page, 'Style')
   await page.getByLabel('Size', { exact: true }).fill('20px')
   await saved()
   await expect

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor, pageSettings } from './harness.js'
+import { editor, openInspectorTab, pageSettings } from './harness.js'
 
 it('formats bound dates, shows fields inside text and puts titles into the site template', async () => {
   const { page, canvas, document, saved, api, siteId, server, publish } = await editor()
@@ -34,6 +34,7 @@ it('formats bound dates, shows fields inside text and puts titles into the site 
   await page.locator('.page-link').filter({ hasText: 'Article' }).click()
   const summary = canvas.locator('[data-lacuno-node="n-article-summary"]')
   await summary.click()
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Content from').selectOption({ label: 'Posts · Last updated' })
   await saved()
   await expect.poll(() => summary.textContent()).toBe('2026-09-28')

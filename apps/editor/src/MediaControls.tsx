@@ -2,9 +2,9 @@ import type { Operation } from '@lacuno/document'
 import { useState } from 'react'
 import { ImageLibrary } from './ImageLibrary.js'
 import { toggleAttr } from './structure.js'
-import type { StyleControls } from './styleField.js'
+import { type StyleControls, useStyleField } from './styleField.js'
 
-/** An image's or video's file, an image's alt text, fit and focal point, and a video's flags. */
+/** Media content: the file, alternate text, and video playback flags. */
 export function MediaControls({
   siteId,
   alt,
@@ -15,9 +15,6 @@ export function MediaControls({
   doc,
   node,
   disabled,
-  changes,
-  computed,
-  change,
 }: StyleControls & {
   siteId: string
   alt: string
@@ -77,67 +74,69 @@ export function MediaControls({
             />
           </label>
           <p className="hint">Describe the image, or leave empty if it is decorative.</p>
-          <label>
-            Fit
-            <select
-              aria-label="Image fit"
-              disabled={disabled}
-              value={
-                changes['object-fit']?.type === 'raw'
-                  ? changes['object-fit'].value
-                  : computed['object-fit'] || 'fill'
-              }
-              onChange={(event) => change('object-fit', { type: 'raw', value: event.target.value })}
-            >
-              {Object.entries({
-                cover: 'Fill frame',
-                contain: 'Fit inside',
-                fill: 'Stretch',
-                none: 'Original size',
-                'scale-down': 'Shrink to fit',
-              }).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Focal point
-            <select
-              aria-label="Image focal point"
-              disabled={disabled}
-              value={
-                changes['object-position']?.type === 'raw'
-                  ? changes['object-position'].value
-                  : computed['object-position'] || '50% 50%'
-              }
-              onChange={(event) =>
-                change('object-position', {
-                  type: 'raw',
-                  value: event.target.value,
-                })
-              }
-            >
-              {[
-                ['0% 0%', 'Top left'],
-                ['50% 0%', 'Top'],
-                ['100% 0%', 'Top right'],
-                ['0% 50%', 'Left'],
-                ['50% 50%', 'Center'],
-                ['100% 50%', 'Right'],
-                ['0% 100%', 'Bottom left'],
-                ['50% 100%', 'Bottom'],
-                ['100% 100%', 'Bottom right'],
-              ].map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
         </>
       )}
+    </div>
+  )
+}
+
+/** Image positioning is styling, separate from the file and alt text in Content. */
+export function MediaStyleControls(controls: StyleControls) {
+  const { disabled, change } = controls
+  const { value } = useStyleField(controls)
+  return (
+    <div className="formatting-grid image-style-controls">
+      <label>
+        Fit
+        <select
+          aria-label="Image fit"
+          disabled={disabled}
+          value={value('object-fit', 'fill')}
+          onChange={(event) => change('object-fit', { type: 'raw', value: event.target.value })}
+        >
+          {Object.entries({
+            cover: 'Fill frame',
+            contain: 'Fit inside',
+            fill: 'Stretch',
+            none: 'Original size',
+            'scale-down': 'Shrink to fit',
+          }).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Focal point
+        <select
+          aria-label="Image focal point"
+          disabled={disabled}
+          value={value('object-position', '50% 50%')}
+          onChange={(event) =>
+            change('object-position', {
+              type: 'raw',
+              value: event.target.value,
+            })
+          }
+        >
+          {[
+            ['0% 0%', 'Top left'],
+            ['50% 0%', 'Top'],
+            ['100% 0%', 'Top right'],
+            ['0% 50%', 'Left'],
+            ['50% 50%', 'Center'],
+            ['100% 50%', 'Right'],
+            ['0% 100%', 'Bottom left'],
+            ['50% 100%', 'Bottom'],
+            ['100% 100%', 'Bottom right'],
+          ].map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   )
 }

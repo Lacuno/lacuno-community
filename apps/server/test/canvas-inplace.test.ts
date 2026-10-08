@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, openInspectorTab } from './harness.js'
 
 it('morphs the canvas in place, so nothing reloads across commits', async () => {
   const { page, canvas, saved } = await editor()
@@ -42,6 +42,7 @@ it('morphs the canvas in place, so nothing reloads across commits', async () => 
   // A text edit commit.
   const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   await heading.click()
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Morphed in place')
   await expect.poll(() => heading.textContent()).toBe('Morphed in place')
   await saved()

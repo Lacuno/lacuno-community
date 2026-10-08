@@ -1,7 +1,7 @@
 import { DocumentStore } from '@lacuno/document'
 import { type CssValue, fixtureDocument, rem, styleKey } from '@lacuno/schema'
 import { expect, it } from 'vitest'
-import { editingBreakpoint } from '../src/breakpoints.js'
+import { breakpointWidth, editingBreakpoint } from '../src/breakpoints.js'
 import {
   formattingOperations,
   localClass,
@@ -11,6 +11,25 @@ import {
 import { presetValues } from '../src/presets.js'
 import { tokenValue } from '../src/tokens.js'
 import { commit } from './helpers.js'
+
+it('selects a canvas width inside the requested default or custom breakpoint', () => {
+  const doc = fixtureDocument()
+  for (const [id, width] of [
+    ['base', 1100],
+    ['tablet', 768],
+    ['mobile-l', 600],
+    ['mobile-p', 390],
+  ] as const) {
+    expect(breakpointWidth(doc, id)).toBe(width)
+    expect(editingBreakpoint(doc, breakpointWidth(doc, id))).toBe(id)
+  }
+  doc.breakpoints.tablet!.maxWidth = 1200
+  doc.breakpoints['mobile-l']!.maxWidth = 800
+  doc.breakpoints.compact = { id: 'compact', label: 'Compact', minWidth: 801, maxWidth: 1000 }
+  for (const id of Object.keys(doc.breakpoints)) {
+    expect(editingBreakpoint(doc, breakpointWidth(doc, id))).toBe(id)
+  }
+})
 
 it('formats only the selected element and round-trips automatic local style creation', async () => {
   const doc = fixtureDocument()

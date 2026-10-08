@@ -102,10 +102,14 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   references, so editing one color updates every use. Variants are independent, editable values;
   they do not automatically derive from the parent color. Existing site modes can have separate
   values. Color edits support undo/redo, draft protection and version-conflict handling.
-- Format the selected element in the inspector's groups: **Typography**, **Layout**, **Size**,
-  **Spacing & shape**, **Colors**, **Effects** and **Motion**. Text opens with Typography, other
-  elements with Layout; a group opened or closed by hand stays so for the next selection. The
-  preset and **Reset formatting** follow the groups. With nothing selected the inspector shows
+- The element inspector has **Style**, **Content**, and **Advanced** tabs. Style starts with the
+  preset, followed by **Typography**, **Layout** (including Size), **Spacing**, **Appearance**
+  (colors and Effects), and **Motion**. Text opens with Typography, other elements with Layout;
+  a group opened or closed by hand stays so for the next selection. Content holds text, media,
+  links, CMS bindings, collection settings, and form properties. Advanced holds shared classes
+  and **Reset formatting**. Switching tabs retains drafts; save errors and retry stay visible.
+  Breakpoint and state pickers share the canvas scope and save pending edits before switching.
+  With nothing selected the inspector shows
   the page and its settings. **Add** in the sidebar rail opens the element palette.
   No class setup is required. A private local style is created automatically; shared styles stay
   unchanged. Empty fields show the computed canvas value as a hint and retain the existing style.

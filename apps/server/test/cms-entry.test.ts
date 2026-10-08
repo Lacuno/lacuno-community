@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { expect, it } from 'vitest'
-import { editor, pageSettings, root } from './harness.js'
+import { editor, openInspectorTab, pageSettings, root } from './harness.js'
 
 const shot = (name: string) => path.join(root, `.lacuno/editor-preview/entrybind-${name}.png`)
 
@@ -87,6 +87,7 @@ it('shows a chosen CMS entry on a normal page and keeps it from being deleted', 
   await body.click()
 
   // Pick collection, entry and field: the body shows the entry's rich text as blocks.
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Content from').selectOption({ label: 'From the CMS…' })
   const picker = inspector.getByRole('group', { name: 'Choose from the CMS' })
   await picker.getByLabel('Collection').selectOption({ label: 'Legal' })
@@ -106,6 +107,7 @@ it('shows a chosen CMS entry on a normal page and keeps it from being deleted', 
 
   // The heading's picker starts on the entry the page already reads.
   await canvas.locator('[data-lacuno-node="n-privacy-title"]').click()
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Content from').selectOption({ label: 'From the CMS…' })
   await picker.locator('.cms-chips', { hasText: 'Privacy' }).waitFor()
   await picker.getByLabel('Field').selectOption({ label: 'Title' })
@@ -133,6 +135,7 @@ it('shows a chosen CMS entry on a normal page and keeps it from being deleted', 
 
   // Unbinding keeps the text as it reads now, rich text included.
   await body.click()
+  await openInspectorTab(page, 'Content')
   await inspector.getByLabel('Content from').selectOption({ label: 'Written text' })
   await saved()
   expect((await site()).nodes['n-privacy-body']).toMatchObject({ text: { type: 'doc' } })

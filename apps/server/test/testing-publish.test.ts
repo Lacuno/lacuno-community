@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
+import { editor, openInspectorTab } from './harness.js'
 
 it('publishes to testing, promotes the same build and keeps testing through the next release', async () => {
   const { context, page, canvas } = await editor()
@@ -53,6 +53,7 @@ it('publishes to testing, promotes the same build and keeps testing through the 
 
   await dialog.getByRole('button', { name: 'Close publishing' }).click()
   await heading.click()
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Second release')
   await page.getByRole('button', { name: 'Publish', exact: true }).click()
   await dialog.getByRole('button', { name: 'Publish v2', exact: true }).click()

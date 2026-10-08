@@ -168,6 +168,7 @@ it.each(['source', 'bundle'])(
             .frameLocator('iframe[title="Site canvas"]')
             .locator('[data-lacuno-node="n-home-title"]')
           await heading.click()
+          await page.getByRole('tab', { name: 'Content', exact: true }).click()
           await page.getByLabel('Text', { exact: true }).fill('Ready for publishing')
           await page.getByRole('button', { name: 'Publish', exact: true }).click()
           await page.getByRole('button', { name: 'Publish v2', exact: true }).click()

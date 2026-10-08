@@ -1,11 +1,12 @@
 import type { Page, RichTag, State } from '@lacuno/schema'
-import { lazy, Suspense } from 'react'
-import { editingBreakpoint } from './breakpoints.js'
+import { lazy, Suspense, useState } from 'react'
+import { breakpointWidth, editingBreakpoint } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { ComponentInstancePanel } from './ComponentsPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { Inspector } from './Inspector.js'
+import type { InspectorTab } from './InspectorTabs.js'
 import { RichTagInspector } from './RichTagInspector.js'
 import type { InnerTag } from './richTags.js'
 import type { DocumentSession } from './session.js'
@@ -25,6 +26,8 @@ export function InspectorColumn({
   selectNode,
   width,
   state,
+  setWidth,
+  setState,
   inlineTarget,
   setInlineTarget,
   page,
@@ -42,6 +45,8 @@ export function InspectorColumn({
   selectNode: (id: string) => void
   width: number
   state: State
+  setWidth: (width: number) => void
+  setState: (state: State) => void
   inlineTarget: InlineTarget | undefined
   setInlineTarget: (target: InlineTarget | undefined) => void
   page: Page | undefined
@@ -50,6 +55,8 @@ export function InspectorColumn({
   computed: { id: string; values: Record<string, string> }
   setLivePreview: (preview: LivePreview) => void
 }) {
+  // Survives the keyed inspector's remount after a save, selection, breakpoint or state change.
+  const [tab, setTab] = useState<InspectorTab>('style')
   const { doc, busy, conflict, generation, save, registerFlush, setDirty, readOnly } = session
   if (inlineTarget && doc)
     return (
@@ -119,6 +126,11 @@ export function InspectorColumn({
   if (doc && !readOnly && selected && doc.nodes[selected])
     return (
       <Inspector
+        tab={tab}
+        setTab={setTab}
+        pageName={page?.name ?? 'Page'}
+        changeBreakpoint={(id) => void session.leave(() => setWidth(breakpointWidth(doc, id)))}
+        changeState={(next) => void session.leave(() => setState(next))}
         selectNode={selectNode}
         selectTag={selectTag}
         siteId={siteId}

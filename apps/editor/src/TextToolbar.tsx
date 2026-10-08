@@ -9,6 +9,7 @@ import './text-toolbar.css'
 export function TextToolbar({
   doc,
   scope,
+  compact = false,
   values,
   placeholders = {},
   disabled,
@@ -22,6 +23,7 @@ export function TextToolbar({
 }: {
   doc: Document
   scope: 'Whole text' | 'Selected text'
+  compact?: boolean
   values: Record<string, string>
   placeholders?: Record<string, string>
   disabled: boolean
@@ -44,7 +46,9 @@ export function TextToolbar({
   const inherited = (property: string, name = (value: string) => value) =>
     values[property] || !placeholders[property]
       ? 'Inherited'
-      : `Inherited · ${name(placeholders[property])}`
+      : compact
+        ? name(placeholders[property]).split(',')[0]!.replaceAll('"', '')
+        : `Inherited · ${name(placeholders[property])}`
   const tokenField = (property: string, label: string, className: string, field: ReactNode) =>
     tokens ? (
       <TokenField

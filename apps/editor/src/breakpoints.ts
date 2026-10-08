@@ -12,6 +12,23 @@ export function editingBreakpoint(doc: Document, width: number): string {
       .sort((a, b) => a.maxWidth! - b.maxWidth!)[0]?.id ?? 'base'
   )
 }
+
+/** Match the canvas presets where possible, otherwise use a width within the custom range. */
+export function breakpointWidth(doc: Document, id: string): number {
+  const preferred = (
+    { base: 1100, tablet: 768, 'mobile-l': 600, 'mobile-p': 390 } as Record<string, number>
+  )[id]
+  if (preferred && editingBreakpoint(doc, preferred) === id) return preferred
+  const bp = doc.breakpoints[id]
+  return (
+    bp?.maxWidth ??
+    Math.max(
+      1100,
+      bp?.minWidth ?? 0,
+      ...Object.values(doc.breakpoints).map((item) => (item.maxWidth ?? 0) + 1),
+    )
+  )
+}
 export function breakpointMedia(doc: Document, id: string): string | undefined {
   const bp = doc.breakpoints[id]
   if (!bp) return undefined
