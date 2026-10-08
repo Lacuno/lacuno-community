@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { drag, editor, openFormatting, press } from './harness.js'
+import { drag, editor, openFormatting, openInspectorTab, press } from './harness.js'
 
 it('hides the handles and chips of a locked element and says Locked in the bar; a conflict reads View only', async () => {
   const { context, origin, page, canvas, siteId, document } = await editor({
@@ -44,6 +44,7 @@ it('hides the handles and chips of a locked element and says Locked in the bar; 
   await canvas.getByRole('button', { name: 'Align', exact: true }).click()
   const menu = canvas.getByRole('dialog', { name: 'Align within parent' })
   await expect.poll(() => menu.isVisible()).toBe(true)
+  await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Unsaved draft')
   const concurrent = await context.request.post(`${origin}/api/sites/${siteId}/document/apply`, {
     data: {
@@ -104,7 +105,7 @@ it('commits a handle drag while a class name is being typed', async () => {
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
-  await page.getByText('Advanced: shared classes', { exact: true }).click()
+  await openInspectorTab(page, 'Advanced')
   await page.getByText('Assign or create class', { exact: true }).click()
   await page.getByLabel('New class name', { exact: true }).fill('hero-button')
   const start = await cta.evaluate((element) => element.getBoundingClientRect().width)
