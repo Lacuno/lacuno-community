@@ -1,14 +1,11 @@
 import type { Operation } from '@lacuno/document'
-import type { Document as SiteDocument, State } from '@lacuno/schema'
+import type { Document as SiteDocument } from '@lacuno/schema'
 import { useEffect, useRef } from 'react'
 import {
   canvasSlots,
   type DropSlot,
   DWELL,
-  type Flow,
-  ghostRect,
   insertionLine,
-  intentOperations,
   layerDepth,
   layerSlots,
 } from './dragTarget.js'
@@ -25,16 +22,12 @@ type Options = {
   doc: SiteDocument | undefined
   root: string | undefined
   disabled: boolean
-  /** Where a drop's style changes land, as the inspector edits. */
-  breakpoint: string
-  state: State
   save: (operations: Operation[]) => Promise<boolean>
   uploadImage: (id: string, file: File) => void
   select: (id: string) => void
 }
 
 type Rect = { left: number; top: number; width: number; height: number }
-type Box = DropSlot['boxes'][number]
 
 const ACCENT = '#7952ed'
 
@@ -81,14 +74,10 @@ function createController(getOptions: () => Options) {
     style.textContent = '[data-lacuno-dragging] { opacity: .4 !important; }'
     const outline = surface.createElement('div')
     const line = surface.createElement('div')
-    // The dragged element's box where it would land, the target's other children and its flow.
-    const ghost = surface.createElement('div')
-    ghost.setAttribute('data-lacuno-ghost', '')
-    const others = surface.createElement('div')
-    const arrow = surface.createElement('div')
-    arrow.setAttribute('data-lacuno-flow', '')
+    outline.setAttribute('data-lacuno-drop-parent', '')
+    line.setAttribute('data-lacuno-insertion', '')
     const label = surface.createElement('span')
-    indicator.append(style, outline, line, ghost, others, arrow, label)
+    indicator.append(style, outline, line, label)
     surface.body.append(indicator)
     // Chrome draws on the canvas at its zoom; divide by it to keep the lines crisp and thin.
     const zoom = () => (frame ? frame.getBoundingClientRect().width / frame.offsetWidth || 1 : 1)
@@ -102,7 +91,6 @@ function createController(getOptions: () => Options) {
       bar: Rect | undefined,
       name: string,
       fill = false,
-      detail: { children?: Box[]; flow?: Flow } = {},
     ) => {
       const px = 1 / zoom()
       indicator.style.display = 'block'
@@ -110,40 +98,13 @@ function createController(getOptions: () => Options) {
       place(
         outline,
         container,
-        `border:${px}px solid ${ACCENT}99;border-radius:${2 * px}px;background:${fill ? `${ACCENT}14` : 'none'}`,
+        `border:${px}px dashed #9a94aa88;border-radius:${2 * px}px;background:${fill ? `${ACCENT}0c` : 'none'}`,
       )
       place(line, bar, `background:${ACCENT};border-radius:${px}px`)
-      ghost.hidden = true
-      others.replaceChildren(
-        ...(detail.children ?? []).map((box) => {
-          const child = surface.createElement('div')
-          child.setAttribute('data-lacuno-sibling', '')
-          place(
-            child,
-            {
-              left: box.left,
-              top: box.top,
-              width: box.right - box.left,
-              height: box.bottom - box.top,
-            },
-            `border:${px}px solid ${ACCENT}40;border-radius:${2 * px}px`,
-          )
-          return child
-        }),
-      )
-      arrow.hidden = !container || !detail.flow
-      if (container && detail.flow) {
-        const { horizontal, reverse } = detail.flow
-        arrow.textContent = horizontal ? (reverse ? '←' : '→') : reverse ? '↑' : '↓'
-        const at = horizontal
-          ? { left: container.left + container.width / 2 - 6 * px, top: container.top - 7 * px }
-          : { left: container.left - 6 * px, top: container.top + container.height / 2 - 7 * px }
-        arrow.style.cssText = `position:absolute;left:${at.left}px;top:${at.top}px;width:${12 * px}px;color:${ACCENT};font:600 ${12 * px}px/${14 * px}px system-ui,sans-serif;text-align:center`
-      }
       label.hidden = !container || !name
       label.textContent = name
       if (container)
-        label.style.cssText = `position:absolute;left:${container.left}px;top:${Math.max(0, container.top)}px;padding:${px}px ${5 * px}px;background:${ACCENT};color:#fff;font:500 ${11 * px}px/1.4 system-ui,sans-serif;border-radius:0 0 ${3 * px}px 0;white-space:nowrap`
+        label.style.cssText = `position:absolute;left:${container.left}px;top:${Math.max(0, container.top)}px;padding:${2 * px}px ${6 * px}px;background:#fff;color:#615675;border:${px}px solid #e4dfed;font:500 ${11 * px}px/1.4 system-ui,sans-serif;border-radius:${4 * px}px;white-space:nowrap`
     }
     let target: { parent: string; index: number } | DropSlot | undefined
     let pointer: { x: number; y: number; over: Element | null } | undefined
@@ -175,33 +136,27 @@ function createController(getOptions: () => Options) {
         const slot = canvas.slots.locate(pointer.x, pointer.y)
         if (!slot) return hide()
         target = slot
-        const own = 'id' in item ? canvas.slots.box(item.id) : undefined
         const sibling = slot.wrap ? canvas.slots.box(slot.wrap) : undefined
-        // The bar fills the parent's gap, and stays two screen pixels where there is none.
-        const bar = sibling
-          ? undefined
-          : insertionLine(slot, pointer.y, Math.max(slot.gap, 2 / zoom()))
-        if (sibling) show(sibling, undefined, `Row with ${nodeLabel(doc.nodes[slot.wrap!]!)}`)
-        else
+        const px = 1 / zoom()
+        if (sibling) {
+          show(
+            sibling,
+            {
+              left: (slot.first ? sibling.left : sibling.right) - px,
+              top: sibling.top,
+              width: 2 * px,
+              height: sibling.height,
+            },
+            `Row with ${nodeLabel(doc.nodes[slot.wrap!]!)}`,
+          )
+        } else {
           show(
             canvas.slots.box(slot.parent)!,
-            bar,
+            insertionLine(slot, pointer.y, 2 * px),
             slot.parent === root ? 'Body' : nodeLabel(doc.nodes[slot.parent]!),
             !slot.boxes.length,
-            { children: slot.boxes.filter((box) => box !== own), flow: slot.flow },
           )
-        // A palette item has no box of its own yet; the label's stands in.
-        const px = 1 / zoom()
-        place(
-          ghost,
-          ghostRect(
-            slot,
-            bar,
-            own ?? label.getBoundingClientRect(),
-            sibling && { box: sibling, first: !!slot.first },
-          ),
-          `border:${px}px solid ${ACCENT}aa;border-radius:${2 * px}px;background:${ACCENT}1f`,
-        )
+        }
         return
       }
       const panel = pointer.over?.closest<HTMLElement>('.navigator')
@@ -371,7 +326,7 @@ function createController(getOptions: () => Options) {
       update()
       const source = item
       const slot = target
-      const { doc, root, save, select, breakpoint, state } = getOptions()
+      const { doc, root, save, select } = getOptions()
       end()
       if (!slot || !doc || !root) return
       let edit: ReturnType<typeof dropEdit>
@@ -382,15 +337,19 @@ function createController(getOptions: () => Options) {
       } catch {
         return
       }
-      // A canvas drop's intent lands in the same batch, so the gesture stays one undo step.
-      const operations = [
-        ...edit.operations,
-        ...('flow' in slot ? intentOperations(doc, edit.node, slot, breakpoint, state) : []),
-      ]
-      if (operations.length)
-        void save(operations).then((saved) => {
-          if (saved) select(edit.node.id)
+      const selected = () => {
+        select(edit.node.id)
+        // The overlay waits for the saved canvas and its selection marker before opening.
+        if (frame)
+          surface.dispatchEvent(
+            new CustomEvent('lacuno:align-after-drop', { detail: edit.node.id }),
+          )
+      }
+      if (edit.operations.length)
+        void save(edit.operations).then((saved) => {
+          if (saved) selected()
         })
+      else selected()
     }
     const leave = (event: DragEvent) => {
       if (!event.relatedTarget) hide()

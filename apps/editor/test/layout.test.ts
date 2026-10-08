@@ -5,6 +5,8 @@ import { expect, it } from 'vitest'
 import { formattingOperations, normalizeFormatting } from '../src/formatting.js'
 import {
   childAlignment,
+  childAlignmentPosition,
+  childAxisAlignment,
   gridTemplate,
   gridTracks,
   itemSizeChanges,
@@ -30,6 +32,48 @@ it('round-trips proportional grids and leaves arbitrary CSS templates uninterpre
   ])
     expect(gridTracks(template)).toBeUndefined()
   expect(layoutChanges('grid', '200px 1fr')).toEqual({ display: 'grid' })
+})
+
+it('changes only the chosen alignment axis, including block and grid parents', () => {
+  expect(childAxisAlignment('horizontal', 'end', 'flex', false)).toEqual({
+    'align-self': { type: 'keyword', value: 'flex-end' },
+  })
+  expect(childAxisAlignment('vertical', 'center', 'flex', false)).toEqual({
+    'margin-top': { type: 'keyword', value: 'auto' },
+    'margin-bottom': { type: 'keyword', value: 'auto' },
+  })
+  expect(childAxisAlignment('horizontal', 'start', 'flex', true)).toEqual({
+    'margin-left': { type: 'unit', value: 0, unit: 'px' },
+    'margin-right': { type: 'unit', value: 0, unit: 'px' },
+  })
+  expect(childAxisAlignment('vertical', 'end', 'grid', false)).toEqual({
+    'align-self': { type: 'keyword', value: 'end' },
+  })
+  expect(childAxisAlignment('horizontal', 'center', 'block', false)).toEqual({
+    'margin-left': { type: 'keyword', value: 'auto' },
+    'margin-right': { type: 'keyword', value: 'auto' },
+  })
+  expect(childAxisAlignment('vertical', 'end', 'block', false)).toEqual({})
+})
+
+it('reflects current alignment without presenting stretched or baseline items as aligned left', () => {
+  expect(childAlignmentPosition('horizontal', 'flex', false, { 'align-self': 'flex-end' })).toBe(
+    'end',
+  )
+  expect(
+    childAlignmentPosition('vertical', 'flex', false, {
+      'margin-top': 'auto',
+      'margin-bottom': 'auto',
+    }),
+  ).toBe('center')
+  expect(childAlignmentPosition('horizontal', 'flex', true, { 'margin-left': 'auto' })).toBe('end')
+  expect(childAlignmentPosition('horizontal', 'grid', false, { 'justify-self': 'center' })).toBe(
+    'center',
+  )
+  for (const value of ['stretch', 'normal', 'baseline'])
+    expect(
+      childAlignmentPosition('horizontal', 'flex', false, { 'align-self': value }),
+    ).toBeUndefined()
 })
 
 it('changes layout at one breakpoint as one undoable batch, preserving children and desktop', async () => {

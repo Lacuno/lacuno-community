@@ -2,7 +2,6 @@ import type { State } from '@lacuno/schema'
 import { useCallback, useId, useMemo, useState } from 'react'
 import type { Role } from './App.js'
 import { message, useConfig } from './api.js'
-import { editingBreakpoint } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
 import { type CmsView, CollectionManager } from './CollectionManager.js'
@@ -145,8 +144,6 @@ export function Editor({
     root: editingRoot,
     uploadImage: dropImage,
     disabled: frozen || uploadingImage,
-    breakpoint: editableDoc ? editingBreakpoint(editableDoc, width) : 'base',
-    state,
     save,
     select: (id) => {
       setSelected(id)
