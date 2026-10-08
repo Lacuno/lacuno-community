@@ -5,6 +5,7 @@ import {
   childIds,
   grabPoint,
   hold,
+  openFormatting,
   type Point,
   parentOf,
   dragSession as session,
@@ -244,8 +245,8 @@ it('makes a Row of two Stack siblings once rested on the side of one, in the dro
     y: top.y + top.height / 2,
   })
   await expect.poll(shown).toBe('block')
-  // Passing over the side reorders within the Stack; resting on it for a moment offers the Row.
-  expect(await label()).toBe('aside')
+  // Passing over the side reorders within the Stack and says what resting there would do.
+  expect(await label()).toBe('Hold for a Row with Paragraph')
   await held.rest(1200)
   await expect.poll(label).toBe('Row with Paragraph')
   // The side rail marks the new Row inside the sibling's bounds, without an off-canvas ghost.
@@ -269,6 +270,11 @@ it('makes a Row of two Stack siblings once rested on the side of one, in the dro
     }),
   ).toEqual(['flex', 'row'])
   expect((await document()).nodes[rowId]).toMatchObject({ tag: 'div', meta: { label: 'Row' } })
+  // The Row never wraps, so the two paragraphs share the line however wide their text is.
+  const copy = (await node('n-home-note-copy').boundingBox())!
+  const topNow = (await node('n-home-note-top').boundingBox())!
+  expect(copy.y).toBeCloseTo(topNow.y, 0)
+  expect(copy.x + copy.width).toBeLessThanOrEqual(topNow.x + 1)
   await undo()
   await expect
     .poll(() => childIds(canvas, 'n-home-hero-note'))
@@ -298,4 +304,88 @@ it('shows only the target and a two-screen-pixel insertion line while dragging',
   )
   await held.cancel()
   await expect.poll(shown).toBe('none')
+}, 60_000)
+
+it('makes a Row with a card from its outer quarter and drops inside it from its middle', async () => {
+  const { page, canvas, node, label, saved, undo } = await session()
+  const card = 'n-home-choice-hosted-top'
+  const link = 'n-home-choice-hosted-link'
+  await node(card).evaluate((element) => element.scrollIntoView({ block: 'center' }))
+  const box = (await node(card).boundingBox())!
+  const side = await hold(page, await grabPoint(node(link)), {
+    x: box.x + box.width * 0.1,
+    y: box.y + box.height / 2,
+  })
+  await expect.poll(label).toBe('Hold for a Row with Container')
+  await side.rest(1200)
+  await expect.poll(label).toBe('Row with Container')
+  await side.release(true)
+  await expect.poll(() => parentOf(canvas, card)).not.toBe('n-home-choice-hosted')
+  await saved()
+  const rowId = (await parentOf(canvas, card))!
+  expect(await childIds(canvas, rowId)).toEqual([link, card])
+  await undo()
+  await expect.poll(() => childIds(canvas, 'n-home-choice-hosted')).toEqual([card, link])
+  // Its inner half still takes the drop inside, after the same rest.
+  const inside = await hold(page, await grabPoint(node(link)), await center(node(card)))
+  await expect.poll(label).toBe('Hold to drop inside Container')
+  await inside.rest(1200)
+  await expect.poll(label).toBe('Container')
+  await inside.release(true)
+  await expect.poll(() => parentOf(canvas, link)).toBe(card)
+}, 60_000)
+
+it('keeps a drag in its own container at an edge that would leave another', async () => {
+  const { page, canvas, node, label, saved } = await session()
+  const aside = 'n-home-hero-note'
+  await node('n-home-note-top').scrollIntoViewIfNeeded()
+  const box = (await node(aside).boundingBox())!
+  const top = (await node('n-home-note-top').boundingBox())!
+  // 12 px inside the aside's right edge, where another element would be dropped beside it.
+  const held = await hold(page, await grabPoint(node('n-home-note-copy')), {
+    x: box.x + box.width - 12,
+    y: top.y + top.height * 0.25,
+  })
+  await expect.poll(label).toBe('aside')
+  await held.release()
+  await expect.poll(() => childIds(canvas, aside)).toEqual(['n-home-note-copy', 'n-home-note-top'])
+  await saved()
+  expect(await parentOf(canvas, 'n-home-note-copy')).toBe(aside)
+}, 60_000)
+
+it('says why a form field cannot be dropped where it is, and drops nothing', async () => {
+  const { page, node, label, shown, writes, errors } = await session()
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  const tile = page.locator('[data-drag-preset="email-field"]')
+  await tile.scrollIntoViewIfNeeded()
+  // The drag starts in the editor's own document and crosses into the canvas.
+  const from = await center(tile)
+  const held = await hold(page, from, { x: from.x + 30, y: from.y + 30 })
+  await held.move(await center(node('n-home-hero-copy')), 40)
+  await expect.poll(shown).toBe('block')
+  expect(await label()).toBe('Place form fields inside a form.')
+  await held.release()
+  await expect.poll(shown).toBe('none')
+  expect(writes()).toBe(0)
+  expect(errors).toEqual([])
+}, 60_000)
+
+it('flushes a pending inspector draft on the drop instead of refusing the drag', async () => {
+  const launched = await session()
+  const { page, canvas, node, saved, writes } = launched
+  await rowOfTiles(launched)
+  await node('n-tile-1').dispatchEvent('click')
+  await openFormatting(page, 'Spacing & shape')
+  await page.getByLabel('Inside spacing top', { exact: true }).fill('12')
+  const row = (await node('n-row').boundingBox())!
+  const second = (await node('n-tile-2').boundingBox())!
+  await drag(page, await grabPoint(node('n-tile-1')), {
+    x: second.x + second.width + 12,
+    y: row.y + row.height * 0.5,
+  })
+  await expect.poll(() => childIds(canvas, 'n-row')).toEqual(['n-tile-2', 'n-tile-1', 'n-tile-3'])
+  await saved()
+  // The draft and the move are two saves, so two undo steps.
+  await expect.poll(writes).toBe(2)
+  expect(await node('n-tile-1').evaluate((el) => getComputedStyle(el).paddingTop)).toBe('12px')
 }, 60_000)

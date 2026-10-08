@@ -187,3 +187,63 @@ it('places a child within its parent: grid self alignment, flex align-self plus 
     'margin-right': auto,
   })
 })
+
+it('aligns one axis, with text-align for text in a vertical flow and a fitted block for inline children', () => {
+  const auto = { type: 'keyword', value: 'auto' }
+  const zero = { type: 'unit', value: 0, unit: 'px' }
+  const block = { display: 'block', text: false }
+  const text = { display: 'block', text: true }
+  // A text block in a Stack: align-self plus the ragged edge, so a full-width paragraph follows.
+  expect(childAxisAlignment('horizontal', 'end', 'flex', false, text)).toEqual({
+    'align-self': { type: 'keyword', value: 'flex-end' },
+    'text-align': { type: 'keyword', value: 'end' },
+  })
+  expect(childAxisAlignment('horizontal', 'center', 'block', false, text)).toEqual({
+    'margin-left': auto,
+    'margin-right': auto,
+    'text-align': { type: 'keyword', value: 'center' },
+  })
+  // Along a Row the text keeps its alignment, as does a block.
+  expect(childAxisAlignment('horizontal', 'end', 'flex', true, text)).toEqual({
+    'margin-left': auto,
+    'margin-right': zero,
+  })
+  expect(childAxisAlignment('horizontal', 'end', 'block', false, block)).toEqual({
+    'margin-left': auto,
+    'margin-right': zero,
+  })
+  // An inline-flex button in a block parent becomes a fitted flex box, so the auto margins act.
+  expect(
+    childAxisAlignment('horizontal', 'center', 'block', false, {
+      display: 'inline-flex',
+      text: true,
+    }),
+  ).toEqual({
+    'margin-left': auto,
+    'margin-right': auto,
+    display: { type: 'keyword', value: 'flex' },
+    width: { type: 'keyword', value: 'fit-content' },
+  })
+  expect(
+    childAxisAlignment('horizontal', 'end', 'block', false, { display: 'inline', text: false })
+      .display,
+  ).toEqual({ type: 'keyword', value: 'block' })
+  // Left needs no fitted box, and a Stack blockifies its items itself.
+  expect(
+    childAxisAlignment('horizontal', 'start', 'block', false, {
+      display: 'inline-block',
+      text: false,
+    }),
+  ).toEqual({ 'margin-left': zero, 'margin-right': zero })
+  expect(
+    childAxisAlignment('horizontal', 'end', 'flex', false, { display: 'inline-flex', text: false }),
+  ).toEqual({ 'align-self': { type: 'keyword', value: 'flex-end' } })
+  // The Container preset's `margin: 0 auto` is beaten by a 0px longhand, never by a cleared one.
+  expect(childAxisAlignment('horizontal', 'start', 'flex', false)).toEqual({
+    'align-self': { type: 'keyword', value: 'flex-start' },
+  })
+  expect(childAxisAlignment('vertical', 'start', 'flex', false)).toEqual({
+    'margin-top': zero,
+    'margin-bottom': zero,
+  })
+})

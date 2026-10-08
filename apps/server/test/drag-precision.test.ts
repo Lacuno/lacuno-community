@@ -25,7 +25,9 @@ it('reorders sections by exactly one place, with nothing moving until the drop',
   const from = await grabPoint(node(moved))
   const held = await hold(page, from, { x: from.x, y: target.y + target.height * 0.75 })
   await expect.poll(shown).toBe('block')
-  expect(await label()).toBe('main')
+  // Grabbed at its edge, the pointer is on the next section's outer quarter: the label says what
+  // holding still there would do, while the drop stays a reorder.
+  expect(await label()).toBe('Hold for a Row with Section')
   // The page keeps its layout: the dragged section dims in place and no sibling shifts.
   expect(await boxes()).toEqual(before)
   expect(await node(moved).evaluate((element) => getComputedStyle(element).opacity)).toBe('0.4')
@@ -78,7 +80,7 @@ it('reorders cards along a row, and into a card only after resting on it', async
 
   // Resting on the next card settles the drop inside it, with its outline and name.
   const resting = await hold(page, await grabPoint(node(first)), await center(node(second)))
-  expect(await label()).toBe('Section')
+  expect(await label()).toBe('Hold to drop inside article')
   await resting.rest(1200)
   await expect.poll(label).toBe('article')
   await shot('rest-into')

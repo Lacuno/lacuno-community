@@ -145,6 +145,7 @@ export function selectionOverlay(
     .align-icon svg { display:block;width:18px;height:18px; }
     .align-menu button:hover { background:#f4efff; }
     .align-menu button:focus-visible { outline:2px solid #9470ea;outline-offset:1px; }
+    .align-options button:disabled { opacity:.45;cursor:default;background:white; }
     .align-note { margin-top:12px;padding-top:10px;border-top:1px solid #eeeaf4;color:#756d80;font-size:11px; }
     .distribute { display:flex;align-items:center;gap:8px;width:100%;margin-top:10px;padding:7px 6px;border:0;border-top:1px solid #eeeaf4;border-radius:0 0 4px 4px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer; }
     .bar .align[aria-expanded="true"] { background:white;color:#6434d9; }
@@ -357,11 +358,74 @@ export function selectionOverlay(
     const style = view.getComputedStyle(parent)
     return { parent, display: style.display, horizontal: layoutAxis(style).horizontal }
   }
+  // Whether the element has room to move on an axis: the parent's content size less what shares
+  // the axis, every child with the gaps along a flex flow, the element alone across it or in a
+  // block parent, with 8 px to spare. Fixed margins count as taken, auto margins are the
+  // alignment itself. A grid cell is not measured.
+  const alignmentRoom = (layout: NonNullable<ReturnType<typeof parentLayout>>) => {
+    const parentStyle = view.getComputedStyle(layout.parent)
+    const length = (text: string) => Number.parseFloat(text) || 0
+    const extent = (el: Element, horizontal: boolean) => {
+      const style = view.getComputedStyle(el)
+      const typed = el.computedStyleMap?.()
+      const margin = (side: string) => {
+        const value =
+          typed?.get(`margin-${side}`)?.toString() ?? style.getPropertyValue(`margin-${side}`)
+        return value === 'auto' ? 0 : length(value)
+      }
+      const rect = el.getBoundingClientRect()
+      return horizontal
+        ? rect.width + margin('left') + margin('right')
+        : rect.height + margin('top') + margin('bottom')
+    }
+    return (axis: AlignmentAxis) => {
+      if (layout.display.includes('grid')) return true
+      const horizontal = axis === 'horizontal'
+      const along = layout.display.includes('flex') && horizontal === layout.horizontal
+      const children = along
+        ? [...layout.parent.querySelectorAll(':scope > [data-lacuno-node]')]
+        : [element!]
+      const inner = horizontal
+        ? layout.parent.clientWidth -
+          length(parentStyle.paddingLeft) -
+          length(parentStyle.paddingRight)
+        : layout.parent.clientHeight -
+          length(parentStyle.paddingTop) -
+          length(parentStyle.paddingBottom)
+      const gaps = along
+        ? length(horizontal ? parentStyle.columnGap : parentStyle.rowGap) * (children.length - 1)
+        : 0
+      return inner - gaps - children.reduce((sum, child) => sum + extent(child, horizontal), 0) > 8
+    }
+  }
+  // The text swatch is offered to text nodes only, so it also says the element is one. Sideways
+  // in a vertical flow a text node's ragged edge moves even when its box fills the line.
+  const raggedEdge = (layout: NonNullable<ReturnType<typeof parentLayout>>, axis: AlignmentAxis) =>
+    axis === 'horizontal' &&
+    !layout.horizontal &&
+    !layout.display.includes('grid') &&
+    latest().textColor
+  // Whether any Align option can act, so the chip is only offered when one can.
+  const alignable = () => {
+    const layout = parentLayout()
+    if (!layout) return false
+    const fits = alignmentRoom(layout)
+    const [across, along]: [AlignmentAxis, AlignmentAxis] = layout.horizontal
+      ? ['vertical', 'horizontal']
+      : ['horizontal', 'vertical']
+    return (
+      raggedEdge(layout, across) || fits(across) || (layout.display.includes('flex') && fits(along))
+    )
+  }
   const paintAlignment = () => {
     const layout = parentLayout()
     if (!layout || !element) return
     const flex = layout.display.includes('flex')
     const grid = layout.display.includes('grid')
+    const fits = alignmentRoom(layout)
+    const parentName = latest().parentName || layout.parent.tagName.toLowerCase()
+    // Why an axis cannot act, said in the note.
+    const reasons: string[] = []
     const parentStyle = view.getComputedStyle(layout.parent)
     const own = view.getComputedStyle(element)
     const typed = element.computedStyleMap?.()
@@ -373,16 +437,24 @@ export function selectionOverlay(
     )
     values['align-self'] = own.alignSelf === 'auto' ? parentStyle.alignItems : own.alignSelf
     values['justify-self'] = own.justifySelf === 'auto' ? parentStyle.justifyItems : own.justifySelf
-    alignMenu.querySelector('strong')!.textContent =
-      latest().parentName || layout.parent.tagName.toLowerCase()
+    alignMenu.querySelector('strong')!.textContent = parentName
     for (const axis of ['horizontal', 'vertical'] as const) {
       const group = alignMenu.querySelector<HTMLElement>(`.align-axis[data-axis="${axis}"]`)!
       group.hidden = axis === 'vertical' && !flex && !grid
       const along = flex && (axis === 'horizontal') === layout.horizontal
+      const room = fits(axis) || raggedEdge(layout, axis)
+      if (!room && !group.hidden)
+        reasons.push(
+          along
+            ? `${parentName} is only as ${layout.horizontal ? 'wide' : 'tall'} as its children`
+            : `Fills the ${axis === 'horizontal' ? 'width' : 'height'} of ${parentName}`,
+        )
       const selected = childAlignmentPosition(axis, layout.display, layout.horizontal, values)
       for (const button of group.querySelectorAll<HTMLButtonElement>('button')) {
         const position = button.dataset.position as Position
         const index = POSITIONS.indexOf(position)
+        // Without room nothing moves; In flow still clears the auto margins.
+        button.disabled = !room && !(along && position === 'start')
         const label =
           along && position === 'start'
             ? 'In flow'
@@ -412,11 +484,17 @@ export function selectionOverlay(
         }
       }
     }
+    alignMenu.querySelector('.align-note')!.textContent = [...reasons, 'This element only'].join(
+      '. ',
+    )
+    // Spreading siblings needs free space along the flow, or nothing moves.
     distribute.hidden =
-      !flex || layout.parent.querySelectorAll(':scope > [data-lacuno-node]').length < 2
+      !flex ||
+      layout.parent.querySelectorAll(':scope > [data-lacuno-node]').length < 2 ||
+      !fits(layout.horizontal ? 'horizontal' : 'vertical')
   }
   const openAlign = () => {
-    if (!parentLayout()) return
+    if (!alignable()) return
     closeMenus()
     alignMenu.hidden = false
     alignChip.setAttribute('aria-expanded', 'true')
@@ -424,10 +502,13 @@ export function selectionOverlay(
     paintAlignment()
     const firstGroup = alignMenu.querySelector('.align-axis:not([hidden])')
     ;(
-      firstGroup?.querySelector<HTMLElement>('[aria-pressed="true"]') ??
-      firstGroup?.querySelector<HTMLElement>('button')
+      firstGroup?.querySelector<HTMLElement>('[aria-pressed="true"]:enabled') ??
+      firstGroup?.querySelector<HTMLElement>('button:enabled')
     )?.focus()
   }
+  // A chip click keeps the focus where it was, so the keys still reach the canvas afterwards.
+  for (const bar of [topBar, bottomBar])
+    bar.addEventListener('pointerdown', (event) => event.preventDefault())
   alignChip.addEventListener('click', (event) => {
     event.stopPropagation()
     if (open?.el === alignMenu) closeMenus()
@@ -455,6 +536,7 @@ export function selectionOverlay(
           button.dataset.position as Position,
           layout.display,
           layout.horizontal,
+          { display: view.getComputedStyle(element!).display, text: latest().textColor },
         ),
         phase: 'commit',
       })
@@ -1032,6 +1114,8 @@ export function selectionOverlay(
       spacingChip.hidden = still
       alignChip.hidden = still || !selected!.parentElement?.hasAttribute('data-lacuno-node')
       bottomBar.hidden = selection.inner || !selection.editable
+      // No Align chip when nothing can move: a child that fills its parent on every axis.
+      if (!alignChip.hidden && !alignable()) alignChip.hidden = true
       if (
         (alignChip.hidden && open?.el === alignMenu) ||
         (bottomBar.hidden && open?.el === colorMenu)

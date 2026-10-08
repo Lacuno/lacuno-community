@@ -596,7 +596,18 @@ export function dropEdit(
       '',
       page,
     )
-    row.operations.push({ type: 'node.move', id: wrap.sibling, parent: row.node.id, index: 0 })
+    // The two share the line whatever their widths; a wrapping row would stack them as before.
+    row.operations.push(
+      {
+        type: 'style.set',
+        class: row.node.classes.at(-1)!,
+        breakpoint: 'base',
+        state: 'none',
+        property: 'flex-wrap',
+        value: { type: 'raw', value: 'nowrap' },
+      },
+      { type: 'node.move', id: wrap.sibling, parent: row.node.id, index: 0 },
+    )
     const at = { parent: row.node.id, index: wrap.first ? 0 : 1 }
     if ('preset' in item) {
       const added = structureInsertion(item.preset, at, item.classId, false, item.assetId, page)

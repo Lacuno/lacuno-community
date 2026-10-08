@@ -22,6 +22,10 @@ type Options = {
   doc: SiteDocument | undefined
   root: string | undefined
   disabled: boolean
+  /** Saves what a panel still holds as a draft before a drop, so a draft never refuses a drag. */
+  flush?: () => Promise<boolean>
+  /** Where a refused drag says why. */
+  notice?: (reason: string) => void
   save: (operations: Operation[]) => Promise<boolean>
   uploadImage: (id: string, file: File) => void
   select: (id: string) => void
@@ -101,10 +105,11 @@ function createController(getOptions: () => Options) {
         `border:${px}px dashed #9a94aa88;border-radius:${2 * px}px;background:${fill ? `${ACCENT}0c` : 'none'}`,
       )
       place(line, bar, `background:${ACCENT};border-radius:${px}px`)
-      label.hidden = !container || !name
+      label.hidden = !name
       label.textContent = name
-      if (container)
-        label.style.cssText = `position:absolute;left:${container.left}px;top:${Math.max(0, container.top)}px;padding:${2 * px}px ${6 * px}px;background:#fff;color:#615675;border:${px}px solid #e4dfed;font:500 ${11 * px}px/1.4 system-ui,sans-serif;border-radius:${4 * px}px;white-space:nowrap`
+      // The label sits on the target's corner; a refusal, with no target, follows the pointer.
+      const at = container ?? { left: pointer!.x + 12, top: pointer!.y + 12 }
+      label.style.cssText = `position:absolute;left:${at.left}px;top:${Math.max(0, at.top)}px;padding:${2 * px}px ${6 * px}px;background:#fff;color:#615675;border:${px}px solid #e4dfed;font:500 ${11 * px}px/1.4 system-ui,sans-serif;border-radius:${4 * px}px;white-space:nowrap`
     }
     let target: { parent: string; index: number } | DropSlot | undefined
     let pointer: { x: number; y: number; over: Element | null } | undefined
@@ -134,10 +139,17 @@ function createController(getOptions: () => Options) {
       if (frame) {
         if (canvas?.doc !== doc) canvas = { doc, slots: canvasSlots(surface, doc, root, item) }
         const slot = canvas.slots.locate(pointer.x, pointer.y)
-        if (!slot) return hide()
+        if (!slot) {
+          // Nothing here takes the item: the reason stands where the target's name would.
+          const reason = canvas.slots.refusal(pointer.x, pointer.y)
+          hide()
+          if (reason) show(undefined, undefined, reason)
+          return
+        }
         target = slot
         const sibling = slot.wrap ? canvas.slots.box(slot.wrap) : undefined
         const px = 1 / zoom()
+        const name = (id: string) => (id === root ? 'Body' : nodeLabel(doc.nodes[id]!))
         if (sibling) {
           show(
             sibling,
@@ -147,13 +159,19 @@ function createController(getOptions: () => Options) {
               width: 2 * px,
               height: sibling.height,
             },
-            `Row with ${nodeLabel(doc.nodes[slot.wrap!]!)}`,
+            `Row with ${name(slot.wrap!)}`,
           )
         } else {
+          // What resting would do is said before it happens, so a quick release surprises no one.
+          const { pending } = slot
           show(
             canvas.slots.box(slot.parent)!,
             insertionLine(slot, pointer.y, 2 * px),
-            slot.parent === root ? 'Body' : nodeLabel(doc.nodes[slot.parent]!),
+            !pending
+              ? name(slot.parent)
+              : pending.wrap
+                ? `Hold for a Row with ${name(pending.id)}`
+                : `Hold to drop inside ${name(pending.id)}`,
             !slot.boxes.length,
           )
         }
@@ -227,7 +245,8 @@ function createController(getOptions: () => Options) {
         ? element.closest('[data-lacuno-selected]')?.closest<HTMLElement>('[data-lacuno-node]')
             ?.dataset.lacunoNode
         : undefined
-      const id = [selected, element.dataset.dragNode ?? element.dataset.lacunoNode].find(movable)
+      const candidates = [selected, element.dataset.dragNode ?? element.dataset.lacunoNode]
+      const id = candidates.find(movable)
       if (preset)
         item = {
           preset,
@@ -237,6 +256,9 @@ function createController(getOptions: () => Options) {
       else if (id) item = { id }
       if (!item) {
         event.preventDefault()
+        const pressed = candidates.find((each) => !!each)
+        const reason = pressed && structureRestriction(doc, pressed)
+        if (reason) getOptions().notice?.(reason)
         return
       }
       if (id && !preset) {
@@ -308,7 +330,7 @@ function createController(getOptions: () => Options) {
       if (event.dataTransfer)
         event.dataTransfer.dropEffect = target ? ('preset' in item ? 'copy' : 'move') : 'none'
     }
-    const drop = (event: DragEvent) => {
+    const drop = async (event: DragEvent) => {
       if (ownDropZone(event)) return
       if (isFileDrop(event)) {
         event.preventDefault()
@@ -326,15 +348,21 @@ function createController(getOptions: () => Options) {
       update()
       const source = item
       const slot = target
-      const { doc, root, save, select } = getOptions()
+      const { flush } = getOptions()
       end()
-      if (!slot || !doc || !root) return
+      if (!slot) return
+      // A draft still pending in a panel lands first, as its own step; one it cannot save stops
+      // here. The session is read again after it, since the save it made changed the document.
+      if (flush && !(await flush())) return
+      const { doc, root, save, select } = getOptions()
+      if (!doc || !root) return
       let edit: ReturnType<typeof dropEdit>
       try {
         const wrap =
           'wrap' in slot && slot.wrap ? { sibling: slot.wrap, first: !!slot.first } : undefined
         edit = dropEdit(doc, root, source, slot.parent, slot.index, wrap)
-      } catch {
+      } catch (error) {
+        getOptions().notice?.((error as Error).message)
         return
       }
       const selected = () => {
