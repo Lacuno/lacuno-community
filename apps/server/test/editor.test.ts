@@ -838,6 +838,10 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.keyboard.press('Delete')
   await expect.poll(() => copy.count()).toBe(0)
   page.off('request', watchDeleteWrites)
+  // The next element takes the selection, so the layers keep their branch open.
+  await expect.poll(() => page.locator('.layer.selected').count()).toBe(1)
+  expect(await page.locator('.layer.selected').textContent()).not.toBe('Hero title copy')
+  expect(await page.locator('[data-drag-node="n-home-title"]').count()).toBe(1)
   // Only the Delete on the selected layer wrote: the keystroke in the field was left alone.
   expect(deleteWrites).toBe(1)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()

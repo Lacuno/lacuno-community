@@ -122,7 +122,14 @@ export function Editor({
     }
     if (action === 'delete') {
       if (subtreeRestriction(editableDoc, id)) return
-      if (await save([{ type: 'node.delete', id }])) setSelected('')
+      // The next sibling takes the selection, else the previous one, else the parent, so the
+      // layers keep showing the place the element had instead of closing its branch.
+      const parent = editableDoc.nodes[id]?.parent
+      const siblings = parent ? (editableDoc.nodes[parent]?.children ?? []) : []
+      const at = siblings.indexOf(id)
+      const next =
+        siblings[at + 1] ?? siblings[at - 1] ?? (editableDoc.nodes[parent ?? '']?.parent && parent)
+      if (await save([{ type: 'node.delete', id }])) setSelected(next || '')
       return
     }
     try {
