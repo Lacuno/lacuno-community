@@ -177,3 +177,68 @@ it('offers a Row with a sibling only once the pointer has rested on its side', (
   expect(locate(850, 150, DWELL + 2)?.wrap).toBeUndefined()
   expect(locate(850, 150, 2 * DWELL + 2)).toMatchObject({ wrap: 'n-hero-title', first: false })
 })
+
+it("says what resting will do, prefers a Row on a container's outer quarter, and explains a refusal", () => {
+  const doc = fixtureDocument()
+  // The hero's Stack: a heading, a non-empty inner container (the card) and a button.
+  doc.nodes['n-hero-inner']!.children = ['n-hero-title', 'n-hero-card', 'n-hero-cta']
+  doc.nodes['n-hero-card'] = {
+    id: 'n-hero-card',
+    type: 'element',
+    tag: 'div',
+    parent: 'n-hero-inner',
+    classes: [],
+    children: ['n-hero-image'],
+  }
+  doc.nodes['n-hero-image']!.parent = 'n-hero-card'
+  const page = surface(doc, {
+    'n-home': box(0, 0, 1000, 1000),
+    'n-hero': box(0, 0, 1000, 600),
+    'n-hero-inner': box(100, 100, 800, 400),
+    'n-hero-title': box(100, 100, 800, 100),
+    'n-hero-card': box(100, 220, 800, 100),
+    'n-hero-image': box(100, 220, 800, 100),
+    'n-hero-cta': box(100, 340, 200, 60),
+  })
+  const { locate, refusal } = canvasSlots(page, doc, 'n-home', { id: 'n-hero-cta' })
+  // Before the dwell the slot is a reorder that says what holding still would do.
+  expect(locate(150, 150, 0)).toMatchObject({
+    parent: 'n-hero-inner',
+    index: 0,
+    pending: { id: 'n-hero-title', wrap: true },
+  })
+  expect(locate(500, 270, 1)).toMatchObject({
+    parent: 'n-hero-inner',
+    pending: { id: 'n-hero-card', wrap: false },
+  })
+  expect(locate(500, 270, DWELL + 1)).toMatchObject({ parent: 'n-hero-card', index: 0 })
+  expect(locate(500, 270, DWELL + 1)?.pending).toBeUndefined()
+  // On the card's outer quarter the Row wins over its inside.
+  expect(locate(150, 270, 2 * DWELL)).toMatchObject({ pending: { id: 'n-hero-card', wrap: true } })
+  expect(locate(150, 270, 3 * DWELL)).toMatchObject({ wrap: 'n-hero-card', first: true })
+  // A sibling's left quarter, away from anything to rest on, has nothing pending.
+  expect(locate(500, 150, 4 * DWELL)?.pending).toBeUndefined()
+  // A form field finds no form: the nearest container says why.
+  const field = canvasSlots(page, doc, 'n-home', { preset: 'email-field' })
+  expect(field.locate(500, 150, 0)).toBeUndefined()
+  expect(field.refusal(500, 150)).toBe('Place form fields inside a form.')
+  expect(refusal(500, 150)).toBeUndefined()
+})
+
+it('keeps a drag inside its own container at the edges that would leave another', () => {
+  const doc = fixtureDocument()
+  const page = surface(doc, {
+    'n-home': box(0, 0, 1000, 1000),
+    'n-hero': box(0, 0, 1000, 600),
+    'n-hero-inner': box(100, 100, 800, 400),
+    'n-hero-title': box(100, 100, 800, 100),
+    'n-hero-image': box(100, 220, 800, 100),
+    'n-hero-cta': box(100, 340, 200, 60),
+  })
+  // 10 px inside the Stack's top edge: its own child still goes first among its siblings.
+  const own = canvasSlots(page, doc, 'n-home', { id: 'n-hero-cta' })
+  expect(own.locate(500, 110, 0)).toMatchObject({ parent: 'n-hero-inner', index: 0 })
+  // Another element at the same point is dropped before the Stack, in the section.
+  const other = canvasSlots(page, doc, 'n-home', { preset: 'paragraph' })
+  expect(other.locate(500, 110, 0)).toMatchObject({ parent: 'n-hero', index: 0 })
+})

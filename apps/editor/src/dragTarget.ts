@@ -1,6 +1,6 @@
 import { isDescendant } from '@lacuno/document/references'
 import type { Document as SiteDocument } from '@lacuno/schema'
-import { type DragItem, dropTarget, wrapTarget } from './structure.js'
+import { canContain, type DragItem, dropTarget, wrapTarget } from './structure.js'
 
 export type Flow = { horizontal: boolean; reverse: boolean }
 type Box = Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom'>
@@ -14,6 +14,8 @@ export type DropSlot = {
   boxes: Box[]
   wrap?: string
   first?: boolean
+  /** What resting here will do, a Row with the node or a drop inside it, before the dwell passes. */
+  pending?: { id: string; wrap: boolean }
 }
 
 /**
@@ -202,8 +204,9 @@ export function canvasSlots(surface: Document, doc: SiteDocument, root: string, 
     ) {
       const rect = box(id)
       if (!rect || !valid(doc, root, item, id)) continue
+      // The dragged node's own parent has no edges: leaving it takes the pointer outside its box.
       const outer = doc.nodes[id]?.parent
-      if (id !== root && outer) {
+      if (id !== root && id !== home && outer) {
         const along = flow(outer).horizontal
         const [start, end, at] = along ? [rect.left, rect.right, x] : [rect.top, rect.bottom, y]
         const edge = Math.min(24, (end - start) / 4)
@@ -220,54 +223,81 @@ export function canvasSlots(surface: Document, doc: SiteDocument, root: string, 
       if (rest.on !== on || Math.hypot(x - rest.x, y - rest.y) > 8) rest = { on, x, y, since: now }
       return !!on && now - rest.since >= DWELL
     }
+    const laidOut = (id: string) => doc.nodes[id]!.children.filter((child) => box(child))
+    // The slot among a parent's laid-out children, kept steady near a boundary.
+    const slotAt = (id: string): DropSlot => {
+      const children = doc.nodes[id]!.children
+      const shown = laidOut(id)
+      const boxes = shown.map((child) => box(child)!)
+      const slot = stableIndex(
+        boxes,
+        x,
+        y,
+        flow(id),
+        previous?.parent === id ? previous.slot : undefined,
+      )
+      return {
+        parent: id,
+        flow: flow(id),
+        boxes,
+        slot,
+        index: slot < shown.length ? children.indexOf(shown[slot]!) : children.length,
+      }
+    }
+    // A sibling container under the pointer takes the drop inside it once rested on; until then
+    // the drop stays among the dragged node's own siblings.
     const nest =
       home &&
       parent !== home &&
       isDescendant(doc, home, parent) &&
       doc.nodes[parent]!.children.length
-    if (nest && !resting(parent)) parent = home!
-    const children = doc.nodes[parent]!.children
-    const laidOut = children.filter((id) => box(id))
-    const flowOf = flow(parent)
-    const rects = laidOut.map((id) => box(id)!)
-    const common = { parent, flow: flowOf, boxes: rects }
+        ? parent
+        : ''
+    const among = nest ? home! : parent
     // On the outer quarter of a sibling's side, where a vertical flow has no before or after, the
-    // two become a Row; in a horizontal flow the sides already mean before and after. A sibling
-    // container's inside claims the rest, so no side is offered while the pointer is in one.
-    const over = flowOf.horizontal
+    // two become a Row, a sibling container included; in a horizontal flow the sides already mean
+    // before and after. A container's inner half is the drop inside it.
+    const over = flow(among).horizontal
       ? undefined
-      : laidOut.find((id) => id !== dragged && contains(box(id)!, x, y))
+      : laidOut(among).find((id) => id !== dragged && contains(box(id)!, x, y))
     const rect = over && box(over)!
     const first = rect ? x < rect.left + (rect.right - rect.left) / 4 : false
     const last = rect ? x > rect.right - (rect.right - rect.left) / 4 : false
     const side =
       over && (first || last) && typeof wrapTarget(doc, over, 'row') !== 'string' ? over : ''
-    if (!nest && resting(side)) {
-      previous = {
-        ...common,
-        slot: laidOut.indexOf(side),
-        index: children.indexOf(side),
-        wrap: side,
-        first,
-      }
+    const on = side || nest
+    if (!resting(on)) {
+      previous = slotAt(among)
+      if (on) previous.pending = { id: on, wrap: !!side }
       return previous
     }
-    const slot = stableIndex(
-      rects,
-      x,
-      y,
-      flowOf,
-      previous?.parent === parent ? previous.slot : undefined,
-    )
-    previous = {
-      ...common,
-      slot,
-      index: slot < laidOut.length ? children.indexOf(laidOut[slot]!) : children.length,
-    }
+    previous = side
+      ? {
+          ...slotAt(among),
+          slot: laidOut(among).indexOf(side),
+          index: doc.nodes[among]!.children.indexOf(side),
+          wrap: side,
+          first,
+        }
+      : slotAt(nest)
     return previous
+  }
+  /** Why nothing under the point takes the item, from the nearest container the point is in. */
+  const refusal = (x: number, y: number) => {
+    const hit = surface.elementFromPoint(x, y)?.closest<HTMLElement>('[data-lacuno-node]')
+    for (let id = hit?.dataset.lacunoNode; id; id = doc.nodes[id]?.parent ?? undefined) {
+      if (!canContain(doc, id) || (id !== root && !isDescendant(doc, root, id))) continue
+      try {
+        dropTarget(doc, root, item, id, 0)
+        return
+      } catch (error) {
+        return (error as Error).message
+      }
+    }
   }
   return {
     locate,
+    refusal,
     box: (id: string) => box(id),
     /** Measure again, after the canvas scrolled or resized. */
     remeasure: () => {

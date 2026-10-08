@@ -465,10 +465,16 @@ it('wraps a dropped node and its sibling in a Row in one batch, in the dropped o
     'style.set',
     'style.set',
     'node.create',
+    'style.set',
     'node.move',
     'node.move',
   ])
-  expect(styleValues(edit.operations)).toMatchObject({ display: 'flex', 'flex-direction': 'row' })
+  // The minted Row never wraps, so a wide paragraph or image shares the line instead of stacking.
+  expect(styleValues(edit.operations)).toMatchObject({
+    display: 'flex',
+    'flex-direction': 'row',
+    'flex-wrap': 'nowrap',
+  })
   const history = await commit(store, edit.operations)
   const wrapped = store.read().document
   const [rowId, ...rest] = wrapped.nodes[parent]!.children

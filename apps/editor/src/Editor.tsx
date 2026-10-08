@@ -143,7 +143,10 @@ export function Editor({
     doc: editableDoc,
     root: editingRoot,
     uploadImage: dropImage,
-    disabled: frozen || uploadingImage,
+    // A pending draft is no reason to refuse a drag: the drop flushes it first.
+    disabled: busy || conflict || session.readOnly || !!inlineTarget || uploadingImage,
+    flush: session.flushPending,
+    notice: setError,
     save,
     select: (id) => {
       setSelected(id)

@@ -97,12 +97,19 @@ export const containerLayoutProperties = [
 export type Position = 'start' | 'center' | 'end'
 export type AlignmentAxis = 'horizontal' | 'vertical'
 
-/** One axis at a time, so changing horizontal alignment preserves vertical placement. */
+/**
+ * One axis at a time, so changing horizontal alignment preserves vertical placement. `child` is
+ * the element's own computed display and whether it is a text node: sideways in a vertical flow
+ * a text node also gets `text-align`, so wrapped text that fills its line follows the ragged edge,
+ * and an inline-level child of a block parent becomes block-level at its fitted width, since auto
+ * margins on an inline box resolve to nothing.
+ */
 export function childAxisAlignment(
   axis: AlignmentAxis,
   position: Position,
   display: string,
   horizontal: boolean,
+  child?: { display: string; text: boolean },
 ): Record<string, CssValue | null> {
   const changes = childAlignment(position, position, display, horizontal)
   const properties = display.includes('grid')
@@ -112,12 +119,20 @@ export function childAxisAlignment(
       : axis === 'horizontal'
         ? ['margin-left', 'margin-right']
         : ['margin-top', 'margin-bottom']
-  return Object.fromEntries(
+  const result: Record<string, CssValue | null> = Object.fromEntries(
     Object.entries(changes)
       .filter(([property]) => properties.includes(property))
       // An explicit reset must override auto inherited from a shared class or a wider breakpoint.
       .map(([property, value]) => [property, value ?? px(0)]),
   )
+  if (!child || axis !== 'horizontal' || horizontal || display.includes('grid')) return result
+  const inline = child.display.startsWith('inline')
+  if (child.text && !inline) result['text-align'] = kw(position)
+  if (!display.includes('flex') && inline && position !== 'start') {
+    result.display = kw(child.display.replace(/^inline(-|$)/, '') || 'block')
+    result.width = kw('fit-content')
+  }
+  return result
 }
 
 /** Values include effective self alignment and typed margins, which retain the `auto` keyword. */
