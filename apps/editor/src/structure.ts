@@ -192,12 +192,17 @@ export function insertionTarget(
 /** What the element actions, their shortcuts and the layers' menu do to one element. */
 export type NodeAction = 'duplicate' | 'delete' | 'up' | 'down'
 
-/** Alt+↑ and Alt+↓ move the selected element one place among its siblings. */
+/**
+ * Alt+arrow moves the selected element one place among its siblings. Siblings are an ordered list
+ * whatever the flow, so left means earlier and right means later, as in a Row.
+ */
 export const moveShortcut = (
   event: Pick<KeyboardEvent, 'key' | 'altKey' | 'metaKey' | 'ctrlKey'>,
 ) =>
   event.altKey && !event.metaKey && !event.ctrlKey
-    ? ({ ArrowUp: 'up', ArrowDown: 'down' } as const)[event.key as 'ArrowUp' | 'ArrowDown']
+    ? ({ ArrowUp: 'up', ArrowLeft: 'up', ArrowDown: 'down', ArrowRight: 'down' } as const)[
+        event.key as 'ArrowUp' | 'ArrowLeft' | 'ArrowDown' | 'ArrowRight'
+      ]
     : undefined
 
 export function siblingMove(doc: Document, id: string, direction: -1 | 1): Operation | undefined {

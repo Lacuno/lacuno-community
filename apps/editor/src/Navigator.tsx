@@ -223,14 +223,26 @@ export function Navigator({
                 } else if (event.key === 'ArrowLeft' && children.length && !collapsed.has(id)) {
                   event.preventDefault()
                   toggle(id)
+                } else if (event.key === 'ArrowLeft' && node.parent && id !== root) {
+                  // Nothing to close on a leaf, so the focus goes up to its parent's row.
+                  event.preventDefault()
+                  panel.current
+                    ?.querySelector<HTMLButtonElement>(
+                      `.layer[data-drag-node="${CSS.escape(node.parent)}"]`,
+                    )
+                    ?.focus()
                 } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                   event.preventDefault()
                   const buttons = [
                     ...(panel.current?.querySelectorAll<HTMLButtonElement>('.layer') ?? []),
                   ]
-                  buttons[
-                    buttons.indexOf(event.currentTarget) + (event.key === 'ArrowDown' ? 1 : -1)
-                  ]?.focus()
+                  const next =
+                    buttons[
+                      buttons.indexOf(event.currentTarget) + (event.key === 'ArrowDown' ? 1 : -1)
+                    ]
+                  // The selection follows, so the canvas and the inspector show the focused row.
+                  next?.focus()
+                  if (next?.dataset.dragNode) select(next.dataset.dragNode)
                 }
               }}
             >

@@ -7,6 +7,7 @@ import {
   duplicateSelection,
   type InsertNode,
   insertionTarget,
+  moveShortcut,
   presetNode,
   siblingMove,
   structureInsertion,
@@ -505,4 +506,20 @@ it('wraps a dropped node and its sibling in a Row in one batch, in the dropped o
   expect(() =>
     dropEdit(locked, root, { id: 'n-hero-cta' }, parent, 0, { sibling: 'n-hero-title' }),
   ).toThrow('locked')
+})
+
+it('maps Alt with any arrow to a sibling move: up and left earlier, down and right later', () => {
+  const alt = (key: string, extra = {}) => ({
+    key,
+    altKey: true,
+    metaKey: false,
+    ctrlKey: false,
+    ...extra,
+  })
+  expect(['ArrowUp', 'ArrowLeft'].map((key) => moveShortcut(alt(key)))).toEqual(['up', 'up'])
+  expect(['ArrowDown', 'ArrowRight'].map((key) => moveShortcut(alt(key)))).toEqual(['down', 'down'])
+  expect(moveShortcut(alt('ArrowLeft', { metaKey: true }))).toBeUndefined()
+  expect(
+    moveShortcut({ key: 'ArrowLeft', altKey: false, metaKey: false, ctrlKey: false }),
+  ).toBeUndefined()
 })
