@@ -448,3 +448,61 @@ it('drops fields only inside a form, never into a field, and names them uniquely
   const again = dropEdit(store.read().document, root, { preset: 'email-field' }, form.node.id, 2)
   expect(nameOf(again)).toEqual({ type: 'static', value: 'email-3' })
 })
+
+it('wraps a dropped node and its sibling in a Row in one batch, in the dropped order, and refuses cycles', async () => {
+  const original = fixtureDocument()
+  const parent = 'n-hero-inner'
+  const root = original.nodes[parent]!.parent!
+  const store = DocumentStore.inMemory(original)
+  const edit = dropEdit(original, root, { id: 'n-hero-cta' }, parent, 0, {
+    sibling: 'n-hero-title',
+    first: true,
+  })
+  expect(edit.operations.map((operation) => operation.type)).toEqual([
+    'class.create',
+    'style.set',
+    'style.set',
+    'style.set',
+    'style.set',
+    'node.create',
+    'node.move',
+    'node.move',
+  ])
+  expect(styleValues(edit.operations)).toMatchObject({ display: 'flex', 'flex-direction': 'row' })
+  const history = await commit(store, edit.operations)
+  const wrapped = store.read().document
+  const [rowId, ...rest] = wrapped.nodes[parent]!.children
+  expect(rest).toEqual(['n-hero-image'])
+  const row = wrapped.nodes[rowId!]!
+  expect(row).toMatchObject({ tag: 'div', meta: { label: 'Row' } })
+  expect(row.children).toEqual(['n-hero-cta', 'n-hero-title'])
+  await store.apply({ expectedRevision: store.revision, patches: history.undo })
+  expect({ ...store.read().document, revision: original.revision }).toEqual(original)
+  // Second, and a palette preset is created inside the row instead of moved.
+  const second = dropEdit(original, root, { id: 'n-hero-cta' }, parent, 0, {
+    sibling: 'n-hero-title',
+  })
+  expect(second.operations.at(-1)).toMatchObject({ type: 'node.move', id: 'n-hero-cta', index: 1 })
+  const preset = dropEdit(original, root, { preset: 'heading' }, parent, 0, {
+    sibling: 'n-hero-title',
+  })
+  expect(preset.operations.at(-1)).toMatchObject({
+    type: 'node.create',
+    index: 1,
+    node: { tag: 'h2' },
+  })
+  expect((preset.operations.at(-1) as { parent: string }).parent).toBe(
+    (preset.operations[5] as { node: { id: string } }).node.id,
+  )
+  expect(() =>
+    dropEdit(original, root, { id: 'n-hero-title' }, parent, 0, { sibling: 'n-hero-title' }),
+  ).toThrow('itself')
+  expect(() =>
+    dropEdit(original, root, { id: 'n-hero-inner' }, parent, 0, { sibling: 'n-hero-title' }),
+  ).toThrow('itself')
+  const locked = fixtureDocument()
+  locked.nodes['n-hero-title']!.meta = { locked: true }
+  expect(() =>
+    dropEdit(locked, root, { id: 'n-hero-cta' }, parent, 0, { sibling: 'n-hero-title' }),
+  ).toThrow('locked')
+})

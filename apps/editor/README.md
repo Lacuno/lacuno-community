@@ -48,6 +48,18 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   their px values and the handles that drag them: a side and its opposite together, or one side
   with Alt. Focusing a spacing input or holding Alt over the element shows the areas alone. Spacing
   is always written per side (`padding-top` and so on), never as a shorthand.
+- Drag an element on the canvas, or a tile from Add element, and nothing moves until the drop: the
+  target container is outlined with its other children and a small arrow along its flow, the bar
+  between neighbours is as wide as the container's gap, and a translucent ghost the element's size
+  shows where it lands. In a Row or Stack the drop's position across the flow, in thirds, sets the
+  element's own alignment (`align-self`) when it has room there; a drop past the last child pushes
+  it to the end with `margin-left: auto` in a Row or `margin-top: auto` in a Stack, which any other
+  drop clears. Dropping on the outer left or right quarter of a sibling in a Stack wraps both in a
+  new Row, in the dropped order. Hovering an element outlines its parent and siblings with the same
+  flow arrow. The **Align** chip on the selection's top bar aligns the element within its parent
+  and **Distribute** spreads the siblings; the arrow keys nudge the selection by 1 px, 10 px with
+  Shift, through its leading margins, while Alt+Arrow still reorders it. Each gesture is one undo
+  step.
 - Use Add element to insert a heading, paragraph, span, image, video, embed, list, section with
   starter content, or empty container, and from the **Actions** group a **Link** or a **Button**. Both are `a` elements whose
   destination starts on the current page, so they are focusable and styleable straight away; a

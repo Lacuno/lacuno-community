@@ -7,7 +7,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 
 | Feature | When | Notes |
 | --- | --- | --- |
-| Canvas in an isolated iframe with click, drag, resize, marquee select | MVP | Editor chrome never leaks CSS into the site |
+| Canvas in an isolated iframe with click, drag, resize, marquee select | MVP | Editor chrome never leaks CSS into the site. In: drops with intent (a ghost of the element where it lands, a band across a Row or Stack that sets its alignment, an end zone that pushes it to the end with an auto margin, a sibling's side that wraps both in a Row), an Align chip and arrow-key nudging on the selection, and the parent and siblings outlined on hover and during a drag with the flow axis drawn and the drop bar sized to the gap |
 | Layer tree (navigator) with drag reorder, rename, hide, lock | MVP | |
 | Element palette: div, section, container, heading, paragraph, text span, link, button, image, video, list, form controls, embed | MVP | Semantic tag is chosen per element, not implied by a component name. In: section, container, stack, row, grid, list, heading, paragraph, span, image, video, embed, link and button, plus Wrap selection in any structure or a link. A link and a button are both `a` elements. Form controls are plain `form`, `label`, `input`, `textarea`, `select` and `button` elements, which documents and MCP accept |
 | Style panel: box model, size, position, display, flex, grid, typography, backgrounds, borders, shadows, effects, transforms, overflow, cursor | MVP | Every CSS property reachable, common ones with visual controls |

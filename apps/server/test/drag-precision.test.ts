@@ -1,124 +1,16 @@
-import type { FrameLocator, Locator, Page } from 'playwright'
+import type { Page } from 'playwright'
 import { expect, it } from 'vitest'
-import { editor } from './harness.js'
-
-const shots = process.env.LACUNO_DND_SHOTS
-
-type Point = { x: number; y: number }
-
-/** A point on the element itself, not on a child, in page coordinates: where a press grabs it. */
-async function grabPoint(element: Locator) {
-  const box = (await element.boundingBox())!
-  const at = await element.evaluate((node) => {
-    const rect = node.getBoundingClientRect()
-    for (const fy of [0.5, 0.3, 0.7, 0.1, 0.9])
-      for (const dx of [4, 8, 16, 24, 40, 64]) {
-        const hit = node.ownerDocument.elementFromPoint(rect.left + dx, rect.top + rect.height * fy)
-        if (hit?.closest('[data-lacuno-node]') === node) return { fx: dx / rect.width, fy }
-      }
-    throw new Error('No bare point on the element')
-  })
-  return { x: box.x + at.fx * box.width, y: box.y + at.fy * box.height }
-}
-
-const center = async (element: Locator, fx = 0.5, fy = 0.5) => {
-  const box = (await element.boundingBox())!
-  return { x: box.x + box.width * fx, y: box.y + box.height * fy }
-}
-
-/** A real native drag with raw CDP input, held until released or cancelled. */
-async function hold(page: Page, from: Point, to: Point) {
-  const cdp = await page.context().newCDPSession(page)
-  let at = from
-  const mouse = (type: 'mouseMoved' | 'mousePressed' | 'mouseReleased', point: Point) =>
-    cdp.send('Input.dispatchMouseEvent', {
-      type,
-      ...point,
-      button: 'left',
-      buttons: type === 'mouseReleased' ? 0 : 1,
-      clickCount: type === 'mouseMoved' ? 0 : 1,
-    })
-  const move = async (to: Point, steps = 20) => {
-    const start = at
-    for (let step = 1; step <= steps; step++)
-      await mouse('mouseMoved', {
-        x: start.x + ((to.x - start.x) * step) / steps,
-        y: start.y + ((to.y - start.y) * step) / steps,
-      })
-    at = to
-    for (let i = 0; i < 3; i++) await mouse('mouseMoved', to)
-  }
-  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...from })
-  await mouse('mousePressed', from)
-  await move(to)
-  return {
-    move,
-    /** Keeps the pointer still for `ms`, the way a resting hand sends no new moves. */
-    rest: (ms: number) => page.waitForTimeout(ms),
-    /**
-     * Drops. Unless `resting`, a small wiggle first stands for a hand that moved just before
-     * letting go, so slow test steps while held never count as resting on a sibling.
-     */
-    release: async (resting = false) => {
-      if (!resting) for (const dy of [9, 0]) await mouse('mouseMoved', { x: at.x, y: at.y + dy })
-      await mouse('mouseReleased', at)
-      await cdp.detach()
-    },
-    cancel: async () => {
-      await cdp.send('Input.cancelDragging')
-      await mouse('mouseReleased', at)
-      await cdp.detach()
-    },
-  }
-}
+import {
+  center,
+  childIds,
+  grabPoint,
+  hold,
+  type Point,
+  parentOf,
+  dragSession as session,
+} from './harness.js'
 
 const drag = async (page: Page, from: Point, to: Point) => (await hold(page, from, to)).release()
-
-const childIds = (canvas: FrameLocator, id: string) =>
-  canvas
-    .locator(`[data-lacuno-node="${id}"]`)
-    .evaluate((element) =>
-      Array.from(element.children, (child) => child.getAttribute('data-lacuno-node')).filter(
-        (child): child is string => !!child,
-      ),
-    )
-
-const parentOf = (canvas: FrameLocator, id: string) =>
-  canvas
-    .locator(`[data-lacuno-node="${id}"]`)
-    .evaluate((element) =>
-      element.parentElement?.closest('[data-lacuno-node]')?.getAttribute('data-lacuno-node'),
-    )
-
-async function session(viewport?: { width: number; height: number }) {
-  const launched = await editor(viewport)
-  const { page, canvas } = launched
-  const errors: string[] = []
-  page.on('pageerror', (error) => errors.push(error.message))
-  let writes = 0
-  page.on('request', (request) => {
-    if (request.url().endsWith('/document/apply')) writes++
-  })
-  const node = (id: string) => canvas.locator(`[data-lacuno-node="${id}"]`)
-  const indicator = canvas.locator('[data-lacuno-drop-indicator]')
-  const shown = () => indicator.evaluate((element) => getComputedStyle(element).display)
-  const label = () => indicator.locator('span').textContent()
-  const undo = () => page.getByRole('button', { name: 'Undo', exact: true }).click()
-  const shot = async (name: string) => {
-    if (shots) await page.screenshot({ path: `${shots}/dnd-${name}.png` })
-  }
-  return {
-    ...launched,
-    errors,
-    writes: () => writes,
-    node,
-    indicator,
-    shown,
-    label,
-    undo,
-    shot,
-  }
-}
 
 it('reorders sections by exactly one place, with nothing moving until the drop', async () => {
   const { page, canvas, node, shown, label, undo, shot, writes, errors, saved } = await session()
@@ -130,8 +22,12 @@ it('reorders sections by exactly one place, with nothing moving until the drop',
     Promise.all(main.filter((id) => id !== moved).map(async (id) => node(id).boundingBox()))
   const before = await boxes()
   const target = (await node(next).boundingBox())!
+  // Over the next section's middle: its outer quarters would offer a Row with it instead.
   const from = await grabPoint(node(moved))
-  const held = await hold(page, from, { x: from.x, y: target.y + target.height * 0.75 })
+  const held = await hold(page, from, {
+    x: target.x + target.width / 2,
+    y: target.y + target.height * 0.75,
+  })
   await expect.poll(shown).toBe('block')
   expect(await label()).toBe('main')
   // The page keeps its layout: the dragged section dims in place and no sibling shifts.
@@ -153,7 +49,7 @@ it('reorders sections by exactly one place, with nothing moving until the drop',
   await node(moved).evaluate((element) => element.scrollIntoView({ block: 'center' }))
   const back = await grabPoint(node(moved))
   const above = (await node(next).boundingBox())!
-  await drag(page, back, { x: back.x, y: above.y + above.height * 0.25 })
+  await drag(page, back, { x: above.x + above.width / 2, y: above.y + above.height * 0.25 })
   await expect.poll(() => childIds(canvas, 'n-home-main')).toEqual(main)
   await saved()
   await undo()
@@ -172,12 +68,12 @@ it('reorders cards along a row, and into a card only after resting on it', async
   const target = (await node(second).boundingBox())!
   const held = await hold(page, from, { x: target.x + target.width * 0.75, y: from.y })
   await expect.poll(shown).toBe('block')
-  // The line stands upright between the second and third card.
+  // The bar stands upright in the gap between the second and third card, filling it.
   const line = await canvas.locator('[data-lacuno-drop-indicator] > div').nth(1).boundingBox()
   const thirdBox = (await node(third).boundingBox())!
-  expect(line!.height).toBeGreaterThan(line!.width * 10)
+  expect(line!.height).toBeGreaterThan(line!.width)
   expect(line!.x).toBeGreaterThan(target.x + target.width - 2)
-  expect(line!.x).toBeLessThan(thirdBox.x + 2)
+  expect(line!.x + line!.width).toBeLessThan(thirdBox.x + 2)
   await shot('row')
   await held.release()
   await expect.poll(() => childIds(canvas, 'n-home-feature-list')).toEqual([second, first, third])
@@ -470,18 +366,27 @@ it('moves the selection with Alt and the arrow keys, one undo step each', async 
   await expect.poll(() => childIds(canvas, 'n-home-main')).toEqual(down)
 }, 60_000)
 
-it('keeps the line two screen pixels thick at any canvas zoom', async () => {
+it('keeps the line at least two screen pixels thick at any canvas zoom, the gap where there is one', async () => {
   const { page, node, indicator, shown } = await session({ width: 1200, height: 1000 })
+  const frame = page.locator('iframe[title="Site canvas"]')
   for (const preset of ['Desktop', 'Tablet']) {
     await page.getByRole('button', { name: preset, exact: true }).click()
     await node('n-home-title').scrollIntoViewIfNeeded()
     const lead = (await node('n-home-lead').boundingBox())!
     const held = await hold(page, await center(node('n-home-title')), {
-      x: lead.x + 40,
+      x: lead.x + lead.width / 2,
       y: lead.y + lead.height * 0.8,
     })
     await expect.poll(shown).toBe('block')
-    expect((await indicator.locator('div').nth(1).boundingBox())!.height).toBeCloseTo(2, 0)
+    const zoom = await frame.evaluate(
+      (element) => element.getBoundingClientRect().width / (element as HTMLElement).offsetWidth,
+    )
+    const gap = await node('n-home-hero-copy').evaluate(
+      (element) => Number.parseFloat(getComputedStyle(element).rowGap) || 0,
+    )
+    const height = (await indicator.locator('div').nth(1).boundingBox())!.height
+    expect(height).toBeGreaterThanOrEqual(1.5)
+    expect(height).toBeCloseTo(Math.max(2, gap * zoom), 0)
     await held.cancel()
   }
 }, 60_000)

@@ -1,5 +1,16 @@
+import { fixtureDocument, styleKey } from '@lacuno/schema'
 import { expect, it } from 'vitest'
-import { insertionIndex, insertionLine, layoutAxis, stableIndex } from '../src/dragTarget.js'
+import {
+  crossAlignment,
+  crossBand,
+  ghostRect,
+  insertionIndex,
+  insertionLine,
+  intentOperations,
+  layoutAxis,
+  pastEnd,
+  stableIndex,
+} from '../src/dragTarget.js'
 
 const style = {
   display: 'block',
@@ -65,6 +76,17 @@ it('counts the children before a point along the flow, line by line when rows wr
   expect(insertionIndex(grid, 190, 80, row)).toBe(4)
   expect(insertionIndex(grid, 20, 20, { horizontal: true, reverse: true })).toBe(2)
   expect(insertionIndex([], 0, 0, row)).toBe(0)
+  // A child aligned lower across the flow still continues the line it starts past.
+  const aligned = [box(0, 0), box(110, 0), box(220, 80)]
+  expect(insertionIndex(aligned, 150, 100, row)).toBe(1)
+  expect(insertionIndex(aligned, 200, 100, row)).toBe(2)
+  expect(insertionIndex(aligned, 300, 20, row)).toBe(3)
+  expect(
+    insertionIndex([box(220, 0), box(110, 0), box(0, 80)], 60, 100, {
+      horizontal: true,
+      reverse: true,
+    }),
+  ).toBe(2)
 })
 
 it('keeps the previous slot near a boundary so the line does not flicker', () => {
@@ -96,4 +118,128 @@ it('draws the line between neighbours, across the flow, or beside the nearer wra
   // Slot 2 ends the first line and starts the second: the line follows the pointer's line.
   expect(insertionLine(slot(grid, 2, row), 20, 2)?.left).toBe(209)
   expect(insertionLine(slot(grid, 2, row), 80, 2)?.left).toBe(-1)
+  // Between neighbours aligned differently across the flow, the line still spans both.
+  expect(insertionLine(slot([box(0, 0), box(110, 80)], 1, row), 20, 2)).toEqual({
+    left: 104,
+    top: 0,
+    width: 2,
+    height: 130,
+  })
+})
+
+const content = box(0, 0, 300, 120)
+
+it('offers a band by thirds across the flow and end past the last child by more than the gap', () => {
+  expect(crossBand(content, 150, 10, row)).toBe('start')
+  expect(crossBand(content, 150, 60, row)).toBe('center')
+  expect(crossBand(content, 150, 110, row)).toBe('end')
+  expect(crossBand(content, 50, 60, column)).toBe('start')
+  expect(crossBand(content, 250, 60, column)).toBe('end')
+  const tiles = [box(0, 0), box(116, 0)]
+  expect(pastEnd(tiles, 2, 240, 20, row, 16)).toBe(true)
+  expect(pastEnd(tiles, 2, 230, 20, row, 16)).toBe(false)
+  expect(pastEnd(tiles, 1, 240, 20, row, 16)).toBe(false)
+  expect(pastEnd(tiles, 2, -20, 20, { horizontal: true, reverse: true }, 16)).toBe(true)
+  expect(pastEnd([box(0, 0), box(0, 60)], 2, 50, 130, column, 16)).toBe(true)
+  expect(pastEnd([], 0, 50, 130, column, 16)).toBe(false)
+})
+
+it('reads what a flex item is aligned to, through auto to the parent', () => {
+  expect(crossAlignment('auto', 'normal')).toBe('stretch')
+  expect(crossAlignment('auto', 'center')).toBe('center')
+  expect(crossAlignment('flex-start', 'center')).toBe('start')
+  expect(crossAlignment('self-end', 'normal')).toBe('end')
+  expect(crossAlignment('stretch', 'flex-end')).toBe('stretch')
+  expect(crossAlignment('baseline', 'normal')).toBeUndefined()
+})
+
+it('places the ghost on the line at the band, at the far end, or beside a sibling', () => {
+  const size = { width: 100, height: 50 }
+  const line = { left: 109, top: 0, width: 2, height: 50 }
+  expect(ghostRect({ flow: row, content }, line, size)).toEqual({
+    left: 60,
+    top: 0,
+    width: 100,
+    height: 50,
+  })
+  expect(ghostRect({ flow: row, content, band: 'center' }, line, size)).toEqual({
+    left: 60,
+    top: 35,
+    width: 100,
+    height: 50,
+  })
+  expect(ghostRect({ flow: row, content, band: 'end', end: true }, line, size)).toEqual({
+    left: 200,
+    top: 70,
+    width: 100,
+    height: 50,
+  })
+  expect(
+    ghostRect({ flow: { horizontal: true, reverse: true }, content, end: true }, line, size)?.left,
+  ).toBe(0)
+  const across = { left: 0, top: 54, width: 300, height: 2 }
+  expect(ghostRect({ flow: column, content, band: 'end' }, across, size)).toEqual({
+    left: 200,
+    top: 30,
+    width: 100,
+    height: 50,
+  })
+  expect(ghostRect({ flow: column, content }, undefined, size)).toBeUndefined()
+  const sibling = box(40, 60, 200, 30)
+  expect(
+    ghostRect({ flow: column, content }, undefined, size, { box: sibling, first: true }),
+  ).toEqual({ left: -60, top: 60, width: 100, height: 30 })
+  expect(
+    ghostRect({ flow: column, content }, undefined, size, { box: sibling, first: false })?.left,
+  ).toBe(240)
+})
+
+it('writes the band only when it changes the alignment, and auto margins for end, as one list', () => {
+  const doc = fixtureDocument()
+  const node = doc.nodes['n-hero-title']!
+  const ops = (slot: Parameters<typeof intentOperations>[2], breakpoint = 'base') =>
+    intentOperations(doc, node, slot, breakpoint, 'none').map((operation) =>
+      operation.type === 'style.set'
+        ? [operation.property, operation.value.type === 'keyword' && operation.value.value]
+        : operation.type,
+    )
+  expect(ops({ flow: row, band: 'center', align: 'center' })).toEqual([])
+  expect(ops({ flow: row })).toEqual([])
+  expect(ops({ flow: row, band: 'center', align: 'stretch' })).toEqual([['align-self', 'center']])
+  expect(ops({ flow: row, band: 'end', align: 'start', end: true })).toEqual([
+    ['margin-left', 'auto'],
+    ['align-self', 'flex-end'],
+  ])
+  expect(ops({ flow: column, end: true }, 'tablet')).toEqual([['margin-top', 'auto']])
+  expect(
+    intentOperations(doc, node, { flow: column, end: true }, 'tablet', 'hover')[0],
+  ).toMatchObject({ class: 'l-hero-title', breakpoint: 'tablet', state: 'hover' })
+  // Dropped elsewhere, a pushed node loses its auto margin at the edited breakpoint and state.
+  const pushed = structuredClone(doc)
+  for (const operation of intentOperations(doc, node, { flow: row, end: true }, 'base', 'none'))
+    if (operation.type === 'style.set') pushed.styles[styleKey(operation)] = operation
+  expect(intentOperations(pushed, node, { flow: column }, 'base', 'none')).toEqual([
+    {
+      type: 'style.clear',
+      class: 'l-hero-title',
+      breakpoint: 'base',
+      state: 'none',
+      property: 'margin-left',
+    },
+  ])
+  expect(intentOperations(pushed, node, { flow: column }, 'tablet', 'none')).toEqual([])
+  // A preset dropped with intent styles its own class, minted earlier in the same batch.
+  const preset = { id: 'n-new', classes: ['c-minted'] }
+  expect(
+    intentOperations(doc, preset, { flow: row, band: 'end', align: 'stretch' }, 'base', 'none'),
+  ).toEqual([
+    {
+      type: 'style.set',
+      class: 'c-minted',
+      breakpoint: 'base',
+      state: 'none',
+      property: 'align-self',
+      value: { type: 'keyword', value: 'flex-end' },
+    },
+  ])
 })
