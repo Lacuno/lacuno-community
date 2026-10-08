@@ -3,10 +3,13 @@ import type { CssValue } from '@lacuno/schema'
 export type Swatch = { id: string; name: string; value: string }
 export type Hsl = { h: number; s: number; l: number }
 
-/** What a canvas control tells the editor: a preview frame, the final value(s), or a token to create. */
+/**
+ * What a canvas control tells the editor: a preview frame, the final value(s), or a token to
+ * create. Changes are for the selected node unless `id` names another, such as its parent.
+ */
 export type StyleEdit =
   | { property: string; value: CssValue; phase: 'drag' | 'commit' }
-  | { changes: Record<string, CssValue>; phase: 'drag' | 'commit' }
+  | { id?: string; changes: Record<string, CssValue | null>; phase: 'drag' | 'commit' }
   | { property: string; token: { name: string; value: string } }
 
 /** The red, green and blue (0-255) of a `#rrggbb` or `rgb()` colour. */

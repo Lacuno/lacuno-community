@@ -12,6 +12,8 @@ import {
   wheelBackground,
   wheelColor,
 } from './colorWheel.js'
+import { layoutAxis } from './dragTarget.js'
+import { childAlignment, type Position } from './layout.js'
 import { STATES, stateInfo } from './states.js'
 import { type Snap, snapTo, tokenPx } from './tokens.js'
 
@@ -49,7 +51,14 @@ const BACKGROUND_ICON =
 const SPACING_ICON =
   '<rect x="2" y="2" width="12" height="12" rx="1"/><rect x="5.5" y="5.5" width="5" height="5"/>'
 
+// The align chip's glyph: a box with a dot at its centre. Distribute: two items pushed apart.
+const ALIGN_ICON =
+  '<rect x="2" y="2" width="12" height="12" rx="1"/><rect x="6.5" y="6.5" width="3" height="3" fill="currentColor"/>'
+const DISTRIBUTE_ICON =
+  '<path d="M2 3v10M14 3v10"/><rect x="4.5" y="5.5" width="2.5" height="5"/><rect x="9" y="5.5" width="2.5" height="5"/>'
+
 const SIDES = ['top', 'right', 'bottom', 'left']
+const POSITIONS: Position[] = ['start', 'center', 'end']
 // Spacing mode is the designer's choice for the editor session, not per element, so it outlives
 // selection changes, morphs and the overlay itself.
 let spacingMode = false
@@ -102,6 +111,13 @@ export function selectionOverlay(
     .state-menu button[aria-checked="true"] small { color:#ffffffcc; }
     .state-menu strong { display:block;font-weight:600; }
     .state-menu small { display:block;color:#655484;font-size:10px; }
+    .align-menu { display:grid;gap:4px; }
+    .align-grid { display:grid;grid-template-columns:repeat(3, 1fr);gap:3px;padding:5px;border:1px solid #e3ddf0;border-radius:8px;background:#f8f7fb; }
+    .align-grid button { display:grid;place-items:center;width:28px;height:22px;padding:0;border:1px solid transparent;border-radius:4px;background:transparent;cursor:pointer; }
+    .align-grid button:hover, .align-grid button:focus-visible { background:#eae3fb;border-color:#c6b7ec;outline:none; }
+    .align-grid i { width:4px;height:4px;border-radius:50%;background:#7452c5; }
+    .distribute { display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer; }
+    .distribute:hover, .distribute:focus-visible { background:#f1ecfd;outline:none; }
     .color-menu { display:grid;grid-template-columns:minmax(0, 1fr);gap:8px;padding:12px;width:${WHEEL_SIZE + 24}px; }
     .color-menu > * { min-width:0; }
     .wheel { position:relative;width:${WHEEL_SIZE}px;height:${WHEEL_SIZE}px;border-radius:50%;cursor:crosshair;touch-action:none;box-shadow:inset 0 0 0 1px #0002; }
@@ -139,13 +155,17 @@ export function selectionOverlay(
     .strip.thin.left span { right:100%;padding-right:2px; }
     .strip.thin.right span { left:100%;padding-left:2px; }
     .tag { position:absolute;padding:2px 6px;border-radius:4px;background:#1f1533;color:white;box-shadow:0 2px 8px #0004;pointer-events:none;white-space:nowrap; }
-    :host([data-idle]) > :not(.flash) { display:none !important; }
+    .hover rect { stroke:#8775ed;stroke-width:1; }
+    .hover .parent { stroke-dasharray:4 3; }
+    .hover .sibling { stroke-opacity:.35; }
+    .hover .arrow { fill:#8775ed; }
+    :host([data-idle]) > :not(.flash, svg.frame), :host([data-idle]) svg.frame > rect { display:none !important; }
     .flash > div { position:absolute;box-sizing:border-box;border:2px solid #12a150;border-radius:2px;animation:flash-fade 1s ease-in forwards; }
     @keyframes flash-fade { from { opacity:1; } to { opacity:0; } }
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
-  </style><svg class="frame"><rect class="selection-base"/><rect class="selection-dashes"/></svg>
-  <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button></div>
+  </style><svg class="frame"><g class="hover"></g><rect class="selection-base"/><rect class="selection-dashes"/></svg>
+  <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button><button class="align" type="button" aria-haspopup="menu" aria-expanded="false">${svg(ALIGN_ICON)}Align</button></div>
   <div class="bar bar-bottom"><button class="swatch text" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(TEXT_ICON)}<i></i></button><button class="swatch background" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(BACKGROUND_ICON)}<i></i></button></div>
   <div class="menu state-menu" role="menu" aria-label="Element state" hidden>${Object.entries(
     STATES,
@@ -155,6 +175,15 @@ export function selectionOverlay(
         `<button type="button" role="menuitemradio" aria-checked="false" data-state="${value}">${svg(info.icon)}<span><strong>${info.label}</strong><small>${info.hint}</small></span></button>`,
     )
     .join('')}</div>
+  <div class="menu align-menu" role="menu" aria-label="Align within parent" hidden><div class="align-grid">${POSITIONS.flatMap(
+    (y, yi) =>
+      POSITIONS.map(
+        (x, xi) =>
+          `<button type="button" role="menuitem" aria-label="Align ${['left', 'center', 'right'][xi]} ${['top', 'middle', 'bottom'][yi]}" data-x="${x}" data-y="${y}"><i></i></button>`,
+      ),
+  ).join(
+    '',
+  )}</div><button class="distribute" type="button" role="menuitem">${svg(DISTRIBUTE_ICON)}Distribute</button></div>
   <div class="menu color-menu" role="dialog" aria-label="Color" hidden>
     <div class="wheel"><div class="wheel-thumb"></div></div>
     <label>Saturation<input class="saturation" type="range" min="0" max="100" aria-label="Saturation"></label>
@@ -177,7 +206,8 @@ export function selectionOverlay(
     .join('')}</div>
   <div class="tag" hidden></div><div class="flash"></div>`
   doc.body.append(host)
-  const rects = shadow.querySelectorAll('rect')
+  const rects = shadow.querySelectorAll('svg.frame > rect')
+  const hoverLayer = shadow.querySelector<SVGGElement>('.hover')!
   const topBar = shadow.querySelector<HTMLElement>('.bar-top')!
   const bottomBar = shadow.querySelector<HTMLElement>('.bar-bottom')!
   const name = shadow.querySelector<HTMLElement>('.name')!
@@ -189,6 +219,9 @@ export function selectionOverlay(
   const textDot = textSwatch.querySelector<HTMLElement>('i')!
   const bgDot = bgSwatch.querySelector<HTMLElement>('i')!
   const stateMenu = shadow.querySelector<HTMLElement>('.state-menu')!
+  const alignChip = shadow.querySelector<HTMLButtonElement>('.align')!
+  const alignMenu = shadow.querySelector<HTMLElement>('.align-menu')!
+  const distribute = shadow.querySelector<HTMLButtonElement>('.distribute')!
   const colorMenu = shadow.querySelector<HTMLElement>('.color-menu')!
   const wheel = shadow.querySelector<HTMLElement>('.wheel')!
   const thumb = shadow.querySelector<HTMLElement>('.wheel-thumb')!
@@ -219,8 +252,10 @@ export function selectionOverlay(
   let colorButton = bgSwatch
   const closeMenus = () => {
     stateMenu.hidden = true
+    alignMenu.hidden = true
     colorMenu.hidden = true
     chip.setAttribute('aria-expanded', 'false')
+    alignChip.setAttribute('aria-expanded', 'false')
     textSwatch.setAttribute('aria-expanded', 'false')
     bgSwatch.setAttribute('aria-expanded', 'false')
     open = undefined
@@ -287,18 +322,78 @@ export function selectionOverlay(
     if (open?.el === stateMenu) closeMenus()
     else openState()
   })
+  // The parent the selected element is laid out in, with the flow it gives its children.
+  const parentLayout = () => {
+    const parent = element?.parentElement
+    if (!parent?.hasAttribute('data-lacuno-node')) return undefined
+    const style = view.getComputedStyle(parent)
+    return { parent, display: style.display, horizontal: layoutAxis(style).horizontal }
+  }
+  // A block parent only places a child sideways, so the grid shrinks to its middle row;
+  // Distribute spreads the children of a Row or Stack, so it needs two of them.
+  const openAlign = () => {
+    const layout = parentLayout()
+    if (!layout) return
+    closeMenus()
+    const flex = layout.display.includes('flex')
+    for (const item of alignMenu.querySelectorAll<HTMLElement>('[data-y]'))
+      item.hidden = !flex && !layout.display.includes('grid') && item.dataset.y !== 'center'
+    distribute.hidden =
+      !flex || layout.parent.querySelectorAll(':scope > [data-lacuno-node]').length < 2
+    alignMenu.hidden = false
+    alignChip.setAttribute('aria-expanded', 'true')
+    open = { el: alignMenu, anchor: topBar }
+    alignMenu.querySelector<HTMLElement>('[data-y]:not([hidden])')?.focus()
+  }
+  alignChip.addEventListener('click', (event) => {
+    event.stopPropagation()
+    if (open?.el === alignMenu) closeMenus()
+    else openAlign()
+  })
+  alignMenu.addEventListener('click', (event) => {
+    const item = (event.target as Element).closest<HTMLElement>('[role="menuitem"]')
+    const layout = parentLayout()
+    if (!item || !layout) return
+    event.stopPropagation()
+    closeMenus()
+    if (item === distribute)
+      onStyle({
+        id: layout.parent.getAttribute('data-lacuno-node')!,
+        changes: { 'justify-content': kw('space-between') },
+        phase: 'commit',
+      })
+    else
+      onStyle({
+        changes: childAlignment(
+          item.dataset.x as Position,
+          item.dataset.y as Position,
+          layout.display,
+          layout.horizontal,
+        ),
+        phase: 'commit',
+      })
+  })
   spacingChip.addEventListener('click', (event) => {
     event.stopPropagation()
     spacingMode = !spacingMode
     spacingChip.setAttribute('aria-pressed', String(spacingMode))
   })
   // Holding Alt over the selected element shows its spacing boxes. The pointer reports Alt, so a
-  // key released outside the canvas never leaves it stuck.
+  // key released outside the canvas never leaves it stuck. The same move tracks the hovered node,
+  // whose parent and siblings the overlay outlines.
   let altHeld = false
+  let hovered: Element | null = null
   const alt = (event: PointerEvent) => {
     altHeld = event.altKey
+    const target = event.target as Element | null
+    // Over the overlay's own chrome the hover stays where it was.
+    if (target !== host) hovered = target?.closest?.('[data-lacuno-node]') ?? null
+  }
+  const leave = () => {
+    hovered = null
   }
   doc.addEventListener('pointermove', alt)
+  doc.addEventListener('pointerleave', leave)
   stateMenu.addEventListener('click', (event) => {
     const item = (event.target as Element).closest<HTMLElement>('[data-state]')
     if (!item) return
@@ -561,7 +656,7 @@ export function selectionOverlay(
   const key = (event: KeyboardEvent) => {
     if (!open || event.key !== 'Escape') return
     event.stopPropagation()
-    const opener = open.el === stateMenu ? chip : colorButton
+    const opener = open.el === stateMenu ? chip : open.el === alignMenu ? alignChip : colorButton
     closeMenus()
     opener.focus()
   }
@@ -596,11 +691,15 @@ export function selectionOverlay(
   // content box, the margin strips between the margin box and the border box (inside it when
   // negative), each labelled with its px value; the dragged side's label gives way to the readout.
   const placeStrips = (
+    el: Element,
     bounds: DOMRect,
     style: CSSStyleDeclaration,
     focus: Selection['spacingFocus'],
   ) => {
     const value = (property: string) => Number.parseFloat(style.getPropertyValue(property)) || 0
+    // Computed styles resolve an auto margin to the distance it pushes; the typed map keeps `auto`.
+    const computed = el.computedStyleMap?.()
+    const auto = (property: string) => computed?.get(property)?.toString() === 'auto'
     const inset = (box: Record<Side, number>, by: (side: Side) => number) => ({
       top: box.top + by('top'),
       right: box.right - by('right'),
@@ -638,8 +737,52 @@ export function selectionOverlay(
       strip.classList.toggle('thin', (side === 'top' || side === 'bottom' ? height : width) < 14)
       strip.classList.toggle('focus', focus?.kind === kind && focus.side === side)
       const px = Math.round(value(`${kind}-${side}`))
-      strip.firstElementChild!.textContent = px && dragged !== `${kind}-${side}` ? String(px) : ''
+      strip.firstElementChild!.textContent =
+        dragged === `${kind}-${side}` ? '' : auto(`${kind}-${side}`) ? 'auto' : px ? String(px) : ''
     }
+  }
+  // The hovered node's parent, dashed, its other children, faint, and an arrow on the parent's
+  // edge along its flow. Rebuilt when the hover moves or a morph replaced what it outlined.
+  let hoverFor: Element | null = null
+  let hoverBoxes: { el: Element; rect: SVGRectElement }[] = []
+  let arrow: SVGPathElement | undefined
+  const svgElement = <T extends SVGElement>(tag: string, className: string) => {
+    const el = doc.createElementNS('http://www.w3.org/2000/svg', tag) as T
+    el.setAttribute('class', className)
+    return el
+  }
+  const paintHover = (node: Element | null) => {
+    const parent = node?.parentElement?.closest('[data-lacuno-node]') ?? null
+    if (node !== hoverFor || hoverBoxes.some((box) => !box.el.isConnected)) {
+      hoverFor = node
+      hoverBoxes = parent
+        ? [parent, ...parent.querySelectorAll(':scope > [data-lacuno-node]')]
+            .filter((el) => el !== node)
+            .map((el, index) => ({
+              el,
+              rect: svgElement<SVGRectElement>('rect', index ? 'sibling' : 'parent'),
+            }))
+        : []
+      arrow = parent ? svgElement<SVGPathElement>('path', 'arrow') : undefined
+      if (arrow) arrow.setAttribute('d', 'M0 -5L8 0L0 5Z')
+      hoverLayer.replaceChildren(...hoverBoxes.map((box) => box.rect), ...(arrow ? [arrow] : []))
+    }
+    for (const { el, rect } of hoverBoxes) {
+      const box = el.getBoundingClientRect()
+      rect.setAttribute('x', String(box.left))
+      rect.setAttribute('y', String(box.top))
+      rect.setAttribute('width', String(box.width))
+      rect.setAttribute('height', String(box.height))
+    }
+    if (parent && arrow) {
+      const box = parent.getBoundingClientRect()
+      const { horizontal, reverse } = layoutAxis(view.getComputedStyle(parent))
+      const x = horizontal ? (reverse ? box.left : box.right) : box.left + box.width / 2
+      const y = horizontal ? box.top + box.height / 2 : reverse ? box.top : box.bottom
+      const angle = horizontal ? (reverse ? 180 : 0) : reverse ? 270 : 90
+      arrow.setAttribute('transform', `translate(${x} ${y}) rotate(${angle})`)
+    }
+    return hoverBoxes.length > 0
   }
   let frame = 0
   let flashing = ''
@@ -678,7 +821,12 @@ export function selectionOverlay(
       bounds.left < view.innerWidth
     const selection = latest()
     paintFlash(selection.flash)
-    host.style.display = visible || flashing ? 'block' : 'none'
+    const editing = !!doc.querySelector('[data-lacuno-editing]')
+    // Hover outlines wait while a drag or text editing is on, like the rest of the overlay.
+    const hovering = paintHover(
+      editing || doc.documentElement.hasAttribute('data-lacuno-dropping') ? null : hovered,
+    )
+    host.style.display = visible || flashing || hovering ? 'block' : 'none'
     host.toggleAttribute('data-idle', !visible)
     if (visible) {
       const info = stateInfo(selection.state)
@@ -732,10 +880,12 @@ export function selectionOverlay(
       }
       // Handles ride the edges every frame, but not while the element's text is being edited.
       // Spacing nubs show in spacing mode; the boxes also while a sidebar spacing input has focus
-      // or Alt is held over the element.
-      const editing = !!doc.querySelector('[data-lacuno-editing]')
+      // or Alt is held over the element. Align needs a parent node to align within.
       handlesLayer.hidden = editing || selection.inner
       spacingChip.hidden = editing || selection.inner
+      alignChip.hidden =
+        editing || selection.inner || !selected!.parentElement?.hasAttribute('data-lacuno-node')
+      if (alignChip.hidden && open?.el === alignMenu) closeMenus()
       bottomBar.hidden = selection.inner
       if (!editing && !selection.inner) {
         const showStrips =
@@ -744,7 +894,7 @@ export function selectionOverlay(
         handlesLayer.classList.toggle('strips', showStrips)
         for (const handle of handles) placeHandle(handle, bounds)
         if (showStrips)
-          placeStrips(bounds, view.getComputedStyle(selected!), selection.spacingFocus)
+          placeStrips(selected!, bounds, view.getComputedStyle(selected!), selection.spacingFocus)
       }
     }
     // When not visible the host is hidden but the menu stays open, so it returns on its own.
@@ -755,6 +905,7 @@ export function selectionOverlay(
     view.cancelAnimationFrame(frame)
     doc.removeEventListener('pointerdown', outside, true)
     doc.removeEventListener('pointermove', alt)
+    doc.removeEventListener('pointerleave', leave)
     host.remove()
   }
 }

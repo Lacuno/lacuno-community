@@ -84,3 +84,24 @@ it('shows the state chip and colour wheel on the canvas selection bar', async ()
   }
   await expect.poll(bound).toBe(true)
 }, 60000)
+
+it("outlines the hovered node's parent and siblings, with an arrow along the flow", async () => {
+  const { page, canvas } = await editor({ width: 1200, height: 1000 })
+  const title = canvas.locator('[data-lacuno-node="n-home-title"]')
+  await title.waitFor()
+  const box = (await title.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  const parent = canvas.locator('.hover .parent')
+  await expect.poll(() => parent.count()).toBe(1)
+  // The parent's rectangle is the copy block; the other three children are faint siblings.
+  const copy = (await canvas.locator('[data-lacuno-node="n-home-hero-copy"]').boundingBox())!
+  const outlined = (await parent.boundingBox())!
+  // Within the stroke the rectangle's box includes.
+  expect(Math.abs(outlined.x - copy.x)).toBeLessThan(2)
+  expect(Math.abs(outlined.width - copy.width)).toBeLessThan(2)
+  expect(await canvas.locator('.hover .sibling').count()).toBe(3)
+  expect(await canvas.locator('.hover .arrow').count()).toBe(1)
+  // Leaving the page clears them.
+  await page.mouse.move(5, 5)
+  await expect.poll(() => parent.count()).toBe(0)
+}, 60_000)

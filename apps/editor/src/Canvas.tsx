@@ -1,5 +1,5 @@
 import { MOTION_CSS, sizeWords, TABLE_CSS } from '@lacuno/css'
-import { RichTag, type State } from '@lacuno/schema'
+import { px, RichTag, type State } from '@lacuno/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
 import type { StyleEdit, Swatch } from './colorWheel.js'
@@ -290,6 +290,64 @@ export function Canvas({
         : {},
     })
   }
+  // A canvas edit, for the selection unless it names its node.
+  const canvasStyle = (edit: StyleEdit) =>
+    window.dispatchEvent(
+      new CustomEvent('lacuno:canvas-style', { detail: { id: latest.current.selected, ...edit } }),
+    )
+  // Arrow keys nudge the selection by its leading margins. A burst of presses previews each step
+  // and commits once, 250 ms after the last press or when a held key is released, so it is one
+  // write and one undo step; the strip of the margin being nudged shows meanwhile. The burst
+  // keeps the node it started on, so a selection made before the commit does not take it.
+  const nudge = useRef<
+    | {
+        id: string
+        changes: Record<string, number>
+        timer?: ReturnType<typeof setTimeout>
+        held: boolean
+      }
+    | undefined
+  >(undefined)
+  const emitNudge = (phase: 'drag' | 'commit') =>
+    canvasStyle({
+      id: nudge.current!.id,
+      changes: Object.fromEntries(
+        Object.entries(nudge.current!.changes).map(([property, value]) => [property, px(value)]),
+      ),
+      phase,
+    })
+  const commitNudge = () => {
+    if (!nudge.current) return
+    clearTimeout(nudge.current.timer)
+    emitNudge('commit')
+    nudge.current = undefined
+    spacingFocus.current = null
+  }
+  const nudgeKey = (event: KeyboardEvent, element: Element) => {
+    const property = {
+      ArrowLeft: 'margin-left',
+      ArrowRight: 'margin-left',
+      ArrowUp: 'margin-top',
+      ArrowDown: 'margin-top',
+    }[event.key]
+    if (!property) return false
+    const burst = nudge.current ?? { id: latest.current.selected, changes: {}, held: false }
+    clearTimeout(burst.timer)
+    const from =
+      burst.changes[property] ??
+      (Number.parseFloat(
+        element.ownerDocument.defaultView!.getComputedStyle(element).getPropertyValue(property),
+      ) ||
+        0)
+    const sign = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1
+    burst.changes[property] = from + sign * (event.shiftKey ? 10 : 1)
+    burst.timer = setTimeout(commitNudge, 250)
+    burst.held ||= event.repeat
+    nudge.current = burst
+    spacingFocus.current = { kind: 'margin', side: property === 'margin-left' ? 'left' : 'top' }
+    emitNudge('drag')
+    return true
+  }
   // Everything the iframe listeners read long after the render that installed them.
   const current = {
     selectedName,
@@ -477,12 +535,7 @@ export function Canvas({
               flash: Date.now() < flash.current.until ? flash.current.ids : [],
             }),
             (next) => latest.current.onState(next),
-            (edit: StyleEdit) =>
-              window.dispatchEvent(
-                new CustomEvent('lacuno:canvas-style', {
-                  detail: { id: latest.current.selected, ...edit },
-                }),
-              ),
+            canvasStyle,
           )
           dragCleanup.current?.()
           dragCleanup.current = bindDragSurface(doc)
@@ -561,10 +614,26 @@ export function Canvas({
                 latest.current.onNodeAction(move, latest.current.selected)
                 return
               }
+              const selected = doc.querySelector('[data-lacuno-selected]')
+              if (
+                selected &&
+                !latest.current.inner &&
+                !event.altKey &&
+                !event.metaKey &&
+                !event.ctrlKey &&
+                !doc.querySelector('[data-lacuno-editing]') &&
+                nudgeKey(event, selected)
+              ) {
+                event.preventDefault()
+                return
+              }
               if (event.key === 'Enter' || event.key === ' ') pick(event)
             },
             true,
           )
+          doc.addEventListener('keyup', (event) => {
+            if (event.key.startsWith('Arrow') && nudge.current?.held) commitNudge()
+          })
           restore.current = undefined
           refresh(doc)
           loaded.current = true
