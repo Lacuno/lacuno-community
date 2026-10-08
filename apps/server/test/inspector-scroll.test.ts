@@ -8,7 +8,7 @@ it('keeps the inspector scroll position across a spacing edit', async () => {
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
-  await openFormatting(page, 'Spacing & shape')
+  await openFormatting(page, 'Spacing')
 
   // Scroll the inspector down to the spacing inputs.
   const inspector = page.locator('aside.inspector')

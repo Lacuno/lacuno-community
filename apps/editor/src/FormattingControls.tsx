@@ -67,7 +67,7 @@ export function FormattingControls({
           ? 'Grid'
           : 'Flow'
     if (name === 'Size') return [value('width') || 'Auto', value('height') || 'Auto'].join(' × ')
-    if (name === 'Spacing & shape') {
+    if (name === 'Spacing') {
       const padding = ['top', 'right', 'bottom', 'left'].map(
         (side) => value(`padding-${side}`) || '0px',
       )
@@ -87,7 +87,7 @@ export function FormattingControls({
       <EffectsControls {...controls} />
     ) : (
       <div className="formatting-grid">
-        {group.name === 'Spacing & shape' && <SpacingControls {...controls} />}
+        {group.name === 'Spacing' && <SpacingControls {...controls} />}
         {group.fields
           .filter((field) => field.property !== 'gap' && !/^(padding|margin)-/.test(field.property))
           .map((field) => {
@@ -180,7 +180,7 @@ export function FormattingControls({
               </div>
             )
           })}
-        {group.name === 'Colors' && <GradientControls {...controls} />}
+        {group.name === 'Appearance' && <GradientControls {...controls} />}
       </div>
     )
   const renderGroup = (group: Group, nested = false): ReactNode => {
@@ -188,18 +188,13 @@ export function FormattingControls({
       group.name,
       focused && group.name === (node.type === 'text' ? 'Typography' : 'Layout'),
     )
-    const label =
-      focused && group.name === 'Colors'
-        ? 'Appearance'
-        : focused && group.name === 'Spacing & shape'
-          ? 'Spacing'
-          : group.name
     return (
       <details
         data-group={group.name}
         key={group.name}
         className={nested ? 'formatting-subsection' : undefined}
         open={open}
+        // Mounting open fires toggle too; only a change by hand is remembered.
         onToggle={(event) => {
           if (event.currentTarget.open !== open) setOpen(group.name, event.currentTarget.open)
         }}
@@ -210,7 +205,7 @@ export function FormattingControls({
             setOpen(group.name, !event.currentTarget.parentElement?.hasAttribute('open'))
           }
         >
-          <span>{label}</span>
+          <span>{group.name}</span>
           {focused && (
             <>
               <span className="formatting-summary" aria-hidden="true">
@@ -228,7 +223,7 @@ export function FormattingControls({
         )}
         {fields(group)}
         {focused &&
-          group.name === 'Colors' &&
+          group.name === 'Appearance' &&
           renderGroup(formattingGroups.find((item) => item.name === 'Effects')!, true)}
       </details>
     )
@@ -236,13 +231,14 @@ export function FormattingControls({
   const order =
     node.type === 'text'
       ? focused
-        ? ['Typography', 'Layout', 'Spacing & shape', 'Colors', 'Motion']
-        : ['Typography', 'Size', 'Spacing & shape', 'Layout', 'Colors', 'Effects', 'Motion']
-      : ['Layout', 'Size', 'Spacing & shape', 'Typography', 'Colors', 'Effects', 'Motion']
+        ? ['Typography', 'Layout', 'Spacing', 'Appearance', 'Motion']
+        : ['Typography', 'Size', 'Spacing', 'Layout', 'Appearance', 'Effects', 'Motion']
+      : ['Layout', 'Size', 'Spacing', 'Typography', 'Appearance', 'Effects', 'Motion']
   return (
     <div className="formatting-controls inspector-formatting">
       {formattingGroups
         .filter((group) => node.type !== 'embed' || group.name !== 'Typography')
+        // A tag rule styles many elements; entrances belong to the element around them.
         .filter((group) => !controls.read || group.name !== 'Motion')
         .filter((group) => !focused || !['Size', 'Effects'].includes(group.name))
         .toSorted((a, b) => order.indexOf(a.name) - order.indexOf(b.name))

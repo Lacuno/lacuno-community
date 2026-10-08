@@ -138,7 +138,7 @@ it('drags on-canvas size handles: 1:1 width, one-step corner, Shift ratio, clear
 
   // A drag out and back still ends the drag, so the panel's autosave is not left switched off.
   await drag(page, '.handle.size.right', { dx: 40 }, 0, true)
-  await openFormatting(page, 'Spacing & shape')
+  await openFormatting(page, 'Spacing')
   const applied = page.waitForResponse(
     (response) =>
       response.url().endsWith('/document/apply') &&

@@ -15,7 +15,7 @@ export function MediaControls({
   doc,
   node,
   disabled,
-}: StyleControls & {
+}: Pick<StyleControls, 'doc' | 'node' | 'disabled'> & {
   siteId: string
   alt: string
   setAlt: (alt: string) => void

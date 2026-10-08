@@ -72,7 +72,7 @@ it('edits the template in the browser with a service worker as its server', asyn
   await openInspectorTab(page, 'Content')
   await page.getByLabel('Text', { exact: true }).fill('Made in the browser.')
   await saved()
-  await openFormatting(page, 'Colors')
+  await openFormatting(page, 'Appearance')
   await page.getByLabel('Background color', { exact: true }).fill('#ff0000')
   await saved()
   const background = () => heading.evaluate((element) => getComputedStyle(element).backgroundColor)

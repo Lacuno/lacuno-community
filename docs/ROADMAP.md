@@ -64,7 +64,7 @@ Goal: a designer can build and publish a site without touching the terminal.
   zoom, and a focus mode.
 - Element palette: headings, paragraphs, spans, lists, images, video, sections, containers, links,
   buttons and HTML embeds; wrap a selection in a link; sibling order and structure edits keep ids.
-- Styling in the inspector's groups (Layout, Size, Spacing, Typography, Colors, Effects, Motion),
+- Styling in the inspector's groups (Layout, Size, Spacing, Typography, Appearance, Effects, Motion),
   which remember being opened or closed; classes, breakpoints and states (hover, focus,
   focus-visible, active, visited, first, last, odd, even), with the canvas showing the picked state.
 - Visual layout controls: Flow, Row, Stack and Grid, grid columns and ratios, alignment, gaps, and

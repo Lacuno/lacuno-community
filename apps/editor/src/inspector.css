@@ -57,8 +57,10 @@
 }
 .editor .focused-inspector .inspector-scope {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin: 0 18px 13px;
+  font-size: 11px;
   color: var(--inspector-muted);
 }
 .editor .focused-inspector .inspector-breakpoint {
@@ -140,9 +142,6 @@
 }
 .editor .focused-inspector .inspector-tab-panel :is(input, select, textarea):focus-visible {
   border-color: var(--accent);
-}
-.editor .focused-inspector .inspector-presets {
-  border: 0;
 }
 .editor .focused-inspector .preset-manager {
   grid-template-rows: auto auto;
@@ -232,9 +231,6 @@
 .editor .focused-inspector .text-toolbar-fields {
   gap: 12px 8px;
 }
-.editor .focused-inspector .text-toolbar-footer {
-  display: none;
-}
 .editor .focused-inspector .text-toolbar-fields > button {
   border-color: var(--inspector-line);
   border-radius: 6px;
@@ -259,9 +255,6 @@
   margin: 0 0 8px;
   font-size: 12px;
   font-weight: 550;
-}
-.editor .focused-inspector .inspector-shared-classes .section-label {
-  display: none;
 }
 .editor .focused-inspector .inspector-reset {
   border-top: 1px solid var(--inspector-line);

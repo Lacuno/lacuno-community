@@ -26,7 +26,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
     element.parentElement!.getAttribute('data-lacuno-node'),
   )
   await canvas.locator(`[data-lacuno-node="${selectionParentId}"]`).dispatchEvent('click')
-  await openFormatting(page, 'Spacing & shape')
+  await openFormatting(page, 'Spacing')
   await page.getByLabel('Inside spacing top', { exact: true }).fill('24')
   await saved()
   await heading.dispatchEvent('click')
@@ -240,7 +240,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await colors.getByRole('button', { name: 'Create color', exact: true }).click()
   await colors.getByRole('heading', { name: 'Ocean test / Light', exact: true }).waitFor()
   await colors.getByRole('button', { name: 'Close tokens', exact: true }).click()
-  await openFormatting(page, 'Colors')
+  await openFormatting(page, 'Appearance')
   await page
     .getByLabel('Text color source', { exact: true })
     .selectOption({ label: 'Ocean test / Light' })
@@ -254,7 +254,7 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   const paragraph = canvas.getByText('Write something worth sharing.', { exact: true })
   await paragraph.waitFor()
   const paragraphColor = () => paragraph.evaluate((element) => getComputedStyle(element).color)
-  await openFormatting(page, 'Colors')
+  await openFormatting(page, 'Appearance')
   await page
     .getByLabel('Text color source', { exact: true })
     .selectOption({ label: 'Ocean test / Light' })
@@ -439,14 +439,14 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await heading.click()
   expect(await page.getByRole('button', { name: /^Save/ }).count()).toBe(0)
   // Opening another inspector section keeps the active autosave draft intact.
-  await openFormatting(page, 'Spacing & shape')
+  await openFormatting(page, 'Spacing')
   // Each pair is linked by default (its sides equal), so top and left fill all four → padding: 16px.
   for (const side of ['top', 'left'])
     await page
       .locator('aside.inspector')
       .getByLabel(`Inside spacing ${side}`, { exact: true })
       .fill('16')
-  await openFormatting(page, 'Colors')
+  await openFormatting(page, 'Appearance')
   await page.locator('aside.inspector').getByLabel('Text color source', { exact: true }).waitFor()
   await saved()
   await expect

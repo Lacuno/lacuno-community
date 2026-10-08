@@ -478,17 +478,15 @@ export function Inspector({
   )
   const style = (
     <>
-      <div className="inspector-presets">
-        <PresetManager
-          breakpoint={breakpoint}
-          doc={doc}
-          node={node}
-          computed={computed}
-          disabled={!settled || classDraft}
-          save={save}
-          draftChanged={setPresetDraft}
-        />
-      </div>
+      <PresetManager
+        breakpoint={breakpoint}
+        doc={doc}
+        node={node}
+        computed={computed}
+        disabled={!settled || classDraft}
+        save={save}
+        draftChanged={setPresetDraft}
+      />
       {isRichBlock(doc, node) && <TagPicker disabled={disabled || !settled} choose={selectTag} />}
       <fieldset aria-label="Element styling" className="inspector-fields" onKeyDown={flushOnEnter}>
         <FormattingControls
@@ -504,7 +502,6 @@ export function Inspector({
               <TextToolbar
                 compact
                 doc={doc}
-                scope="Whole text"
                 currentLink={textLink(node)}
                 placeholders={computed}
                 disabled={disabled}
@@ -620,7 +617,7 @@ export function Inspector({
           </span>
         </div>
       )}
-      <div className="inspector-scope responsive-scope">
+      <div className="inspector-scope">
         <label className="inspector-breakpoint">
           <EditorIcon
             name={

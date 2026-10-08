@@ -22,7 +22,8 @@ export function TextToolbar({
   children,
 }: {
   doc: Document
-  scope: 'Whole text' | 'Selected text'
+  scope?: 'Whole text' | 'Selected text'
+  /** The inspector's Typography group: placeholders name only the inherited value, no footer. */
   compact?: boolean
   values: Record<string, string>
   placeholders?: Record<string, string>
@@ -209,10 +210,12 @@ export function TextToolbar({
           </label>,
         )}
       </div>
-      <div className="text-toolbar-footer">
-        <span className="text-scope">{scope}</span>
-        <div className="text-edit-actions">{children}</div>
-      </div>
+      {!compact && (
+        <div className="text-toolbar-footer">
+          <span className="text-scope">{scope}</span>
+          <div className="text-edit-actions">{children}</div>
+        </div>
+      )}
     </section>
   )
 }

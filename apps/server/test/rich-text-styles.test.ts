@@ -95,7 +95,7 @@ it('styles the tags inside rich text per class, by clicking them', async () => {
   await canvas.getByRole('button', { name: /^State: / }).click()
   await canvas.getByRole('menuitemradio', { name: 'Hover' }).click()
   await expect.poll(() => article.locator('a').getAttribute('data-lc-state')).toBe('hover')
-  await openFormatting(page, 'Colors')
+  await openFormatting(page, 'Appearance')
   await inspector.getByLabel('Text color', { exact: true }).fill('#ff0000')
   await saved()
   await expect

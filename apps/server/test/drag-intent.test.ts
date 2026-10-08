@@ -375,7 +375,7 @@ it('flushes a pending inspector draft on the drop instead of refusing the drag',
   const { page, canvas, node, saved, writes } = launched
   await rowOfTiles(launched)
   await node('n-tile-1').dispatchEvent('click')
-  await openFormatting(page, 'Spacing & shape')
+  await openFormatting(page, 'Spacing')
   await page.getByLabel('Inside spacing top', { exact: true }).fill('12')
   const row = (await node('n-row').boundingBox())!
   const second = (await node('n-tile-2').boundingBox())!

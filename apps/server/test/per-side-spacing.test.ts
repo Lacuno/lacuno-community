@@ -12,7 +12,7 @@ it('binds per-side spacing inputs to the longhands and the handles, with a chain
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
-  await openFormatting(page, 'Spacing & shape')
+  await openFormatting(page, 'Spacing')
 
   const inspector = page.locator('aside.inspector')
   // Read the four computed sides in one snapshot so a comparison can't catch them mid-commit.

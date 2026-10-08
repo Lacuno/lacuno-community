@@ -42,7 +42,6 @@ export function ClassManager({
   }
   return (
     <section className="class-manager" aria-label="Element classes">
-      <div className="section-label">CLASSES</div>
       <ul className="assigned-classes">
         {node.classes
           .filter((id) => doc.classes[id]?.kind !== 'local' && !doc.classes[id]?.preset)

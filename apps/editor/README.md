@@ -78,11 +78,11 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   chooses an uploaded clip and toggles Controls, Autoplay, Loop and Muted; turning Autoplay on also
   mutes it, since browsers refuse unmuted autoplay. An Embed's **Embed code** is published verbatim;
   the canvas shows a placeholder when the markup shows nothing there, such as scripts or iframes.
-- **Link target** appears in the Design inspector for any `a` element. It names the current
+- **Link target** appears in the inspector's Content tab for any `a` element. It names the current
   destination and opens the same page-or-URL popover the text toolbar uses. Choosing a page stores a
   reference to it, so the link follows the page through a path change; a URL is stored as typed.
   Removing a destination is not offered: a link without one is not a link.
-- Open **Advanced: shared classes** to create, assign or remove reusable classes. Expand a
+- Open the **Advanced** tab to create, assign or remove reusable classes. Expand a
   class to see the elements and pages/components using it. These changes save immediately and support
   undo/redo; pending formatting must finish first.
 - Open **Design tokens** from the sidebar rail to manage the site's tokens. **Colors** works as described
@@ -146,7 +146,7 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   The former hover shortcut (hover opacity, scale, rotation, and shadow) is gone: write those in the
   Hover state instead. Documents that used it are rewritten into real hover and focus-visible
   declarations when they are read.
-- **States** are picked beside the breakpoint label in the Design inspector: None, Hover, Focus,
+- **States** are picked beside the breakpoint in the inspector's heading: None, Hover, Focus,
   Focus visible, Active, Visited, First child, Last child, Odd and Even. Every style control then
   reads and writes that state's declarations for the selected element, purple fields marking the
   ones this state owns. The canvas forces the picked state on the selected element so you can see
