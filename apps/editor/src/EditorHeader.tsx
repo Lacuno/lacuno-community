@@ -19,6 +19,7 @@ function ago(at: number) {
 
 export function EditorHeader({
   session,
+  notice,
   role,
   page,
   back,
@@ -28,6 +29,8 @@ export function EditorHeader({
   connect,
 }: {
   session: DocumentSession
+  /** A refused shortcut's reason, on the status line for a moment while nothing is saving. */
+  notice: string
   role: Role
   page: Page | undefined
   back: () => void
@@ -123,9 +126,7 @@ export function EditorHeader({
                 ? 'Saving…'
                 : dirty
                   ? 'Changes pending…'
-                  : saved
-                    ? 'All changes saved'
-                    : 'Saved'}
+                  : notice || (saved ? 'All changes saved' : 'Saved')}
       </span>
       <button
         type="button"

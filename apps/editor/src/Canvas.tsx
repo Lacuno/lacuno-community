@@ -321,9 +321,12 @@ export function Canvas({
   const commitNudge = () => {
     if (!nudge.current) return
     clearTimeout(nudge.current.timer)
-    emitNudge('commit')
+    if (Object.keys(nudge.current.changes).length) emitNudge('commit')
     nudge.current = undefined
     spacingFocus.current = null
+  }
+  const releaseNudge = (event: KeyboardEvent) => {
+    if (event.key.startsWith('Arrow') && nudge.current?.held) commitNudge()
   }
   const nudgeKey = (event: KeyboardEvent, element: Element) => {
     const property = {
@@ -333,22 +336,65 @@ export function Canvas({
       ArrowDown: 'margin-top',
     }[event.key]
     if (!property) return false
+    // An element off screen comes into view first, so the move and its strip are seen.
+    const view = element.ownerDocument.defaultView!
+    const rect = element.getBoundingClientRect()
+    if (
+      rect.bottom < 0 ||
+      rect.top > view.innerHeight ||
+      rect.right < 0 ||
+      rect.left > view.innerWidth
+    )
+      element.scrollIntoView({ block: 'nearest' })
+    // A burst left on another element lands first.
+    if (nudge.current && nudge.current.id !== latest.current.selected) commitNudge()
     const burst = nudge.current ?? { id: latest.current.selected, changes: {}, held: false }
     clearTimeout(burst.timer)
-    const from =
-      burst.changes[property] ??
-      (Number.parseFloat(
-        element.ownerDocument.defaultView!.getComputedStyle(element).getPropertyValue(property),
-      ) ||
-        0)
-    const sign = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1
-    burst.changes[property] = from + sign * (event.shiftKey ? 10 : 1)
-    burst.timer = setTimeout(commitNudge, 250)
     burst.held ||= event.repeat
     nudge.current = burst
     spacingFocus.current = { kind: 'margin', side: property === 'margin-left' ? 'left' : 'top' }
+    // An auto margin centres or pushes the element, and a pixel value would undo that: the strip
+    // shows the `auto` for a moment instead, and the Align controls stay the way to change it.
+    if (element.computedStyleMap?.().get(property)?.toString() === 'auto') {
+      burst.timer = setTimeout(commitNudge, 1500)
+      return true
+    }
+    const from =
+      burst.changes[property] ??
+      (Number.parseFloat(view.getComputedStyle(element).getPropertyValue(property)) || 0)
+    const sign = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1
+    burst.changes[property] = from + sign * (event.shiftKey ? 10 : 1)
+    burst.timer = setTimeout(commitNudge, 250)
     emitNudge('drag')
     return true
+  }
+  // The selection's keys, wherever the keyboard is: Cmd+D duplicates, Delete deletes, Alt+arrow
+  // moves among the siblings and a plain arrow nudges. True when the key was taken.
+  const selectionKey = (event: KeyboardEvent) => {
+    const doc = frame.current?.contentDocument
+    if (!doc || !latest.current.selected || doc.querySelector('[data-lacuno-editing]')) return false
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+      latest.current.onNodeAction('duplicate', latest.current.selected)
+      return true
+    }
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      latest.current.onNodeAction('delete', latest.current.selected)
+      return true
+    }
+    const move = moveShortcut(event)
+    if (move) {
+      latest.current.onNodeAction(move, latest.current.selected)
+      return true
+    }
+    const selected = doc.querySelector('[data-lacuno-selected]')
+    return (
+      !!selected &&
+      !latest.current.inner &&
+      !event.altKey &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      nudgeKey(event, selected)
+    )
   }
   // Everything the iframe listeners read long after the render that installed them.
   const current = {
@@ -372,6 +418,8 @@ export function Canvas({
     onComputed,
     paint,
     reportStyles,
+    selectionKey,
+    releaseNudge,
   }
   const latest = useRef(current)
   latest.current = current
@@ -474,13 +522,30 @@ export function Canvas({
     const flashNodes = (event: Event) => {
       flash.current = { ids: (event as CustomEvent<string[]>).detail, until: Date.now() + 1000 }
     }
+    // After a click on Undo, a viewport button or a sidebar control the keyboard is on the editor
+    // page, where the selection stays its target unless a field, a layer row, a menu or a dialog
+    // has the focus. The history shortcut is the session's (session.ts).
+    const editorKey = (event: KeyboardEvent) => {
+      if (
+        (event.target as Element | null)?.closest?.(
+          'input, textarea, select, [contenteditable="true"], .layer, dialog, [role="dialog"], [role="menu"], [popover]',
+        )
+      )
+        return
+      if (latest.current.selectionKey(event)) event.preventDefault()
+    }
+    const editorKeyUp = (event: KeyboardEvent) => latest.current.releaseNudge(event)
     window.addEventListener('lacuno:motion-preview', preview)
     window.addEventListener('lacuno:spacing-focus', focus)
     window.addEventListener('lacuno:flash', flashNodes)
+    window.addEventListener('keydown', editorKey)
+    window.addEventListener('keyup', editorKeyUp)
     return () => {
       window.removeEventListener('lacuno:motion-preview', preview)
       window.removeEventListener('lacuno:spacing-focus', focus)
       window.removeEventListener('lacuno:flash', flashNodes)
+      window.removeEventListener('keydown', editorKey)
+      window.removeEventListener('keyup', editorKeyUp)
       clearTimeout(timer)
       cleanup?.()
     }
@@ -588,7 +653,13 @@ export function Canvas({
           doc.addEventListener(
             'keydown',
             (event) => {
-              if ((event.target as Element | null)?.closest?.(chrome)) return
+              const target = event.target as Element | null
+              if (target?.closest?.('[data-lacuno-editing]')) return
+              // The overlay's keys are its open menu's; a chip that keeps the focus after a
+              // click, with no menu open, leaves them to the selection, so Spacing and nudging
+              // go together.
+              const overlay = target?.closest?.('[data-lacuno-selection-overlay]')
+              if (overlay?.shadowRoot?.querySelector('.menu:not([hidden])')) return
               const direction = historyShortcut(event)
               if (direction) {
                 event.preventDefault()
@@ -596,48 +667,25 @@ export function Canvas({
                 return
               }
               // A form field on the page owns its own keystrokes, the way the editor chrome does.
-              if (
-                (event.target as Element | null)?.closest?.(
-                  'input, textarea, select, [contenteditable="true"]',
-                )
-              )
-                return
-              if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+              if (target?.closest?.('input, textarea, select, [contenteditable="true"]')) return
+              if (selectionKey(event)) {
                 event.preventDefault()
-                latest.current.onNodeAction('duplicate', latest.current.selected)
                 return
               }
-              if (event.key === 'Delete' || event.key === 'Backspace') {
+              // Enter and Space on a chip press it.
+              if (overlay) return
+              const selected = doc.querySelector<HTMLElement>('[data-lacuno-selected]')
+              // Enter on the selected text starts editing it, as a double-click does.
+              if (event.key === 'Enter' && selected?.dataset.lacunoNode && !latest.current.inner) {
                 event.preventDefault()
-                latest.current.onNodeAction('delete', latest.current.selected)
-                return
-              }
-              const move = moveShortcut(event)
-              if (move) {
-                event.preventDefault()
-                latest.current.onNodeAction(move, latest.current.selected)
-                return
-              }
-              const selected = doc.querySelector('[data-lacuno-selected]')
-              if (
-                selected &&
-                !latest.current.inner &&
-                !event.altKey &&
-                !event.metaKey &&
-                !event.ctrlKey &&
-                !doc.querySelector('[data-lacuno-editing]') &&
-                nudgeKey(event, selected)
-              ) {
-                event.preventDefault()
+                latest.current.onEditText(selected.dataset.lacunoNode, selected)
                 return
               }
               if (event.key === 'Enter' || event.key === ' ') pick(event)
             },
             true,
           )
-          doc.addEventListener('keyup', (event) => {
-            if (event.key.startsWith('Arrow') && nudge.current?.held) commitNudge()
-          })
+          doc.addEventListener('keyup', releaseNudge)
           restore.current = undefined
           refresh(doc)
           loaded.current = true

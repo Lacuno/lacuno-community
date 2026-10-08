@@ -45,12 +45,15 @@ export function useDocumentSession(
       flushes.current = flushes.current.filter((item) => item !== flush)
     }
   }, [])
+  const inFlight = useRef(false)
+  const autoFlight = useRef(false)
+  // Who waits for the save in flight to land: a shortcut pressed meanwhile goes right after it.
+  const waiting = useRef<(() => void)[]>([])
   const flushPending = async () => {
+    if (inFlight.current) await new Promise<void>((resolve) => waiting.current.push(resolve))
     for (const flush of [...flushes.current]) if (!(await flush())) return false
     return true
   }
-  const inFlight = useRef(false)
-  const autoFlight = useRef(false)
   const revision = snapshot?.revision
   const doc = snapshot?.document
   // Nothing may change the document while a save is in flight, edits are pending or it conflicts.
@@ -219,6 +222,7 @@ export function useDocumentSession(
       inFlight.current = false
       autoFlight.current = false
       setBusy(false)
+      for (const wake of waiting.current.splice(0)) wake()
     }
   }
   const save = (operations: Operation[], action: 'edit' | 'auto' = 'edit') =>

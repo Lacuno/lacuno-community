@@ -1,5 +1,5 @@
-import type { State } from '@lacuno/schema'
-import { useCallback, useId, useMemo, useState } from 'react'
+import type { Document, State } from '@lacuno/schema'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Role } from './App.js'
 import { message, useConfig } from './api.js'
 import type { LivePreview } from './Canvas.js'
@@ -20,7 +20,9 @@ import { applicableStates } from './states.js'
 import {
   duplicateSelection,
   type NodeAction,
+  nodeLabel,
   siblingMove,
+  structureRestriction,
   subtreeRestriction,
 } from './structure.js'
 import { useThumbnail } from './thumbnail.js'
@@ -28,6 +30,18 @@ import { useComponentEditing } from './useComponentEditing.js'
 import { useImageDrop } from './useImageDrop.js'
 import { type Preview, usePreview } from './usePreview.js'
 import { useStructureDrag } from './useStructureDrag.js'
+
+/** Why a sibling move gave nothing, in a sentence for the status line. */
+function moveRefusal(doc: Document, id: string, direction: -1 | 1) {
+  const restriction = structureRestriction(doc, id)
+  if (restriction) return restriction
+  const node = doc.nodes[id]
+  const parent = node?.parent ? doc.nodes[node.parent] : undefined
+  if (!parent) return 'The page root cannot be moved.'
+  const neighbour = doc.nodes[parent.children[parent.children.indexOf(id) + direction] ?? '']
+  if (!neighbour) return `Already ${direction < 0 ? 'first' : 'last'} in ${nodeLabel(parent)}`
+  return `${nodeLabel(neighbour)} is locked.`
+}
 
 export function Editor({
   siteId,
@@ -112,28 +126,53 @@ export function Editor({
   const { config } = useConfig()
   useThumbnail(siteId, doc, !!config && !config.try && role !== 'viewer')
   const { uploadingImage, dropImage } = useImageDrop({ siteId, session, setSelected })
+  // A refusal on the header's status line for a moment, where the save state otherwise reads.
+  const [notice, setNotice] = useState('')
+  const noticeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const notify = (text: string) => {
+    clearTimeout(noticeTimer.current)
+    setNotice(text)
+    noticeTimer.current = setTimeout(() => setNotice(''), 3000)
+  }
+  // A save that follows makes the refusal stale: the line reports the save instead.
+  useEffect(() => {
+    if (busy) setNotice('')
+  }, [busy])
+  // What a shortcut acts on after it waited for a pending draft: the render that landed it.
+  const latest = useRef({ editableDoc, save })
+  latest.current = { editableDoc, save }
   async function nodeAction(action: NodeAction, id: string) {
-    if (!editableDoc || unsettled) return
+    if (!editableDoc || conflict) return
+    // A draft in a panel or a save in flight goes first; the key then acts on what it left.
+    if (unsettled && !(await session.flushPending())) return
+    const { editableDoc: current, save: commit } = latest.current
+    if (!current) return
     if (action === 'up' || action === 'down') {
-      const move = siblingMove(editableDoc, id, action === 'up' ? -1 : 1)
-      if (move) await save([move])
+      const direction = action === 'up' ? -1 : 1
+      const move = siblingMove(current, id, direction)
+      if (move) await commit([move])
+      else notify(moveRefusal(current, id, direction))
       return
     }
     if (action === 'delete') {
-      if (subtreeRestriction(editableDoc, id)) return
+      const restriction = subtreeRestriction(current, id)
+      if (restriction) {
+        notify(restriction)
+        return
+      }
       // The next sibling takes the selection, else the previous one, else the parent, so the
       // layers keep showing the place the element had instead of closing its branch.
-      const parent = editableDoc.nodes[id]?.parent
-      const siblings = parent ? (editableDoc.nodes[parent]?.children ?? []) : []
+      const parent = current.nodes[id]?.parent
+      const siblings = parent ? (current.nodes[parent]?.children ?? []) : []
       const at = siblings.indexOf(id)
       const next =
-        siblings[at + 1] ?? siblings[at - 1] ?? (editableDoc.nodes[parent ?? '']?.parent && parent)
-      if (await save([{ type: 'node.delete', id }])) setSelected(next || '')
+        siblings[at + 1] ?? siblings[at - 1] ?? (current.nodes[parent ?? '']?.parent && parent)
+      if (await commit([{ type: 'node.delete', id }])) setSelected(next || '')
       return
     }
     try {
-      const edit = duplicateSelection(editableDoc, id)
-      if (await save(edit.operations)) setSelected(edit.node.id)
+      const edit = duplicateSelection(current, id)
+      if (await commit(edit.operations)) setSelected(edit.node.id)
     } catch (error) {
       setError(message(error))
     }
@@ -159,6 +198,7 @@ export function Editor({
       )}
       <EditorHeader
         session={session}
+        notice={notice}
         role={role}
         page={page}
         back={back}

@@ -81,6 +81,8 @@ export function InspectorColumn({
         key={`${selected}-${generation}`}
         doc={doc}
         node={doc.nodes[selected]}
+        breakpoint={editingBreakpoint(doc, width)}
+        state={state}
         busy={busy}
         conflict={conflict}
         save={(operations) => save(operations, 'auto')}

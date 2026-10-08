@@ -1,6 +1,7 @@
 import type { Operation } from '@lacuno/document'
-import type { Binding, Component, ComponentInstanceNode, Document } from '@lacuno/schema'
-import { useId, useState } from 'react'
+import type { Binding, Component, ComponentInstanceNode, Document, State } from '@lacuno/schema'
+import { useEffect, useId, useRef, useState } from 'react'
+import type { StyleEdit } from './colorWheel.js'
 import {
   componentDeletionReason,
   componentNameError,
@@ -15,6 +16,7 @@ import {
 } from './components.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import { EditorIcon } from './EditorIcon.js'
+import { formattingOperations } from './formatting.js'
 import { isLocked } from './structure.js'
 import { useAutosave } from './useAutosave.js'
 import './components.css'
@@ -421,6 +423,8 @@ function PropertyFields({
 export function ComponentInstancePanel({
   doc,
   node,
+  breakpoint,
+  state,
   busy,
   conflict,
   save,
@@ -431,6 +435,8 @@ export function ComponentInstancePanel({
 }: {
   doc: Document
   node: ComponentInstanceNode
+  breakpoint: string
+  state: State
   busy: boolean
   conflict: boolean
   save: Save
@@ -453,6 +459,21 @@ export function ComponentInstancePanel({
     save,
     { dirty, dirtyChanged, registerFlush },
   )
+  // An instance has a box of its own, so the canvas bar, its handles and the nudge write its
+  // local class as the Inspector would; a drag phase waits for the commit instead of previewing.
+  const classId = useRef(`c-${crypto.randomUUID()}`)
+  const canvasStyle = useRef((_: StyleEdit & { id: string }) => {})
+  canvasStyle.current = (edit) => {
+    if (edit.id !== node.id || conflict || locked || !('phase' in edit) || edit.phase !== 'commit')
+      return
+    const changes = 'changes' in edit ? edit.changes : { [edit.property]: edit.value }
+    void save(formattingOperations(doc, node, changes, () => classId.current, breakpoint, state))
+  }
+  useEffect(() => {
+    const listen = (event: Event) => canvasStyle.current((event as CustomEvent).detail)
+    window.addEventListener('lacuno:canvas-style', listen)
+    return () => window.removeEventListener('lacuno:canvas-style', listen)
+  }, [])
   return (
     <aside className="inspector component-inspector">
       <div className="selection-heading">

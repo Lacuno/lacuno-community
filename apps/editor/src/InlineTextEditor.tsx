@@ -54,6 +54,13 @@ export function InlineTextEditor({
   latest.current = { save, close, dirtyChanged, disabled }
   const initial = useRef('')
   const flush = useRef<() => Promise<boolean>>(async () => true)
+  // What the Done button does: the edit lands, then the selection and its keys return.
+  const done = async () => {
+    if (await flush.current()) {
+      latest.current.dirtyChanged(false)
+      latest.current.close()
+    }
+  }
   // biome-ignore lint/correctness/useExhaustiveDependencies: the page map is captured for this editing session; saves must not remount the editor.
   useEffect(() => {
     const element = target.element
@@ -153,6 +160,10 @@ export function InlineTextEditor({
           },
         },
         handleKeyDown: (_view, event) => {
+          if (event.key === 'Escape') {
+            void done()
+            return true
+          }
           // Keep text nodes inline: Enter inserts a line break, not nested paragraphs in headings.
           if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey) {
             if (!event.shiftKey && enterAddsRow(instance)) return true
@@ -400,12 +411,7 @@ export function InlineTextEditor({
           type="button"
           aria-label="Done editing text"
           disabled={disabled || !editor || invalidDraft.current}
-          onClick={async () => {
-            if (await flush.current()) {
-              dirtyChanged(false)
-              close()
-            }
-          }}
+          onClick={done}
         >
           Done
         </button>
