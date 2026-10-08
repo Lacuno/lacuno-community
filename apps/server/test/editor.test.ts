@@ -849,7 +849,8 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect.poll(() => copy.count()).toBe(0)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  expect(await page.locator('[data-drag-node="n-home-title"]').count()).toBe(0)
+  // The hero's branch stayed open through the delete, so the title's row is still there.
+  expect(await page.locator('[data-drag-node="n-home-title"]').count()).toBe(1)
   await saved()
   await heading.dispatchEvent('click')
   await expect
