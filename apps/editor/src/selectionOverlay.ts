@@ -342,7 +342,7 @@ export function selectionOverlay(
       !flex || layout.parent.querySelectorAll(':scope > [data-lacuno-node]').length < 2
     alignMenu.hidden = false
     alignChip.setAttribute('aria-expanded', 'true')
-    open = { el: alignMenu, anchor: topBar }
+    open = { el: alignMenu, anchor: alignChip }
     alignMenu.querySelector<HTMLElement>('[data-y]:not([hidden])')?.focus()
   }
   alignChip.addEventListener('click', (event) => {
