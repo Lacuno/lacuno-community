@@ -221,6 +221,8 @@ export async function createServer(options: ServerOptions) {
       editorTokens.set(token, { userId, siteId, name, expires: now + EDITOR_TOKEN_MS })
       return { token, site: siteId, expiresAt: new Date(now + EDITOR_TOKEN_MS).toISOString() }
     }
+    // What each person's embedded editor last selected, by site and user, for editor.selection.
+    const selections = new Map<string, { page: string; node?: string | undefined; at: number }>()
     const allowedOrigins = new Set(options.allowedOrigins ?? [])
     if (allowedOrigins.size) {
       app.use('*', async (c, next) => {
@@ -229,7 +231,7 @@ export async function createServer(options: ServerOptions) {
           c.header('Access-Control-Allow-Origin', from)
           c.header('Vary', 'Origin')
           if (c.req.method === 'OPTIONS') {
-            c.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
+            c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
             c.header('Access-Control-Allow-Headers', 'authorization, content-type')
             c.header('Access-Control-Max-Age', '600')
             return c.body(null, 204)
@@ -616,6 +618,20 @@ export async function createServer(options: ServerOptions) {
       if (!site) return c.json({ error: 'Site not found' }, 404)
       await next()
     })
+    // The embedded editor reports what the person selected, as the host may not tell the model.
+    app.put('/api/sites/:id/selection', async (c) => {
+      const bearer = c.get('bearer')
+      if (!bearer) return c.json({ error: 'Only the embedded editor reports a selection' }, 403)
+      const input = z
+        .strictObject({
+          page: z.string().min(1).max(200),
+          node: z.string().min(1).max(200).optional(),
+        })
+        .safeParse(await c.req.json().catch(() => null))
+      if (!input.success) return c.json({ error: 'Invalid selection' }, 400)
+      selections.set(`${bearer.siteId}/${bearer.userId}`, { ...input.data, at: Date.now() })
+      return c.body(null, 204)
+    })
     const persistence = (id: string, stale?: () => void) =>
       new SqlitePersistence(db, id, options.dataDir, exportOptions, stale)
     // One store per site for the life of the process: nothing but a store writes a site's row, so
@@ -718,6 +734,7 @@ export async function createServer(options: ServerOptions) {
               origin,
               ...(options.connectorUrl ? { connectorUrl: options.connectorUrl } : {}),
               mint: (grant, siteId) => mintEditorToken(grant.userId, siteId, grant.user),
+              selection: (userId, siteId) => selections.get(`${siteId}/${userId}`),
             }
           : undefined,
       }),

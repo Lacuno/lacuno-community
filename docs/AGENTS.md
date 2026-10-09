@@ -87,7 +87,9 @@ the result; nothing changes in the view by itself. The view is one HTML file ser
 `ui://lacuno/page-view` resource, with no framework and no network access: the boxes arrive in
 the tool's result and the view asks `page.screenshot` for the picture, since a result over about
 150,000 characters reaches a view as a file rather than inline. An app without views, such as a
-terminal, gets the boxes as text. Lacuno still calls no model.
+terminal, gets the boxes as text. Where `editor.open` puts the editor itself in the chat, the
+editor reports the page and element the person selected to the runtime, and `editor.selection`
+tells their AI what "this" means. Lacuno still calls no model.
 
 ## Skills (planned, Phase 3)
 

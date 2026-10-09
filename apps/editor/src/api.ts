@@ -45,7 +45,12 @@ export const runtimeUrl = (path: string) => (embed ? embed.origin + path : path)
 export const streamUrl = (path: string) =>
   embed ? `${runtimeUrl(path)}?token=${encodeURIComponent(embed.token)}` : path
 
-export async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+export async function api<T>(
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+  method = 'POST',
+): Promise<T> {
   const send = () =>
     fetch(runtimeUrl(path), {
       credentials: embed ? 'omit' : 'same-origin',
@@ -54,7 +59,7 @@ export async function api<T>(path: string, body?: unknown, signal?: AbortSignal)
       ...(body === undefined
         ? {}
         : {
-            method: 'POST',
+            method,
             headers: {
               'Content-Type': 'application/json',
               ...(embed ? { Authorization: `Bearer ${embed.token}` } : {}),

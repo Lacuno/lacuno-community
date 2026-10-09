@@ -2,7 +2,7 @@ import type { Document, State } from '@lacuno/schema'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Role } from './App.js'
 import { AskAi, prompt } from './AskAi.js'
-import { embed, message, useConfig } from './api.js'
+import { api, embed, message, useConfig } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
 import { type CmsView, CollectionManager } from './CollectionManager.js'
@@ -143,6 +143,15 @@ export function Editor({
       : `In the Lacuno editor nothing is selected ${where}.`
     hostRequest('ui/update-model-context', { content: [{ type: 'text', text }] })
   }, [doc, page, node, selected])
+  // Spike: and the runtime, for editor.selection, as a host may not hand the model the above.
+  useEffect(() => {
+    if (!embed || !pageId) return
+    const report = setTimeout(() => {
+      const selection = { page: pageId, node: selected || undefined }
+      api(`/api/sites/${siteId}/selection`, selection, undefined, 'PUT').catch(() => {})
+    }, 300)
+    return () => clearTimeout(report)
+  }, [siteId, pageId, selected])
   const { uploadingImage, dropImage } = useImageDrop({ siteId, session, setSelected })
   // A refusal on the header's status line for a moment, where the save state otherwise reads.
   const [notice, setNotice] = useState('')

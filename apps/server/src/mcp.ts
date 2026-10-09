@@ -42,12 +42,19 @@ export type McpDeps = {
   report: ((siteId: string, activity: Activity) => void) | undefined
   /** Takes page.screenshot's images; absent where neither a screenshot service nor Playwright is. */
   screenshot: Screenshot | undefined
-  /** Spike: offers editor.session and editor.open, minting a bearer for the grant's user. */
+  /**
+   * Spike: offers editor.session and editor.open, minting a bearer for the grant's user, and
+   * editor.selection, what that user's embedded editor last reported selecting on the site.
+   */
   editor:
     | {
         origin: string
         connectorUrl?: string
         mint: (grant: Grant, siteId: string) => { token: string; site: string; expiresAt: string }
+        selection: (
+          userId: string,
+          siteId: string,
+        ) => { page: string; node?: string | undefined; at: number } | undefined
       }
     | undefined
 }
@@ -239,6 +246,7 @@ export function mcpRoutes(deps: McpDeps): Hono {
             origin: deps.editor.origin,
             ...(deps.editor.connectorUrl ? { connectorUrl: deps.editor.connectorUrl } : {}),
             mint: () => deps.editor!.mint(grant, siteId),
+            selection: () => deps.editor!.selection(grant.userId, siteId),
           },
         }),
         uploadUrl: (details) => {
