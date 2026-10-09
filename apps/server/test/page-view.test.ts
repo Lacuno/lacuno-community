@@ -23,16 +23,17 @@ const result = {
 const jpeg = await sharp({ create: { width: 128, height: 80, channels: 3, background: '#ccc' } })
   .jpeg()
   .toBuffer()
-const toolResult = {
+const shotResult = {
   content: [
-    { type: 'text', text: JSON.stringify(result) },
     { type: 'image', data: jpeg.toString('base64'), mimeType: 'image/jpeg' },
+    { type: 'text', text: '128×80' },
   ],
 }
 const host = `<!doctype html><body style="margin:0">
 <iframe id="view" style="width:640px;height:800px;border:0"></iframe>
 <script>
   const messages = (window.messages = [])
+  const viewResult = (width) => ({ content: [{ type: 'text', text: JSON.stringify({ ...${JSON.stringify(result)}, width }) }] })
   const send = (message) => document.getElementById('view').contentWindow.postMessage({ jsonrpc: '2.0', ...message }, '*')
   addEventListener('message', ({ data }) => {
     messages.push(data)
@@ -40,9 +41,10 @@ const host = `<!doctype html><body style="margin:0">
       send({ id: data.id, result: { protocolVersion: '2025-06-18', hostCapabilities: {}, hostContext: { theme: 'light', containerDimensions: { maxHeight: 2000 } } } })
     else if (data.method === 'ui/notifications/initialized') {
       send({ method: 'ui/notifications/tool-input', params: { arguments: { site: 's1', page: '/' } } })
-      send({ method: 'ui/notifications/tool-result', params: ${JSON.stringify(toolResult)} })
+      send({ method: 'ui/notifications/tool-result', params: viewResult(1280) })
     } else if (data.method === 'ui/message') send({ id: data.id, result: {} })
-    else if (data.method === 'tools/call') send({ id: data.id, result: ${JSON.stringify(toolResult)} })
+    else if (data.method === 'tools/call')
+      send({ id: data.id, result: data.params.name === 'page.screenshot' ? ${JSON.stringify(shotResult)} : viewResult(data.params.arguments.width) })
   })
 </script>`
 
@@ -76,6 +78,13 @@ describe('the page view', () => {
     const frame = page.frameLocator('#view')
     const image = frame.locator('#image')
     await expect.poll(() => image.boundingBox().then((b) => b?.width)).toBe(640)
+    // The picture is fetched by the view itself, the whole page at the result's width.
+    await expect.poll(() => sent('tools/call')).toHaveLength(1)
+    expect((await sent('tools/call'))[0]?.params).toEqual({
+      name: 'page.screenshot',
+      arguments: { site: 's1', page: '/', width: 1280, fullPage: true, maxHeight: 4000 },
+    })
+    await expect.poll(() => image.boundingBox().then((b) => b?.height)).toBe(400)
     const top = (await image.boundingBox())!.y
     const boxes = frame.locator('.box')
     expect(await boxes.count()).toBe(3)
@@ -118,11 +127,15 @@ describe('the page view', () => {
     )
 
     await frame.getByRole('button', { name: 'Phone' }).click()
-    await expect.poll(() => sent('tools/call')).toHaveLength(1)
-    expect((await sent('tools/call'))[0]?.params).toEqual({
-      name: 'page.view',
-      arguments: { site: 's1', page: '/', width: 390 },
-    })
+    await expect.poll(() => sent('tools/call')).toHaveLength(3)
+    expect((await sent('tools/call')).slice(1).map((m) => m.params)).toEqual([
+      { name: 'page.view', arguments: { site: 's1', page: '/', width: 390 } },
+      {
+        name: 'page.screenshot',
+        arguments: { site: 's1', page: '/', width: 390, fullPage: true, maxHeight: 4000 },
+      },
+    ])
+    await expect.poll(() => frame.locator('#status').textContent()).toBe('')
     // A fresh result clears the selection; Escape would too.
     await expect.poll(() => frame.locator('.box.selected').count()).toBe(0)
     await boxes.nth(1).focus()

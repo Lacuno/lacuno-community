@@ -501,7 +501,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       {
         annotations: reads,
         description:
-          'Shows the page to the person as a picture with its sections outlined, in apps that render views; they can point at a section and ask for a change. Use it when the person wants to see or point at a page. For your own checks use page.screenshot.',
+          "Shows the page to the person as a picture with its sections outlined, in apps that render views; they can point at a section and ask for a change. Use it when the person wants to see or point at a page. For your own checks use page.screenshot. The picture itself is page.screenshot's.",
         inputSchema: {
           page: z.string(),
           entry: z.string().optional(),
@@ -536,7 +536,6 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
                   boxes,
                 }),
               },
-              { type: 'image', data: shot.image.toString('base64'), mimeType: 'image/jpeg' },
             ],
           }
         } catch (e) {

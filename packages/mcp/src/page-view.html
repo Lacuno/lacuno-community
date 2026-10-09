@@ -123,10 +123,26 @@
     )
 
   const call = (width) => {
-    status('')
+    status('Loading…')
     request('tools/call', { name: 'page.view', arguments: { ...args, width } }).then(show, (error) =>
       status(error.message),
     )
+  }
+  const textOf = (result) => result.content?.find((c) => c.type === 'text')?.text ?? ''
+
+  // The picture comes from page.screenshot: a result over about 150,000 characters reaches the
+  // view as a file, not inline, and a JPEG next to the boxes is well over that.
+  const picture = () => {
+    status('Loading…')
+    request('tools/call', {
+      name: 'page.screenshot',
+      arguments: { ...args, width: view.width, fullPage: true, maxHeight: 4000 },
+    }).then((result) => {
+      const image = result.content?.find((c) => c.type === 'image')
+      if (result.isError || !image) return status(textOf(result) || 'The page did not render.')
+      $('image').src = `data:${image.mimeType};base64,${image.data}`
+      status('')
+    }, (error) => status(error.message))
   }
 
   const mark = (box, cls, on) => {
@@ -147,15 +163,13 @@
   }
 
   const show = (result) => {
-    const text = result.content?.find((c) => c.type === 'text')?.text ?? ''
-    const image = result.content?.find((c) => c.type === 'image')
-    if (result.isError || !image) return status(text || 'The page did not render.')
+    const text = textOf(result)
+    if (result.isError || !text) return status(text || 'The page did not render.')
     view = JSON.parse(text)
     $('name').textContent = view.page.name
     $('desktop').ariaPressed = String(view.width !== 390)
     $('phone').ariaPressed = String(view.width === 390)
     $('image').alt = view.page.name
-    $('image').src = `data:${image.mimeType};base64,${image.data}`
     select(undefined)
     hover(undefined)
     for (const el of $('stage').querySelectorAll('.box')) el.remove()
@@ -181,6 +195,7 @@
       })
       $('stage').append(el)
     }
+    picture()
   }
 
   // The smallest box under the pointer is the one the person means, as on the editor's canvas.

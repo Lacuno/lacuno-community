@@ -84,9 +84,10 @@ a section to see its name and clicks it; *Fix* puts the same brief as the editor
 into the conversation as their own message, and a one-line question goes in the same way, naming
 the page and the element. Their AI then does the work with the tools above, and *Refresh* shows
 the result; nothing changes in the view by itself. The view is one HTML file served as the
-`ui://lacuno/page-view` resource, with no framework and no network access: the screenshot and the
-boxes arrive in the tool's result. An app without views, such as a terminal, gets the same image
-and the boxes as text. Lacuno still calls no model.
+`ui://lacuno/page-view` resource, with no framework and no network access: the boxes arrive in
+the tool's result and the view asks `page.screenshot` for the picture, since a result over about
+150,000 characters reaches a view as a file rather than inline. An app without views, such as a
+terminal, gets the boxes as text. Lacuno still calls no model.
 
 ## Skills (planned, Phase 3)
 
