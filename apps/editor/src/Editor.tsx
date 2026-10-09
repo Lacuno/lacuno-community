@@ -1,6 +1,7 @@
 import type { Document, State } from '@lacuno/schema'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Role } from './App.js'
+import { AskAi } from './AskAi.js'
 import { message, useConfig } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
@@ -74,6 +75,7 @@ export function Editor({
   const [colorsOpen, setColorsOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [connectOpen, setConnectOpen] = useState(false)
+  const [askOpen, setAskOpen] = useState(false)
   const [cmsView, setCmsView] = useState<CmsView>()
   const { connections, refresh: refreshConnections } = useConnections(siteId, connectOpen)
   const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
@@ -225,6 +227,15 @@ export function Editor({
           close={() => setConnectOpen(false)}
         />
       )}
+      {askOpen && doc && node && page && (
+        <AskAi
+          site={doc.site.name}
+          page={page}
+          label={nodeLabel(node)}
+          id={selected}
+          close={() => setAskOpen(false)}
+        />
+      )}
       {publishOpen && session.snapshot && (
         <PublishPanel
           siteId={siteId}
@@ -346,6 +357,7 @@ export function Editor({
           bindDragSurface={bindDragSurface}
           livePreview={draft}
           setComputed={setComputed}
+          ask={() => setAskOpen(true)}
         />
         <InspectorColumn
           selectNode={(id) =>

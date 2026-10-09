@@ -42,6 +42,7 @@ export function CanvasPanel({
   bindDragSurface,
   livePreview,
   setComputed,
+  ask,
 }: {
   session: DocumentSession
   editing: ComponentEditing
@@ -68,6 +69,7 @@ export function CanvasPanel({
   bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
   setComputed: (value: { id: string; values: Record<string, string> }) => void
+  ask: () => void
 }) {
   const { doc, error, busy, frozen, leave } = session
   const [zoom, setZoom] = useState('fit')
@@ -214,6 +216,7 @@ export function CanvasPanel({
             onHistory={session.travel}
             livePreview={livePreview}
             onComputed={setComputed}
+            onAsk={ask}
             html={preview.html}
             width={width}
             scale={zoom === 'fit' ? undefined : Number(zoom) / 100}

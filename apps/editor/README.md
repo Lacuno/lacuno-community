@@ -61,6 +61,11 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   also opens the controls without dragging; **Distribute siblings** is a separate parent action.
   Arrow keys nudge the selection by 1 px, 10 px with Shift, through its leading margins, while
   Alt+Arrow still reorders it.
+- The **Ask AI** chip on the selection's top bar opens a dialog with a ready-made prompt that names
+  the site, the page and the selected element and asks for a small fix, checked with a screenshot.
+  Edit it, then **Open in claude.ai** or **Open in ChatGPT** opens it prefilled in a new tab, or
+  **Copy prompt** copies it for any other app. Lacuno itself calls no model; the app needs the site
+  connected through **Connect your AI**.
 - Use Add element to insert a heading, paragraph, span, image, video, embed, list, section with
   starter content, or empty container, and from the **Actions** group a **Link** or a **Button**. Both are `a` elements whose
   destination starts on the current page, so they are focusable and styleable straight away; a
