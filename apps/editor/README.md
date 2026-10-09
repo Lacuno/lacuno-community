@@ -234,10 +234,10 @@ Cursor and VS Code install with one link, the command-line apps with one copied 
 cloud-hosted apps by pasting the address into their connector settings; those need a public
 address, so their cards are disabled on a localhost instance, and Claude Desktop offers a local
 bridge snippet instead. On Lacuno Cloud, where `/api/config` carries `mcp`, the one address for all
-of a user's sites, the panel leads with a one-line prompt to paste into any AI app with a terminal
-(its agent follows the guide at lacuno.io/install.md, installs the Lacuno plugin and signs the user
-in) and the one address for claude.ai, Claude Desktop and ChatGPT; the app cards then carry the one
-address too, and the site's own address stays for any other client. The app then opens the
+of a user's sites, each app's card shows one thing: for an app with a terminal a one-line prompt to
+paste (its agent follows the guide at lacuno.io/install.md, installs the Lacuno plugin and signs
+the user in), for claude.ai, Claude Desktop and ChatGPT the one address; the site's own address
+stays to copy for any other client. The app then opens the
 editor's consent page, "Allow Claude Code to edit Acme?", and the header shows "Claude Code
 connected" once its first session opens. The panel lists every approved app with when it last acted
 and Disconnect. The **History** button beside undo and redo lists the latest 50 edits, by you and

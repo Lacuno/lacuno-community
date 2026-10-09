@@ -105,7 +105,7 @@ See [AGENTS.md](AGENTS.md). Summary of what ships when:
 | --- | --- |
 | MCP server over the document with progressive tool discovery | MVP |
 | Preview, screenshot and document diff tools | MVP |
-| Connect your AI: a remote MCP endpoint per site with OAuth, registration in Claude, ChatGPT, Cursor, VS Code and command-line apps, a connection badge and a live view of the agent's edits on the canvas; on Lacuno Cloud a one-line prompt for the agent guide and one address for all sites, the per-site address for anything else | Phase 2 (in) |
+| Connect your AI: a remote MCP endpoint per site with OAuth, registration in Claude, ChatGPT, Cursor, VS Code and command-line apps, a connection badge and a live view of the agent's edits on the canvas; on Lacuno Cloud one line to paste or one address for all sites per app, the per-site address for anything else | Phase 2 (in) |
 | Selection context through MCP, so the agent acts on "this element" | Phase 3 |
 | Skills stored in the site repository, semantic annotations, design linter | Phase 3 |
 | Background jobs: content generation, audits, translation | Later |

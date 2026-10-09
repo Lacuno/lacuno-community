@@ -82,25 +82,26 @@ it('offers a gateway’s one address for all sites first, above the site’s own
   await page.reload()
   await page.locator('.connect-trigger').click()
   const panel = page.getByRole('dialog', { name: 'Connect your AI' })
-  const card = panel.locator('.connect-plugin')
-  // One line for an AI app with a terminal, the address for the others, and no commands to run.
+  // Nothing shows until an app is picked; the site's own address is there to copy for any other
+  // client, without taking up the room its length would.
+  const apps = panel.locator('.connect-app')
+  const card = panel.locator('.connect-card')
+  expect(await card.count()).toBe(0)
+  expect(await panel.getByText(`/mcp/${siteId}`, { exact: false }).count()).toBe(0)
+  await panel.getByRole('button', { name: 'Copy MCP URL' }).waitFor()
+  // An app with a terminal gets the one line for the guide, no command and no address.
+  await apps.filter({ hasText: 'Claude Code' }).click()
   await card.getByText(prompt, { exact: true }).waitFor()
   await card.getByRole('button', { name: 'Copy prompt' }).waitFor()
-  expect(await card.locator('pre').count()).toBe(0)
-  await card.getByText(mcp, { exact: true }).waitFor()
+  expect(await card.getByText(mcp, { exact: false }).count()).toBe(0)
   expect(await card.getByRole('link', { name: 'account settings' }).getAttribute('href')).toBe(
     'https://app.example.test',
   )
-  // The apps take the one address too; Claude Desktop needs no bridge to reach it.
-  const apps = panel.locator('.connect-app')
-  const steps = panel.locator('.connect-card:not(.connect-plugin)')
-  await apps.filter({ hasText: 'Claude Code' }).click()
-  await steps.getByText(`claude mcp add --transport http lacuno ${mcp}`, { exact: true }).waitFor()
-  await apps.filter({ hasText: 'Claude Desktop' }).click()
-  await steps.getByText(mcp, { exact: true }).waitFor()
-  expect(await steps.getByRole('button', { name: 'Copy bridge snippet' }).count()).toBe(0)
-  // The site's own address stays for any other client.
-  await apps.filter({ hasText: 'Claude Desktop' }).click()
-  await panel.getByText(`/mcp/${siteId}`, { exact: false }).waitFor()
   await panel.screenshot({ path: path.join(root, '.lacuno/editor-preview/connect-plugin.png') })
+  // The apps without one paste the one address; Claude Desktop needs no bridge to reach it.
+  await apps.filter({ hasText: 'Claude Desktop' }).click()
+  await card.getByText(mcp, { exact: true }).waitFor()
+  expect(await card.getByText(prompt, { exact: true }).count()).toBe(0)
+  expect(await card.getByRole('button', { name: 'Copy bridge snippet' }).count()).toBe(0)
+  await card.getByRole('link', { name: 'account settings' }).waitFor()
 })
