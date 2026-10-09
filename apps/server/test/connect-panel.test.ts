@@ -70,25 +70,37 @@ it('connects an AI app from the header panel and disconnects it', async () => {
 it('offers a gateway’s one address for all sites first, above the site’s own', async () => {
   const { page, siteId } = await editor()
   const mcp = 'https://mcp.example.test/mcp'
+  const prompt = 'Set up Lacuno by following the guide at https://lacuno.io/install.md'
+  // A gateway's address is public, as a Cloud config reports.
   await page.route('**/api/config', async (route) => {
     const response = await route.fetch()
     await route.fulfill({
       response,
-      json: { ...(await response.json()), home: 'https://app.example.test', mcp },
+      json: { ...(await response.json()), home: 'https://app.example.test', mcp, local: false },
     })
   })
   await page.reload()
   await page.locator('.connect-trigger').click()
   const panel = page.getByRole('dialog', { name: 'Connect your AI' })
   const card = panel.locator('.connect-plugin')
+  // One line for an AI app with a terminal, the address for the others, and no commands to run.
+  await card.getByText(prompt, { exact: true }).waitFor()
+  await card.getByRole('button', { name: 'Copy prompt' }).waitFor()
+  expect(await card.locator('pre').count()).toBe(0)
   await card.getByText(mcp, { exact: true }).waitFor()
-  expect(await card.locator('pre').textContent()).toBe(
-    'claude plugin marketplace add Lacuno/lacuno-plugins\nclaude plugin install lacuno@lacuno\n\ncodex plugin marketplace add Lacuno/lacuno-plugins',
-  )
   expect(await card.getByRole('link', { name: 'account settings' }).getAttribute('href')).toBe(
     'https://app.example.test',
   )
-  // The site's own address follows unchanged.
+  // The apps take the one address too; Claude Desktop needs no bridge to reach it.
+  const apps = panel.locator('.connect-app')
+  const steps = panel.locator('.connect-card:not(.connect-plugin)')
+  await apps.filter({ hasText: 'Claude Code' }).click()
+  await steps.getByText(`claude mcp add --transport http lacuno ${mcp}`, { exact: true }).waitFor()
+  await apps.filter({ hasText: 'Claude Desktop' }).click()
+  await steps.getByText(mcp, { exact: true }).waitFor()
+  expect(await steps.getByRole('button', { name: 'Copy bridge snippet' }).count()).toBe(0)
+  // The site's own address stays for any other client.
+  await apps.filter({ hasText: 'Claude Desktop' }).click()
   await panel.getByText(`/mcp/${siteId}`, { exact: false }).waitFor()
   await panel.screenshot({ path: path.join(root, '.lacuno/editor-preview/connect-plugin.png') })
 })

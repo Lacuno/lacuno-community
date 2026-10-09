@@ -25,11 +25,8 @@ const action = {
   paste: 'Copy URL',
 }
 const time = (at: number) => new Date(at).toLocaleString()
-/** The Lacuno plugin's install, in a terminal and then in Claude Code, and in a terminal for Codex. */
-const pluginCommands = `claude plugin marketplace add Lacuno/lacuno-plugins
-claude plugin install lacuno@lacuno
-
-codex plugin marketplace add Lacuno/lacuno-plugins`
+/** The one line to paste into an AI app with a terminal: its agent installs the plugin or MCP server for its host and signs the person in. */
+const guidePrompt = 'Set up Lacuno by following the guide at https://lacuno.io/install.md'
 
 /** The site's AI connections, polled every 10s, or every 2s while the panel is open. */
 export function useConnections(siteId: string, open: boolean) {
@@ -132,13 +129,17 @@ export function ConnectPanel({
           {config.mcp && (
             <div className="connect-card connect-plugin">
               <p>
-                <strong>Lacuno plugin</strong> for Claude Code and Codex, or its address for
-                claude.ai and ChatGPT: one connection for all your sites.
+                Paste this into Claude Code, Codex, Cursor or any AI app with a terminal: it
+                installs the Lacuno plugin and signs you in. One connection for all your sites.
               </p>
-              <pre>{pluginCommands}</pre>
+              <code>{guidePrompt}</code>
+              <button type="button" onClick={() => void copy(guidePrompt, 'Prompt copied.')}>
+                Copy prompt
+              </button>
+              <p>claude.ai, Claude Desktop and ChatGPT take the address:</p>
               <code>{config.mcp}</code>
               <button type="button" onClick={() => void copy(config.mcp!, 'MCP URL copied.')}>
-                Copy URL
+                {action.paste}
               </button>
               <p className="hint">
                 Apps connected this way are managed in your{' '}
@@ -166,7 +167,7 @@ export function ConnectPanel({
             ))}
           </div>
           {chosen ? (
-            <ConnectSteps app={chosen} url={url} local={config.local} start={start} />
+            <ConnectSteps app={chosen} url={config.mcp ?? url} local={config.local} start={start} />
           ) : (
             <p className="hint connect-other">
               Pick your app above. Any other MCP client takes the site's address: <code>{url}</code>
@@ -235,6 +236,8 @@ function ConnectSteps({
   start: (app: ConnectApp, text?: string) => void
 }) {
   const disabled = app.needsPublicAddress && local
+  // The bridge reaches a local instance from the designer's machine; a public address needs none.
+  const bridge = local ? app.bridge : undefined
   return (
     <div className="connect-card">
       <p>{app.how}</p>
@@ -250,10 +253,11 @@ function ConnectSteps({
       )}
       {disabled && <p className="hint">Needs a public address. Works on Lacuno Cloud.</p>}
       <p className="hint">{app.fallback}</p>
-      {app.bridge && (
+      {bridge && (
         <>
-          <pre>{app.bridge(url)}</pre>
-          <button type="button" onClick={() => start(app, app.bridge?.(url))}>
+          <p className="hint">{bridge.how}</p>
+          <pre>{bridge.build(url)}</pre>
+          <button type="button" onClick={() => start(app, bridge.build(url))}>
             Copy bridge snippet
           </button>
         </>
