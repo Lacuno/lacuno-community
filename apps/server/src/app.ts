@@ -244,7 +244,9 @@ export async function createServer(options: ServerOptions) {
         // From another origin only a bearer identifies: an allowed origin without one is refused
         // rather than answered as nobody, config included.
         const from = c.req.header('origin')
-        if (from && from !== origin && !bearer && c.req.method !== 'OPTIONS')
+        // The canvas's images carry no bearer; an asset is public by its content hash.
+        const image = /^\/api\/sites\/[^/]+\/assets\/[a-f0-9]{64}$/.test(c.req.path)
+        if (from && from !== origin && !bearer && c.req.method !== 'OPTIONS' && !image)
           return c.json({ error: 'Authentication required' }, 401)
         await next()
       })

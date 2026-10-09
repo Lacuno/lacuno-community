@@ -133,6 +133,16 @@ export function Editor({
   useEffect(() => {
     if (embed) hostRequest('ui/request-display-mode', { mode: 'fullscreen' })
   }, [])
+  // Spike: the host hands the model this with the person's next message, so "this" and "the
+  // selected element" in the chat mean what is selected on the canvas.
+  useEffect(() => {
+    if (!embed || !doc || !page) return
+    const where = `on the page "${page.name}" (${page.path}) of the site "${doc.site.name}"`
+    const text = node
+      ? `In the Lacuno editor the person has selected the ${nodeLabel(node)} (element ${selected}) ${where}. "This", "it" or "the selected element" means that element.`
+      : `In the Lacuno editor nothing is selected ${where}.`
+    hostRequest('ui/update-model-context', { content: [{ type: 'text', text }] })
+  }, [doc, page, node, selected])
   const { uploadingImage, dropImage } = useImageDrop({ siteId, session, setSelected })
   // A refusal on the header's status line for a moment, where the save state otherwise reads.
   const [notice, setNotice] = useState('')
