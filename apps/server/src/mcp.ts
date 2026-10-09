@@ -42,6 +42,14 @@ export type McpDeps = {
   report: ((siteId: string, activity: Activity) => void) | undefined
   /** Takes page.screenshot's images; absent where neither a screenshot service nor Playwright is. */
   screenshot: Screenshot | undefined
+  /** Spike: offers editor.session and editor.open, minting a bearer for the grant's user. */
+  editor:
+    | {
+        origin: string
+        connectorUrl?: string
+        mint: (grant: Grant, siteId: string) => { token: string; site: string; expiresAt: string }
+      }
+    | undefined
 }
 
 /** Who a request acts for: an OAuth grant or a gateway user assertion. */
@@ -226,6 +234,13 @@ export function mcpRoutes(deps: McpDeps): Hono {
           }),
         ...(deps.fetchUrl && { fetchUrl: deps.fetchUrl }),
         ...(deps.screenshot && { screenshot: deps.screenshot }),
+        ...(deps.editor && {
+          editorToken: {
+            origin: deps.editor.origin,
+            ...(deps.editor.connectorUrl ? { connectorUrl: deps.editor.connectorUrl } : {}),
+            mint: () => deps.editor!.mint(grant, siteId),
+          },
+        }),
         uploadUrl: (details) => {
           const now = Date.now()
           for (const [token, upload] of uploads) if (upload.expires < now) uploads.delete(token)

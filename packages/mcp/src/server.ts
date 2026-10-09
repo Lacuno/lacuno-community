@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFile, realpath } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 import { publicAssetPath } from '@lacuno/compiler'
@@ -37,6 +38,14 @@ let pageViewHtml: Promise<string> | undefined
 /** The view's HTML, beside this module in source and in a bundle's output, read once. */
 const pageView = () =>
   (pageViewHtml ??= readFile(new URL('./page-view.html', import.meta.url), 'utf8'))
+/** Spike: the view that bootstraps the editor itself inside the host. */
+const EDITOR_VIEW_URI = 'ui://lacuno/editor-view'
+let editorViewHtml: Promise<string> | undefined
+const editorView = () =>
+  (editorViewHtml ??= readFile(new URL('./editor-view.html', import.meta.url), 'utf8'))
+/** claude.ai's stable origin for a connector's views: the first 32 hex of its address's sha256. */
+export const viewDomain = (connectorUrl: string) =>
+  `${createHash('sha256').update(connectorUrl).digest('hex').slice(0, 32)}.claudemcpcontent.com`
 
 /** What an imported file is called and described as. */
 export type AssetDetails = {
@@ -70,6 +79,16 @@ export type ServerOptions = {
   fetchUrl?: (url: string) => Promise<Uint8Array>
   /** A single-use address the client can PUT one file to; offers asset.upload. */
   uploadUrl?: (asset: AssetDetails) => { url: string; expiresAt: string }
+  /**
+   * Spike: offers editor.session, a short-lived bearer the embedded editor calls `origin` with,
+   * and editor.open with the view that bootstraps the editor there. `connectorUrl` names the
+   * view's origin at claude.ai.
+   */
+  editorToken?: {
+    origin: string
+    connectorUrl?: string
+    mint: () => { token: string; site: string; expiresAt: string }
+  }
 }
 
 /**
@@ -552,6 +571,62 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       },
       async (uri) => ({
         contents: [{ uri: uri.href, mimeType: PAGE_VIEW_MIME, text: await pageView() }],
+      }),
+    )
+  }
+
+  const { editorToken } = options
+  if (editorToken) {
+    server.registerTool(
+      'editor.session',
+      {
+        annotations: adds,
+        description:
+          "A short-lived token for the Lacuno editor embedded in a view, with the runtime's origin. For the editor view only.",
+      },
+      async () => {
+        try {
+          return ok({ ...editorToken.mint(), origin: editorToken.origin })
+        } catch (e) {
+          return fail(e)
+        }
+      },
+    )
+    server.registerTool(
+      'editor.open',
+      {
+        annotations: reads,
+        description:
+          'Opens the Lacuno editor on a page for the person, in apps that render views. page: id or path.',
+        inputSchema: { page: z.string() },
+        _meta: { ui: { resourceUri: EDITOR_VIEW_URI } },
+      },
+      async ({ page }) => {
+        try {
+          const d = store.read().document
+          const { name, path } = resolveRoute(d, page).page
+          return text(`Opened "${name}" (${path}) in the editor.`)
+        } catch (e) {
+          return fail(e)
+        }
+      },
+    )
+    const ui = {
+      csp: { connectDomains: [editorToken.origin], resourceDomains: [editorToken.origin] },
+      ...(editorToken.connectorUrl ? { domain: viewDomain(editorToken.connectorUrl) } : {}),
+    }
+    server.registerResource(
+      'editor-view',
+      EDITOR_VIEW_URI,
+      {
+        description: 'The view editor.open shows: the Lacuno editor',
+        mimeType: PAGE_VIEW_MIME,
+        _meta: { ui },
+      },
+      async (uri) => ({
+        contents: [
+          { uri: uri.href, mimeType: PAGE_VIEW_MIME, text: await editorView(), _meta: { ui } },
+        ],
       }),
     )
   }

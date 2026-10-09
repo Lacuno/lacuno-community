@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lacuno editor</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  #status { font: 13px/1.4 system-ui, sans-serif; padding: 8px; }
+  #status:empty { display: none; }
+</style>
+</head>
+<body>
+<p id="status" role="status" aria-live="polite">Opening the editor…</p>
+<div id="root"></div>
+<script>
+  // Spike: the MCP Apps handshake as page-view.html does it, then the editor bundle itself,
+  // loaded from the runtime's origin into this document and started with a bearer from the
+  // editor.session tool. The editor's canvas becomes a blob: frame, since the host allows no other.
+  const pending = new Map()
+  let nextId = 1
+  const post = (message) => parent.postMessage({ jsonrpc: '2.0', ...message }, '*')
+  const notify = (method, params) => post({ method, params })
+  const request = (method, params) =>
+    new Promise((resolve, reject) => {
+      pending.set(nextId, { resolve, reject })
+      post({ id: nextId++, method, params })
+    })
+  const status = (text) => { document.getElementById('status').textContent = text }
+  let args = {}
+
+  addEventListener('message', ({ data }) => {
+    if (data?.jsonrpc !== '2.0') return
+    if (data.method === undefined) {
+      const reply = pending.get(data.id)
+      pending.delete(data.id)
+      if (reply) data.error ? reply.reject(new Error(data.error.message)) : reply.resolve(data.result)
+    } else if (data.method === 'ui/notifications/tool-input') args = data.params.arguments ?? {}
+    else if (data.method === 'ui/notifications/tool-result') start()
+    else if (data.id !== undefined) post({ id: data.id, result: {} })
+  })
+
+  request('ui/initialize', {
+    appInfo: { name: 'Lacuno', version: '0.0.0' },
+    appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },
+    protocolVersion: '2025-06-18',
+  }).then(() => notify('ui/notifications/initialized', {}))
+
+  let started = false
+  const start = async () => {
+    if (started) return
+    started = true
+    try {
+      // On Cloud the arguments carry the site; the token is for that site's runtime.
+      const result = await request('tools/call', {
+        name: 'editor.session',
+        arguments: args.site ? { site: args.site } : {},
+      })
+      const text = result.content?.find((c) => c.type === 'text')?.text ?? ''
+      if (result.isError || !text) throw new Error(text || 'No editor session.')
+      const session = JSON.parse(text)
+      window.lacunoEmbed = { token: session.token, origin: session.origin, site: session.site }
+      // Every root-relative address in this document, the bundle's chunk preloads among them,
+      // resolves against the runtime from here on.
+      const base = document.createElement('base')
+      base.href = `${session.origin}/`
+      document.head.prepend(base)
+      // The bundle's hashed file names are only in the editor's index.html.
+      const index = await (await fetch(`${session.origin}/`)).text()
+      const parsed = new DOMParser().parseFromString(index, 'text/html')
+      for (const link of parsed.querySelectorAll('link[rel="stylesheet"]')) {
+        const style = document.createElement('link')
+        style.rel = 'stylesheet'
+        style.crossOrigin = ''
+        style.href = new URL(link.getAttribute('href'), `${session.origin}/`).href
+        document.head.append(style)
+      }
+      for (const script of parsed.querySelectorAll('script[type="module"]')) {
+        const module = document.createElement('script')
+        module.type = 'module'
+        module.crossOrigin = ''
+        module.src = new URL(script.getAttribute('src'), `${session.origin}/`).href
+        document.head.append(module)
+      }
+      status('')
+    } catch (error) {
+      status(error.message)
+    }
+  }
+</script>
+</body>
+</html>
