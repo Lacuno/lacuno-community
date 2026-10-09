@@ -34,8 +34,17 @@ describe('guide and resources', () => {
     expect(guide).toContain('expectedRevision')
     expect(guide).toContain('page.preview')
     expect(guide).toContain('Call guide with a group to get the schemas.')
-    expect(guide).toContain('bulletList')
-    expect(guide).toContain('attrs.href')
+    // The basics stay short; the how-to lives in topics.
+    expect(guide.split(/\s+/).length).toBeLessThan(450)
+    const topic = async (group: string) =>
+      textOf(await c.client.callTool({ name: 'guide', arguments: { group } }))
+    expect(await topic('text')).toContain('bulletList')
+    expect(await topic('text')).toContain('attrs.href')
+    expect(await topic('menu')).toContain('popovertarget')
+    for (const name of ['build', 'check', 'looks', 'content', 'forms', 'settings'])
+      expect(await topic(name)).toMatch(/^## /)
+    // Every host reads the instructions the connection opens with, skills or not.
+    expect(c.client.getInstructions()).toContain('Call guide first')
     const nodesOnly = textOf(
       await c.client.callTool({ name: 'guide', arguments: { group: 'node' } }),
     )
@@ -46,6 +55,27 @@ describe('guide and resources', () => {
     const bad = await c.client.callTool({ name: 'guide', arguments: { group: 'nope' } })
     expect(bad.isError).toBe(true)
     expect(JSON.parse(textOf(bad))).toMatchObject({ kind: 'input' })
+  })
+
+  it('says in the answer that a script in an embed is not editable', async () => {
+    const c = await connect(DocumentStore.inMemory(fixtureDocument()))
+    close = c.close
+    const embed = (expectedRevision: number, id: string, html: string) =>
+      c.client.callTool({
+        name: 'document.apply',
+        arguments: {
+          expectedRevision,
+          operations: [
+            { type: 'node.create', parent: 'n-home', node: { type: 'embed', id, html } },
+          ],
+        },
+      })
+    const plain = jsonOf<{ revision: number; note?: string }>(await embed(0, 'n-quote', '<hr>'))
+    expect(plain.note).toBeUndefined()
+    const scripted = jsonOf<{ note?: string }>(
+      await embed(plain.revision, 'n-menu', '<script>document.body.dataset.open = ""</script>'),
+    )
+    expect(scripted.note).toContain('guide menu')
   })
 
   it('keeps the declared tool schemas small', async () => {
