@@ -792,10 +792,16 @@ export async function createServer(options: ServerOptions) {
       response.headers.set('Cache-Control', 'no-store')
       return response
     })
+    // Spike: an editor on another origin cannot use a base tag (claude.ai keeps base-uri 'self'),
+    // so a canvas it asks for names this runtime in every asset address.
+    const absolute = <T extends { html: string }>(body: T): T => ({
+      ...body,
+      html: body.html.replaceAll('/api/sites/', `${origin}/api/sites/`),
+    })
     app.get('/api/sites/:id/preview', async (c) => {
       const { document } = (await store(c.req.param('id'))).read()
       const { status, body } = renderPreview(document, c.req.param('id'), c.req.query())
-      return c.json(body, status)
+      return c.json(status === 200 && c.get('bearer') ? absolute(body) : body, status)
     })
     app.post('/api/sites/:id/assets/upload', async (c) => {
       const input = UploadInput.safeParse(await c.req.json().catch(() => null))
@@ -870,7 +876,11 @@ export async function createServer(options: ServerOptions) {
       // Only a page or component the batch itself removed cannot render: the editor then fetches.
       if (!preview || batch.dryRun) return c.json(result)
       const rendered = renderPreview(site.read().document, c.req.param('id'), preview)
-      return c.json(rendered.status === 200 ? { ...result, preview: rendered.body } : result)
+      return c.json(
+        rendered.status === 200
+          ? { ...result, preview: c.get('bearer') ? absolute(rendered.body) : rendered.body }
+          : result,
+      )
     })
     if (options.editorDir) {
       // Vite names every bundle file by its content hash; index.html alone changes under its name.
