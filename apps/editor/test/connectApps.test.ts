@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import {
   claudeCodeCommand,
   claudeDesktopBridge,
+  claudeLink,
   codexCommand,
   connectApps,
   cursorLink,
@@ -21,6 +22,9 @@ it('builds each app registration for the site MCP URL', () => {
   expect(vscodeLink(url)).toBe(
     'vscode:mcp/install?%7B%22name%22%3A%22lacuno%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22http%3A%2F%2Flocalhost%3A3000%2Fmcp%2Fsite-1%22%7D',
   )
+  expect(claudeLink(url)).toBe(
+    'https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Lacuno&connectorUrl=http%3A%2F%2Flocalhost%3A3000%2Fmcp%2Fsite-1',
+  )
   expect(JSON.parse(claudeDesktopBridge(url))).toEqual({
     mcpServers: { lacuno: { command: 'npx', args: ['-y', 'mcp-remote', url, '--allow-http'] } },
   })
@@ -30,7 +34,7 @@ it('builds each app registration for the site MCP URL', () => {
   )
   expect(
     connectApps.filter((app) => app.registration === 'paste').map((app) => app.build(url)),
-  ).toEqual([url, url, url])
+  ).toEqual([url])
   expect(connectApps.map((app) => [app.name, app.needsPublicAddress])).toEqual([
     ['Claude Code', false],
     ['claude.ai', true],

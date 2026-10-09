@@ -44,6 +44,10 @@ export function EditorHeader({
   const { config } = useConfig()
   const historyId = useId()
   const historyPanel = useRef<HTMLDivElement>(null)
+  const show =
+    doc &&
+    page &&
+    `Show me the page "${page.name}" (${page.path}) of the site "${doc.site.name}" in Lacuno.`
   return (
     <header className="editor-header">
       <button
@@ -148,6 +152,16 @@ export function EditorHeader({
           <EditorIcon name="sparkle" />
           {connection.label}
         </button>
+      )}
+      {role !== 'viewer' && show && (
+        <a
+          className="open-claude"
+          href={`https://claude.ai/new?q=${encodeURIComponent(show)}`}
+          target="_blank"
+          rel="noopener"
+        >
+          Open in Claude
+        </a>
       )}
       {config?.try && <SignUpLink />}
       {role === 'owner' && (

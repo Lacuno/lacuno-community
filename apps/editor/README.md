@@ -63,9 +63,9 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   Alt+Arrow still reorders it.
 - The **Ask AI** chip on the selection's top bar opens a dialog with a ready-made prompt that names
   the site, the page and the selected element and asks for a small fix, checked with a screenshot.
-  Edit it, then **Open in claude.ai** or **Open in ChatGPT** opens it prefilled in a new tab, or
-  **Copy prompt** copies it for any other app. Lacuno itself calls no model; the app needs the site
-  connected through **Connect your AI**.
+  Edit it, then **Open in claude.ai** or **Open in ChatGPT** opens it prefilled in a new tab,
+  **Open in Claude Desktop** in the desktop app, or **Copy prompt** copies it for any other app.
+  Lacuno itself calls no model; the app needs the site connected through **Connect your AI**.
 - Use Add element to insert a heading, paragraph, span, image, video, embed, list, section with
   starter content, or empty container, and from the **Actions** group a **Link** or a **Button**. Both are `a` elements whose
   destination starts on the current page, so they are focusable and styleable straight away; a
@@ -235,14 +235,17 @@ The editing workspace currently targets desktop browsers; its mobile button prev
 
 The header's **Connect your AI** button opens a panel with the site's MCP address and one card per
 app: Claude Code, claude.ai, Claude Desktop, ChatGPT, Cursor, VS Code, Codex CLI and Gemini CLI.
-Cursor and VS Code install with one link, the command-line apps with one copied command, and the
-cloud-hosted apps by pasting the address into their connector settings; those need a public
-address, so their cards are disabled on a localhost instance, and Claude Desktop offers a local
-bridge snippet instead. On Lacuno Cloud, where `/api/config` carries `mcp`, the one address for all
-of a user's sites, each app's card shows one thing: for an app with a terminal a one-line prompt to
-paste (its agent follows the guide at lacuno.io/install.md, installs the Lacuno plugin and signs
-the user in), for claude.ai, Claude Desktop and ChatGPT the one address; the site's own address
-stays to copy for any other client. The app then opens the
+Cursor and VS Code install with one link, the command-line apps with one copied command, claude.ai
+and Claude Desktop with one **Add to Claude** link that opens claude.ai's connector dialog with the
+address filled in (connectors added there show up in Claude Desktop), and ChatGPT by pasting the
+address into its connector settings; the cloud-hosted apps need a public address, so their cards
+are disabled on a localhost instance, and Claude Desktop offers a local bridge snippet instead. On
+Lacuno Cloud, where `/api/config` carries `mcp`, the one address for all of a user's sites, each
+app's card shows one thing: for an app with a terminal a one-line prompt to paste (its agent
+follows the guide at lacuno.io/install.md, installs the Lacuno plugin and signs the user in), for
+claude.ai, Claude Desktop and ChatGPT the one address; the site's own address stays to copy for any
+other client. Beside the button, **Open in Claude** opens a claude.ai chat asking to show the open
+page, named with its path and site. The app then opens the
 editor's consent page, "Allow Claude Code to edit Acme?", and the header shows "Claude Code
 connected" once its first session opens. The panel lists every approved app with when it last acted
 and Disconnect. The **History** button beside undo and redo lists the latest 50 edits, by you and

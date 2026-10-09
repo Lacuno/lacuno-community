@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { editor } from './harness.js'
 
-it('prefills a prompt about the selection, follows edits into both links, copies it, and offers no chip on a locked element', async () => {
+it('prefills a prompt about the selection, follows edits into the links, copies it, offers no chip on a locked element, and opens the page in Claude from the header', async () => {
   const { context, origin, page, canvas, siteId, document } = await editor({
     width: 1200,
     height: 1000,
@@ -13,6 +13,13 @@ it('prefills a prompt about the selection, follows edits into both links, copies
   page.on('request', (request) => {
     if (request.url().endsWith('/document/apply')) writes++
   })
+  // The header's Open in Claude asks for the open page by name, path and site.
+  const open = page.locator('.editor-header').getByRole('link', { name: 'Open in Claude' })
+  expect(await open.getAttribute('target')).toBe('_blank')
+  expect(await open.getAttribute('rel')).toContain('noopener')
+  expect(new URL((await open.getAttribute('href'))!).searchParams.get('q')).toBe(
+    'Show me the page "Home" (/) of the site "Test site" in Lacuno.',
+  )
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
   await cta.click()
@@ -27,15 +34,21 @@ it('prefills a prompt about the selection, follows edits into both links, copies
   expect(text).toContain(`look at the ${label} (element n-home-cta)`)
   const query = async (name: string) => {
     const link = dialog.getByRole('link', { name, exact: true })
-    expect(await link.getAttribute('target')).toBe('_blank')
-    expect(await link.getAttribute('rel')).toContain('noopener')
-    return new URL((await link.getAttribute('href'))!).searchParams.get('q')
+    const url = new URL((await link.getAttribute('href'))!)
+    // The web links open beside the editor; the desktop app's scheme hands off from this tab.
+    if (url.protocol === 'https:') {
+      expect(await link.getAttribute('target')).toBe('_blank')
+      expect(await link.getAttribute('rel')).toContain('noopener')
+    } else expect(await link.getAttribute('target')).toBeNull()
+    return url.searchParams.get('q')
   }
-  expect(await query('Open in claude.ai')).toBe(text)
-  expect(await query('Open in ChatGPT')).toBe(text)
+  const links = ['Open in claude.ai', 'Open in Claude Desktop', 'Open in ChatGPT']
+  for (const name of links) expect(await query(name)).toBe(text)
+  expect(
+    await dialog.getByRole('link', { name: 'Open in Claude Desktop' }).getAttribute('href'),
+  ).toMatch(/^claude:\/\/claude\.ai\/new\?q=/)
   await prompt.fill('Make the button green & round.')
-  expect(await query('Open in claude.ai')).toBe('Make the button green & round.')
-  expect(await query('Open in ChatGPT')).toBe('Make the button green & round.')
+  for (const name of links) expect(await query(name)).toBe('Make the button green & round.')
   await dialog.getByRole('button', { name: 'Copy prompt', exact: true }).click()
   await expect.poll(() => dialog.getByRole('status').textContent()).toBe('Prompt copied.')
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(

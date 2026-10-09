@@ -9,7 +9,8 @@ const prompt = (site: string, page: Page, label: string, id: string) =>
 
 /**
  * A ready-made prompt about the selected element for the designer's own AI app. Lacuno calls no
- * model: the text opens prefilled in claude.ai or ChatGPT, or is copied for any other app.
+ * model: the text opens prefilled in claude.ai, Claude Desktop or ChatGPT, or is copied for any
+ * other app.
  */
 export function AskAi({
   site,
@@ -54,6 +55,8 @@ export function AskAi({
         <a href={`https://claude.ai/new?q=${encoded}`} target="_blank" rel="noopener">
           Open in claude.ai
         </a>
+        {/* The desktop app's scheme hands off from this tab; a new tab would stay blank. */}
+        <a href={`claude://claude.ai/new?q=${encoded}`}>Open in Claude Desktop</a>
         <a href={`https://chatgpt.com/?q=${encoded}`} target="_blank" rel="noopener">
           Open in ChatGPT
         </a>

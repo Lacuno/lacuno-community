@@ -1916,6 +1916,19 @@
 .editor-header .connect-trigger[data-state="active"]::before {
   background: #37a66b;
 }
+/* Open in Claude: a chat about the open page, as quiet as the reload button. */
+.editor-header .open-claude {
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: #747583;
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.editor-header .open-claude:hover {
+  background: #f2effb;
+  color: var(--accent);
+}
 .connect-status {
   min-height: 1em;
   margin: 8px 0;
@@ -1976,6 +1989,11 @@
 .connect-dialog .connect-card > a:hover {
   border-color: #b8afde;
   background: #f8f6ff;
+}
+/* A link a local instance cannot serve looks like a disabled button. */
+.connect-dialog .connect-card > a[aria-disabled] {
+  opacity: 0.48;
+  pointer-events: none;
 }
 .connect-dialog .connect-other code {
   word-break: break-all;
