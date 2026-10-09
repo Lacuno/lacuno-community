@@ -205,17 +205,20 @@ export async function createServer(options: ServerOptions) {
         workspaceId: string
         gatewayUser: Awaited<ReturnType<GatewayAuth['authenticate']>>
         /** Spike: the editor.session bearer behind the request, from another origin. */
-        bearer: { userId: string; siteId: string } | undefined
+        bearer: { userId: string; siteId: string; name: string | undefined } | undefined
       }
     }>()
     // Spike: tokens editor.session minted, in memory, for an editor on an allowed origin.
-    const editorTokens = new Map<string, { userId: string; siteId: string; expires: number }>()
+    const editorTokens = new Map<
+      string,
+      { userId: string; siteId: string; name: string | undefined; expires: number }
+    >()
     const EDITOR_TOKEN_MS = 60 * 60_000
-    const mintEditorToken = (userId: string, siteId: string) => {
+    const mintEditorToken = (userId: string, siteId: string, name: string | undefined) => {
       const now = Date.now()
       for (const [token, held] of editorTokens) if (held.expires < now) editorTokens.delete(token)
       const token = randomBytes(32).toString('base64url')
-      editorTokens.set(token, { userId, siteId, expires: now + EDITOR_TOKEN_MS })
+      editorTokens.set(token, { userId, siteId, name, expires: now + EDITOR_TOKEN_MS })
       return { token, site: siteId, expiresAt: new Date(now + EDITOR_TOKEN_MS).toISOString() }
     }
     const allowedOrigins = new Set(options.allowedOrigins ?? [])
@@ -253,7 +256,8 @@ export async function createServer(options: ServerOptions) {
       // The embedded editor asks who it is: the bearer's user, read as Better Auth stores it.
       app.get('/api/auth/get-session', async (c, next) => {
         const bearer = c.get('bearer')
-        if (!bearer) return next()
+        // Behind a gateway the person is a gateway user, answered below.
+        if (!bearer || gateway) return next()
         const user = sqlite
           .prepare('SELECT id, name, email FROM user WHERE id = ?')
           .get(bearer.userId) as { id: string; name: string; email: string } | undefined
@@ -334,6 +338,33 @@ export async function createServer(options: ServerOptions) {
     if (gateway) {
       app.use('*', async (c, next) => {
         if (anonymous(c.req.method, c.req.path)) return next()
+        // The editor embedded in an AI app: its bearer stands for the person with the role their
+        // last assertion gave (none once revoked); the shell and an asset by hash are public, as
+        // on the try host, since the canvas's images and the bundle carry no bearer.
+        const bearer = c.get('bearer')
+        if (bearer) {
+          const role = gateway.role(bearer.userId)
+          if (!role) return c.json({ error: 'Authenticated gateway required' }, 401)
+          const refused = refusal(role, c.req.method, c.req.path)
+          if (refused) return c.json({ error: refused }, 403)
+          c.set('gatewayUser', {
+            id: bearer.userId,
+            name: bearer.name ?? '',
+            email: '',
+            role,
+            workspace: undefined,
+            system: undefined,
+          })
+          return next()
+        }
+        if (
+          allowedOrigins.size &&
+          c.req.method === 'GET' &&
+          (c.req.path === '/' ||
+            c.req.path.startsWith('/assets/') ||
+            /^\/api\/sites\/[^/]+\/assets\/[a-f0-9]{64}$/.test(c.req.path))
+        )
+          return next()
         const user = await gateway.authenticate(c.req.raw).catch((error) => {
           console.warn(`Gateway assertion refused for ${c.req.method} ${c.req.path}: ${error}`)
         })
@@ -685,7 +716,7 @@ export async function createServer(options: ServerOptions) {
           ? {
               origin,
               ...(options.connectorUrl ? { connectorUrl: options.connectorUrl } : {}),
-              mint: (grant, siteId) => mintEditorToken(grant.userId, siteId),
+              mint: (grant, siteId) => mintEditorToken(grant.userId, siteId, grant.user),
             }
           : undefined,
       }),
