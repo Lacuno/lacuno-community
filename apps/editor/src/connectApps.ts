@@ -14,7 +14,7 @@ export type ConnectApp = {
   build: (url: string) => string
   needsPublicAddress: boolean
   /** A config snippet that reaches the site from the designer's machine, for local instances. */
-  bridge?: (url: string) => string
+  bridge?: { how: string; build: (url: string) => string }
   /** A short line for when the action does not work. */
   fallback: string
 }
@@ -70,8 +70,11 @@ export const connectApps: ConnectApp[] = [
     registration: 'paste',
     build: pasted,
     needsPublicAddress: true,
-    bridge: claudeDesktopBridge,
-    fallback: 'Or use a local bridge: add this to claude_desktop_config.json and restart the app.',
+    bridge: {
+      how: 'Or use a local bridge: add this to claude_desktop_config.json and restart the app.',
+      build: claudeDesktopBridge,
+    },
+    fallback: 'Connectors you add on claude.ai show up in Claude Desktop too.',
   },
   {
     id: 'chatgpt',

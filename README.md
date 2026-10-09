@@ -37,7 +37,9 @@ Registration closes once the owner exists. Create a site from the default templa
 publish: locally, sites are served at `http://<site-id>.localhost:3001`.
 
 To connect an AI app, open **Connect your AI** in the editor. Desktop and command-line apps work
-with a local instance; claude.ai and ChatGPT need a public address.
+with a local instance; claude.ai and ChatGPT need a public address. On Lacuno Cloud the panel offers
+one line to paste into any AI app with a terminal, which installs the Lacuno plugin and signs you
+in, and one address for all your sites; the per-site address stays for anything else.
 
 ## Self-hosting
 

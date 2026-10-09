@@ -25,10 +25,14 @@ look at the result, and a canvas where the designer watches it work.
 
 The editor's **Connect your AI** button registers the site's MCP endpoint in the app of the
 user's choice: an install link where the app has one, a one-line command or a URL to paste where
-it does not, then an OAuth consent screen in Lacuno. Once connected, the editor shows the app's
-name and when it last acted, the header's History lists each batch it applies, and touched elements
-flash on the canvas. The [editor README](../apps/editor/README.md#connect-your-ai) describes the
-panel and the [server README](../apps/server/README.md#api) the endpoint and its OAuth.
+it does not, then an OAuth consent screen in Lacuno. On Lacuno Cloud the panel leads with a
+one-line prompt for any AI app with a terminal, whose agent follows the guide at
+lacuno.io/install.md to install the Lacuno plugin and sign the user in, and with the one MCP
+address for all the user's sites; the per-site address stays for anything else. Once connected,
+the editor shows the app's name and when it last acted, the header's History lists each batch it
+applies, and touched elements flash on the canvas. The
+[editor README](../apps/editor/README.md#connect-your-ai) describes the panel and the
+[server README](../apps/server/README.md#api) the endpoint and its OAuth.
 
 - **Remote MCP** over Streamable HTTP on the Community server, one endpoint per site, protected by
   OAuth issued by the same server that runs the editor.
