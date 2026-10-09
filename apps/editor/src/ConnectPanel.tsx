@@ -233,12 +233,14 @@ function ConnectSteps({
   const disabled = app.needsPublicAddress && local
   // The bridge reaches a local instance from the designer's machine; a public address needs none.
   const bridge = local ? app.bridge : undefined
+  const label = app.action ?? action[app.registration]
   const managed = one && (
     <p className="hint">
       One connection for all your sites, managed in your <a href={one.home}>account settings</a>.
     </p>
   )
-  if (one && app.registration !== 'paste')
+  // The apps that reach a local instance run on the designer's machine, with a terminal for the guide.
+  if (one && !app.needsPublicAddress)
     return (
       <div className="connect-card">
         <p>Paste this into {app.name}: it installs the Lacuno plugin and signs you in.</p>
@@ -254,12 +256,19 @@ function ConnectSteps({
       <p>{app.how}</p>
       <code>{app.registration === 'link' ? url : app.build(url)}</code>
       {app.registration === 'link' ? (
-        <a href={app.build(url)} onClick={() => start(app)}>
-          {action.link}
+        // A web link opens beside the editor; an app's own scheme hands off from this tab.
+        <a
+          href={app.build(url)}
+          target={app.build(url).startsWith('https:') ? '_blank' : undefined}
+          rel="noopener"
+          aria-disabled={disabled || undefined}
+          onClick={(event) => (disabled ? event.preventDefault() : start(app))}
+        >
+          {label}
         </a>
       ) : (
         <button type="button" disabled={disabled} onClick={() => start(app, app.build(url))}>
-          {action[app.registration]}
+          {label}
         </button>
       )}
       {disabled && <p className="hint">Needs a public address. Works on Lacuno Cloud.</p>}

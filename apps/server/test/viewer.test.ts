@@ -102,6 +102,7 @@ it('opens the editor read-only for a viewer, whose writes the runtime refuses', 
   for (const control of [
     page.getByRole('button', { name: 'Publish', exact: true }),
     page.locator('.connect-trigger'),
+    page.locator('.open-claude'),
   ])
     expect(await control.count()).toBe(0)
   expect(await page.getByRole('button', { name: 'Undo' }).isDisabled()).toBe(true)

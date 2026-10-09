@@ -2,6 +2,10 @@ import path from 'node:path'
 import { expect, it } from 'vitest'
 import { editor, root } from './harness.js'
 
+/** claude.ai's Add custom connector dialog with Lacuno and the address filled in. */
+const prefill = (url: string) =>
+  `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Lacuno&connectorUrl=${url}`
+
 it('connects an AI app from the header panel and disconnects it', async () => {
   const { page, siteId } = await editor()
   // The connections API and the config's origin and local flag are mocked until the server has them.
@@ -38,14 +42,20 @@ it('connects an AI app from the header panel and disconnects it', async () => {
     await apps.filter({ hasText: name }).click()
     await card.waitFor()
   }
-  for (const name of ['claude.ai', 'ChatGPT']) {
-    await choose(name)
-    expect(await card.getByRole('button', { name: 'Copy URL' }).isDisabled()).toBe(true)
-    await card.getByText('Needs a public address. Works on Lacuno Cloud.').waitFor()
-  }
+  // claude.ai's link carries the site's address, which it cannot reach from here.
+  const add = card.getByRole('link', { name: 'Add to Claude' })
+  await choose('claude.ai')
+  expect(decodeURIComponent((await add.getAttribute('href'))!)).toBe(
+    prefill(`http://localhost:3000/mcp/${siteId}`),
+  )
+  expect(await add.getAttribute('aria-disabled')).toBe('true')
+  await card.getByText('Needs a public address. Works on Lacuno Cloud.').waitFor()
+  await choose('ChatGPT')
+  expect(await card.getByRole('button', { name: 'Copy URL' }).isDisabled()).toBe(true)
+  await card.getByText('Needs a public address. Works on Lacuno Cloud.').waitFor()
   // Claude Desktop's connector runs from Anthropic's cloud; its local bridge works here.
   await choose('Claude Desktop')
-  expect(await card.getByRole('button', { name: 'Copy URL' }).isDisabled()).toBe(true)
+  expect(await add.getAttribute('aria-disabled')).toBe('true')
   expect(await card.getByRole('button', { name: 'Copy bridge snippet' }).isDisabled()).toBe(false)
   await choose('Claude Code')
   expect(await card.count()).toBe(1)
@@ -98,10 +108,16 @@ it('offers a gateway’s one address for all sites first, above the site’s own
     'https://app.example.test',
   )
   await panel.screenshot({ path: path.join(root, '.lacuno/editor-preview/connect-plugin.png') })
-  // The apps without one paste the one address; Claude Desktop needs no bridge to reach it.
+  // The apps without one take the one address; Claude Desktop needs no bridge to reach it.
   await apps.filter({ hasText: 'Claude Desktop' }).click()
   await card.getByText(mcp, { exact: true }).waitFor()
   expect(await card.getByText(prompt, { exact: true }).count()).toBe(0)
   expect(await card.getByRole('button', { name: 'Copy bridge snippet' }).count()).toBe(0)
   await card.getByRole('link', { name: 'account settings' }).waitFor()
+  // claude.ai's link prefills its connector dialog with the one address, beside the editor.
+  await apps.filter({ hasText: 'claude.ai' }).click()
+  const add = card.getByRole('link', { name: 'Add to Claude' })
+  expect(decodeURIComponent((await add.getAttribute('href'))!)).toBe(prefill(mcp))
+  expect(await add.getAttribute('target')).toBe('_blank')
+  expect(await add.getAttribute('aria-disabled')).toBeNull()
 })

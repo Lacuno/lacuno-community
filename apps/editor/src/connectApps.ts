@@ -10,6 +10,8 @@ export type ConnectApp = {
   /** One line on what to do with the action. */
   how: string
   registration: Registration
+  /** The action's label, where "Open link" says too little. */
+  action?: string
   /** The link, command or URL for the site's MCP URL. */
   build: (url: string) => string
   needsPublicAddress: boolean
@@ -24,6 +26,9 @@ export const cursorLink = (url: string) =>
   `cursor://anysphere.cursor-deeplink/mcp/install?name=lacuno&config=${btoa(JSON.stringify({ url }))}`
 export const vscodeLink = (url: string) =>
   `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: 'lacuno', type: 'http', url }))}`
+/** Opens claude.ai's Add custom connector dialog with the name and address filled in; the person confirms. */
+export const claudeLink = (url: string) =>
+  `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Lacuno&connectorUrl=${encodeURIComponent(url)}`
 export const claudeDesktopBridge = (url: string) =>
   JSON.stringify(
     {
@@ -56,9 +61,10 @@ export const connectApps: ConnectApp[] = [
     id: 'claude-ai',
     icon: 'claude',
     name: 'claude.ai',
-    how: 'In Customize → Connectors (claude.ai/customize/connectors), choose Add custom connector and paste the URL.',
-    registration: 'paste',
-    build: pasted,
+    how: 'Open the link, confirm the connector in claude.ai and sign in.',
+    registration: 'link',
+    action: 'Add to Claude',
+    build: claudeLink,
     needsPublicAddress: true,
     fallback: 'On Team and Enterprise, an owner adds it in Organization settings → Connectors.',
   },
@@ -66,15 +72,16 @@ export const connectApps: ConnectApp[] = [
     id: 'claude-desktop',
     icon: 'claude',
     name: 'Claude Desktop',
-    how: 'In Settings → Connectors, choose Add custom connector and paste the URL.',
-    registration: 'paste',
-    build: pasted,
+    how: 'Open the link, confirm the connector in claude.ai and sign in: connectors added there show up in Claude Desktop.',
+    registration: 'link',
+    action: 'Add to Claude',
+    build: claudeLink,
     needsPublicAddress: true,
     bridge: {
       how: 'Or use a local bridge: add this to claude_desktop_config.json and restart the app.',
       build: claudeDesktopBridge,
     },
-    fallback: 'Connectors you add on claude.ai show up in Claude Desktop too.',
+    fallback: 'Or in Settings → Connectors, choose Add custom connector and paste the URL.',
   },
   {
     id: 'chatgpt',
