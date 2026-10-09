@@ -503,10 +503,11 @@ export async function createServer(options: ServerOptions) {
     app.on(['GET', 'POST'], '/api/auth/*', async (c) => (await auth()).handler(c.req.raw))
     app.use('/api/*', async (c, next) => {
       const bearer = c.get('bearer')
-      const session = bearer
-        ? { user: { id: bearer.userId } }
-        : gateway
-          ? { user: { id: gateway.ownerId } }
+      // Behind a gateway the runtime holds one workspace, a bearer's person included.
+      const session = gateway
+        ? { user: { id: gateway.ownerId } }
+        : bearer
+          ? { user: { id: bearer.userId } }
           : await (await auth()).api.getSession({ headers: c.req.raw.headers })
       if (!session) return c.json({ error: 'Authentication required' }, 401)
       c.set('userId', session.user.id)

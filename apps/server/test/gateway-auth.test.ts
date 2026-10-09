@@ -722,3 +722,71 @@ describe('connecting an AI app through the gateway', () => {
     expect((await register('203.0.113.8')).status).toBe(201)
   })
 })
+
+describe('the editor embedded in an AI app, behind a gateway', () => {
+  const view = 'https://view.claudemcpcontent.com'
+  let dir = ''
+  let server: Awaited<ReturnType<typeof createServer>>
+  /** A request as the gateway forwards it, signed for `as`. */
+  const signed =
+    (as: object) =>
+    async (url: string | URL, init: RequestInit = {}) => {
+      const { pathname, search } = new URL(url)
+      const method = init.method ?? 'GET'
+      const headers = new Headers(init.headers)
+      const body = String(init.body ?? '')
+      headers.set('x-lacuno-assertion', await assertion(pathname + search, method, body, as))
+      return server.app.request(url, { ...init, headers })
+    }
+  beforeAll(async () => {
+    dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-gateway-embed-'))
+    server = await createServer({ ...settings(dir), allowedOrigins: [view] })
+  })
+  afterAll(async () => {
+    server.close()
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it("opens the owner's site for a workspace editor with the token editor.session gives", async () => {
+    const owner = signed({})
+    const json = { 'content-type': 'application/json', origin }
+    const create = { method: 'POST', body: JSON.stringify({ name: 'Acme' }), headers: json }
+    const siteId = (await (await owner(`${origin}/api/sites`, create)).json()).id
+    // The editor's role reaches the runtime with their first assertion, as when they open it.
+    const editor = { sub: 'cloud-editor-9', name: 'Ed', role: 'editor' }
+    expect((await signed(editor)(`${origin}/api/sites`, { headers: json })).status).toBe(200)
+    const client = new Client({ name: 'Lacuno Cloud', version: '1.0.0' })
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(`${origin}/mcp/${siteId}`), {
+        fetch: signed(editor),
+      }) as Transport,
+    )
+    const session = await client.callTool({ name: 'editor.session', arguments: {} })
+    const { token } = JSON.parse((session.content as { text: string }[])[0]!.text)
+    await client.close()
+
+    // No assertion: the token alone, from the view's origin, reaches the site in the workspace.
+    const embedded = (target: string) =>
+      server.app.request(origin + target, {
+        headers: { origin: view, authorization: `Bearer ${token}` },
+      })
+    const read = await embedded(`/api/sites/${siteId}/document`)
+    expect(read.status).toBe(200)
+    expect(read.headers.get('access-control-allow-origin')).toBe(view)
+    expect((await (await embedded('/api/auth/get-session')).json()).user).toMatchObject({
+      id: 'cloud-editor-9',
+      role: 'editor',
+    })
+    // Editors do not publish, and the token is good for its one site.
+    expect(
+      (
+        await server.app.request(`${origin}/api/sites/${siteId}/releases`, {
+          method: 'POST',
+          headers: { ...json, origin: view, authorization: `Bearer ${token}` },
+          body: '{}',
+        })
+      ).status,
+    ).toBe(403)
+    expect((await embedded('/api/sites/another/document')).status).toBe(404)
+  })
+})
