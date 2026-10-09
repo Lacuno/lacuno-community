@@ -735,7 +735,7 @@ describe('the editor embedded in an AI app, behind a gateway', () => {
       const method = init.method ?? 'GET'
       const headers = new Headers(init.headers)
       const body = String(init.body ?? '')
-      headers.set('x-lacuno-assertion', await assertion(pathname + search, method, body, as))
+      headers.set('x-lacuno-assertion', await assertion(pathname + search, method, body, { ...as }))
       return server.app.request(url, { ...init, headers })
     }
   beforeAll(async () => {
