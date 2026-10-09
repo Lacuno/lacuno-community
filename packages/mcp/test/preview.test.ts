@@ -27,9 +27,10 @@ describe('page.preview', () => {
 
   it('publishes tag rules, a field inside text and the title template set through document.apply', async () => {
     const client = await setup()
-    const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))
-    expect(guide).toContain('"tag":"a"')
-    expect(guide).toContain('titleTemplate')
+    const guide = async (group: string) =>
+      textOf(await client.callTool({ name: 'guide', arguments: { group } }))
+    expect(await guide('text')).toContain('"tag":"a"')
+    expect(await guide('settings')).toContain('titleTemplate')
     const applied = await client.callTool({
       name: 'document.apply',
       arguments: {
@@ -76,10 +77,11 @@ describe('page.preview', () => {
 
   it('publishes a gradient headline and rotating words set through document.apply', async () => {
     const client = await setup()
-    const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))
-    expect(guide).toContain('## Gradients')
-    expect(guide).toContain('rotatingWords')
-    expect(guide).toContain('pen-tool')
+    const looks = textOf(await client.callTool({ name: 'guide', arguments: { group: 'looks' } }))
+    expect(looks).toContain('"type":"gradient"')
+    const text = textOf(await client.callTool({ name: 'guide', arguments: { group: 'text' } }))
+    expect(text).toContain('rotatingWords')
+    expect(text).toContain('pen-tool')
     const applied = await client.callTool({
       name: 'document.apply',
       arguments: {
@@ -144,8 +146,8 @@ describe('page.preview', () => {
 
   it("publishes the guide's table example and refuses a malformed table", async () => {
     const client = await setup()
-    const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))
-    const table = JSON.parse(guide.match(/```json\n(\{ "type": "table"[\s\S]+?)\n```/)![1]!)
+    const guide = textOf(await client.callTool({ name: 'guide', arguments: { group: 'text' } }))
+    const table = JSON.parse(guide.match(/`(\{"type":"table"[^`]+)`/)![1]!)
     const apply = (expectedRevision: number, content: object[]) =>
       client.callTool({
         name: 'document.apply',
@@ -192,7 +194,7 @@ describe('page.preview', () => {
 
   it('publishes a radial glow from the top and refuses a centre on a linear gradient', async () => {
     const client = await setup()
-    const guide = textOf(await client.callTool({ name: 'guide', arguments: {} }))
+    const guide = textOf(await client.callTool({ name: 'guide', arguments: { group: 'looks' } }))
     expect(guide).toContain('"kind":"radial","at":{"x":50,"y":0}')
     const stops = [
       { color: { type: 'color', value: '#ece4ff' }, position: 0 },

@@ -20,9 +20,11 @@ import { fail, InputError } from './errors.js'
 import {
   catalog,
   GUIDE_INTRO,
+  INSTRUCTIONS,
   index,
   MCP_OPERATIONS,
   operationGroups,
+  TOPICS,
   WITHHELD_OPERATIONS,
 } from './guide.js'
 import { outlineLines } from './outline.js'
@@ -140,7 +142,7 @@ function lenient(shape: z.ZodRawShape): z.ZodRawShape {
 }
 
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
-  const server = new McpServer({ name: 'lacuno', version: '0.0.0' })
+  const server = new McpServer({ name: 'lacuno', version: '0.0.0' }, { instructions: INSTRUCTIONS })
   const register = server.registerTool.bind(server)
   server.registerTool = ((name, config, callback) =>
     register(
@@ -159,12 +161,14 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'guide',
     {
       annotations: reads,
-      description: `Documentation only, changes nothing: how the Lacuno document works and the catalog of the ${MCP_OPERATIONS.length} operations document.apply accepts, each with its fields. Groups: ${operationGroups().join(', ')}.`,
+      description: `Docs only, changes nothing. No group: the basics. A topic (${Object.keys(TOPICS).join(', ')}): how to do it. An operation group (${operationGroups().join(', ')}): the exact schemas of the ${MCP_OPERATIONS.length} operations document.apply takes.`,
       inputSchema: { group: z.string().optional() },
     },
     async ({ group }) => {
       try {
-        return text(group === undefined ? `${GUIDE_INTRO}\n${index()}` : catalog(group))
+        return text(
+          group === undefined ? `${GUIDE_INTRO}${index()}` : (TOPICS[group] ?? catalog(group)),
+        )
       } catch (e) {
         return fail(e)
       }
@@ -207,7 +211,16 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         options.onApply?.(batch, result)
         // The patches repeat everything the batch created, several times the batch's own size.
         const { patches: _patches, ...applied } = result
-        return ok(applied)
+        // Said where it is read: a script in the page is code the person cannot edit.
+        const scripted = operations.some((o) => /<script/i.test(JSON.stringify(o)))
+        return ok(
+          scripted
+            ? {
+                ...applied,
+                note: 'A script in an embed cannot be edited in the editor. Build it with nodes if you can: a mobile menu needs none (guide menu).',
+              }
+            : applied,
+        )
       } catch (e) {
         return fail(e)
       }
