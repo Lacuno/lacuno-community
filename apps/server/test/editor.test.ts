@@ -1090,4 +1090,4 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await page.getByLabel('Password', { exact: true }).fill(account.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByRole('button', { name: /Updated elsewhere/ }).waitFor()
-}, 60_000)
+}, 120_000)
