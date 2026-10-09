@@ -11,6 +11,7 @@ const Options = z.strictObject({
   height: z.number().int().positive().max(2560).optional(),
   node: z.string().optional(),
   maxHeight: z.number().int().positive().max(16384).optional(),
+  boxes: z.literal(true).optional(),
 })
 /** Chromium is relaunched after this many screenshots, which keeps its memory flat. */
 const SHOTS_PER_BROWSER = 200
@@ -19,10 +20,10 @@ type Launched = { browser: Promise<Browser>; shots: number; open: number }
 
 /**
  * page.screenshot for runtimes without Chromium. `POST /screenshot` takes multipart `request`
- * (`{ width, height?, node?, maxHeight? }`), `html` and an `asset:<path>` part per asset the page
- * uses, and answers a JPEG of the page or a PNG of the node, rendered in a fresh context of one
- * shared Chromium. At most `slots` render at once; a request that waits longer than `wait` ms for
- * one is answered 503.
+ * (`{ width, height?, node?, maxHeight?, boxes? }`), `html` and an `asset:<path>` part per asset
+ * the page uses, and answers a JPEG of the page or a PNG of the node, rendered in a fresh context
+ * of one shared Chromium; with `boxes`, JSON `{ image, mime, boxes }` with the image in base64. At
+ * most `slots` render at once; a request that waits longer than `wait` ms for one is answered 503.
  */
 export function screenshotService({
   slots,
@@ -97,7 +98,7 @@ export function screenshotService({
       if (++launched.shots >= SHOTS_PER_BROWSER) current = undefined
       launched.open++
       try {
-        const image = await render(
+        const shot = await render(
           await launched.browser,
           html,
           async (path) => {
@@ -108,7 +109,13 @@ export function screenshotService({
           },
           options,
         )
-        return c.body(new Uint8Array(image), 200, { 'content-type': imageInfo(image).mime })
+        if (Buffer.isBuffer(shot))
+          return c.body(new Uint8Array(shot), 200, { 'content-type': imageInfo(shot).mime })
+        return c.json({
+          image: shot.image.toString('base64'),
+          mime: imageInfo(shot.image).mime,
+          boxes: shot.boxes,
+        })
       } catch (e) {
         if (e instanceof InputError) return c.json({ error: e.message }, 400)
         throw e

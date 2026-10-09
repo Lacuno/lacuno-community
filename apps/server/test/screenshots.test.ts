@@ -94,6 +94,36 @@ describe.skipIf(!chromium)('screenshot service', () => {
     expect(await unknown.json()).toEqual({ error: 'node n-missing is not rendered on this page' })
   })
 
+  it('measures the boxes of annotated nodes and answers them as JSON', async () => {
+    const html =
+      '<body style="margin:0"><main data-lacuno-node="n-home"><section data-lacuno-node="n-hero" style="height:200px">Hero</section><p data-lacuno-node="n-hidden" style="display:none"></p></main>'
+    const response = await shoot(html, { width: 500, height: 300, boxes: true })
+    expect(response.headers.get('content-type')).toContain('application/json')
+    const { image, mime, boxes } = (await response.json()) as {
+      image: string
+      mime: string
+      boxes: unknown[]
+    }
+    expect(mime).toBe('image/jpeg')
+    expect(imageInfo(Buffer.from(image, 'base64'))).toEqual({
+      mime: 'image/jpeg',
+      width: 500,
+      height: 300,
+    })
+    // Only nodes with an area, in document order, with their annotated ancestors counted.
+    expect(boxes).toEqual([
+      { id: 'n-home', tag: 'main', depth: 0, x: 0, y: 0, w: 500, h: 200 },
+      { id: 'n-hero', tag: 'section', depth: 1, x: 0, y: 0, w: 500, h: 200 },
+    ])
+    const through = await serviceScreenshot(url, secret)(html, async () => undefined, {
+      width: 500,
+      height: 300,
+      boxes: true,
+    })
+    expect(Buffer.isBuffer(through)).toBe(false)
+    expect(through).toMatchObject({ image: Buffer.from(image, 'base64'), boxes })
+  })
+
   it('refuses bad input and a missing secret', async () => {
     expect((await shoot('<p>Hi</p>', { width: 400 }, {}, 'Bearer wrong')).status).toBe(401)
     expect((await shoot('<p>Hi</p>', { width: 0 })).status).toBe(400)

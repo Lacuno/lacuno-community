@@ -59,7 +59,8 @@ from a repository without a server, and for building templates.
   returns the resulting patches without applying them.
 - **Looking.** `page.preview` returns a route's HTML as published, or its visible text with node
   ids; `page.screenshot` returns a JPEG of a route or a PNG of a node through an optional Playwright
-  Chromium; `document.diff` summarises a dry-run batch or the changes since another document.
+  Chromium; `page.view` shows the page to the person, see below; `document.diff` summarises a
+  dry-run batch or the changes since another document.
 - **Assets and publishing.** Files never have to pass through the model: `asset.import` takes a
   public https `url` the server downloads, a `path` in the site folder over stdio, or base64
   `data` for tiny files; over the connected endpoint, `asset.upload` returns a single-use address,
@@ -74,6 +75,18 @@ from a repository without a server, and for building templates.
   compiles to that page's path, so a link survives a path change; deleting a referenced page is
   refused with the referencing node ids. A `field` binding reads the entry around the node (a
   collection list or collection page), or with `entry` one chosen entry on any page.
+
+### The page view
+
+In an app that renders MCP Apps (claude.ai, Claude Desktop, ChatGPT), `page.view` shows the page
+in the chat as a picture with its sections outlined, at desktop or phone width. The person hovers
+a section to see its name and clicks it; *Fix* puts the same brief as the editor's Ask AI chip
+into the conversation as their own message, and a one-line question goes in the same way, naming
+the page and the element. Their AI then does the work with the tools above, and *Refresh* shows
+the result; nothing changes in the view by itself. The view is one HTML file served as the
+`ui://lacuno/page-view` resource, with no framework and no network access: the screenshot and the
+boxes arrive in the tool's result. An app without views, such as a terminal, gets the same image
+and the boxes as text. Lacuno still calls no model.
 
 ## Skills (planned, Phase 3)
 

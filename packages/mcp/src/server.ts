@@ -28,7 +28,15 @@ import {
 import { outlineLines } from './outline.js'
 import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
-import { imageInfo, type ReadAsset, type Screenshot } from './screenshot.js'
+import { imageInfo, type ReadAsset, type Screenshot, type ScreenshotOptions } from './screenshot.js'
+
+const PAGE_VIEW_URI = 'ui://lacuno/page-view'
+/** The MCP Apps profile: a host that renders views shows the resource in an iframe. */
+const PAGE_VIEW_MIME = 'text/html;profile=mcp-app'
+let pageViewHtml: Promise<string> | undefined
+/** The view's HTML, beside this module in source and in a bundle's output, read once. */
+const pageView = () =>
+  (pageViewHtml ??= readFile(new URL('./page-view.html', import.meta.url), 'utf8'))
 
 /** What an imported file is called and described as. */
 export type AssetDetails = {
@@ -426,7 +434,28 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   )
 
   const { screenshot } = options
-  if (screenshot)
+  if (screenshot) {
+    /** Renders a route like the canvas does, feeding the screenshot the assets it references. */
+    const capture = async (d: Document, html: string, shot: ScreenshotOptions) => {
+      const { siteDir } = options
+      const readAsset =
+        options.assets ??
+        (siteDir &&
+          ((hash: string) => readFile(join(siteDir, 'assets', hash)).catch(() => undefined)))
+      if (!readAsset) throw new InputError('this server has no site folder')
+      return screenshot(
+        html,
+        async (path) => {
+          const asset = Object.values(d.assets).find((a) => publicAssetPath(a) === path)
+          if (!asset) return undefined
+          const variant = await options.images?.(asset, shot.width)
+          if (variant) return { mime: 'image/webp', body: variant }
+          const body = await readAsset(asset.hash)
+          return body && { mime: asset.mime, body }
+        },
+        shot,
+      )
+    }
     server.registerTool(
       'page.screenshot',
       {
@@ -445,27 +474,15 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       },
       async ({ page, entry, width = 1280, height = 800, fullPage, maxHeight, node }) => {
         try {
-          const { siteDir } = options
-          const readAsset =
-            options.assets ??
-            (siteDir &&
-              ((hash: string) => readFile(join(siteDir, 'assets', hash)).catch(() => undefined)))
-          if (!readAsset) throw new InputError('this server has no site folder')
           const d = store.read().document
           if (node !== undefined && !d.nodes[node]) throw new InputError(`unknown node ${node}`)
           const html = previewHtml(d, resolveRoute(d, page, entry), node !== undefined)
-          const image = await screenshot(
-            html,
-            async (path) => {
-              const asset = Object.values(d.assets).find((a) => publicAssetPath(a) === path)
-              if (!asset) return undefined
-              const variant = await options.images?.(asset, width)
-              if (variant) return { mime: 'image/webp', body: variant }
-              const body = await readAsset(asset.hash)
-              return body && { mime: asset.mime, body }
-            },
-            { width, ...(fullPage ? { maxHeight } : { height }), node },
-          )
+          const shot = await capture(d, html, {
+            width,
+            ...(fullPage ? { maxHeight } : { height }),
+            node,
+          })
+          const image = Buffer.isBuffer(shot) ? shot : shot.image
           const { mime, ...size } = imageInfo(image)
           return {
             content: [
@@ -478,6 +495,67 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         }
       },
     )
+
+    server.registerTool(
+      'page.view',
+      {
+        annotations: reads,
+        description:
+          'Shows the page to the person as a picture with its sections outlined, in apps that render views; they can point at a section and ask for a change. Use it when the person wants to see or point at a page. For your own checks use page.screenshot.',
+        inputSchema: {
+          page: z.string(),
+          entry: z.string().optional(),
+          width: z.number().int().positive().max(2560).optional(),
+        },
+        _meta: { ui: { resourceUri: PAGE_VIEW_URI } },
+      },
+      async ({ page, entry, width = 1280 }) => {
+        try {
+          const d = store.read().document
+          const route = resolveRoute(d, page, entry)
+          const shot = await capture(d, previewHtml(d, route, true), { width, boxes: true })
+          if (Buffer.isBuffer(shot)) throw new Error('The screenshot came without boxes.')
+          // The view outlines at most 400; the shallowest are the sections a person points at.
+          const shallowest = new Set(
+            [...shot.boxes].sort((a, b) => a.depth - b.depth).slice(0, 400),
+          )
+          const boxes = shot.boxes
+            .filter((box) => shallowest.has(box))
+            .map(({ id, ...box }) => ({ id, label: d.nodes[id]?.meta?.label ?? box.tag, ...box }))
+          const { id, name, path } = route.page
+          const { height } = imageInfo(shot.image)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({
+                  site: d.site.name,
+                  page: { id, name, path },
+                  width,
+                  height,
+                  boxes,
+                }),
+              },
+              { type: 'image', data: shot.image.toString('base64'), mimeType: 'image/jpeg' },
+            ],
+          }
+        } catch (e) {
+          return fail(e)
+        }
+      },
+    )
+    server.registerResource(
+      'page-view',
+      PAGE_VIEW_URI,
+      {
+        description: 'The view page.view shows: the page with its sections outlined',
+        mimeType: PAGE_VIEW_MIME,
+      },
+      async (uri) => ({
+        contents: [{ uri: uri.href, mimeType: PAGE_VIEW_MIME, text: await pageView() }],
+      }),
+    )
+  }
 
   server.registerTool(
     'node.get',

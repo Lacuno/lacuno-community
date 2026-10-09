@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lacuno page view</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: var(--color-background-primary, light-dark(#fff, #1b1b1f));
+    --fg: var(--color-text-primary, light-dark(#1a1a1a, #ececf1));
+    --accent: var(--color-accent-primary, light-dark(#2563eb, #8ab4ff));
+    --line: color-mix(in srgb, var(--fg) 18%, transparent);
+    font: 13px/1.4 system-ui, sans-serif;
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0; }
+  .bar strong { margin-right: auto; }
+  .bar button, .bar input {
+    font: inherit; color: inherit; background: none; border: 1px solid var(--line);
+    border-radius: 6px; padding: 3px 8px;
+  }
+  .bar button:hover, .bar input:focus { border-color: var(--accent); }
+  .bar button[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .bar input { flex: 1 1 10em; min-width: 8em; }
+  .status { flex-basis: 100%; min-height: 1.4em; }
+  .stage { position: relative; line-height: 0; cursor: pointer; }
+  .stage img { display: block; width: 100%; }
+  /* Pointer hits go to the stage, so the smallest box wins rather than the last one drawn. */
+  .box {
+    position: absolute; box-sizing: border-box; margin: 0; padding: 0; background: none;
+    border: 1px solid transparent; pointer-events: none;
+  }
+  .box[data-depth="1"] { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+  .box.hot { border-color: var(--accent); border-style: dashed; }
+  .box.selected { border: 2px solid var(--accent); }
+  .box:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .box span {
+    display: none; position: absolute; left: 0; top: 0; padding: 1px 5px;
+    background: var(--accent); color: var(--bg); font: 12px/1.4 system-ui, sans-serif; white-space: nowrap;
+  }
+  .box.hot span, .box.selected span { display: inline-block; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <strong id="name"></strong>
+  <button type="button" id="desktop">Desktop</button>
+  <button type="button" id="phone">Phone</button>
+  <button type="button" id="refresh">Refresh</button>
+  <button type="button" id="fix" hidden></button>
+  <input type="text" id="ask" hidden>
+  <button type="button" id="send" hidden>Send</button>
+  <span class="status" id="status" role="status" aria-live="polite"></span>
+</div>
+<div class="stage" id="stage"><img id="image" alt=""></div>
+<script>
+  // The MCP Apps messages, by hand: JSON-RPC over postMessage to the host that holds the iframe.
+  const pending = new Map()
+  let nextId = 1
+  const post = (message) => parent.postMessage({ jsonrpc: '2.0', ...message }, '*')
+  const notify = (method, params) => post({ method, params })
+  const request = (method, params) =>
+    new Promise((resolve, reject) => {
+      pending.set(nextId, { resolve, reject })
+      post({ id: nextId++, method, params })
+    })
+
+  const $ = (id) => document.getElementById(id)
+  const status = (text) => { $('status').textContent = text }
+  let args = {}
+  let view
+  let maxHeight = Infinity
+  let selected
+  let hot
+
+  const applyHost = (context) => {
+    if (!context) return
+    if (context.theme) document.documentElement.style.colorScheme = context.theme
+    for (const [name, value] of Object.entries(context.styles?.variables ?? {}))
+      document.documentElement.style.setProperty(name, value)
+    if (context.containerDimensions?.maxHeight) maxHeight = context.containerDimensions.maxHeight
+  }
+
+  addEventListener('message', ({ data }) => {
+    if (data?.jsonrpc !== '2.0') return
+    if (data.method === undefined) {
+      const reply = pending.get(data.id)
+      pending.delete(data.id)
+      if (reply) data.error ? reply.reject(new Error(data.error.message)) : reply.resolve(data.result)
+    } else if (data.method === 'ui/notifications/tool-input') args = data.params.arguments ?? {}
+    else if (data.method === 'ui/notifications/tool-result') show(data.params)
+    else if (data.method === 'ui/notifications/host-context-changed') applyHost(data.params)
+    // A host's request, such as teardown, is acknowledged so it never waits on the view.
+    else if (data.id !== undefined) post({ id: data.id, result: {} })
+  })
+
+  request('ui/initialize', {
+    appInfo: { name: 'Lacuno', version: '0.0.0' },
+    appCapabilities: { availableDisplayModes: ['inline', 'fullscreen'] },
+    protocolVersion: '2025-06-18',
+  }).then((result) => {
+    applyHost(result?.hostContext)
+    notify('ui/notifications/initialized', {})
+  })
+
+  new ResizeObserver(() => {
+    const height = Math.ceil(document.body.getBoundingClientRect().height)
+    notify('ui/notifications/size-changed', { height: Math.min(height, maxHeight) })
+  }).observe(document.body)
+
+  const label = (box) => `${box.label} (element ${box.id})`
+  const where = () => `on the site "${view.site}", `
+  const page = () => `the page "${view.page.name}" (${view.page.path})`
+  const fixText = (box) =>
+    `In Lacuno, ${where()}open ${page()} and look at the ${label(box)}. Fix what looks off: align it with its neighbours, make its spacing match the rest of the page, and keep the text readable at phone width. Keep the change small, check it with a screenshot, then tell me what you changed.`
+  const askText = (box, typed) => `In Lacuno, ${where()}on ${page()}, the ${label(box)}: ${typed}.`
+
+  const message = (text) =>
+    request('ui/message', { role: 'user', content: { type: 'text', text } }).then(
+      () => status('Sent to the chat. Refresh when it is done.'),
+      () => status('The app did not take the message.'),
+    )
+
+  const call = (width) => {
+    status('')
+    request('tools/call', { name: 'page.view', arguments: { ...args, width } }).then(show, (error) =>
+      status(error.message),
+    )
+  }
+
+  const mark = (box, cls, on) => {
+    for (const el of $('stage').querySelectorAll(`.box.${cls}`)) el.classList.remove(cls)
+    if (on && box) box.el.classList.add(cls)
+  }
+  const select = (box) => {
+    selected = box
+    mark(box, 'selected', true)
+    $('fix').hidden = $('ask').hidden = $('send').hidden = !box
+    if (!box) return
+    $('fix').textContent = `Fix ${box.label}`
+    $('ask').placeholder = $('ask').ariaLabel = `Ask about ${box.label}`
+  }
+  const hover = (box) => {
+    hot = box
+    mark(box, 'hot', true)
+  }
+
+  const show = (result) => {
+    const text = result.content?.find((c) => c.type === 'text')?.text ?? ''
+    const image = result.content?.find((c) => c.type === 'image')
+    if (result.isError || !image) return status(text || 'The page did not render.')
+    view = JSON.parse(text)
+    $('name').textContent = view.page.name
+    $('desktop').ariaPressed = String(view.width !== 390)
+    $('phone').ariaPressed = String(view.width === 390)
+    $('image').alt = view.page.name
+    $('image').src = `data:${image.mimeType};base64,${image.data}`
+    select(undefined)
+    hover(undefined)
+    for (const el of $('stage').querySelectorAll('.box')) el.remove()
+    // Percent positions scale with the image whatever width the host gives the view.
+    for (const box of view.boxes) {
+      const el = document.createElement('button')
+      el.type = 'button'
+      el.className = 'box'
+      el.dataset.depth = box.depth
+      el.style.left = `${(box.x / view.width) * 100}%`
+      el.style.top = `${(box.y / view.height) * 100}%`
+      el.style.width = `${(box.w / view.width) * 100}%`
+      el.style.height = `${(box.h / view.height) * 100}%`
+      const name = document.createElement('span')
+      name.textContent = box.label
+      el.append(name)
+      el.ariaLabel = box.label
+      box.el = el
+      el.addEventListener('focus', () => hover(box))
+      el.addEventListener('click', (event) => {
+        event.stopPropagation()
+        select(box)
+      })
+      $('stage').append(el)
+    }
+  }
+
+  // The smallest box under the pointer is the one the person means, as on the editor's canvas.
+  $('stage').addEventListener('pointermove', (event) => {
+    if (!view) return
+    const rect = $('image').getBoundingClientRect()
+    const x = ((event.clientX - rect.left) / rect.width) * view.width
+    const y = ((event.clientY - rect.top) / rect.height) * view.height
+    let best
+    for (const box of view.boxes)
+      if (
+        x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h &&
+        (!best || box.w * box.h < best.w * best.h)
+      )
+        best = box
+    if (best !== hot) hover(best)
+  })
+  $('stage').addEventListener('pointerleave', () => hover(undefined))
+  $('stage').addEventListener('click', () => select(hot))
+
+  $('desktop').addEventListener('click', () => call(1280))
+  $('phone').addEventListener('click', () => call(390))
+  $('refresh').addEventListener('click', () => call(view?.width ?? args.width ?? 1280))
+  $('fix').addEventListener('click', () => message(fixText(selected)))
+  const send = () => {
+    const typed = $('ask').value.trim()
+    if (typed) message(askText(selected, typed))
+  }
+  $('send').addEventListener('click', send)
+  $('ask').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') send()
+  })
+  addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') select(undefined)
+  })
+</script>
+</body>
+</html>
