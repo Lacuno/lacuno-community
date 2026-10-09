@@ -26,7 +26,11 @@ export type History = {
  * A server with publishing and a browser page on it. Both listen on ports the OS picks before the
  * server exists, so parallel files never race for a port. Everything closes when the test ends.
  */
-export async function launch(viewport = { width: 1500, height: 1000 }, allowSignup = true) {
+export async function launch(
+  viewport = { width: 1500, height: 1000 },
+  allowSignup = true,
+  extra: Partial<Parameters<typeof createServer>[0]> = {},
+) {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-test-'))
   let server: Awaited<ReturnType<typeof createServer>> | undefined
   let browser: Browser | undefined
@@ -56,6 +60,7 @@ export async function launch(viewport = { width: 1500, height: 1000 }, allowSign
     publishBaseURL: `http://localhost:${port(published)}`,
     secret: 'browser-test-secret-5b1e0c7d93a4f2e8',
     allowSignup,
+    ...extra,
   })
   browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({ viewport })
