@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { serve } from '@hono/node-server'
-import { viewDomain } from '@lacuno/mcp'
 import { localScreenshot, serviceScreenshot } from '@lacuno/mcp/screenshot'
+import { viewDomain } from '@lacuno/mcp/view-domain'
 import { createServer } from './app.js'
 import { readPort, root } from './environment.js'
 import { smtp } from './mail.js'

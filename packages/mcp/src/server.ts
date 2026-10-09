@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { readFile, realpath } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 import { publicAssetPath } from '@lacuno/compiler'
@@ -30,6 +29,7 @@ import { outlineLines } from './outline.js'
 import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
 import { imageInfo, type ReadAsset, type Screenshot, type ScreenshotOptions } from './screenshot.js'
+import { viewDomain } from './view-domain.js'
 
 const PAGE_VIEW_URI = 'ui://lacuno/page-view'
 /** The MCP Apps profile: a host that renders views shows the resource in an iframe. */
@@ -44,8 +44,6 @@ let editorViewHtml: Promise<string> | undefined
 const editorView = () =>
   (editorViewHtml ??= readFile(new URL('./editor-view.html', import.meta.url), 'utf8'))
 /** claude.ai's stable origin for a connector's views: the first 32 hex of its address's sha256. */
-export const viewDomain = (connectorUrl: string) =>
-  `${createHash('sha256').update(connectorUrl).digest('hex').slice(0, 32)}.claudemcpcontent.com`
 
 /** What an imported file is called and described as. */
 export type AssetDetails = {

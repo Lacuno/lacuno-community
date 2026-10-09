@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./errors": "./src/errors.ts",
-    "./screenshot": "./src/screenshot.ts"
+    "./screenshot": "./src/screenshot.ts",
+    "./view-domain": "./src/view-domain.ts"
   },
   "scripts": {
     "test": "vitest run",
