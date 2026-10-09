@@ -88,7 +88,7 @@ async function runtime() {
       revision: number
       document: { nodes: Record<string, { text?: { value?: string } } | undefined> }
     }
-  return { ...launched, request, asOwner, siteId, client, readDocument }
+  return { ...launched, request, cookie, asOwner, siteId, client, readDocument }
 }
 
 type Session = { token: string; origin: string; site: string; expiresAt: string }
@@ -271,6 +271,48 @@ it('B: another origin reaches the API with the bearer and CORS, and is refused w
   )
   expect(applied).toBe(200)
 }, 30_000)
+
+it('names what the person selected on any page through editor.selection', async () => {
+  const { page, origin, siteId, client, request, cookie } = await runtime()
+  const { token: bearer } = await session(client)
+  const selection = async () => {
+    const result = await client.callTool({ name: 'editor.selection', arguments: {} })
+    const text = (result.content as { text: string }[])[0]!.text
+    return text.startsWith('{') ? JSON.parse(text) : text
+  }
+  expect(await selection()).toBe(
+    'The editor is not open in this chat, or nothing was selected yet.',
+  )
+  await page.goto(`${origin}/?site=${siteId}#token=${bearer}&origin=${origin}`)
+  const canvas = page.frameLocator('iframe[title="Site canvas"]')
+  await canvas.locator('#lacuno-selection-overlay').waitFor({ state: 'attached' })
+  await expect.poll(async () => (await selection()).page?.name).toBe('Home')
+
+  // Another page, then an element on it.
+  await page.getByRole('button', { name: 'Pages', exact: true }).click()
+  await page.locator('.page-link').filter({ hasText: 'About' }).click()
+  await expect
+    .poll(selection)
+    .toMatchObject({ page: { id: 'p-about', name: 'About', path: '/about' }, node: null })
+  await canvas.locator('[data-lacuno-node="n-about-principles-kicker"]').click()
+  await expect.poll(selection).toMatchObject({
+    page: { id: 'p-about', name: 'About', path: '/about' },
+    node: { id: 'n-about-principles-kicker', label: 'p', tag: 'p' },
+  })
+
+  // Only the embedded editor reports one: a cookie request is refused, and the body is checked.
+  const put = async (body: unknown, headers: Record<string, string>) =>
+    (
+      await request(`/api/sites/${siteId}/selection`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body),
+      })
+    ).status
+  expect(await put({ page: 'p-home' }, { cookie })).toBe(403)
+  expect(await put({ page: 'p-home', extra: 1 }, { authorization: `Bearer ${bearer}` })).toBe(400)
+  expect(await put({ page: 'p-home' }, { authorization: `Bearer ${bearer}` })).toBe(204)
+}, 60_000)
 
 /** The host's CSP as claude.ai builds it from the view's `_meta.ui.csp`, for our runtime. */
 const csp = (origin: string) =>

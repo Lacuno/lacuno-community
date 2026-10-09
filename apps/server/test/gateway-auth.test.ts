@@ -788,5 +788,21 @@ describe('the editor embedded in an AI app, behind a gateway', () => {
       ).status,
     ).toBe(403)
     expect((await embedded('/api/sites/another/document')).status).toBe(404)
+
+    // Made a viewer, they still report what they select, and write nothing else; the gateway's
+    // own request, without the bearer, reports nothing.
+    const viewer = signed({ ...editor, role: 'viewer' })
+    expect((await viewer(`${origin}/api/sites`, { headers: json })).status).toBe(200)
+    const select = { method: 'PUT', body: JSON.stringify({ page: 'p-about' }) }
+    const selection = `${origin}/api/sites/${siteId}/selection`
+    const bearer = { ...json, origin: view, authorization: `Bearer ${token}` }
+    expect((await server.app.request(selection, { ...select, headers: bearer })).status).toBe(204)
+    const apply = `${origin}/api/sites/${siteId}/document/apply`
+    expect(
+      (await server.app.request(apply, { method: 'POST', headers: bearer, body: '{}' })).status,
+    ).toBe(403)
+    expect(await (await viewer(selection, { ...select, headers: json })).json()).toEqual({
+      error: 'Only the embedded editor reports a selection',
+    })
   })
 })

@@ -86,6 +86,8 @@ export type ServerOptions = {
     origin: string
     connectorUrl?: string
     mint: () => { token: string; site: string; expiresAt: string }
+    /** What the grant's user last reported selecting in the embedded editor, for editor.selection. */
+    selection: () => { page: string; node?: string | undefined; at: number } | undefined
   }
 }
 
@@ -595,7 +597,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       {
         annotations: reads,
         description:
-          'Opens the Lacuno editor on a page for the person, in apps that render views. page: id or path.',
+          'Opens the Lacuno editor on a page for the person, in apps that render views. page: id or path. The person can switch pages and select elements there; call editor.selection to know what they mean.',
         inputSchema: { page: z.string() },
         _meta: { ui: { resourceUri: EDITOR_VIEW_URI } },
       },
@@ -607,6 +609,31 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         } catch (e) {
           return fail(e)
         }
+      },
+    )
+    // The host may not hand the model the editor's context, so the editor reports its selection
+    // to the runtime and the model asks for it here.
+    server.registerTool(
+      'editor.selection',
+      {
+        annotations: reads,
+        description:
+          'What the person has selected in the Lacuno editor open in this chat: the page and the element. Call it before editing whenever they say this, here, the selected element or this page, and work on what it names.',
+      },
+      async () => {
+        const selection = editorToken.selection()
+        const d = store.read().document
+        const page = selection && d.pages[selection.page]
+        // A report older than an hour is from an editor long closed.
+        if (!page || selection.at < Date.now() - 60 * 60_000)
+          return text('The editor is not open in this chat, or nothing was selected yet.')
+        const node = selection.node ? d.nodes[selection.node] : undefined
+        const tag = node && ('tag' in node ? node.tag : node.type)
+        return ok({
+          page: { id: page.id, name: page.name, path: page.path },
+          node: node ? { id: node.id, label: node.meta?.label ?? tag, tag } : null,
+          at: new Date(selection.at).toISOString(),
+        })
       },
     )
     const ui = {

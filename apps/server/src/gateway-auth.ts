@@ -47,7 +47,12 @@ const EMPTY_BODY_HASH = createHash('sha256').digest('hex')
  */
 export function refusal(role: Role, method: string, path: string) {
   const read = method === 'GET' || method === 'HEAD'
-  if (role === 'viewer' && (!read || /^\/(consent|api\/auth\/oauth2)(\/|$)/.test(path)))
+  // A viewer's embedded editor reports their selection too: it writes nothing to the site.
+  const selection = method === 'PUT' && /^\/api\/sites\/[^/]+\/selection$/.test(path)
+  if (
+    role === 'viewer' &&
+    ((!read && !selection) || /^\/(consent|api\/auth\/oauth2)(\/|$)/.test(path))
+  )
     return 'Viewers can look but not change anything'
   if (role === 'editor' && !read && /^\/api\/sites\/[^/]+\/releases(\/|$)/.test(path))
     return 'Only the workspace owner can publish'
