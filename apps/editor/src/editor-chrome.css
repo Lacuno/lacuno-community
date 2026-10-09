@@ -1985,10 +1985,10 @@
   padding: 4px 8px;
   font-size: 12px;
 }
-.ask-dialog label {
+.editor .ask-dialog label {
   margin: 0 0 8px;
 }
-.ask-dialog textarea {
+.editor .ask-dialog textarea {
   margin-bottom: 12px;
 }
 .ask-actions {
