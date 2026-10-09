@@ -104,6 +104,7 @@ export function Canvas({
   select,
   onHistory,
   onComputed,
+  onAsk,
   livePreview,
 }: {
   editingText: boolean
@@ -131,6 +132,8 @@ export function Canvas({
   select: (id: string, inner?: InnerTag) => void
   onHistory: (direction: 'undo' | 'redo') => void
   onComputed: (value: { id: string; values: Record<string, string> }) => void
+  /** The Ask AI chip: open the editor's prompt dialog for the selection. */
+  onAsk: () => void
 }) {
   // The iframe loads this once; every later render morphs the live document in place instead.
   const initialHtml = useRef(html)
@@ -426,6 +429,7 @@ export function Canvas({
     select,
     onHistory,
     onComputed,
+    onAsk,
     paint,
     reportStyles,
     selectionKey,
@@ -617,6 +621,7 @@ export function Canvas({
             }),
             (next) => latest.current.onState(next),
             canvasStyle,
+            () => latest.current.onAsk(),
           )
           dragCleanup.current?.()
           dragCleanup.current = bindDragSurface(doc)

@@ -61,6 +61,8 @@ const BACKGROUND_ICON =
 const SPACING_ICON =
   '<rect x="2" y="2" width="12" height="12" rx="1"/><rect x="5.5" y="5.5" width="5" height="5"/>'
 
+// The Ask AI chip's glyph: a four-point spark.
+const ASK_ICON = '<path d="M8 2l1.4 4.6L14 8l-4.6 1.4L8 14l-1.4-4.6L2 8l4.6-1.4z"/>'
 // The align chip's glyph: a box with a dot at its centre. Distribute: two items pushed apart.
 const ALIGN_ICON =
   '<rect x="2" y="2" width="12" height="12" rx="1"/><rect x="6.5" y="6.5" width="3" height="3" fill="currentColor"/>'
@@ -93,6 +95,7 @@ export function selectionOverlay(
   latest: () => Selection,
   setState: (state: State) => void,
   onStyle: (edit: StyleEdit) => void,
+  onAsk: () => void,
 ): () => void {
   const view = doc.defaultView
   if (!view) return () => {}
@@ -197,7 +200,7 @@ export function selectionOverlay(
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
   </style><svg class="frame"><g class="hover"></g><rect class="selection-base"/><rect class="selection-dashes"/></svg>
-  <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button><button class="align" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(ALIGN_ICON)}Align</button></div>
+  <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button><button class="align" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(ALIGN_ICON)}Align</button><button class="ask" type="button">${svg(ASK_ICON)}Ask AI</button></div>
   <div class="bar bar-bottom"><button class="swatch text" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(TEXT_ICON)}<i></i></button><button class="swatch background" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(BACKGROUND_ICON)}<i></i></button></div>
   <div class="menu state-menu" role="menu" aria-label="Element state" hidden>${Object.entries(
     STATES,
@@ -250,6 +253,7 @@ export function selectionOverlay(
   const stateMenu = shadow.querySelector<HTMLElement>('.state-menu')!
   const alignChip = shadow.querySelector<HTMLButtonElement>('.align')!
   const alignMenu = shadow.querySelector<HTMLElement>('.align-menu')!
+  const askChip = shadow.querySelector<HTMLButtonElement>('.ask')!
   const distribute = shadow.querySelector<HTMLButtonElement>('.distribute')!
   const colorMenu = shadow.querySelector<HTMLElement>('.color-menu')!
   const wheel = shadow.querySelector<HTMLElement>('.wheel')!
@@ -513,6 +517,12 @@ export function selectionOverlay(
     event.stopPropagation()
     if (open?.el === alignMenu) closeMenus()
     else openAlign()
+  })
+  // The dialog is the editor's, outside the iframe; the overlay only asks for it.
+  askChip.addEventListener('click', (event) => {
+    event.stopPropagation()
+    closeMenus()
+    onAsk()
   })
   alignMenu.querySelector('.align-close')!.addEventListener('click', () => {
     closeMenus()
@@ -1112,6 +1122,7 @@ export function selectionOverlay(
       const still = editing || selection.inner || !selection.editable
       handlesLayer.hidden = still
       spacingChip.hidden = still
+      askChip.hidden = still
       alignChip.hidden = still || !selected!.parentElement?.hasAttribute('data-lacuno-node')
       bottomBar.hidden = selection.inner || !selection.editable
       // No Align chip when nothing can move: a child that fills its parent on every axis.
