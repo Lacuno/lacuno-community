@@ -1,14 +1,15 @@
 import type { Document, State } from '@lacuno/schema'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Role } from './App.js'
-import { AskAi } from './AskAi.js'
-import { message, useConfig } from './api.js'
+import { AskAi, prompt } from './AskAi.js'
+import { embed, message, useConfig } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
 import { type CmsView, CollectionManager } from './CollectionManager.js'
 import { ComponentDialogs } from './ComponentDialogs.js'
 import { ConnectPanel, useConnections } from './ConnectPanel.js'
 import { EditorHeader } from './EditorHeader.js'
+import { hostRequest } from './host.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { InspectorColumn } from './InspectorColumn.js'
 import { PageSettings } from './PagesPanel.js'
@@ -126,7 +127,12 @@ export function Editor({
   })
   // The try editor keeps its one site in the browser, with no site list to show it in.
   const { config } = useConfig()
-  useThumbnail(siteId, doc, !!config && !config.try && role !== 'viewer')
+  // Inside a host the thumbnail's own image fetches carry no token; the dashboard is not shown.
+  useThumbnail(siteId, doc, !!config && !config.try && role !== 'viewer' && !embed)
+  // Spike: a host renders the view inline by default; the editor needs the whole window.
+  useEffect(() => {
+    if (embed) hostRequest('ui/request-display-mode', { mode: 'fullscreen' })
+  }, [])
   const { uploadingImage, dropImage } = useImageDrop({ siteId, session, setSelected })
   // A refusal on the header's status line for a moment, where the save state otherwise reads.
   const [notice, setNotice] = useState('')
@@ -357,7 +363,18 @@ export function Editor({
           bindDragSurface={bindDragSurface}
           livePreview={draft}
           setComputed={setComputed}
-          ask={() => setAskOpen(true)}
+          ask={() => {
+            // Inside a host the brief goes straight into the conversation as the person's message.
+            if (embed && doc && node && page)
+              hostRequest('ui/message', {
+                role: 'user',
+                content: {
+                  type: 'text',
+                  text: prompt(doc.site.name, page, nodeLabel(node), selected),
+                },
+              })
+            else setAskOpen(true)
+          }}
         />
         <InspectorColumn
           selectNode={(id) =>

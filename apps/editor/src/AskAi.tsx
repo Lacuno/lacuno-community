@@ -4,7 +4,7 @@ import { Dialog } from './Dialog.js'
 import './publishing.css'
 
 /** Where the element is and what to fix on it, in words an AI app with the site connected can act on. */
-const prompt = (site: string, page: Page, label: string, id: string) =>
+export const prompt = (site: string, page: Page, label: string, id: string) =>
   `In Lacuno, on the site "${site}", open the page "${page.name}" (${page.path}) and look at the ${label} (element ${id}). Fix what looks off: align it with its neighbours, make its spacing match the rest of the page, and keep the text readable at phone width. Keep the change small, check it with a screenshot, then tell me what you changed.`
 
 /**

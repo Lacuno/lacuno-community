@@ -1,7 +1,7 @@
 import type { Page } from '@lacuno/schema'
 import { useId, useRef } from 'react'
 import { Brand, type Role, SignUpLink } from './App.js'
-import { useConfig } from './api.js'
+import { embed, useConfig } from './api.js'
 import { type Connection, connectionLabel } from './ConnectPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import { placePopover } from './popover.js'
@@ -44,16 +44,20 @@ export function EditorHeader({
   const { config } = useConfig()
   const historyId = useId()
   const historyPanel = useRef<HTMLDivElement>(null)
+  // Spike: inside a host the chat is the way back, to the AI apps and to publishing.
+  const embedded = !!embed
   return (
     <header className="editor-header">
-      <button
-        type="button"
-        className="back-button"
-        onClick={() => session.leave(back)}
-        aria-label="Back to sites"
-      >
-        <EditorIcon name="back" />
-      </button>
+      {!embedded && (
+        <button
+          type="button"
+          className="back-button"
+          onClick={() => session.leave(back)}
+          aria-label="Back to sites"
+        >
+          <EditorIcon name="back" />
+        </button>
+      )}
       <Brand />
       <span className="header-divider" />
       <span className="site-name">
@@ -138,7 +142,7 @@ export function EditorHeader({
       >
         <EditorIcon name="reload" />
       </button>
-      {role !== 'viewer' && (
+      {role !== 'viewer' && !embedded && (
         <button
           type="button"
           className="connect-trigger"
@@ -150,7 +154,7 @@ export function EditorHeader({
         </button>
       )}
       {config?.try && <SignUpLink />}
-      {role === 'owner' && (
+      {role === 'owner' && !embedded && (
         <button
           type="button"
           className="publish-trigger publish-action"

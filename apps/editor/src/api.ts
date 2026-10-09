@@ -18,16 +18,42 @@ export const unreachable = 'Lacuno cannot be reached right now. Please try again
 /** No answer, or a server or proxy error: worth asking again later. */
 export const transient = (error: unknown) => !(error instanceof ApiError) || error.status >= 500
 
+/**
+ * Spike: the editor inside a host on another origin (an MCP App view). The bootstrap sets
+ * `window.lacunoEmbed`, or the page was opened with `#token=…&origin=…&site=…`; every request then
+ * goes to that origin with the bearer instead of a cookie.
+ */
+export type Embed = { token: string; origin: string; site: string }
+const fragment = new URLSearchParams(location.hash.slice(1))
+export const embed: Embed | undefined =
+  (window as { lacunoEmbed?: Embed }).lacunoEmbed ??
+  (fragment.get('token')
+    ? {
+        token: fragment.get('token')!,
+        origin: fragment.get('origin') ?? location.origin,
+        site: fragment.get('site') ?? '',
+      }
+    : undefined)
+/** A path on the runtime, absolute when the editor lives on another origin. */
+export const runtimeUrl = (path: string) => (embed ? embed.origin + path : path)
+/** The event stream's address: EventSource sets no headers, so the token travels in the query. */
+export const streamUrl = (path: string) =>
+  embed ? `${runtimeUrl(path)}?token=${encodeURIComponent(embed.token)}` : path
+
 export async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const send = () =>
-    fetch(path, {
-      credentials: 'same-origin',
+    fetch(runtimeUrl(path), {
+      credentials: embed ? 'omit' : 'same-origin',
       ...(signal ? { signal } : {}),
+      ...(embed ? { headers: { Authorization: `Bearer ${embed.token}` } } : {}),
       ...(body === undefined
         ? {}
         : {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(embed ? { Authorization: `Bearer ${embed.token}` } : {}),
+            },
             body: JSON.stringify(body),
           }),
     })
