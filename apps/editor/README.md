@@ -70,7 +70,11 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   starter content, or empty container, and from the **Actions** group a **Link** or a **Button**. Both are `a` elements whose
   destination starts on the current page, so they are focusable and styleable straight away; a
   button also gets local padding, radius, colour and weight. Choose an explicit destination and
-  optionally reuse a style class. Empty containers can be selected
+  optionally reuse a style class. A **Menu** is a burger `button` with `popovertarget` and a
+  `nav` popover of three links: a row on Desktop, a side panel the browser opens below it, with
+  no script. With the menu's button or a link in its panel selected, the **Show open** chip on
+  the selection's top bar holds the panel open for styling, until **Hide**, the selection leaves
+  the menu or the breakpoint changes. Empty containers can be selected
   in Layers and populated with Inside selection. Move up/down changes the selected sibling order.
   **Wrap selection in…** puts a section, container, stack, row, grid or **Link** around the
   selection; the link wrapper keeps the wrapped content's look and is refused inside another link.

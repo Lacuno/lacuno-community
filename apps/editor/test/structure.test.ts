@@ -319,6 +319,39 @@ it('duplicates a subtree with independent local styles and unique HTML ids, then
   expect(() => duplicateSelection(doc, id)).toThrow('locked')
 })
 
+it('builds a menu whose button opens its panel, folding at Tablet, and keeps a copy paired', async () => {
+  const doc = fixtureDocument()
+  const root = doc.nodes['n-hero-inner']!.parent!
+  const menu = dropEdit(doc, root, { preset: 'menu' }, 'n-hero-inner', 0)
+  const [button, nav] = (menu.node as InsertNode).children!
+  const panel = nav!.attrs!.id as { value: string }
+  expect(panel.value).toMatch(/^menu-[0-9a-f]{8}$/)
+  expect(button!.attrs).toMatchObject({
+    popovertarget: { value: panel.value },
+    'aria-label': { value: 'Menu' },
+  })
+  expect(nav!.attrs!.popover).toEqual({ type: 'static', value: 'auto' })
+  const links = nav!.children![0]!.children!.map((item) => item.children![0]!)
+  expect(links.map((link) => link.attrs!.href)).toEqual([
+    { type: 'page', page: 'p-home' },
+    { type: 'static', value: '#' },
+    { type: 'static', value: '#' },
+  ])
+  // The panel hides by the browser's popover rule below Desktop, so it sets no display there.
+  const tablet = menu.operations.filter(
+    (operation) =>
+      operation.type === 'style.set' &&
+      operation.breakpoint === 'tablet' &&
+      nav!.classes.includes(operation.class),
+  )
+  expect(styleValues(tablet)).toMatchObject({ display: 'revert', position: 'fixed' })
+  const store = DocumentStore.inMemory(doc)
+  await commit(store, menu.operations)
+  const copy = duplicateSelection(store.read().document, menu.node.id).node
+  expect(copy.children[0]!.attrs!.popovertarget).toEqual(copy.children[1]!.attrs!.id)
+  expect(copy.children[1]!.attrs!.id).not.toEqual(nav!.attrs!.id)
+})
+
 it('renames an element and restores absent metadata exactly', async () => {
   const doc = fixtureDocument()
   const id = 'n-hero-title'

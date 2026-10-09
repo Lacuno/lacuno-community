@@ -26,7 +26,7 @@ export function pageTree(doc: Document, id: string): PageTree {
 
 export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
 export type Structure = (typeof structures)[number]
-export const actions = ['link', 'button'] as const
+export const actions = ['link', 'button', 'menu'] as const
 export type Action = (typeof actions)[number]
 /** Form parts that only go inside a form. */
 export const formFields = [
@@ -356,6 +356,55 @@ export function presetNode(
     const label = preset === 'link' ? 'Link' : 'Button'
     return { ...text('a', label, label), classes, ...href }
   }
+  if (preset === 'menu') {
+    // The button opens the panel through the browser's popover, so the page needs no script.
+    const panel = `menu-${crypto.randomUUID().slice(0, 8)}`
+    const element = (
+      tag: string,
+      label: string,
+      children: InsertNode[],
+      attrs: Record<string, string> = {},
+    ): InsertNode => ({
+      id: makeId(),
+      type: 'element',
+      tag,
+      classes: [],
+      attrs: Object.fromEntries(
+        Object.entries(attrs).map(([name, value]) => [name, { type: 'static' as const, value }]),
+      ),
+      meta: { label },
+      children,
+    })
+    const link = (value: string) => ({
+      ...text('a', 'Link', value),
+      attrs: { href: { type: 'static' as const, value: '#' } },
+    })
+    return {
+      ...element('div', 'Menu', [
+        element(
+          'button',
+          'Menu button',
+          [1, 2, 3].map(() => element('span', 'Bar', [])),
+          { type: 'button', popovertarget: panel, 'aria-label': 'Menu' },
+        ),
+        element(
+          'nav',
+          'Menu panel',
+          [
+            element(
+              'ul',
+              'Links',
+              [{ ...link('Home'), ...href }, link('About'), link('Contact')].map((item) =>
+                element('li', 'Item', [item]),
+              ),
+            ),
+          ],
+          { id: panel, popover: 'auto' },
+        ),
+      ]),
+      classes,
+    }
+  }
   if (preset === 'link-wrapper')
     return {
       id: makeId(),
@@ -388,6 +437,11 @@ const defaults: Record<
   | 'video'
   | 'list'
   | 'button'
+  | 'menu-button'
+  | 'menu-bar'
+  | 'menu-panel'
+  | 'menu-list'
+  | 'menu-link'
   | 'link-wrapper'
   | 'form'
   | 'field'
@@ -420,6 +474,52 @@ const defaults: Record<
     'font-weight': '600',
   },
   'link-wrapper': { display: 'block', color: 'inherit', 'text-decoration': 'none' },
+  // A menu shows its links in a row; below Desktop (`folded`) the button opens them in a panel.
+  'menu-button': {
+    display: 'none',
+    'flex-direction': 'column',
+    'justify-content': 'center',
+    gap: '5px',
+    width: '44px',
+    height: '44px',
+    padding: '0 11px',
+    'box-sizing': 'border-box',
+    border: '0',
+    'background-color': 'transparent',
+    color: 'inherit',
+    cursor: 'pointer',
+  },
+  // A click on a bar is a click on its button, on the canvas too.
+  'menu-bar': {
+    display: 'block',
+    height: '2px',
+    'border-radius': '1px',
+    'background-color': 'currentColor',
+    'pointer-events': 'none',
+  },
+  // Undoes the browser's popover box, so the closed panel shows in place.
+  'menu-panel': {
+    display: 'block',
+    position: 'static',
+    inset: 'auto',
+    width: 'auto',
+    height: 'auto',
+    margin: '0',
+    padding: '0',
+    border: '0',
+    'background-color': 'transparent',
+    color: 'inherit',
+    overflow: 'visible',
+  },
+  'menu-list': {
+    display: 'flex',
+    'flex-wrap': 'wrap',
+    gap: '24px',
+    margin: '0',
+    padding: '0',
+    'list-style': 'none',
+  },
+  'menu-link': { color: 'inherit', 'text-decoration': 'none' },
   form: { display: 'flex', 'flex-direction': 'column', gap: '16px' },
   // A control fills the line below its text; a checkbox sits beside it.
   field: { display: 'flex', 'flex-wrap': 'wrap', 'align-items': 'center', gap: '6px 8px' },
@@ -443,6 +543,32 @@ const defaults: Record<
     'font-weight': '600',
     cursor: 'pointer',
   },
+}
+
+/** Where a menu folds into its button: Tablet and below, a breakpoint every site starts with. */
+const folded: Partial<Record<keyof typeof defaults, Record<string, string>>> = {
+  'menu-button': { display: 'inline-flex' },
+  // `revert` hands display back to the browser, whose popover rule hides the panel until it opens.
+  'menu-panel': {
+    display: 'revert',
+    position: 'fixed',
+    inset: '0 0 0 auto',
+    width: 'min(80vw, 320px)',
+    padding: '24px',
+    'box-sizing': 'border-box',
+    'background-color': '#ffffff',
+    'box-shadow': '0 0 32px rgb(0 0 0 / 0.2)',
+    overflow: 'auto',
+  },
+  'menu-list': { 'flex-direction': 'column', gap: '0' },
+  'menu-link': { display: 'block', padding: '12px 0', 'font-size': '18px' },
+}
+const menuParts: Record<string, keyof typeof defaults> = {
+  button: 'menu-button',
+  span: 'menu-bar',
+  nav: 'menu-panel',
+  ul: 'menu-list',
+  a: 'menu-link',
 }
 
 /** The defaults of a form's parts; a checkbox keeps the browser's look. */
@@ -470,20 +596,26 @@ export function structureInsertion(
   const node = presetNode(preset, classId, assetId, pageId)
   if (empty) node.children = []
   const operations: Operation[] = []
-  const style = (each: InsertNode, key = formPart(each)) => {
+  const part =
+    preset === 'menu' ? (each: InsertNode) => menuParts['tag' in each ? each.tag : ''] : formPart
+  const style = (each: InsertNode, key = part(each)) => {
     if (key) {
       const id = `c-${crypto.randomUUID()}`
       each.classes.push(id)
       operations.push({ type: 'class.create', id, local: true })
-      for (const [property, value] of Object.entries(defaults[key]))
-        operations.push({
-          type: 'style.set',
-          class: id,
-          breakpoint: 'base',
-          state: 'none',
-          property,
-          value: { type: 'raw', value },
-        })
+      for (const [breakpoint, styles] of [
+        ['base', defaults[key]],
+        ['tablet', folded[key] ?? {}],
+      ] as const)
+        for (const [property, value] of Object.entries(styles))
+          operations.push({
+            type: 'style.set',
+            class: id,
+            breakpoint,
+            state: 'none',
+            property,
+            value: { type: 'raw', value },
+          })
     }
     for (const child of each.children ?? []) style(child)
   }
@@ -521,6 +653,12 @@ export function wrapSelection(doc: Document, id: string, preset: Wrapper) {
 }
 
 export type DragItem = { preset: Preset; classId?: string; assetId?: string } | { id: string }
+
+/** The page a new preset's links start on; a menu's Home link goes to the home page. */
+const linkPage = (doc: Document, root: string, preset: Preset) =>
+  preset === 'menu'
+    ? (Object.values(doc.pages).find((page) => page.path === '/')?.id ?? '')
+    : pageOf(doc, root)
 
 export function canContain(doc: Document, id: string) {
   const node = doc.nodes[id]
@@ -610,7 +748,14 @@ export function dropEdit(
     )
     const at = { parent: row.node.id, index: wrap.first ? 0 : 1 }
     if ('preset' in item) {
-      const added = structureInsertion(item.preset, at, item.classId, false, item.assetId, page)
+      const added = structureInsertion(
+        item.preset,
+        at,
+        item.classId,
+        false,
+        item.assetId,
+        linkPage(doc, root, item.preset),
+      )
       return { node: added.node, operations: [...row.operations, ...added.operations] }
     }
     row.operations.push({ type: 'node.move', id: item.id, ...at })
@@ -624,7 +769,7 @@ export function dropEdit(
       item.classId,
       false,
       item.assetId,
-      pageOf(doc, root),
+      linkPage(doc, root, item.preset),
     )
     // A new field's name stays unique in its form: a second Email field is email-2.
     const form = closest(doc, target.parent, 'form')
@@ -685,6 +830,7 @@ export function copySubtree(doc: Document, id: string, operations: Operation[]):
       else if (
         [
           'for',
+          'popovertarget',
           'aria-labelledby',
           'aria-describedby',
           'aria-controls',
