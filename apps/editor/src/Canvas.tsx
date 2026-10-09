@@ -106,6 +106,7 @@ export function Canvas({
   onComputed,
   onAsk,
   livePreview,
+  base,
 }: {
   editingText: boolean
   onEditText: (id: string, element: HTMLElement) => void
@@ -134,9 +135,32 @@ export function Canvas({
   onComputed: (value: { id: string; values: Record<string, string> }) => void
   /** The Ask AI chip: open the editor's prompt dialog for the selection. */
   onAsk: () => void
+  /**
+   * Spike: the runtime's origin when the editor lives on another one. The canvas is then a blob:
+   * document based there, since a host's CSP may allow no srcdoc frame and the render's
+   * root-relative asset paths would otherwise resolve against the host.
+   */
+  base?: string | undefined
 }) {
   // The iframe loads this once; every later render morphs the live document in place instead.
   const initialHtml = useRef(html)
+  // The base goes in before the render's own policy (base-uri 'none'), which the parser enforces
+  // from where it stands; that policy's 'self' is the runtime, so it widens to name it.
+  const blobUrl = useRef(
+    base
+      ? URL.createObjectURL(
+          new Blob(
+            [
+              html.replace(
+                /(<meta http-equiv="Content-Security-Policy" content=")([^"]*)/,
+                (_, tag, policy) => tag + policy.replaceAll("'self'", `'self' ${base}`),
+              ),
+            ],
+            { type: 'text/html' },
+          ),
+        )
+      : undefined,
+  )
   const loaded = useRef(false)
   const selectionCleanup = useRef<(() => void) | undefined>(undefined)
   // The sidebar spacing input with focus, forwarded to the overlay so it shows the boxes.
@@ -571,7 +595,7 @@ export function Canvas({
     let raf = 0
     const guard = () => {
       const doc = frame.current?.contentDocument
-      if (doc?.URL === 'about:srcdoc')
+      if (doc?.URL === 'about:srcdoc' || doc?.URL.startsWith('blob:'))
         doc.addEventListener('click', (event) => event.preventDefault(), true)
       else raf = requestAnimationFrame(guard)
     }
@@ -584,7 +608,7 @@ export function Canvas({
         ref={frame}
         title="Site canvas"
         sandbox="allow-same-origin"
-        srcDoc={initialHtml.current}
+        {...(blobUrl.current ? { src: blobUrl.current } : { srcDoc: initialHtml.current })}
         style={{
           width,
           height: `${100 / zoom}%`,
@@ -594,6 +618,7 @@ export function Canvas({
         onLoad={() => {
           const doc = frame.current?.contentDocument
           if (!doc) return
+          if (blobUrl.current) URL.revokeObjectURL(blobUrl.current)
           // The render's head styles (font faces, then the generated CSS) become one stylesheet
           // whose text every morph swaps in place, so a new font shows without a reload.
           const styles = [...doc.head.querySelectorAll('style')]

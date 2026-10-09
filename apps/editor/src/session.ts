@@ -3,7 +3,7 @@ import { applyPatches, invertPatches, type Patch } from '@lacuno/document/patch'
 import { type Document, parseDocument } from '@lacuno/schema'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { ApiError, api, message, take } from './api.js'
+import { ApiError, api, message, streamUrl, take } from './api.js'
 import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
 import { catchUp, land, liveStream, type SiteEvent, touchedNodes } from './liveEvents.js'
 import type { Preview, PreviewQuery } from './usePreview.js'
@@ -98,7 +98,7 @@ export function useDocumentSession(
   const loaded = !!snapshot
   useEffect(() => {
     if (!loaded) return
-    const live = liveStream(`/api/sites/${siteId}/events`, (event) => {
+    const live = liveStream(streamUrl(`/api/sites/${siteId}/events`), (event) => {
       queue.current.push(event)
       setActivity((list) => [event, ...list].slice(0, 50))
     })

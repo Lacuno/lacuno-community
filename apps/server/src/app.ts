@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -19,7 +19,7 @@ import { renderPreview } from '@lacuno/renderer'
 import { AssetHash, type AssetRef, hashAsset, parseDocument } from '@lacuno/schema'
 import type Database from 'better-sqlite3'
 import { and, eq, sql } from 'drizzle-orm'
-import { Hono, type MiddlewareHandler } from 'hono'
+import { type Context, Hono, type MiddlewareHandler } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { compress } from 'hono/compress'
 import { HTTPException } from 'hono/http-exception'
@@ -60,6 +60,13 @@ export type ServerOptions = {
   screenshot?: Screenshot
   /** Test-only: replaces the OAuth grants so tests can call the MCP endpoint with a fixed token. */
   oauth?: OAuth
+  /**
+   * Spike: origins an embedded editor (an MCP App view) may call this runtime from with a bearer
+   * from the editor.session tool; they get CORS answers, and assets are served by hash alone.
+   */
+  allowedOrigins?: string[]
+  /** Spike: the MCP connector's address, which names the view's origin at claude.ai. */
+  connectorUrl?: string
 }
 
 /** A new site from the template, or from a document with its asset bytes as base64 by hash. */
@@ -197,8 +204,62 @@ export async function createServer(options: ServerOptions) {
         userId: string
         workspaceId: string
         gatewayUser: Awaited<ReturnType<GatewayAuth['authenticate']>>
+        /** Spike: the editor.session bearer behind the request, from another origin. */
+        bearer: { userId: string; siteId: string } | undefined
       }
     }>()
+    // Spike: tokens editor.session minted, in memory, for an editor on an allowed origin.
+    const editorTokens = new Map<string, { userId: string; siteId: string; expires: number }>()
+    const EDITOR_TOKEN_MS = 60 * 60_000
+    const mintEditorToken = (userId: string, siteId: string) => {
+      const now = Date.now()
+      for (const [token, held] of editorTokens) if (held.expires < now) editorTokens.delete(token)
+      const token = randomBytes(32).toString('base64url')
+      editorTokens.set(token, { userId, siteId, expires: now + EDITOR_TOKEN_MS })
+      return { token, site: siteId, expiresAt: new Date(now + EDITOR_TOKEN_MS).toISOString() }
+    }
+    const allowedOrigins = new Set(options.allowedOrigins ?? [])
+    if (allowedOrigins.size) {
+      app.use('*', async (c, next) => {
+        const from = c.req.header('origin')
+        if (from && from !== origin && allowedOrigins.has(from)) {
+          c.header('Access-Control-Allow-Origin', from)
+          c.header('Vary', 'Origin')
+          if (c.req.method === 'OPTIONS') {
+            c.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
+            c.header('Access-Control-Allow-Headers', 'authorization, content-type')
+            c.header('Access-Control-Max-Age', '600')
+            return c.body(null, 204)
+          }
+        }
+        await next()
+      })
+      app.use('/api/*', async (c, next) => {
+        // A bearer from editor.session, in the header or, for the event stream, the query.
+        const presented =
+          c.req.header('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1] ?? c.req.query('token')
+        const held = presented ? editorTokens.get(presented) : undefined
+        const bearer = held && held.expires > Date.now() ? held : undefined
+        c.set('bearer', bearer)
+        // From another origin only a bearer identifies: an allowed origin without one is refused
+        // rather than answered as nobody, config included.
+        const from = c.req.header('origin')
+        // The canvas's images carry no bearer; an asset is public by its content hash.
+        const image = /^\/api\/sites\/[^/]+\/assets\/[a-f0-9]{64}$/.test(c.req.path)
+        if (from && from !== origin && !bearer && c.req.method !== 'OPTIONS' && !image)
+          return c.json({ error: 'Authentication required' }, 401)
+        await next()
+      })
+      // The embedded editor asks who it is: the bearer's user, read as Better Auth stores it.
+      app.get('/api/auth/get-session', async (c, next) => {
+        const bearer = c.get('bearer')
+        if (!bearer) return next()
+        const user = sqlite
+          .prepare('SELECT id, name, email FROM user WHERE id = ?')
+          .get(bearer.userId) as { id: string; name: string; email: string } | undefined
+        return user ? c.json({ user }) : c.json({ error: 'Authentication required' }, 401)
+      })
+    }
     app.use('/api/*', async (c, next) => {
       c.header('Cache-Control', 'no-store')
       await next()
@@ -258,9 +319,11 @@ export async function createServer(options: ServerOptions) {
     const sameOriginJson: MiddlewareHandler = async (c, next) => {
       if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) {
         const requestOrigin = c.req.header('origin')
+        // Spike: a bearer stands in for the origin check, as no cookie rides on its request.
         if (
-          (requestOrigin && requestOrigin !== origin) ||
-          c.req.header('sec-fetch-site') === 'cross-site'
+          !c.get('bearer') &&
+          ((requestOrigin && requestOrigin !== origin) ||
+            c.req.header('sec-fetch-site') === 'cross-site')
         )
           return c.json({ error: 'Untrusted origin' }, 403)
         if (c.req.header('content-type')?.split(';')[0]?.trim() !== 'application/json')
@@ -340,6 +403,37 @@ export async function createServer(options: ServerOptions) {
         c.json({ error: 'Authentication is managed by the gateway' }, 403),
       )
     app.use('/api/*', sameOriginJson)
+    // Spike: an embedded canvas's <img> can carry no bearer, so where an origin may embed the
+    // editor the content-addressed assets are served by their hash alone, as the published site
+    // serves the same bytes; a hash is only known from the document, which needs a session.
+    const assetByHash = async (c: Context) => {
+      const hash = c.req.param('hash') as string
+      if (!/^[a-f0-9]{64}$/.test(hash)) return c.notFound()
+      const width = c.req.query('w')
+      if (width !== undefined && !IMAGE_WIDTHS.includes(Number(width)))
+        return c.json({ error: 'Invalid width' }, 400)
+      const id = c.req.param('id') as string
+      const { document } = (await store(id)).read()
+      const asset = Object.values(document.assets).find((item) => item.hash === hash)
+      if (!asset) return c.notFound()
+      const siteDir = path.join(options.dataDir, 'sites', id)
+      try {
+        const variant =
+          width === undefined ? undefined : await imageVariant(siteDir, asset, Number(width))
+        const bytes = variant ?? (await readFile(path.join(siteDir, 'assets', hash)))
+        // Addressed by content, so a browser keeps what it fetched.
+        return c.body(new Uint8Array(bytes), 200, {
+          'Content-Type': variant ? 'image/webp' : asset.mime,
+          'Cache-Control': 'private, max-age=31536000, immutable',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Security-Policy': "sandbox; default-src 'none'",
+        })
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return c.notFound()
+        throw error
+      }
+    }
+    if (allowedOrigins.size) app.get('/api/sites/:id/assets/:hash', assetByHash)
     app.post('/api/setup', async (c) => {
       if (!setup) return c.json({ error: 'Owner setup is unavailable in gateway mode' }, 403)
       if (!setup.required)
@@ -377,9 +471,12 @@ export async function createServer(options: ServerOptions) {
     })
     app.on(['GET', 'POST'], '/api/auth/*', async (c) => (await auth()).handler(c.req.raw))
     app.use('/api/*', async (c, next) => {
-      const session = gateway
-        ? { user: { id: gateway.ownerId } }
-        : await (await auth()).api.getSession({ headers: c.req.raw.headers })
+      const bearer = c.get('bearer')
+      const session = bearer
+        ? { user: { id: bearer.userId } }
+        : gateway
+          ? { user: { id: gateway.ownerId } }
+          : await (await auth()).api.getSession({ headers: c.req.raw.headers })
       if (!session) return c.json({ error: 'Authentication required' }, 401)
       c.set('userId', session.user.id)
       db.insert(workspaces)
@@ -476,6 +573,9 @@ export async function createServer(options: ServerOptions) {
       )
     })
     app.use('/api/sites/:id/*', async (c, next) => {
+      // Spike: a bearer is good for its one site.
+      if (c.get('bearer') && c.get('bearer')!.siteId !== c.req.param('id'))
+        return c.json({ error: 'Site not found' }, 404)
       const site = db
         .select({ id: sites.id })
         .from(sites)
@@ -580,6 +680,14 @@ export async function createServer(options: ServerOptions) {
         report:
           exportOptions &&
           ((site, activity) => void exportReport(exportOptions, site, 'activity', activity)),
+        // Spike: the embedded editor's token and view, offered where an origin may embed it.
+        editor: allowedOrigins.size
+          ? {
+              origin,
+              ...(options.connectorUrl ? { connectorUrl: options.connectorUrl } : {}),
+              mint: (grant, siteId) => mintEditorToken(grant.userId, siteId),
+            }
+          : undefined,
       }),
     )
     // Who is asking: behind a gateway its user, otherwise the owner.
@@ -684,10 +792,16 @@ export async function createServer(options: ServerOptions) {
       response.headers.set('Cache-Control', 'no-store')
       return response
     })
+    // Spike: an editor on another origin cannot use a base tag (claude.ai keeps base-uri 'self'),
+    // so a canvas it asks for names this runtime in every asset address.
+    const absolute = <T extends { html: string }>(body: T): T => ({
+      ...body,
+      html: body.html.replaceAll('/api/sites/', `${origin}/api/sites/`),
+    })
     app.get('/api/sites/:id/preview', async (c) => {
       const { document } = (await store(c.req.param('id'))).read()
       const { status, body } = renderPreview(document, c.req.param('id'), c.req.query())
-      return c.json(body, status)
+      return c.json(status === 200 && c.get('bearer') ? absolute(body) : body, status)
     })
     app.post('/api/sites/:id/assets/upload', async (c) => {
       const input = UploadInput.safeParse(await c.req.json().catch(() => null))
@@ -700,32 +814,7 @@ export async function createServer(options: ServerOptions) {
       return c.json(body, status)
     })
     // The bytes, or with `w` a raster image resized to that width as WebP (images.ts).
-    app.get('/api/sites/:id/assets/:hash', async (c) => {
-      const hash = c.req.param('hash')
-      if (!/^[a-f0-9]{64}$/.test(hash)) return c.notFound()
-      const width = c.req.query('w')
-      if (width !== undefined && !IMAGE_WIDTHS.includes(Number(width)))
-        return c.json({ error: 'Invalid width' }, 400)
-      const { document } = (await store(c.req.param('id'))).read()
-      const asset = Object.values(document.assets).find((item) => item.hash === hash)
-      if (!asset) return c.notFound()
-      const siteDir = path.join(options.dataDir, 'sites', c.req.param('id'))
-      try {
-        const variant =
-          width === undefined ? undefined : await imageVariant(siteDir, asset, Number(width))
-        const bytes = variant ?? (await readFile(path.join(siteDir, 'assets', hash)))
-        // Addressed by content, so a browser keeps what it fetched.
-        return c.body(new Uint8Array(bytes), 200, {
-          'Content-Type': variant ? 'image/webp' : asset.mime,
-          'Cache-Control': 'private, max-age=31536000, immutable',
-          'X-Content-Type-Options': 'nosniff',
-          'Content-Security-Policy': "sandbox; default-src 'none'",
-        })
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return c.notFound()
-        throw error
-      }
-    })
+    app.get('/api/sites/:id/assets/:hash', assetByHash)
     // The home page's first screen as an editor drew it (editor thumbnail.ts), newest revision kept.
     app.post('/api/sites/:id/thumbnail', async (c) => {
       const input = z
@@ -787,7 +876,11 @@ export async function createServer(options: ServerOptions) {
       // Only a page or component the batch itself removed cannot render: the editor then fetches.
       if (!preview || batch.dryRun) return c.json(result)
       const rendered = renderPreview(site.read().document, c.req.param('id'), preview)
-      return c.json(rendered.status === 200 ? { ...result, preview: rendered.body } : result)
+      return c.json(
+        rendered.status === 200
+          ? { ...result, preview: c.get('bearer') ? absolute(rendered.body) : rendered.body }
+          : result,
+      )
     })
     if (options.editorDir) {
       // Vite names every bundle file by its content hash; index.html alone changes under its name.

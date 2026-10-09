@@ -24,7 +24,7 @@ export default defineConfig([
     noExternal: [/^@lacuno\//],
     clean: true,
     // The MCP server reads the page view beside its own module, in source and in the bundle.
-    copy: '../../packages/mcp/src/page-view.html',
+    copy: ['../../packages/mcp/src/page-view.html', '../../packages/mcp/src/editor-view.html'],
   },
   // The screenshots image installs only Playwright, so everything else is bundled in.
   { ...shared, entry: ['src/screenshot-main.ts'], noExternal: (id) => id !== 'playwright' },

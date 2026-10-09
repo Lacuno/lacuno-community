@@ -1,5 +1,6 @@
 import type { Entry, Page, State } from '@lacuno/schema'
 import { useState } from 'react'
+import { embed } from './api.js'
 import { boundFieldLabel } from './binding.js'
 import { editingBreakpoint } from './breakpoints.js'
 import { Canvas, type LivePreview } from './Canvas.js'
@@ -217,6 +218,7 @@ export function CanvasPanel({
             livePreview={livePreview}
             onComputed={setComputed}
             onAsk={ask}
+            base={embed?.origin}
             html={preview.html}
             width={width}
             scale={zoom === 'fit' ? undefined : Number(zoom) / 100}

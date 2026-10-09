@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ApiError, api, message, prefetch, take, useConfig } from './api.js'
+import { ApiError, api, embed, message, prefetch, take, useConfig } from './api.js'
 import { Consent } from './Consent.js'
 import { Editor } from './Editor.js'
 
 const logo = new URL('./logo.svg', import.meta.url).href
 
-/** The site the page opened on, from its URL. */
-const opened = new URLSearchParams(location.search).get('site') ?? ''
+/** The site the page opened on, from its URL, or the one a host embedded the editor for. */
+const opened = embed?.site || (new URLSearchParams(location.search).get('site') ?? '')
 
 /** Behind a gateway, the user's role in the workspace; elsewhere the user owns it. */
 export type Role = 'owner' | 'editor' | 'viewer'
@@ -305,7 +305,8 @@ export function App() {
   }, [])
   function open(id: string) {
     setSite(id)
-    history.replaceState(null, '', id ? `/?site=${encodeURIComponent(id)}` : '/')
+    // Inside a host the page is the host's; its address is not the editor's to change.
+    if (!embed) history.replaceState(null, '', id ? `/?site=${encodeURIComponent(id)}` : '/')
   }
   if (loading) return <div className="loading">Opening your workspace…</div>
   if (error)

@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { serve } from '@hono/node-server'
+import { viewDomain } from '@lacuno/mcp'
 import { localScreenshot, serviceScreenshot } from '@lacuno/mcp/screenshot'
 import { createServer } from './app.js'
 import { readPort, root } from './environment.js'
@@ -20,6 +21,8 @@ const publishBaseURL =
 if (publishBaseURL && publishPort === port)
   throw new Error('Publishing requires a separate LACUNO_PUBLISH_PORT')
 const mail = smtp()
+// Spike: the connector URL claude.ai is given names the view's origin the runtime must allow.
+const connectorUrl = process.env.LACUNO_CONNECTOR_URL
 const screenshotUrl = process.env.LACUNO_SCREENSHOT_URL
 const screenshot = screenshotUrl
   ? serviceScreenshot(screenshotUrl, process.env.LACUNO_SCREENSHOT_SECRET)
@@ -41,6 +44,9 @@ const server = await createServer({
   ...(process.env.LACUNO_CIMD_RELAY_URL ? { cimdRelay: process.env.LACUNO_CIMD_RELAY_URL } : {}),
   ...(process.env.LACUNO_EXPORT_URL ? { export: process.env.LACUNO_EXPORT_URL } : {}),
   ...(process.env.LACUNO_GATEWAY_MCP_URL ? { mcp: process.env.LACUNO_GATEWAY_MCP_URL } : {}),
+  ...(connectorUrl
+    ? { connectorUrl, allowedOrigins: [`https://${viewDomain(connectorUrl)}`] }
+    : {}),
   secret,
   editorDir: path.join(root, 'apps/editor/dist'),
   allowSignup: process.env.LACUNO_ALLOW_SIGNUP === 'true',
