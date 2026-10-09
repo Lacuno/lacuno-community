@@ -66,6 +66,8 @@ const ASK_ICON = '<path d="M8 2l1.4 4.6L14 8l-4.6 1.4L8 14l-1.4-4.6L2 8l4.6-1.4z
 // The align chip's glyph: a box with a dot at its centre. Distribute: two items pushed apart.
 const ALIGN_ICON =
   '<rect x="2" y="2" width="12" height="12" rx="1"/><rect x="6.5" y="6.5" width="3" height="3" fill="currentColor"/>'
+// The Show open chip's glyph: a page with a panel along its side.
+const PANEL_ICON = '<rect x="2" y="2.5" width="12" height="11" rx="1"/><path d="M9.5 2.5v11"/>'
 const DISTRIBUTE_ICON =
   '<path d="M2 3v10M14 3v10"/><rect x="4.5" y="5.5" width="2.5" height="5"/><rect x="9" y="5.5" width="2.5" height="5"/>'
 
@@ -76,6 +78,15 @@ const alignmentIcon = (axis: AlignmentAxis, position: Position) => {
   return svg(
     `<g${axis === 'vertical' ? ' transform="rotate(90 8 8)"' : ''}><path d="M${at} 2v12"/><rect x="${left(7)}" y="4" width="7" height="3" rx=".5"/><rect x="${left(4)}" y="9" width="4" height="3" rx=".5"/></g>`,
   )
+}
+
+/** The popover the element belongs to: one it is inside, or the one its button opens. */
+function popoverOf(element: Element) {
+  const button = element.closest('[popovertarget]')
+  const popover =
+    element.closest('[popover]') ??
+    (button && element.ownerDocument.getElementById(button.getAttribute('popovertarget')!))
+  return popover?.hasAttribute('data-lacuno-node') ? (popover as HTMLElement) : undefined
 }
 
 const SIDES = ['top', 'right', 'bottom', 'left']
@@ -105,8 +116,9 @@ export function selectionOverlay(
   host.setAttribute('data-lacuno-selection-overlay', '')
   // A unique id keeps the morph from ever matching a server node against this host.
   host.id = 'lacuno-selection-overlay'
+  // The resets matter while the host is a popover, raised above a menu panel held open.
   host.style.cssText =
-    'position:fixed;inset:0;pointer-events:none;z-index:2147483646;overflow:hidden;'
+    'position:fixed;inset:0;pointer-events:none;z-index:2147483646;overflow:hidden;width:auto;height:auto;margin:0;padding:0;border:0;background:none;'
   const shadow = host.attachShadow({ mode: 'open' })
   shadow.innerHTML = `<style>
     :host { pointer-events: none; font: 600 11px/16px system-ui, sans-serif; }
@@ -200,7 +212,7 @@ export function selectionOverlay(
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
   </style><svg class="frame"><g class="hover"></g><rect class="selection-base"/><rect class="selection-dashes"/></svg>
-  <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button><button class="align" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(ALIGN_ICON)}Align</button><button class="ask" type="button">${svg(ASK_ICON)}Ask AI</button></div>
+  <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="popover-toggle" type="button">${svg(PANEL_ICON)}<span>Show open</span></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button><button class="align" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(ALIGN_ICON)}Align</button><button class="ask" type="button">${svg(ASK_ICON)}Ask AI</button></div>
   <div class="bar bar-bottom"><button class="swatch text" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(TEXT_ICON)}<i></i></button><button class="swatch background" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(BACKGROUND_ICON)}<i></i></button></div>
   <div class="menu state-menu" role="menu" aria-label="Element state" hidden>${Object.entries(
     STATES,
@@ -254,6 +266,8 @@ export function selectionOverlay(
   const alignChip = shadow.querySelector<HTMLButtonElement>('.align')!
   const alignMenu = shadow.querySelector<HTMLElement>('.align-menu')!
   const askChip = shadow.querySelector<HTMLButtonElement>('.ask')!
+  const popoverChip = shadow.querySelector<HTMLButtonElement>('.popover-toggle')!
+  const popoverLabel = popoverChip.querySelector('span')!
   const distribute = shadow.querySelector<HTMLButtonElement>('.distribute')!
   const colorMenu = shadow.querySelector<HTMLElement>('.color-menu')!
   const wheel = shadow.querySelector<HTMLElement>('.wheel')!
@@ -523,6 +537,34 @@ export function selectionOverlay(
     event.stopPropagation()
     closeMenus()
     onAsk()
+  })
+  // The panel Show open holds open, by node id, and the breakpoint it was opened at.
+  let held: { id: string; scope: string } | undefined
+  const hold = (popover: HTMLElement) => {
+    // Manual, so a click on the overlay or Escape cannot light-dismiss it as it would an auto one.
+    popover.popover = 'manual'
+    popover.showPopover()
+    // An open popover sits in the top layer, above any z-index; the overlay follows it there.
+    if (host.matches(':popover-open')) host.hidePopover()
+    host.popover = 'manual'
+    host.showPopover()
+  }
+  const unhold = (popover: HTMLElement | null) => {
+    if (popover?.matches(':popover-open')) popover.hidePopover()
+    held = undefined
+    if (host.matches(':popover-open')) host.hidePopover()
+    host.removeAttribute('popover')
+  }
+  popoverChip.addEventListener('click', (event) => {
+    event.stopPropagation()
+    closeMenus()
+    const popover = element && popoverOf(element)
+    if (!popover) return
+    if (held) unhold(popover)
+    else {
+      held = { id: popover.dataset.lacunoNode!, scope: latest().scope }
+      hold(popover)
+    }
   })
   alignMenu.querySelector('.align-close')!.addEventListener('click', () => {
     closeMenus()
@@ -1031,6 +1073,19 @@ export function selectionOverlay(
       bounds.top < view.innerHeight &&
       bounds.left < view.innerWidth
     const selection = latest()
+    // A held panel closes when the selection leaves its menu or the breakpoint changes, and
+    // opens again after a morph replaced it or reset its popover attribute.
+    if (held) {
+      const popover = doc.querySelector<HTMLElement>(`[data-lacuno-node="${CSS.escape(held.id)}"]`)
+      if (
+        !popover ||
+        !selection.name ||
+        selection.scope !== held.scope ||
+        (selected && popoverOf(selected) !== popover)
+      )
+        unhold(popover)
+      else if (!popover.matches(':popover-open')) hold(popover)
+    }
     paintFlash(selection.flash)
     const editing = !!doc.querySelector('[data-lacuno-editing]')
     // Hover outlines wait while a drag or text editing is on, like the rest of the overlay.
@@ -1123,6 +1178,10 @@ export function selectionOverlay(
       handlesLayer.hidden = still
       spacingChip.hidden = still
       askChip.hidden = still
+      // Show open only where the closed panel is hidden, as a menu's is below Desktop.
+      const popover = popoverOf(selected!)
+      popoverChip.hidden = still || !popover || (!held && popover.checkVisibility())
+      popoverLabel.textContent = held ? 'Hide' : 'Show open'
       alignChip.hidden = still || !selected!.parentElement?.hasAttribute('data-lacuno-node')
       bottomBar.hidden = selection.inner || !selection.editable
       // No Align chip when nothing can move: a child that fills its parent on every axis.

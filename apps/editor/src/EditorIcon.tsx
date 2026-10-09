@@ -11,6 +11,7 @@ const paths = {
   grid: 'M3 3h18v18H3zM12 3v18M3 12h18',
   row: 'M3 4h18v16H3zM9 4v16M15 4v16',
   stack: 'M4 3h16v18H4zM4 9h16M4 15h16',
+  menu: 'M4 6h16M4 12h16M4 18h16',
   back: 'm14 6-6 6 6 6M8 12h12',
   // The large four-point star sits exactly in the middle; small ones accent two corners.
   sparkle:
