@@ -151,12 +151,10 @@ export function Canvas({
       ? URL.createObjectURL(
           new Blob(
             [
-              html
-                .replace(/<head[^>]*>/, `$&<base href="${base}/">`)
-                .replace(
-                  /(<meta http-equiv="Content-Security-Policy" content=")([^"]*)/,
-                  (_, tag, policy) => tag + policy.replaceAll("'self'", `'self' ${base}`),
-                ),
+              html.replace(
+                /(<meta http-equiv="Content-Security-Policy" content=")([^"]*)/,
+                (_, tag, policy) => tag + policy.replaceAll("'self'", `'self' ${base}`),
+              ),
             ],
             { type: 'text/html' },
           ),

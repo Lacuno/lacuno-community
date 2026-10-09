@@ -60,11 +60,6 @@
       if (result.isError || !text) throw new Error(text || 'No editor session.')
       const session = JSON.parse(text)
       window.lacunoEmbed = { token: session.token, origin: session.origin, site: session.site }
-      // Every root-relative address in this document, the bundle's chunk preloads among them,
-      // resolves against the runtime from here on.
-      const base = document.createElement('base')
-      base.href = `${session.origin}/`
-      document.head.prepend(base)
       // The bundle's hashed file names are only in the editor's index.html.
       const index = await (await fetch(`${session.origin}/`)).text()
       const parsed = new DOMParser().parseFromString(index, 'text/html')

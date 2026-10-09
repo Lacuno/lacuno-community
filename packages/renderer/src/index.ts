@@ -9,8 +9,13 @@ export type CanvasResult = { html: string; warnings: { node: string; message: st
  * An asset's bytes on the editor's API; with `width`, an image whose size is known as a WebP
  * that wide (the server serves the original where it cannot resize).
  */
+/** Spike: an editor on another origin names the runtime, so the canvas asks it, not itself. */
+export let assetOrigin = ''
+export const setAssetOrigin = (origin: string) => {
+  assetOrigin = origin
+}
 export const assetUrl = (siteId: string, asset: AssetRef, width?: number) =>
-  `/api/sites/${encodeURIComponent(siteId)}/assets/${asset.hash}${
+  `${assetOrigin}/api/sites/${encodeURIComponent(siteId)}/assets/${asset.hash}${
     width && asset.width ? `?w=${width}` : ''
   }`
 

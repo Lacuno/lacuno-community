@@ -1,3 +1,4 @@
+import { setAssetOrigin } from '@lacuno/renderer'
 import { useEffect, useState } from 'react'
 
 export class ApiError extends Error {
@@ -34,6 +35,8 @@ export const embed: Embed | undefined =
         site: fragment.get('site') ?? '',
       }
     : undefined)
+// The canvas and the panels then ask the runtime for images, not the host's origin.
+if (embed) setAssetOrigin(embed.origin)
 /** A path on the runtime, absolute when the editor lives on another origin. */
 export const runtimeUrl = (path: string) => (embed ? embed.origin + path : path)
 /** The event stream's address: EventSource sets no headers, so the token travels in the query. */
