@@ -25,13 +25,15 @@ export const transient = (error: unknown) => !(error instanceof ApiError) || err
  * goes to that origin with the bearer instead of a cookie.
  */
 export type Embed = { token: string; origin: string; site: string }
-const fragment = new URLSearchParams(location.hash.slice(1))
+// Unit tests load this module without a window.
+const win = typeof window === 'undefined' ? undefined : (window as Window & { lacunoEmbed?: Embed })
+const fragment = new URLSearchParams(win ? win.location.hash.slice(1) : '')
 export const embed: Embed | undefined =
-  (window as { lacunoEmbed?: Embed }).lacunoEmbed ??
-  (fragment.get('token')
+  win?.lacunoEmbed ??
+  (win && fragment.get('token')
     ? {
         token: fragment.get('token')!,
-        origin: fragment.get('origin') ?? location.origin,
+        origin: fragment.get('origin') ?? win.location.origin,
         site: fragment.get('site') ?? '',
       }
     : undefined)

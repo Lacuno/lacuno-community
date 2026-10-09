@@ -132,8 +132,10 @@ it('A+B: with a token and no cookie, the editor loads as a blob canvas and edits
   const canvas = page.frameLocator('iframe[title="Site canvas"]')
   await canvas.locator('#lacuno-selection-overlay').waitFor({ state: 'attached' })
   expect(await canvas.locator('html').evaluate(() => document.URL)).toMatch(/^blob:/)
-  // The render's root-relative asset paths resolve to the runtime through the injected base.
-  expect(await canvas.locator('html').evaluate(() => document.baseURI)).toBe(`${origin}/`)
+  // No base tag (claude.ai keeps base-uri 'self'): the runtime wrote absolute asset addresses.
+  expect(await canvas.locator('img[src]').first().getAttribute('src')).toMatch(
+    new RegExp(`^${origin}/api/sites/`),
+  )
   await expect
     .poll(() =>
       canvas
