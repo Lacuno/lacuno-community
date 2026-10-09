@@ -1985,11 +1985,8 @@
   padding: 4px 8px;
   font-size: 12px;
 }
-.editor .ask-dialog label {
-  margin: 0 0 8px;
-}
 .editor .ask-dialog textarea {
-  margin-bottom: 12px;
+  margin: 8px 0 12px;
 }
 .ask-actions {
   display: flex;
