@@ -45,7 +45,7 @@ type View = {
 }
 
 describe('page.view', () => {
-  it('answers the boxes with labels from names, then tags, and the same image', async () => {
+  it('answers the boxes with labels from names, then tags, and no image', async () => {
     const doc = fixtureDocument()
     doc.nodes['n-hero']!.meta = { label: 'Hero' }
     const { screenshot, calls } = fake([
@@ -75,9 +75,9 @@ describe('page.view', () => {
       ['n-hero', 'Hero', 1],
       ['n-hero-title', 'h1', 3],
     ])
-    const [, image] = result.content as { type: string; data?: string; mimeType?: string }[]
-    expect(image).toMatchObject({ type: 'image', mimeType: 'image/jpeg' })
-    expect(Buffer.from(image?.data ?? '', 'base64')).toEqual(await jpeg(1280))
+    // The picture is page.screenshot's: a JPEG next to the boxes would be over the size a host
+    // passes a result inline.
+    expect((result.content as { type: string }[]).map((c) => c.type)).toEqual(['text'])
     // The whole page, annotated so the renderer finds the nodes, at the asked width.
     expect(calls[0]?.options).toEqual({ width: 1280, boxes: true })
     expect(calls[0]?.html).toContain('data-lacuno-node="n-hero"')
