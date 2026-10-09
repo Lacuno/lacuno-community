@@ -50,12 +50,7 @@ it('uploads a font in site settings, picks it in the Font control and publishes 
   const options = () => font.locator('option').allTextContents()
   await heading.click()
   await openFormatting(page, 'Typography')
-  expect(await options()).toEqual([
-    'Arial',
-    'Arial, Helvetica, sans-serif',
-    value,
-    ...stacks,
-  ])
+  expect(await options()).toEqual(['Arial', 'Arial, Helvetica, sans-serif', value, ...stacks])
   await font.selectOption(value)
   await saved()
   await expect
