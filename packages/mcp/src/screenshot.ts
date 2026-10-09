@@ -7,17 +7,32 @@ export type ScreenshotOptions = {
   node?: string | undefined
   /** The most of a full page that is captured, 4000 px unless asked for more. */
   maxHeight?: number | undefined
+  /** Also measure every annotated node; the answer is then `{ image, boxes }`. */
+  boxes?: true | undefined
+}
+/** Where an annotated node is on the page, in CSS px at the viewport width, with `depth` annotated ancestors. */
+export type Box = {
+  id: string
+  tag: string
+  depth: number
+  x: number
+  y: number
+  w: number
+  h: number
 }
 /** The bytes of the asset stored under `hash`, or nothing when it is missing. */
 export type ReadAsset = (hash: string) => Promise<Buffer | undefined>
 /** A site asset's type and bytes by its public path, or nothing when there is none. */
 export type AssetAt = (path: string) => Promise<{ mime: string; body: Buffer } | undefined>
-/** A JPEG of `html`, a PNG of one node; `page.screenshot` is offered only with one. */
+/**
+ * A JPEG of `html`, a PNG of one node, with the boxes of its nodes when `boxes` is asked for;
+ * `page.screenshot` and `page.view` are offered only with one.
+ */
 export type Screenshot = (
   html: string,
   assetAt: AssetAt,
   options: ScreenshotOptions,
-) => Promise<Buffer>
+) => Promise<Buffer | { image: Buffer; boxes: Box[] }>
 
 const ORIGIN = 'http://preview.lacuno'
 
@@ -27,14 +42,15 @@ const ORIGIN = 'http://preview.lacuno'
  * every other request is aborted, so embeds and custom code reach no third party. Without a
  * height the whole page is captured, up to `maxHeight`; with `node`, only that element, which
  * needs annotated HTML. A page is a JPEG, a fraction of the PNG's bytes, which an AI reads as
- * well; a node is a PNG, crisp for reading one section's text.
+ * well; a node is a PNG, crisp for reading one section's text. With `boxes`, every annotated
+ * node with an area is measured too, in document order.
  */
 export async function render(
   browser: Browser,
   html: string,
   assetAt: AssetAt,
-  { width, height, node, maxHeight = 4000 }: ScreenshotOptions,
-): Promise<Buffer> {
+  { width, height, node, maxHeight = 4000, boxes }: ScreenshotOptions,
+): Promise<Buffer | { image: Buffer; boxes: Box[] }> {
   const context = await browser.newContext({
     viewport: { width, height: height ?? 800 },
     reducedMotion: 'reduce',
@@ -62,21 +78,47 @@ export async function render(
         return img.decode().catch(() => {})
       }))),
     ]).then(() => {})`)
+    let image: Buffer
     if (node === undefined) {
       const fullPage = height === undefined
       const tall =
         fullPage &&
         (await page.evaluate<number>('document.documentElement.scrollHeight')) > maxHeight
-      return await page.screenshot({
+      image = await page.screenshot({
         type: 'jpeg',
         quality: 80,
         fullPage,
         ...(tall && { clip: { x: 0, y: 0, width, height: maxHeight } }),
       })
+    } else {
+      const element = page.locator(`[data-lacuno-node="${node}"]`).first()
+      if (!(await element.count()))
+        throw new InputError(`node ${node} is not rendered on this page`)
+      image = await element.screenshot()
     }
-    const element = page.locator(`[data-lacuno-node="${node}"]`).first()
-    if (!(await element.count())) throw new InputError(`node ${node} is not rendered on this page`)
-    return await element.screenshot()
+    if (!boxes) return image
+    // Measured after the capture, which may have scrolled the page; a node without an area is
+    // nothing to point at.
+    return {
+      image,
+      boxes: await page.evaluate<Box[]>(`[...document.querySelectorAll('[data-lacuno-node]')]
+        .map((el) => {
+          const r = el.getBoundingClientRect()
+          let depth = 0
+          for (let p = el.parentElement; p; p = p.parentElement)
+            if (p.hasAttribute('data-lacuno-node')) depth++
+          return {
+            id: el.getAttribute('data-lacuno-node'),
+            tag: el.tagName.toLowerCase(),
+            depth,
+            x: Math.round(r.left + scrollX),
+            y: Math.round(r.top + scrollY),
+            w: Math.round(r.width),
+            h: Math.round(r.height),
+          }
+        })
+        .filter((b) => b.w > 0 && b.h > 0)`),
+    }
   } finally {
     await context.close()
   }
@@ -128,7 +170,9 @@ export function serviceScreenshot(url: string, secret: string | undefined): Scre
     if (response.status === 400)
       throw new InputError(((await response.json()) as { error: string }).error)
     if (!response.ok) throw new Error(`The screenshot service answered ${response.status}.`)
-    return Buffer.from(await response.arrayBuffer())
+    if (!options.boxes) return Buffer.from(await response.arrayBuffer())
+    const { image, boxes } = (await response.json()) as { image: string; boxes: Box[] }
+    return { image: Buffer.from(image, 'base64'), boxes }
   }
 }
 

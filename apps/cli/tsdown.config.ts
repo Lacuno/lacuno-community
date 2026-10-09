@@ -10,6 +10,8 @@ export default defineConfig({
   noExternal: [/^@lacuno\//],
   dts: false,
   clean: true,
+  // The MCP server reads the page view beside its own module, in source and in the bundle.
+  copy: '../../packages/mcp/src/page-view.html',
   // tsdown defaults to a fixed .mjs extension on the node platform regardless of the package's
   // own "type", which would not match the "./dist/main.js" the package.json bin field names.
   fixedExtension: false,
