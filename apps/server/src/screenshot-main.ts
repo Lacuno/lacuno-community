@@ -5,7 +5,13 @@ import { screenshotService } from './screenshot-service.js'
 const slots = Number(process.env.LACUNO_SCREENSHOT_SLOTS ?? 2)
 if (!Number.isInteger(slots) || slots < 1)
   throw new Error(`Invalid LACUNO_SCREENSHOT_SLOTS ${slots}`)
-const app = screenshotService({ slots, secret: process.env.LACUNO_SCREENSHOT_SECRET, wait: 20_000 })
+const app = screenshotService({
+  slots,
+  secret: process.env.LACUNO_SCREENSHOT_SECRET,
+  wait: 20_000,
+  deadline: 30_000,
+  stuck: 60_000,
+})
 const server = serve(
   {
     fetch: app.fetch,

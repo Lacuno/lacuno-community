@@ -31,7 +31,7 @@ const chromium = await import('playwright')
   .catch(() => false)
 
 const secret = 'test-screenshot-secret'
-const service = screenshotService({ slots: 1, secret, wait: 1500 })
+const service = screenshotService({ slots: 1, secret, wait: 1500, deadline: 30_000, stuck: 60_000 })
 const listener = serve({ fetch: service.fetch, port: 0, hostname: '127.0.0.1' })
 await new Promise((resolve) => listener.once('listening', resolve))
 const url = `http://127.0.0.1:${(listener.address() as AddressInfo).port}`
@@ -50,13 +50,14 @@ function shoot(
   request: object,
   assets: Record<string, Buffer> = {},
   authorization = `Bearer ${secret}`,
+  app = service,
 ) {
   const form = new FormData()
   form.set('request', JSON.stringify(request))
   form.set('html', html)
   for (const [name, body] of Object.entries(assets))
     form.set(`asset:${name}`, new Blob([new Uint8Array(body)], { type: 'image/png' }))
-  return service.request('/screenshot', { method: 'POST', body: form, headers: { authorization } })
+  return app.request('/screenshot', { method: 'POST', body: form, headers: { authorization } })
 }
 
 /** Holds the one slot for about `ms` by blocking the page's load. */
@@ -142,6 +143,26 @@ describe.skipIf(!chromium)('screenshot service', () => {
     expect(held?.status).toBe(200)
     expect(busy?.status).toBe(503)
     expect(await busy?.json()).toEqual({ error: 'Screenshots are busy.', retryAfter: 5 })
+  })
+
+  it('cuts off a page that never finishes and frees its slot', async () => {
+    const frozen = screenshotService({ slots: 1, secret, wait: 5000, deadline: 2000, stuck: 1000 })
+    const viewport = { width: 400, height: 300 }
+    // Loads, then runs forever, so waiting for its fonts and images never ends.
+    const endless = shoot(
+      '<script>onload = () => setTimeout(() => { for (;;); })</script>',
+      viewport,
+      {},
+      undefined,
+      frozen,
+    )
+    await sleep(1500)
+    expect((await frozen.request('/health')).status).toBe(503)
+    const cut = await endless
+    expect(cut.status).toBe(400)
+    expect(await cut.json()).toEqual({ error: 'The page did not render within 2 s.' })
+    expect((await frozen.request('/health')).status).toBe(200)
+    expect((await shoot('<p>Hi</p>', viewport, {}, undefined, frozen)).status).toBe(200)
   })
 
   it('sends no request beyond the page', async () => {
