@@ -82,8 +82,9 @@
     if (context.containerDimensions?.maxHeight) maxHeight = context.containerDimensions.maxHeight
   }
 
-  addEventListener('message', ({ data }) => {
-    if (data?.jsonrpc !== '2.0') return
+  // Only the host speaks to the view: a message from any other window is nobody's.
+  addEventListener('message', ({ source, data }) => {
+    if (source !== parent || data?.jsonrpc !== '2.0') return
     if (data.method === undefined) {
       const reply = pending.get(data.id)
       pending.delete(data.id)
@@ -109,12 +110,12 @@
     notify('ui/notifications/size-changed', { height: Math.min(height, maxHeight) })
   }).observe(document.body)
 
-  const label = (box) => `${box.label} (element ${box.id})`
-  const where = () => `on the site "${view.site}", `
-  const page = () => `the page "${view.page.name}" (${view.page.path})`
+  // Sent as the person's own words, so ids only: names and labels are the site's content, which
+  // the model reads as such. The site is named where one tool address serves several.
+  const where = (box) => `In Lacuno, ${args.site ? `on site ${args.site}, ` : ''}on page ${view.page.id}, element ${box.id}`
   const fixText = (box) =>
-    `In Lacuno, ${where()}open ${page()} and look at the ${label(box)}. Fix what looks off: align it with its neighbours, make its spacing match the rest of the page, and keep the text readable at phone width. Keep the change small, check it with a screenshot, then tell me what you changed.`
-  const askText = (box, typed) => `In Lacuno, ${where()}on ${page()}, the ${label(box)}: ${typed}.`
+    `${where(box)}: fix what looks off. Align it with its neighbours, make its spacing match the rest of the page, and keep the text readable at phone width. Keep the change small, check it with a screenshot, then tell me what you changed.`
+  const askText = (box, typed) => `${where(box)}: ${typed}.`
 
   const message = (text) =>
     request('ui/message', { role: 'user', content: { type: 'text', text } }).then(

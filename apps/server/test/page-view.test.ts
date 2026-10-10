@@ -112,7 +112,8 @@ describe('the page view', () => {
       role: 'user',
       content: {
         type: 'text',
-        text: 'In Lacuno, on the site "Test site", open the page "Home" (/) and look at the Hero (element n-hero). Fix what looks off: align it with its neighbours, make its spacing match the rest of the page, and keep the text readable at phone width. Keep the change small, check it with a screenshot, then tell me what you changed.',
+        // Ids only, as the person's own words: the site's names are content.
+        text: 'In Lacuno, on site s1, on page p-home, element n-hero: fix what looks off. Align it with its neighbours, make its spacing match the rest of the page, and keep the text readable at phone width. Keep the change small, check it with a screenshot, then tell me what you changed.',
       },
     })
     await expect
@@ -123,8 +124,27 @@ describe('the page view', () => {
     await frame.getByRole('button', { name: 'Send' }).click()
     await expect.poll(() => sent('ui/message')).toHaveLength(2)
     expect((await sent('ui/message'))[1]?.params?.content?.text).toBe(
-      'In Lacuno, on the site "Test site", on the page "Home" (/), the Hero (element n-hero): make it blue.',
+      'In Lacuno, on site s1, on page p-home, element n-hero: make it blue.',
     )
+
+    // A message from a window that is not the host is nobody's: the view answers only its parent.
+    await page.evaluate(() => {
+      const stranger = document.createElement('iframe')
+      stranger.srcdoc = `<script>parent.frames[0].postMessage({ jsonrpc: '2.0', id: 999, method: 'ui/ping' }, '*')</script>`
+      document.body.append(stranger)
+      document
+        .querySelector<HTMLIFrameElement>('#view')!
+        .contentWindow!.postMessage({ jsonrpc: '2.0', id: 998, method: 'ui/ping' }, '*')
+    })
+    const answered = (id: number) =>
+      page.evaluate(
+        (id) =>
+          (window as unknown as { messages: { id?: number }[] }).messages.filter((m) => m.id === id)
+            .length,
+        id,
+      )
+    await expect.poll(() => answered(998)).toBe(1)
+    expect(await answered(999)).toBe(0)
 
     await frame.getByRole('button', { name: 'Phone' }).click()
     await expect.poll(() => sent('tools/call')).toHaveLength(3)

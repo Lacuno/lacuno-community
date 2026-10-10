@@ -134,15 +134,16 @@ export function Editor({
     if (embed) hostRequest('ui/request-display-mode', { mode: 'fullscreen' })
   }, [])
   // Spike: the host hands the model this with the person's next message, so "this" and "the
-  // selected element" in the chat mean what is selected on the canvas.
+  // selected element" in the chat mean what is selected on the canvas. Ids only: names and
+  // labels are the site's content, which the model reads as such.
   useEffect(() => {
     if (!embed || !doc || !page) return
-    const where = `on the page "${page.name}" (${page.path}) of the site "${doc.site.name}"`
+    const where = `on page ${page.id} of site ${siteId}`
     const text = node
-      ? `In the Lacuno editor the person has selected the ${nodeLabel(node)} (element ${selected}) ${where}. "This", "it" or "the selected element" means that element.`
+      ? `In the Lacuno editor the person has selected element ${selected} ${where}. "This", "it" or "the selected element" means that element.`
       : `In the Lacuno editor nothing is selected ${where}.`
     hostRequest('ui/update-model-context', { content: [{ type: 'text', text }] })
-  }, [doc, page, node, selected])
+  }, [doc, page, node, selected, siteId])
   // Spike: and the runtime, for editor.selection, as a host may not hand the model the above.
   useEffect(() => {
     if (!embed || !pageId) return
@@ -227,6 +228,7 @@ export function Editor({
         </div>
       )}
       <EditorHeader
+        siteId={siteId}
         session={session}
         notice={notice}
         role={role}
@@ -254,8 +256,8 @@ export function Editor({
       )}
       {askOpen && doc && node && page && (
         <AskAi
-          site={doc.site.name}
-          page={page}
+          site={siteId}
+          page={page.id}
           label={nodeLabel(node)}
           id={selected}
           close={() => setAskOpen(false)}
@@ -389,7 +391,7 @@ export function Editor({
                 role: 'user',
                 content: {
                   type: 'text',
-                  text: prompt(doc.site.name, page, nodeLabel(node), selected),
+                  text: prompt(siteId, page.id, selected),
                 },
               })
             else setAskOpen(true)

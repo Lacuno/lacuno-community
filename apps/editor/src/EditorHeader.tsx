@@ -18,6 +18,7 @@ function ago(at: number) {
 }
 
 export function EditorHeader({
+  siteId,
   session,
   notice,
   role,
@@ -28,6 +29,7 @@ export function EditorHeader({
   connections,
   connect,
 }: {
+  siteId: string
   session: DocumentSession
   /** A refused shortcut's reason, on the status line for a moment while nothing is saving. */
   notice: string
@@ -44,10 +46,8 @@ export function EditorHeader({
   const { config } = useConfig()
   const historyId = useId()
   const historyPanel = useRef<HTMLDivElement>(null)
-  const show =
-    doc &&
-    page &&
-    `Show me the page "${page.name}" (${page.path}) of the site "${doc.site.name}" in Lacuno.`
+  // Ids only: names are the site's content, which the model reads as such.
+  const show = doc && page && `Show me page ${page.id} of site ${siteId} in Lacuno.`
   // Spike: inside a host the chat is the way back, to the AI apps and to publishing.
   const embedded = !!embed
   return (

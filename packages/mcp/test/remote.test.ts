@@ -19,7 +19,7 @@ describe('tools for a server without a site folder', () => {
         name: 'asset.import',
         arguments: {
           name: 'note.txt',
-          mime: 'text/plain',
+          mime: 'application/pdf',
           data: Buffer.from('hi').toString('base64'),
         },
       }),
@@ -28,7 +28,7 @@ describe('tools for a server without a site folder', () => {
     expect(store.read().document.assets[asset.id]).toMatchObject({ name: 'note.txt' })
     const byPath = await c.client.callTool({
       name: 'asset.import',
-      arguments: { name: 'x', mime: 'text/plain', path: 'x.txt' },
+      arguments: { name: 'x', mime: 'application/pdf', path: 'x.txt' },
     })
     expect(jsonOf(byPath)).toMatchObject({ kind: 'input' })
   })
@@ -51,7 +51,7 @@ describe('tools for a server without a site folder', () => {
     await c.client.callTool({ name: 'asset.import', arguments: { name: 'a.png', url, alt: 'A' } })
     await c.client.callTool({
       name: 'asset.import',
-      arguments: { name: 'b.png', mime: 'text/html', data: Buffer.from('b').toString('base64') },
+      arguments: { name: 'b.png', mime: 'image/gif', data: Buffer.from('b').toString('base64') },
     })
     expect(imported).toEqual([
       { name: 'a.png', alt: 'A', bytes: url },

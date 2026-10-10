@@ -16,7 +16,7 @@ import {
 } from '@lacuno/document'
 import type { Screenshot } from '@lacuno/mcp/screenshot'
 import { renderPreview } from '@lacuno/renderer'
-import { AssetHash, type AssetRef, hashAsset, parseDocument } from '@lacuno/schema'
+import { AssetHash, AssetMime, type AssetRef, hashAsset, parseDocument } from '@lacuno/schema'
 import type Database from 'better-sqlite3'
 import { and, eq, sql } from 'drizzle-orm'
 import { type Context, Hono, type MiddlewareHandler } from 'hono'
@@ -32,7 +32,13 @@ import { exportAsset, exportReport, exportThumbnail } from './export.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
 import { imageSize, imageVariant, RESIZABLE, warmVariants } from './images.js'
 import type { Send } from './mail.js'
-import { activeConnections, closeSessions, closeUserSessions, mcpRoutes } from './mcp.js'
+import {
+  activeConnections,
+  closeSessions,
+  closeUserSessions,
+  type Grant,
+  mcpRoutes,
+} from './mcp.js'
 import { createOAuth, gatewayUser, type OAuth, relayFetch } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
 import { SqlitePersistence } from './persistence.js'
@@ -205,22 +211,54 @@ export async function createServer(options: ServerOptions) {
         workspaceId: string
         gatewayUser: Awaited<ReturnType<GatewayAuth['authenticate']>>
         /** Spike: the editor.session bearer behind the request, from another origin. */
-        bearer: { userId: string; siteId: string; name: string | undefined } | undefined
+        bearer: EditorToken | undefined
       }
     }>()
-    // Spike: tokens editor.session minted, in memory, for an editor on an allowed origin.
-    const editorTokens = new Map<
-      string,
-      { userId: string; siteId: string; name: string | undefined; expires: number }
-    >()
+    // Spike: tokens editor.session minted, in memory, for an editor on an allowed origin: each
+    // for one site and the AI connection that asked, at most five live per person.
+    type EditorToken = {
+      token: string
+      userId: string
+      siteId: string
+      connectionId: string
+      name: string | undefined
+      expires: number
+    }
+    const editorTokens = new Map<string, EditorToken>()
     const EDITOR_TOKEN_MS = 60 * 60_000
-    const mintEditorToken = (userId: string, siteId: string, name: string | undefined) => {
+    const liveToken = (token: string) => {
+      const held = editorTokens.get(token)
+      return held && held.expires > Date.now() ? held : undefined
+    }
+    /** Forgets the tokens `gone` names; a stream on one ends with its next heartbeat. */
+    const forgetTokens = (gone: (held: EditorToken) => boolean) => {
+      for (const held of editorTokens.values()) if (gone(held)) editorTokens.delete(held.token)
+    }
+    const mintEditorToken = (grant: Grant, siteId: string) => {
       const now = Date.now()
-      for (const [token, held] of editorTokens) if (held.expires < now) editorTokens.delete(token)
+      forgetTokens((held) => held.expires < now)
+      const mine = [...editorTokens.values()].filter((held) => held.userId === grant.userId)
+      for (const held of mine.slice(0, -4)) editorTokens.delete(held.token)
       const token = randomBytes(32).toString('base64url')
-      editorTokens.set(token, { userId, siteId, name, expires: now + EDITOR_TOKEN_MS })
+      editorTokens.set(token, {
+        token,
+        userId: grant.userId,
+        siteId,
+        connectionId: grant.connectionId,
+        name: grant.user,
+        expires: now + EDITOR_TOKEN_MS,
+      })
       return { token, site: siteId, expiresAt: new Date(now + EDITOR_TOKEN_MS).toISOString() }
     }
+    /**
+     * Where a bearer is good: its own site, short of publishing and disconnecting apps, and
+     * asking who it is. Everything else, OAuth consent and the workspace's routes included, is
+     * for the person's own session.
+     */
+    const bearerAllows = (method: string, path: string, held: EditorToken) =>
+      (method === 'GET' && ['/api/config', '/api/auth/get-session'].includes(path)) ||
+      (path.startsWith(`/api/sites/${held.siteId}/`) &&
+        (method === 'GET' || !/^\/api\/sites\/[^/]+\/(releases|connections)(\/|$)/.test(path)))
     // What each person's embedded editor last selected, by site and user, for editor.selection.
     const selections = new Map<string, { page: string; node?: string | undefined; at: number }>()
     const allowedOrigins = new Set(options.allowedOrigins ?? [])
@@ -240,11 +278,13 @@ export async function createServer(options: ServerOptions) {
         await next()
       })
       app.use('/api/*', async (c, next) => {
-        // A bearer from editor.session, in the header or, for the event stream, the query.
+        // A bearer from editor.session, in the header or, for the event stream alone, the query.
         const presented =
-          c.req.header('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1] ?? c.req.query('token')
-        const held = presented ? editorTokens.get(presented) : undefined
-        const bearer = held && held.expires > Date.now() ? held : undefined
+          c.req.header('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1] ??
+          (/^\/api\/sites\/[^/]+\/events$/.test(c.req.path) ? c.req.query('token') : undefined)
+        const bearer = presented ? liveToken(presented) : undefined
+        if (bearer && !bearerAllows(c.req.method, c.req.path, bearer))
+          return c.json({ error: 'Not for the embedded editor' }, 403)
         c.set('bearer', bearer)
         // From another origin only a bearer identifies: an allowed origin without one is refused
         // rather than answered as nobody, config included.
@@ -402,6 +442,7 @@ export async function createServer(options: ServerOptions) {
         if (!input.success) return c.json({ error: 'Invalid user' }, 400)
         const { userId } = input.data
         gateway.forget(userId)
+        forgetTokens((held) => held.userId === userId)
         return c.json({
           ...(await provider.revokeUser(userId)),
           sessions: await closeUserSessions(userId),
@@ -454,9 +495,14 @@ export async function createServer(options: ServerOptions) {
         const variant =
           width === undefined ? undefined : await imageVariant(siteDir, asset, Number(width))
         const bytes = variant ?? (await readFile(path.join(siteDir, 'assets', hash)))
-        // Addressed by content, so a browser keeps what it fetched.
+        // Addressed by content, so a browser keeps what it fetched. A type from before the known
+        // list was checked is a download at most.
         return c.body(new Uint8Array(bytes), 200, {
-          'Content-Type': variant ? 'image/webp' : asset.mime,
+          'Content-Type': variant
+            ? 'image/webp'
+            : AssetMime.safeParse(asset.mime).success
+              ? asset.mime
+              : 'application/octet-stream',
           'Cache-Control': 'private, max-age=31536000, immutable',
           'X-Content-Type-Options': 'nosniff',
           'Content-Security-Policy': "sandbox; default-src 'none'",
@@ -584,6 +630,8 @@ export async function createServer(options: ServerOptions) {
                   message: `Asset ${asset.id} is missing or does not match its hash`,
                 })
               : new Error(`Template asset checksum mismatch: ${asset.id}`)
+          if (assets && !AssetMime.safeParse(asset.mime).success)
+            throw new HTTPException(400, { message: `Asset ${asset.id} has an unknown type` })
           await writeFile(path.join(dir, 'assets', asset.hash), bytes)
           if (exportOptions) await exportAsset(exportOptions, id, asset.hash, bytes)
         }
@@ -607,9 +655,6 @@ export async function createServer(options: ServerOptions) {
       )
     })
     app.use('/api/sites/:id/*', async (c, next) => {
-      // Spike: a bearer is good for its one site.
-      if (c.get('bearer') && c.get('bearer')!.siteId !== c.req.param('id'))
-        return c.json({ error: 'Site not found' }, 404)
       const site = db
         .select({ id: sites.id })
         .from(sites)
@@ -733,7 +778,7 @@ export async function createServer(options: ServerOptions) {
           ? {
               origin,
               ...(options.connectorUrl ? { connectorUrl: options.connectorUrl } : {}),
-              mint: (grant, siteId) => mintEditorToken(grant.userId, siteId, grant.user),
+              mint: mintEditorToken,
               selection: (userId, siteId) => selections.get(`${siteId}/${userId}`),
             }
           : undefined,
@@ -770,6 +815,7 @@ export async function createServer(options: ServerOptions) {
         )
       await oauth.revoke(c.req.param('id'), connection)
       await closeSessions(c.req.param('id'), connection.id)
+      forgetTokens((held) => held.connectionId === connection.id)
       return c.body(null, 204)
     })
     app.get('/api/sites/:id/releases', (c) =>
@@ -833,9 +879,12 @@ export async function createServer(options: ServerOptions) {
         }
         for (const event of siteEvents.recent(id)) if (event.revision > since) send(event)
         stream.onAbort(siteEvents.subscribe(id, send))
+        const bearer = c.get('bearer')
         while (!stream.aborted) {
           await stream.sleep(25_000)
-          await stream.write(': heartbeat\n\n')
+          // A bearer revoked or expired meanwhile ends the stream; its reconnect is refused.
+          if (bearer && !liveToken(bearer.token)) stream.abort()
+          else await stream.write(': heartbeat\n\n')
         }
       })
       response.headers.set('Cache-Control', 'no-store')

@@ -13,12 +13,12 @@ it('prefills a prompt about the selection, follows edits into the links, copies 
   page.on('request', (request) => {
     if (request.url().endsWith('/document/apply')) writes++
   })
-  // The header's Open in Claude asks for the open page by name, path and site.
+  // The header's Open in Claude asks for the open page by id: names are the site's content.
   const open = page.locator('.editor-header').getByRole('link', { name: 'Open in Claude' })
   expect(await open.getAttribute('target')).toBe('_blank')
   expect(await open.getAttribute('rel')).toContain('noopener')
   expect(new URL((await open.getAttribute('href'))!).searchParams.get('q')).toBe(
-    'Show me the page "Home" (/) of the site "Test site" in Lacuno.',
+    `Show me page p-home of site ${siteId} in Lacuno.`,
   )
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
@@ -29,9 +29,8 @@ it('prefills a prompt about the selection, follows edits into the links, copies 
   await dialog.waitFor()
   const prompt = dialog.getByLabel('Prompt', { exact: true })
   const text = await prompt.inputValue()
-  expect(text).toContain('on the site "Test site"')
-  expect(text).toContain('open the page "Home" (/)')
-  expect(text).toContain(`look at the ${label} (element n-home-cta)`)
+  expect(text).toContain(`on site ${siteId}, page p-home, element n-home-cta: fix what looks off`)
+  expect(text).not.toContain('Test site')
   const query = async (name: string) => {
     const link = dialog.getByRole('link', { name, exact: true })
     const url = new URL((await link.getAttribute('href'))!)

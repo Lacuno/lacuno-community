@@ -178,8 +178,8 @@ describe('DocumentStore in memory', () => {
     const store = await DocumentStore.withPersistence(persistence)
     const first = store.apply({ expectedRevision: 0, operations: [] })
     const asset = await store.importAsset({
-      name: 'note.txt',
-      mime: 'text/plain',
+      name: 'note.pdf',
+      mime: 'application/pdf',
       bytes: new TextEncoder().encode('hi'),
     })
     await expect(first).resolves.toMatchObject({ revision: 1 })
@@ -203,11 +203,16 @@ describe('DocumentStore on a folder', () => {
     expect(await readdir(dir)).toEqual(['lacuno.json'])
 
     const asset = await store.importAsset({
-      name: 'note.txt',
-      mime: 'text/plain',
+      name: 'note.pdf',
+      mime: 'application/pdf',
       bytes: new TextEncoder().encode('hi'),
     })
-    expect(asset).toMatchObject({ name: 'note.txt', kind: 'file', mime: 'text/plain', size: 2 })
+    expect(asset).toMatchObject({
+      name: 'note.pdf',
+      kind: 'file',
+      mime: 'application/pdf',
+      size: 2,
+    })
     expect(existsSync(path.join(dir, 'assets', asset.hash))).toBe(true)
     expect(store.revision).toBe(2)
 

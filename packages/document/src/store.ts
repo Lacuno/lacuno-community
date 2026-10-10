@@ -1,4 +1,4 @@
-import type { AssetRef, Document } from '@lacuno/schema'
+import type { AssetMime, AssetRef, Document } from '@lacuno/schema'
 import { DocumentError, hashAsset, parseDocument } from '@lacuno/schema'
 import type { Warning } from './context.js'
 import { planBatch } from './engine.js'
@@ -103,7 +103,7 @@ export class DocumentStore {
   /** The only way bytes enter: hash, store, then register the asset in one committed batch. */
   async importAsset(input: {
     name: string
-    mime: string
+    mime: AssetMime
     bytes: Uint8Array
     alt?: string | undefined
     width?: number | undefined

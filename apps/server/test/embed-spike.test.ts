@@ -1,8 +1,12 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+import { hashAsset } from '@lacuno/schema'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import Database from 'better-sqlite3'
 import { chromium, type Page } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 import type { OAuth } from '../src/oauth.js'
 import { drag, launch } from './harness.js'
 
@@ -20,7 +24,9 @@ const oauth: OAuth = {
     authorization === token
       ? { userId, siteId: site, clientId: 'app-1', connectionId: 'conn-1', app: 'Claude' }
       : null,
-  connections: () => [],
+  connections: () => [
+    { id: 'conn-1', app: 'Claude', clientId: 'app-1', userId, approvedAt: 0, lastActiveAt: null },
+  ],
   revoke: async () => {},
   touch: () => {},
 }
@@ -100,6 +106,11 @@ const session = async (client: Client) =>
       }[]
     )[0]!.text,
   ) as Session
+/** Opens the editor on `page` as the view's bootstrap does: `window.lacunoEmbed` before the bundle. */
+async function openEmbedded(page: Page, embed: Session) {
+  await page.addInitScript((embed) => Object.assign(window, { lacunoEmbed: embed }), embed)
+  await page.goto(embed.origin)
+}
 
 /** Waits for a save that started after the last call to land and the status line to settle. */
 function saves(page: Page, within: Page | ReturnType<Page['frameLocator']> = page) {
@@ -119,16 +130,18 @@ it('A+B: with a token and no cookie, the editor loads as a blob canvas and edits
   const { page, origin, siteId, client, readDocument } = await runtime()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  const { token: bearer, origin: runtimeOrigin, expiresAt } = await session(client)
+  const embed = await session(client)
+  const { token: bearer, origin: runtimeOrigin, expiresAt } = embed
   expect(runtimeOrigin).toBe(origin)
+  expect(embed.site).toBe(siteId)
   expect(Date.parse(expiresAt)).toBeGreaterThan(Date.now())
   const streams: string[] = []
   page.on('request', (request) => {
     if (request.url().includes('/events')) streams.push(request.url())
   })
   const saved = saves(page)
-  // No sign-in happened in this browser: the fragment alone opens the site.
-  await page.goto(`${origin}/?site=${siteId}#token=${bearer}&origin=${origin}`)
+  // No sign-in happened in this browser: the session alone opens the site.
+  await openEmbedded(page, embed)
   const canvas = page.frameLocator('iframe[title="Site canvas"]')
   await canvas.locator('#lacuno-selection-overlay').waitFor({ state: 'attached' })
   expect(await canvas.locator('html').evaluate(() => document.URL)).toMatch(/^blob:/)
@@ -217,14 +230,34 @@ it('B: another origin reaches the API with the bearer and CORS, and is refused w
       'access-control-allow-origin',
     ),
   ).toBeNull()
-  // The bearer is good for its site only, and the stream takes it from the query.
-  expect(
+  // The bearer is good for its site and for asking who it is: not for another site, the site
+  // list, the workspace, OAuth consent or any other auth route, and never for publishing or
+  // disconnecting an app, whatever the role. Only the stream takes it from the query.
+  const withBearer = async (route: string, init: RequestInit = {}) =>
     (
-      await request('/api/sites/not-this-site/document', {
+      await request(route, {
+        ...init,
         headers: { origin: HOST, authorization: `Bearer ${bearer}` },
       })
-    ).status,
-  ).toBe(404)
+    ).status
+  expect(await withBearer(`/api/sites/${siteId}/releases`)).toBe(200)
+  expect(await withBearer('/api/auth/get-session')).toBe(200)
+  expect(await withBearer('/api/sites/not-this-site/document')).toBe(403)
+  expect(await withBearer('/api/sites')).toBe(403)
+  expect(await withBearer('/api/sites', { method: 'POST', body: '{"name":"Mine"}' })).toBe(403)
+  expect(await withBearer('/api/workspaces')).toBe(403)
+  expect(await withBearer('/api/auth/oauth2/consent', { method: 'POST', body: '{}' })).toBe(403)
+  expect(await withBearer('/api/auth/sign-out', { method: 'POST', body: '{}' })).toBe(403)
+  expect(await withBearer(`/api/sites/${siteId}/releases`, { method: 'POST', body: '{}' })).toBe(
+    403,
+  )
+  expect(await withBearer(`/api/sites/${siteId}/connections/conn-1`, { method: 'DELETE' })).toBe(
+    403,
+  )
+  expect(
+    (await request(`/api/sites/${siteId}/document?token=${bearer}`, { headers: { origin: HOST } }))
+      .status,
+  ).toBe(401)
   const stream = await request(`/api/sites/${siteId}/events?token=${bearer}`, {
     headers: { origin: HOST },
   })
@@ -272,9 +305,96 @@ it('B: another origin reaches the API with the bearer and CORS, and is refused w
   expect(applied).toBe(200)
 }, 30_000)
 
-it('names what the person selected on any page through editor.selection', async () => {
-  const { page, origin, siteId, client, request, cookie } = await runtime()
+it('disconnecting the app forgets its tokens: the bearer is refused and a live stream ends', async () => {
+  const { siteId, client, request, cookie } = await runtime()
   const { token: bearer } = await session(client)
+  const read = async () =>
+    (
+      await request(`/api/sites/${siteId}/document`, {
+        headers: { origin: HOST, authorization: `Bearer ${bearer}` },
+      })
+    ).status
+  // The stream checks its token at each heartbeat, 25 s apart; the clock is faked for that.
+  vi.useFakeTimers()
+  try {
+    const stream = await request(`/api/sites/${siteId}/events?token=${bearer}`, {
+      headers: { origin: HOST },
+    })
+    expect(stream.status).toBe(200)
+    expect(await read()).toBe(200)
+    const disconnect = await request(`/api/sites/${siteId}/connections/conn-1`, {
+      method: 'DELETE',
+      headers: { cookie },
+    })
+    expect(disconnect.status).toBe(204)
+    expect(await read()).toBe(401)
+    await vi.advanceTimersByTimeAsync(25_000)
+    expect(await stream.body!.getReader().read()).toEqual({ done: true, value: undefined })
+  } finally {
+    vi.useRealTimers()
+  }
+}, 30_000)
+
+it('serves an asset of a type outside the known list as a download, and refuses to add one', async () => {
+  const { dir, request, cookie, asOwner } = await runtime()
+  // A page stored as an asset before types were checked: not a document on the editor's host.
+  const html = Buffer.from('<script>alert(1)</script>')
+  const hash = await hashAsset(html)
+  const site = await request('/api/sites', {
+    method: 'POST',
+    headers: { cookie },
+    body: JSON.stringify({ name: 'Older site' }),
+  })
+  const siteId = ((await site.json()) as { id: string }).id
+  await mkdir(path.join(dir, 'sites', siteId, 'assets'), { recursive: true })
+  await writeFile(path.join(dir, 'sites', siteId, 'assets', hash), html)
+  const asset = { id: 'a-page', name: 'page.html', kind: 'file', hash, mime: 'text/html', size: 25 }
+  const db = new Database(path.join(dir, 'lacuno.sqlite'))
+  db.prepare(
+    "UPDATE sites SET document=json_set(document,'$.assets.a-page',json(?)) WHERE id=?",
+  ).run(JSON.stringify(asset), siteId)
+  db.close()
+  const served = await asOwner(`/api/sites/${siteId}/assets/${hash}`)
+  expect(served.status).toBe(200)
+  expect(served.headers.get('content-type')).toBe('application/octet-stream')
+  expect(served.headers.get('content-security-policy')).toBe("sandbox; default-src 'none'")
+  expect(served.headers.get('x-content-type-options')).toBe('nosniff')
+  // Neither a batch nor an import takes such a type now.
+  const { revision, document } = (await (
+    await asOwner(`/api/sites/${siteId}/document`)
+  ).json()) as {
+    revision: number
+    document: { assets: Record<string, { hash: string }> }
+  }
+  const { id: _, ...details } = asset
+  const create = await request(`/api/sites/${siteId}/document/apply`, {
+    method: 'POST',
+    headers: { cookie },
+    body: JSON.stringify({
+      expectedRevision: revision,
+      operations: [{ type: 'asset.create', ...details }],
+    }),
+  })
+  expect(create.status).toBe(400)
+  expect(JSON.stringify(await create.json())).toContain('mime')
+  const assets: Record<string, string> = {}
+  for (const { hash } of Object.values(document.assets))
+    assets[hash] = (await readFile(path.join(dir, 'sites', siteId, 'assets', hash))).toString(
+      'base64',
+    )
+  const imported = await request('/api/sites', {
+    method: 'POST',
+    headers: { cookie },
+    body: JSON.stringify({ name: 'Imported', document, assets }),
+  })
+  expect(imported.status).toBe(400)
+  expect(await imported.json()).toEqual({ error: 'Asset a-page has an unknown type' })
+}, 30_000)
+
+it('names what the person selected on any page through editor.selection', async () => {
+  const { page, siteId, client, request, cookie } = await runtime()
+  const embed = await session(client)
+  const { token: bearer } = embed
   const selection = async () => {
     const result = await client.callTool({ name: 'editor.selection', arguments: {} })
     const text = (result.content as { text: string }[])[0]!.text
@@ -283,7 +403,7 @@ it('names what the person selected on any page through editor.selection', async 
   expect(await selection()).toBe(
     'The editor is not open in this chat, or nothing was selected yet.',
   )
-  await page.goto(`${origin}/?site=${siteId}#token=${bearer}&origin=${origin}`)
+  await openEmbedded(page, embed)
   const canvas = page.frameLocator('iframe[title="Site canvas"]')
   await canvas.locator('#lacuno-selection-overlay').waitFor({ state: 'attached' })
   await expect.poll(async () => (await selection()).page?.name).toBe('Home')
@@ -375,13 +495,17 @@ it('what the host CSP allows: nested srcdoc and blob frames, and blob in an opaq
 }, 30_000)
 
 it('C+D: the editor view bootstraps the editor inside a fake host and talks to the chat', async () => {
-  const { origin, client, readDocument } = await runtime()
+  const { origin, siteId, client, readDocument } = await runtime()
   const page = await hostPage()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   const tools = (await client.listTools()).tools
   const open = tools.find((tool) => tool.name === 'editor.open')
   expect(open?._meta).toEqual({ ui: { resourceUri: 'ui://lacuno/editor-view' } })
+  // The token is for the view: the model never sees editor.session's answer.
+  expect(tools.find((tool) => tool.name === 'editor.session')?._meta).toEqual({
+    ui: { visibility: ['app'] },
+  })
   const opened = await client.callTool({ name: 'editor.open', arguments: { page: '/' } })
   expect((opened.content as { text: string }[])[0]?.text).toBe('Opened "Home" (/) in the editor.')
   const resource = (await client.listResources()).resources.find(
@@ -462,17 +586,46 @@ it('C+D: the editor view bootstraps the editor inside a fake host and talks to t
   expect(await frame.locator('.connect-trigger').count()).toBe(0)
   expect(await frame.locator('.layers, .layers-panel, aside').count()).toBeGreaterThan(0)
 
-  // Select, then Ask AI: the brief goes to the chat as the person's message, no dialog.
+  // A message from a window that is not the host is nobody's: the view answers only its parent.
+  await page.evaluate(() => {
+    const stranger = document.createElement('iframe')
+    stranger.srcdoc = `<script>parent.frames[0].postMessage({ jsonrpc: '2.0', id: 999, method: 'ui/ping' }, '*')</script>`
+    document.body.append(stranger)
+  })
+  await page.evaluate(() =>
+    document
+      .querySelector<HTMLIFrameElement>('#view')!
+      .contentWindow!.postMessage({ jsonrpc: '2.0', id: 998, method: 'ui/ping' }, '*'),
+  )
+  const answered = (id: number) =>
+    page.evaluate(
+      (id) =>
+        (window as unknown as { messages: { id?: number }[] }).messages.filter((m) => m.id === id)
+          .length,
+      id,
+    )
+  await expect.poll(() => answered(998)).toBe(1)
+  expect(await answered(999)).toBe(0)
+
+  // Select, then Ask AI: the brief goes to the chat as the person's message, no dialog. What
+  // the host hands the model and what is sent as the person name ids, never the site's names.
   const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
   await heading.click()
   await expect
     .poll(async () => Number(await canvas.locator('.selection-dashes').getAttribute('width')))
     .toBeGreaterThan(0)
+  await expect
+    .poll(async () => JSON.stringify((await sent('ui/update-model-context')).at(-1)))
+    .toContain(`selected element n-home-title on page p-home of site ${siteId}`)
   await canvas.getByRole('button', { name: 'Ask AI' }).click()
   await expect.poll(() => sent('ui/message')).toHaveLength(1)
   expect((await sent('ui/message'))[0]?.params?.content?.text).toMatch(
-    /^In Lacuno, on the site "Embedded site", open the page "Home" \(\/\) and look at the .+ \(element n-home-title\)\. Fix what looks off/,
+    new RegExp(
+      `^In Lacuno, on site ${siteId}, page p-home, element n-home-title: fix what looks off`,
+    ),
   )
+  expect(JSON.stringify(await sent('ui/update-model-context'))).not.toContain('Embedded site')
+  expect(JSON.stringify(await sent('ui/message'))).not.toContain('Embedded site')
   expect(await frame.locator('.ask-dialog').count()).toBe(0)
 
   // A text edit from the inspector, saved cross-origin with the bearer, lands in the document.

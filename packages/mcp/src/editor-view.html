@@ -29,8 +29,9 @@
   const status = (text) => { document.getElementById('status').textContent = text }
   let args = {}
 
-  addEventListener('message', ({ data }) => {
-    if (data?.jsonrpc !== '2.0') return
+  // Only the host speaks to the view: a message from any other window is nobody's.
+  addEventListener('message', ({ source, data }) => {
+    if (source !== parent || data?.jsonrpc !== '2.0') return
     if (data.method === undefined) {
       const reply = pending.get(data.id)
       pending.delete(data.id)
@@ -59,6 +60,13 @@
       const text = result.content?.find((c) => c.type === 'text')?.text ?? ''
       if (result.isError || !text) throw new Error(text || 'No editor session.')
       const session = JSON.parse(text)
+      // The runtime names itself as a bare origin, https unless it runs on this machine.
+      const origin = new URL(session.origin)
+      if (
+        origin.origin !== session.origin ||
+        (origin.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(origin.hostname))
+      )
+        throw new Error('The editor session names an origin this view does not load from.')
       window.lacunoEmbed = { token: session.token, origin: session.origin, site: session.site }
       // The bundle's hashed file names are only in the editor's index.html.
       const index = await (await fetch(`${session.origin}/`)).text()

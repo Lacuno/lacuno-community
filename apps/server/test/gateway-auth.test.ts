@@ -777,17 +777,19 @@ describe('the editor embedded in an AI app, behind a gateway', () => {
       id: 'cloud-editor-9',
       role: 'editor',
     })
-    // Editors do not publish, and the token is good for its one site.
-    expect(
-      (
-        await server.app.request(`${origin}/api/sites/${siteId}/releases`, {
-          method: 'POST',
-          headers: { ...json, origin: view, authorization: `Bearer ${token}` },
-          body: '{}',
-        })
-      ).status,
-    ).toBe(403)
-    expect((await embedded('/api/sites/another/document')).status).toBe(404)
+    // The token is good for its one site, never for publishing, the workspace's routes or an
+    // OAuth consent, which only the person's own assertion makes.
+    const post = (target: string) =>
+      server.app.request(origin + target, {
+        method: 'POST',
+        headers: { ...json, origin: view, authorization: `Bearer ${token}` },
+        body: '{}',
+      })
+    expect((await post(`/api/sites/${siteId}/releases`)).status).toBe(403)
+    expect((await embedded('/api/sites/another/document')).status).toBe(403)
+    expect((await embedded('/api/sites')).status).toBe(403)
+    expect((await post('/api/sites')).status).toBe(403)
+    expect((await post('/api/auth/oauth2/consent')).status).toBe(403)
 
     // Made a viewer, they still report what they select, and write nothing else; the gateway's
     // own request, without the bearer, reports nothing.
@@ -804,5 +806,15 @@ describe('the editor embedded in an AI app, behind a gateway', () => {
     expect(await (await viewer(selection, { ...select, headers: json })).json()).toEqual({
       error: 'Only the embedded editor reports a selection',
     })
+
+    // Revoked by Cloud, their tokens go with their role: the bearer is refused at once.
+    const system = { sub: 'lacuno-cloud', name: 'Lacuno Cloud', system: true }
+    const revoked = await signed(system)(`${origin}/api/gateway/revoke-user`, {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ userId: 'cloud-editor-9' }),
+    })
+    expect(revoked.status).toBe(200)
+    expect((await embedded(`/api/sites/${siteId}/document`)).status).toBe(401)
   })
 })

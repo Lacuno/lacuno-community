@@ -21,22 +21,15 @@ export const transient = (error: unknown) => !(error instanceof ApiError) || err
 
 /**
  * Spike: the editor inside a host on another origin (an MCP App view). The bootstrap sets
- * `window.lacunoEmbed`, or the page was opened with `#token=…&origin=…&site=…`; every request then
- * goes to that origin with the bearer instead of a cookie.
+ * `window.lacunoEmbed` before the bundle loads; every request then goes to that origin with the
+ * bearer instead of a cookie.
  */
 export type Embed = { token: string; origin: string; site: string }
 // Unit tests load this module without a window.
-const win = typeof window === 'undefined' ? undefined : (window as Window & { lacunoEmbed?: Embed })
-const fragment = new URLSearchParams(win ? win.location.hash.slice(1) : '')
 export const embed: Embed | undefined =
-  win?.lacunoEmbed ??
-  (win && fragment.get('token')
-    ? {
-        token: fragment.get('token')!,
-        origin: fragment.get('origin') ?? win.location.origin,
-        site: fragment.get('site') ?? '',
-      }
-    : undefined)
+  typeof window === 'undefined'
+    ? undefined
+    : (window as Window & { lacunoEmbed?: Embed }).lacunoEmbed
 // The canvas and the panels then ask the runtime for images, not the host's origin.
 if (embed) setAssetOrigin(embed.origin)
 /** A path on the runtime, absolute when the editor lives on another origin. */

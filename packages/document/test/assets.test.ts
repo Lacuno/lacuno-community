@@ -75,11 +75,25 @@ describe('assets', () => {
           name: 'x',
           kind: 'file',
           hash: 'nope',
-          mime: 'text/plain',
+          mime: 'application/pdf',
           size: 1,
         },
       ],
       /invalid input: hash/,
+    )
+    // A type outside the known list is refused: a page's script could hide in one.
+    failing(
+      [
+        {
+          type: 'asset.create',
+          name: 'x',
+          kind: 'file',
+          hash: 'a'.repeat(64),
+          mime: 'text/html' as 'application/pdf',
+          size: 1,
+        },
+      ],
+      /invalid input: mime/,
     )
     failing([{ type: 'asset.update', id: 'a-nope', name: 'x' }], /unknown asset a-nope/)
   })

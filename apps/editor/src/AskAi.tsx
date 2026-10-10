@@ -1,11 +1,13 @@
-import type { Page } from '@lacuno/schema'
 import { useId, useState } from 'react'
 import { Dialog } from './Dialog.js'
 import './publishing.css'
 
-/** Where the element is and what to fix on it, in words an AI app with the site connected can act on. */
-export const prompt = (site: string, page: Page, label: string, id: string) =>
-  `In Lacuno, on the site "${site}", open the page "${page.name}" (${page.path}) and look at the ${label} (element ${id}). Fix what looks off: align it with its neighbours, make its spacing match the rest of the page, and keep the text readable at phone width. Keep the change small, check it with a screenshot, then tell me what you changed.`
+/**
+ * Where the element is and what to fix on it, in words an AI app with the site connected can act
+ * on. Ids only: names and labels are the site's content, which the model reads as such.
+ */
+export const prompt = (site: string, page: string, id: string) =>
+  `In Lacuno, on site ${site}, page ${page}, element ${id}: fix what looks off. Align it with its neighbours, make its spacing match the rest of the page, and keep the text readable at phone width. Keep the change small, check it with a screenshot, then tell me what you changed.`
 
 /**
  * A ready-made prompt about the selected element for the designer's own AI app. Lacuno calls no
@@ -20,12 +22,12 @@ export function AskAi({
   close,
 }: {
   site: string
-  page: Page
+  page: string
   label: string
   id: string
   close: () => void
 }) {
-  const [text, setText] = useState(() => prompt(site, page, label, id))
+  const [text, setText] = useState(() => prompt(site, page, id))
   const [status, setStatus] = useState('')
   const field = useId()
   const copy = async () => {

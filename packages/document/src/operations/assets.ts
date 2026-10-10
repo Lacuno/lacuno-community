@@ -1,4 +1,4 @@
-import { AssetId, AssetRef } from '@lacuno/schema'
+import { AssetId, AssetMime, AssetRef } from '@lacuno/schema'
 import { z } from 'zod'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'
@@ -11,7 +11,8 @@ const assetCreate = defineOperation(
     name: AssetRef.shape.name,
     kind: AssetRef.shape.kind,
     hash: AssetRef.shape.hash,
-    mime: AssetRef.shape.mime,
+    // Known types only: an asset of another type could carry a script onto the editor's host.
+    mime: AssetRef.shape.mime.refine((mime) => AssetMime.safeParse(mime).success),
     size: AssetRef.shape.size,
     width: AssetRef.shape.width,
     height: AssetRef.shape.height,

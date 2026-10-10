@@ -12,7 +12,7 @@ import {
   referencesToEntry,
   subtreeIds,
 } from '@lacuno/document'
-import { type AssetRef, Document, type Node, parseDocument } from '@lacuno/schema'
+import { AssetMime, type AssetRef, Document, type Node, parseDocument } from '@lacuno/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { diffDocuments, formatDiff } from './diff.js'
@@ -279,7 +279,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         'Import a file and return the asset reference. Pass one of: url, a public https address the server downloads; path, relative to the site folder and inside it; data, base64 (small files only: every byte costs tokens). For a local file on a connected site, use asset.upload instead.',
       inputSchema: {
         ...details,
-        mime: z.string().min(1).optional(),
+        mime: AssetMime.optional(),
         url: z.string().optional(),
         path: z.string().optional(),
         data: z.string().optional(),
@@ -596,6 +596,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         annotations: adds,
         description:
           "A short-lived token for the Lacuno editor embedded in a view, with the runtime's origin. For the editor view only.",
+        // The view alone calls it: the token never reaches the model.
+        _meta: { ui: { visibility: ['app'] } },
       },
       async () => {
         try {

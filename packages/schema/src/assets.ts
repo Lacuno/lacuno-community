@@ -15,6 +15,24 @@ export async function hashAsset(bytes: Uint8Array): Promise<AssetHash> {
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+/** The types an asset may be stored as: the editor's uploads, SVG and PDF. Nothing else is served as itself. */
+export const AssetMime = z.enum([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/avif',
+  'image/gif',
+  'image/svg+xml',
+  'video/mp4',
+  'video/webm',
+  'font/woff2',
+  'font/woff',
+  'font/ttf',
+  'font/otf',
+  'application/pdf',
+])
+export type AssetMime = z.infer<typeof AssetMime>
+
 /** Metadata only. Bytes live in storage, addressed by content hash. */
 export const AssetRef = z.object({
   id: AssetId,
