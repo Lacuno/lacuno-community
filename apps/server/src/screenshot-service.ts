@@ -24,17 +24,25 @@ type Launched = { browser: Promise<Browser>; shots: number; open: number }
  * the page uses, and answers a JPEG of the page or a PNG of the node, rendered in a fresh context
  * of one shared Chromium; with `boxes`, JSON `{ image, mime, boxes }` with the image in base64. At
  * most `slots` render at once; a request that waits longer than `wait` ms for one is answered 503.
+ * A render is cut off after `deadline` ms; `/health` fails while a slot is held longer than
+ * `stuck` ms, which only a Chromium that will not close leads to.
  */
 export function screenshotService({
   slots,
   secret,
   wait,
+  deadline,
+  stuck,
 }: {
   slots: number
   secret: string | undefined
   wait: number
+  deadline: number
+  stuck: number
 }) {
   let free = slots
+  /** When each slot in use was taken. */
+  const held = new Set<{ at: number }>()
   const queue: (() => void)[] = []
   /** Resolves to whether a slot was taken within `wait`. */
   const take = () =>
@@ -72,7 +80,11 @@ export function screenshotService({
   current = launch()
 
   const app = new Hono()
-  app.get('/health', (c) => c.text('ok'))
+  app.get('/health', (c) =>
+    [...held].some((slot) => Date.now() - slot.at > stuck)
+      ? c.text('A screenshot slot is stuck.', 503)
+      : c.text('ok'),
+  )
   app.post(
     '/screenshot',
     bodyLimit({
@@ -97,6 +109,8 @@ export function screenshotService({
       const launched = current
       if (++launched.shots >= SHOTS_PER_BROWSER) current = undefined
       launched.open++
+      const slot = { at: Date.now() }
+      held.add(slot)
       try {
         const shot = await render(
           await launched.browser,
@@ -108,6 +122,7 @@ export function screenshotService({
               : undefined
           },
           options,
+          deadline,
         )
         if (Buffer.isBuffer(shot))
           return c.body(new Uint8Array(shot), 200, { 'content-type': imageInfo(shot).mime })
@@ -120,6 +135,7 @@ export function screenshotService({
         if (e instanceof InputError) return c.json({ error: e.message }, 400)
         throw e
       } finally {
+        held.delete(slot)
         release()
         // A replaced Chromium closes once its last screenshot is done.
         if (--launched.open === 0 && current !== launched)

@@ -1,4 +1,5 @@
-import type { Browser } from 'playwright'
+import { setTimeout as sleep } from 'node:timers/promises'
+import type { Browser, BrowserContext } from 'playwright'
 import { InputError } from './errors.js'
 
 export type ScreenshotOptions = {
@@ -49,78 +50,102 @@ export async function render(
   browser: Browser,
   html: string,
   assetAt: AssetAt,
-  { width, height, node, maxHeight = 4000, boxes }: ScreenshotOptions,
+  options: ScreenshotOptions,
+  deadline = 30_000,
 ): Promise<Buffer | { image: Buffer; boxes: Box[] }> {
   const context = await browser.newContext({
-    viewport: { width, height: height ?? 800 },
+    viewport: { width: options.width, height: options.height ?? 800 },
     reducedMotion: 'reduce',
   })
+  // A page that never finishes, by an endless script or a request that hangs, is cut off at the
+  // deadline; a context that will not close then takes its browser along, so the caller goes on.
+  let timer: NodeJS.Timeout | undefined
   try {
-    const page = await context.newPage()
-    page.setDefaultTimeout(15_000)
-    // The later route wins, so only the preview origin is served.
-    await page.route('**', (route) => route.abort())
-    await page.route(`${ORIGIN}/**`, async (route) => {
-      const pathname = new URL(route.request().url()).pathname
-      if (pathname === '/') return route.fulfill({ contentType: 'text/html', body: html })
-      const asset = await assetAt(pathname)
-      return asset
-        ? route.fulfill({ contentType: asset.mime, body: asset.body })
-        : route.fulfill({ status: 404 })
-    })
-    await page.goto(`${ORIGIN}/`, { waitUntil: 'load' })
-    // Fonts, then lazy images below the fold, which would otherwise be captured blank; at most 5s.
-    // decode() also waits for the load; after only `load`, an async-decoded image can paint blank.
-    await page.evaluate(`Promise.race([
-      new Promise((r) => setTimeout(r, 5000)),
-      document.fonts.ready.then(() => Promise.all([...document.images].map((img) => {
-        img.loading = 'eager'
-        return img.decode().catch(() => {})
-      }))),
-    ]).then(() => {})`)
-    let image: Buffer
-    if (node === undefined) {
-      const fullPage = height === undefined
-      const tall =
-        fullPage &&
-        (await page.evaluate<number>('document.documentElement.scrollHeight')) > maxHeight
-      image = await page.screenshot({
-        type: 'jpeg',
-        quality: 80,
-        fullPage,
-        ...(tall && { clip: { x: 0, y: 0, width, height: maxHeight } }),
-      })
-    } else {
-      const element = page.locator(`[data-lacuno-node="${node}"]`).first()
-      if (!(await element.count()))
-        throw new InputError(`node ${node} is not rendered on this page`)
-      image = await element.screenshot()
-    }
-    if (!boxes) return image
-    // Measured after the capture, which may have scrolled the page; a node without an area is
-    // nothing to point at.
-    return {
-      image,
-      boxes: await page.evaluate<Box[]>(`[...document.querySelectorAll('[data-lacuno-node]')]
-        .map((el) => {
-          const r = el.getBoundingClientRect()
-          let depth = 0
-          for (let p = el.parentElement; p; p = p.parentElement)
-            if (p.hasAttribute('data-lacuno-node')) depth++
-          return {
-            id: el.getAttribute('data-lacuno-node'),
-            tag: el.tagName.toLowerCase(),
-            depth,
-            x: Math.round(r.left + scrollX),
-            y: Math.round(r.top + scrollY),
-            w: Math.round(r.width),
-            h: Math.round(r.height),
-          }
-        })
-        .filter((b) => b.w > 0 && b.h > 0)`),
-    }
+    return await Promise.race([
+      capture(context, html, assetAt, options),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new InputError(`The page did not render within ${deadline / 1000} s.`)),
+          deadline,
+        )
+      }),
+    ])
   } finally {
-    await context.close()
+    clearTimeout(timer)
+    const closed = await Promise.race([
+      context.close().then(() => true),
+      sleep(5000, false, { ref: false }),
+    ])
+    if (!closed) await browser.close()
+  }
+}
+
+async function capture(
+  context: BrowserContext,
+  html: string,
+  assetAt: AssetAt,
+  { width, height, node, maxHeight = 4000, boxes }: ScreenshotOptions,
+): Promise<Buffer | { image: Buffer; boxes: Box[] }> {
+  const page = await context.newPage()
+  page.setDefaultTimeout(15_000)
+  // The later route wins, so only the preview origin is served.
+  await page.route('**', (route) => route.abort())
+  await page.route(`${ORIGIN}/**`, async (route) => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname === '/') return route.fulfill({ contentType: 'text/html', body: html })
+    const asset = await assetAt(pathname)
+    return asset
+      ? route.fulfill({ contentType: asset.mime, body: asset.body })
+      : route.fulfill({ status: 404 })
+  })
+  await page.goto(`${ORIGIN}/`, { waitUntil: 'load' })
+  // Fonts, then lazy images below the fold, which would otherwise be captured blank; at most 5s.
+  // decode() also waits for the load; after only `load`, an async-decoded image can paint blank.
+  await page.evaluate(`Promise.race([
+    new Promise((r) => setTimeout(r, 5000)),
+    document.fonts.ready.then(() => Promise.all([...document.images].map((img) => {
+      img.loading = 'eager'
+      return img.decode().catch(() => {})
+    }))),
+  ]).then(() => {})`)
+  let image: Buffer
+  if (node === undefined) {
+    const fullPage = height === undefined
+    const tall =
+      fullPage && (await page.evaluate<number>('document.documentElement.scrollHeight')) > maxHeight
+    image = await page.screenshot({
+      type: 'jpeg',
+      quality: 80,
+      fullPage,
+      ...(tall && { clip: { x: 0, y: 0, width, height: maxHeight } }),
+    })
+  } else {
+    const element = page.locator(`[data-lacuno-node="${node}"]`).first()
+    if (!(await element.count())) throw new InputError(`node ${node} is not rendered on this page`)
+    image = await element.screenshot()
+  }
+  if (!boxes) return image
+  // Measured after the capture, which may have scrolled the page; a node without an area is
+  // nothing to point at.
+  return {
+    image,
+    boxes: await page.evaluate<Box[]>(`[...document.querySelectorAll('[data-lacuno-node]')]
+      .map((el) => {
+        const r = el.getBoundingClientRect()
+        let depth = 0
+        for (let p = el.parentElement; p; p = p.parentElement)
+          if (p.hasAttribute('data-lacuno-node')) depth++
+        return {
+          id: el.getAttribute('data-lacuno-node'),
+          tag: el.tagName.toLowerCase(),
+          depth,
+          x: Math.round(r.left + scrollX),
+          y: Math.round(r.top + scrollY),
+          w: Math.round(r.width),
+          h: Math.round(r.height),
+        }
+      })
+      .filter((b) => b.w > 0 && b.h > 0)`),
   }
 }
 
