@@ -386,6 +386,7 @@ export function Editor({
           bindDragSurface={bindDragSurface}
           livePreview={draft}
           setComputed={setComputed}
+          notify={notify}
           ask={() => {
             // Inside a host the brief goes straight into the conversation as the person's message.
             if (embed && doc && node && page)

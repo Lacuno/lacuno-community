@@ -6,6 +6,7 @@ export {
 } from './generate.js'
 export { iconSvg } from './icons.js'
 export {
+  enterOnView,
   isMotionStyle,
   isStory,
   MOTION_CSS,

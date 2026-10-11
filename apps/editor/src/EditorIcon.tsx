@@ -36,6 +36,7 @@ const paths = {
   desktop: 'M3 4h18v13H3zM12 17v4M8 21h8',
   tablet: 'M5 2h14v20H5zM11 18h2',
   mobile: 'M8 2h8v20H8zM11 18h2',
+  play: 'M7 4v16l13-8z',
   reload: 'M20 7V3l-4 4M20 7a9 9 0 1 0 1 7M20 7h-5',
   plus: 'M12 5v14M5 12h14',
   wrap: 'M4 6h13a4 4 0 0 1 0 8H9m4-4-4 4 4 4M4 14h1',

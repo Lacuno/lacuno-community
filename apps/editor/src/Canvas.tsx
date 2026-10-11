@@ -1,4 +1,4 @@
-import { MOTION_CSS, sizeWords, TABLE_CSS } from '@lacuno/css'
+import { enterOnView, MOTION_CSS, sizeWords, TABLE_CSS } from '@lacuno/css'
 import { kw, px, RichTag, type State } from '@lacuno/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
@@ -106,6 +106,8 @@ export function Canvas({
   onComputed,
   onAsk,
   livePreview,
+  motionPreview,
+  onMotionPreview,
   base,
 }: {
   editingText: boolean
@@ -113,6 +115,9 @@ export function Canvas({
   onNodeAction: (action: NodeAction, id: string) => void
   bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
+  /** Preview: scroll motion and entrances play, the editing chrome hides and clicks do nothing. */
+  motionPreview: boolean
+  onMotionPreview: (on: boolean) => void
   html: string
   width: number
   scale?: number | undefined
@@ -168,10 +173,13 @@ export function Canvas({
   // The nodes an agent batch just changed, outlined on the canvas until `until`.
   const flash = useRef({ ids: [] as string[], until: 0 })
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
+  // Stops the entrances Preview runs on the canvas.
+  const stopEntrances = useRef<(() => void) | undefined>(undefined)
   useEffect(
     () => () => {
       selectionCleanup.current?.()
       dragCleanup.current?.()
+      stopEntrances.current?.()
     },
     [],
   )
@@ -408,7 +416,13 @@ export function Canvas({
   // moves among the siblings and a plain arrow nudges. True when the key was taken.
   const selectionKey = (event: KeyboardEvent) => {
     const doc = frame.current?.contentDocument
-    if (!doc || !latest.current.selected || doc.querySelector('[data-lacuno-editing]')) return false
+    if (
+      !doc ||
+      !latest.current.selected ||
+      latest.current.motionPreview ||
+      doc.querySelector('[data-lacuno-editing]')
+    )
+      return false
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
       latest.current.onNodeAction('duplicate', latest.current.selected)
       return true
@@ -441,6 +455,8 @@ export function Canvas({
     onNodeAction,
     onEditText,
     livePreview,
+    motionPreview,
+    onMotionPreview,
     selected,
     inner,
     state,
@@ -468,8 +484,16 @@ export function Canvas({
     // A re-rendered list restarts its animation; align them all so texts in step stay in step.
     for (const list of doc.querySelectorAll('[data-lc-words]'))
       for (const animation of list.getAnimations({ subtree: true })) animation.startTime = 0
+    // Preview lifts the canvas's stillness, so the scroll rules apply, and runs the entrances; a
+    // morph re-runs them on the new elements.
+    const moving = latest.current.motionPreview
+    doc.documentElement.toggleAttribute('data-lacuno-still', !moving)
+    stopEntrances.current?.()
+    stopEntrances.current = moving
+      ? enterOnView(doc as unknown as Parameters<typeof enterOnView>[0])
+      : undefined
     for (const element of doc.querySelectorAll<HTMLElement>('[data-lacuno-node]'))
-      element.draggable = true
+      element.draggable = !moving
     highlight(frame.current, latest.current.selected, latest.current.state, latest.current.inner)
     latest.current.paint()
     latest.current.reportStyles()
@@ -501,6 +525,11 @@ export function Canvas({
   useEffect(() => {
     if (loaded.current && !editingText) morph(html)
   }, [html, editingText])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh reads the latest props.
+  useEffect(() => {
+    const doc = frame.current?.contentDocument
+    if (loaded.current && doc) refresh(doc)
+  }, [motionPreview])
   // biome-ignore lint/correctness/useExhaustiveDependencies: paint the latest draft into the iframe when the draft changes.
   useEffect(() => {
     latest.current.paint()
@@ -530,11 +559,11 @@ export function Canvas({
       const doc = frame.current?.contentDocument
       const element = nodeElement(doc, id)
       if (!doc || !element || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-      const motion = element.hasAttribute('data-lacuno-motion')
-      element.setAttribute('data-lacuno-motion', '')
+      const motion = element.getAttribute('data-lacuno-motion')
+      if (motion === null) element.setAttribute('data-lacuno-motion', '')
       const before = element.getAttribute('style')
       cleanup = () => {
-        element.toggleAttribute('data-lacuno-motion', motion)
+        if (motion === null) element.removeAttribute('data-lacuno-motion')
         element.removeAttribute('data-lc-enter')
         if (before === null) element.removeAttribute('style')
         else element.setAttribute('style', before)
@@ -564,6 +593,10 @@ export function Canvas({
     // page, where the selection stays its target unless a field, a layer row, a menu or a dialog
     // has the focus. The history shortcut is the session's (session.ts).
     const editorKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && latest.current.motionPreview) {
+        latest.current.onMotionPreview(false)
+        return
+      }
       if (
         (event.target as Element | null)?.closest?.(
           'input, textarea, select, [contenteditable="true"], .layer, dialog, [role="dialog"], [role="menu"], [popover]',
@@ -573,13 +606,16 @@ export function Canvas({
       if (latest.current.selectionKey(event)) event.preventDefault()
     }
     const editorKeyUp = (event: KeyboardEvent) => latest.current.releaseNudge(event)
+    const previewMotion = () => latest.current.onMotionPreview(true)
     window.addEventListener('lacuno:motion-preview', preview)
+    window.addEventListener('lacuno:canvas-preview', previewMotion)
     window.addEventListener('lacuno:spacing-focus', focus)
     window.addEventListener('lacuno:flash', flashNodes)
     window.addEventListener('keydown', editorKey)
     window.addEventListener('keyup', editorKeyUp)
     return () => {
       window.removeEventListener('lacuno:motion-preview', preview)
+      window.removeEventListener('lacuno:canvas-preview', previewMotion)
       window.removeEventListener('lacuno:spacing-focus', focus)
       window.removeEventListener('lacuno:flash', flashNodes)
       window.removeEventListener('keydown', editorKey)
@@ -654,11 +690,14 @@ export function Canvas({
           // Inside a rich-text block the hovered tag is outlined, since a click selects it.
           const tags = `:is(${RichTag.options.join()}):not(:is(li, th, td) > p, pre > code)`
           // A drag freezes :hover on the element it started from; its outline waits for the drop.
-          const idle = ':root:not([data-lacuno-dropping])'
+          // In Preview (the root no longer still) neither outlines nor the overlay show.
+          const idle = ':root[data-lacuno-still]:not([data-lacuno-dropping])'
           style.textContent = `div[data-lacuno-node]:empty, section[data-lacuno-node]:empty { min-height: 48px; min-width: 48px; } ${idle} [data-lacuno-node]:not([data-lacuno-selected], [data-lacuno-rich]):hover:not(:has([data-lacuno-node]:hover)), ${idle} [data-lacuno-rich]:not([data-lacuno-selected]):hover:not(:has(${tags}:hover)), ${idle} [data-lacuno-rich]:not([data-lacuno-editing]) ${tags}:not([data-lacuno-selected]):hover:not(:has(${tags}:hover)) { outline: 1px solid #8775ed !important; outline-offset: -1px }`
           style.textContent += `[data-lacuno-image-placeholder] { min-height:160px !important; min-width:80px; background: #f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; position:relative; } [data-lacuno-image-placeholder]::after { content:""; display:block; width:40px; height:40px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%239187aa' stroke-width='1.5'%3E%3Cpath d='M3 4h26v24H3zM3 24l9-11 7 8 4-5 6 8'/%3E%3Ccircle cx='22' cy='10' r='2'/%3E%3C/svg%3E"); }`
           style.textContent +=
             '[data-lacuno-placeholder] { display:grid; place-items:center; min-height:120px !important; padding:12px; background:#f2f0f7; border:1px dashed #b7afc9; box-sizing:border-box; font:12px/1.4 system-ui, sans-serif; color:#6f6787; text-align:center; } [data-lacuno-placeholder]::before { content:attr(data-lacuno-placeholder); } [data-lacuno-placeholder="Embed"]::before { content:"Embed. Scripts and iframes run on the published site."; } [data-lacuno-placeholder] iframe { display:none; }'
+          style.textContent +=
+            ':root:not([data-lacuno-still]) [data-lacuno-selection-overlay] { display: none !important; }'
           style.textContent += MOTION_CSS
           // A table inserted while editing looks as it will publish; selected cells are tinted.
           style.textContent += `${TABLE_CSS} [data-lacuno-editing] .selectedCell { background: #8775ed26; }`
@@ -670,6 +709,7 @@ export function Canvas({
             if ((event.target as Element | null)?.closest?.(chrome)) return
             event.preventDefault()
             event.stopPropagation()
+            if (latest.current.motionPreview) return
             const target = event.target as Element | null
             const element = target?.closest?.('[data-lacuno-node]')
             const id = element?.getAttribute('data-lacuno-node')
@@ -686,7 +726,12 @@ export function Canvas({
               '[data-lacuno-node]',
             )
             const id = element?.dataset.lacunoNode
-            if (id && element && !element.hasAttribute('data-lacuno-editing')) {
+            if (
+              id &&
+              element &&
+              !element.hasAttribute('data-lacuno-editing') &&
+              !latest.current.motionPreview
+            ) {
               event.preventDefault()
               latest.current.onEditText(id, element)
             }
@@ -706,6 +751,11 @@ export function Canvas({
               if (direction) {
                 event.preventDefault()
                 latest.current.onHistory(direction)
+                return
+              }
+              // Preview leaves the keys to the page, so they scroll it, but Escape, which ends it.
+              if (latest.current.motionPreview) {
+                if (event.key === 'Escape') latest.current.onMotionPreview(false)
                 return
               }
               // A form field on the page owns its own keystrokes, the way the editor chrome does.

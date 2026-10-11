@@ -177,27 +177,83 @@ export function storyCss(doc: Document): string {
     .join('\n')
 }
 
-/** Only our generated observer runs on published pages; the editor keeps site scripts sandboxed. */
-export const MOTION_SCRIPT = `(() => {
-  const preference = matchMedia('(prefers-reduced-motion: reduce)');
-  if (preference.matches || !('IntersectionObserver' in window)) return;
-  const observer = new IntersectionObserver(entries => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      observer.unobserve(entry.target);
-      if (!preference.matches) entry.target.setAttribute('data-lc-enter', '');
+/** What `enterOnView` touches of a page, so this package needs no DOM types. */
+type Entering = {
+  setAttribute(name: string, value: string): void
+  removeAttribute(name: string): void
+}
+type MotionPage = {
+  querySelectorAll(selector: string): Iterable<Entering>
+  addEventListener(
+    type: 'animationend',
+    listener: (event: { animationName: string; target: Entering }) => void,
+    options: { signal: AbortSignal },
+  ): void
+  defaultView: {
+    matchMedia(query: string): {
+      matches: boolean
+      addEventListener(type: 'change', listener: () => void, options: { signal: AbortSignal }): void
     }
-  }, { threshold: 0 });
-  for (const element of document.querySelectorAll('[data-lacuno-motion]')) {
-    const name = getComputedStyle(element).getPropertyValue('--lc-entrance').trim();
-    if (name && name !== 'none') observer.observe(element);
+    getComputedStyle(element: Entering): { getPropertyValue(property: string): string }
+  } | null
+}
+declare const IntersectionObserver: new (
+  callback: (entries: { isIntersecting: boolean; target: Entering }[]) => void,
+  options: { root: MotionPage },
+) => { observe(element: Entering): void; unobserve(element: Entering): void; disconnect(): void }
+
+/**
+ * Plays each element's entrance once it comes into view, unless motion is reduced, and returns
+ * what stops it and puts every element back at rest. It reads `page` only and watches the page's
+ * own viewport (`root: page`): published pages run it inline on `document`, and the editor's
+ * Preview runs it from its window against the canvas, whose sandbox allows no scripts of its own.
+ * An entrance is over when the animation that ends is the element's own `--lc-entrance`, preset
+ * or not. It declares no inner functions, since a bundler may wrap those in helpers the page lacks.
+ */
+export function enterOnView(page: MotionPage) {
+  const view = page.defaultView!
+  const reduced = view.matchMedia('(prefers-reduced-motion: reduce)')
+  const running = new AbortController()
+  if (!reduced.matches) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          observer.unobserve(entry.target)
+          entry.target.setAttribute('data-lc-enter', '')
+        }
+      },
+      { root: page },
+    )
+    for (const element of page.querySelectorAll('[data-lacuno-motion]'))
+      if (
+        !['', 'none'].includes(
+          view.getComputedStyle(element).getPropertyValue('--lc-entrance').trim(),
+        )
+      )
+        observer.observe(element)
+    page.addEventListener(
+      'animationend',
+      (event) => {
+        if (
+          event.animationName ===
+          view.getComputedStyle(event.target).getPropertyValue('--lc-entrance').trim()
+        )
+          event.target.removeAttribute('data-lc-enter')
+      },
+      { signal: running.signal },
+    )
+    reduced.addEventListener('change', () => reduced.matches && running.abort(), {
+      signal: running.signal,
+    })
+    running.signal.addEventListener('abort', () => {
+      observer.disconnect()
+      for (const element of page.querySelectorAll('[data-lc-enter]'))
+        element.removeAttribute('data-lc-enter')
+    })
   }
-  document.addEventListener('animationend', event => {
-    if (event.animationName.startsWith('lc-') && event.target instanceof Element) event.target.removeAttribute('data-lc-enter');
-  });
-  preference.addEventListener('change', () => {
-    if (!preference.matches) return;
-    observer.disconnect();
-    for (const element of document.querySelectorAll('[data-lc-enter]')) element.removeAttribute('data-lc-enter');
-  });
-})();`
+  return () => running.abort()
+}
+
+/** `enterOnView` as an inline script for published pages; the editor keeps site scripts out. */
+export const MOTION_SCRIPT = `(${enterOnView})(document);`

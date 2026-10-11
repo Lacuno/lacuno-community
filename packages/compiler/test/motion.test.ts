@@ -51,7 +51,8 @@ it('runs entrances once on viewport entry and honors reduced motion in published
   result.head += `<style>${generateStylesheet(doc).css}</style>`
   result.body = `<div style="height:1500px"></div>${result.body}`
   const html = assembleDocument(result)
-  expect(html).toContain('IntersectionObserver')
+  // The published string is what runs below, so a bundler helper in the source would fail here.
+  expect(html).toContain('<script>(function enterOnView(page')
   const canvas = render(
     doc,
     Object.values(doc.pages).find((page) => page.path === '/')!,

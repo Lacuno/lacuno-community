@@ -151,7 +151,7 @@ Motion is CSS on classes: style.set with these custom properties, values \`{"typ
 - --lc-duration (400ms), --lc-delay, --lc-easing shape entrances and hover transitions. Scroll motion is linear by nature.
 - --lc-range for scroll: entry (while entering, default), cover (while visible), exit (while leaving), or any animation-range value. lc-fade-out wants exit, lc-parallax cover. --lc-parallax: its distance, 80px by default.
 - --lc-scroll none on a smaller breakpoint turns it off there.
-- Everything is off for people who prefer reduced motion and in browsers without scroll timelines (Firefox): design the page to read well at rest. Every name keeps the element as styled as one of its frames. The canvas and page.screenshot show that rest state.
+- Everything is off for people who prefer reduced motion and in browsers without scroll timelines (Firefox): design the page to read well at rest. Every name keeps the element as styled as one of its frames. The canvas and page.screenshot show that rest state; the person presses Preview motion on the canvas to see it move.
 Scroll story (a pinned stage, steps in turn):
 - A section with attrs \`{"data-lc-story":{"type":"static","value":true}}\`. Its first child is the stage: display grid, place-items center. Inside the stage: a pinned image with --lc-scroll lc-scale-up and --lc-range entry, then one child per step with --lc-scroll lc-fade-through and no --lc-range.
 - Steps are the stage's direct children; they take turns in order. Add, remove or move them freely.

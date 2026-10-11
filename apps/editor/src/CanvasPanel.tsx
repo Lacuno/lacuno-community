@@ -43,6 +43,7 @@ export function CanvasPanel({
   bindDragSurface,
   livePreview,
   setComputed,
+  notify,
   ask,
 }: {
   session: DocumentSession
@@ -70,10 +71,20 @@ export function CanvasPanel({
   bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
   setComputed: (value: { id: string; values: Record<string, string> }) => void
+  notify: (text: string) => void
   ask: () => void
 }) {
   const { doc, error, busy, frozen, leave } = session
   const [zoom, setZoom] = useState('fit')
+  const [motionPreview, setMotionPreview] = useState(false)
+  // What Preview cannot show here, on the status line for a moment.
+  const previewMotion = (on: boolean) => {
+    setMotionPreview(on)
+    if (on && matchMedia('(prefers-reduced-motion: reduce)').matches)
+      notify('Motion is off: your system prefers reduced motion')
+    else if (on && !CSS.supports('animation-timeline: view()'))
+      notify('Scroll motion previews in Chrome, Edge or Safari')
+  }
   const { editingComponent } = editing
   const node = doc?.nodes[selected]
   const selectedName =
@@ -192,6 +203,16 @@ export function CanvasPanel({
           >
             <EditorIcon name="focus" />
           </button>
+          <button
+            type="button"
+            aria-label="Preview motion"
+            aria-pressed={motionPreview}
+            title="Preview motion"
+            disabled={!!inlineTarget}
+            onClick={() => previewMotion(!motionPreview)}
+          >
+            <EditorIcon name="play" />
+          </button>
         </div>
       </div>
       {/* biome-ignore lint/a11y: a mouse-only convenience; the empty space is not a control. */}
@@ -216,6 +237,8 @@ export function CanvasPanel({
             bindDragSurface={bindDragSurface}
             onHistory={session.travel}
             livePreview={livePreview}
+            motionPreview={motionPreview}
+            onMotionPreview={previewMotion}
             onComputed={setComputed}
             onAsk={ask}
             base={embed?.origin}
