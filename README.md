@@ -41,7 +41,7 @@ with a local instance; claude.ai and ChatGPT need a public address, and for clau
 Desktop one **Add to Claude** link prefills the connector to confirm. On Lacuno Cloud each app's
 card shows one line to paste, which installs the Lacuno plugin and signs you in, or one address for
 all your sites; the per-site address stays for anything else. **Open in Claude** in the header
-starts a chat about the open page, or connects Claude first on a self-hosted instance with none.
+opens the editor on the open page inside a claude.ai chat, or connects Claude first on a self-hosted instance with none.
 
 ## Self-hosting
 

@@ -54,7 +54,7 @@ export function EditorHeader({
     doc &&
     page &&
     config &&
-    `Show me page ${page.id} of site ${siteId} in Lacuno (${config.mcp ?? siteMcpUrl(config, siteId)}).`
+    `Open the Lacuno editor on page ${page.id} of site ${siteId} (${config.mcp ?? siteMcpUrl(config, siteId)}).`
   // With no AI app connected, Claude has no Lacuno to show the page in: Open in Claude connects it
   // first. Behind a gateway an app may reach the site through its one address, which lists no
   // connection here, so there the link always opens the chat.

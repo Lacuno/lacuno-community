@@ -19,7 +19,7 @@ it('prefills a prompt about the selection, follows edits into the links, copies 
   expect(await open.getAttribute('target')).toBe('_blank')
   expect(await open.getAttribute('rel')).toContain('noopener')
   expect(new URL((await open.getAttribute('href'))!).searchParams.get('q')).toBe(
-    `Show me page p-home of site ${siteId} in Lacuno (${origin}/mcp/${siteId}).`,
+    `Open the Lacuno editor on page p-home of site ${siteId} (${origin}/mcp/${siteId}).`,
   )
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()
@@ -117,7 +117,7 @@ it('connects Claude first when no AI app is connected, except behind a gateway',
   await page.reload()
   await expect
     .poll(async () => new URL((await open.getAttribute('href'))!).searchParams.get('q'))
-    .toBe(`Show me page p-home of site ${siteId} in Lacuno (https://mcp.example.test/mcp).`)
+    .toBe(`Open the Lacuno editor on page p-home of site ${siteId} (https://mcp.example.test/mcp).`)
   const again = context.waitForEvent('page')
   await open.click()
   expect(new URL((await again).url()).hostname).toBe('claude.ai')
