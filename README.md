@@ -3,6 +3,11 @@
 **A visual website builder that publishes static sites, works with the AI apps you already use, and
 runs on your own server.**
 
+[![The one-minute demo: a site edited by hand, then by Claude inside the same editor](docs/demo.jpg)](https://www.youtube.com/watch?v=OUUE8V8SKtY)
+
+**[▶ Watch the one-minute demo](https://www.youtube.com/watch?v=OUUE8V8SKtY)**: editing a site by hand, then opening the same
+editor in Claude to fix a section and build pricing cards.
+
 Lacuno is for designers and small studios who build marketing sites, portfolios, blogs and
 documentation. You design on a canvas with real CSS: classes, breakpoints, states and design tokens,
 plus a built-in CMS. Publishing compiles the site to static HTML and CSS; a page carries a small
