@@ -27,6 +27,9 @@ const paths = {
   'checkbox-field': 'M4 4h16v16H4zm4 8 3 3 5-6',
   'dropdown-field': 'M3 7h18v10H3zm12 4 2 2 2-2',
   submit: 'm22 2-7 20-4-9-9-4zM22 2 11 13',
+  // A pinned picture over lines that take turns; a bar filling along the top.
+  story: 'M4 3h16v10H4zM8 17h8M10 21h4',
+  progress: 'M3 4h11M6 11h12M6 15h12M6 19h8',
   list: 'M4 6h1M4 12h1M4 18h1M9 6h11M9 12h11M9 18h11',
   layers: 'm3 7 9-4 9 4-9 4zM3 12l9 4 9-4M3 17l9 4 9-4',
   expand: 'm5 6 6 6-6 6m8-12 6 6-6 6',

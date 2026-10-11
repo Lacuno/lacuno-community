@@ -29,6 +29,8 @@ const tileLabels: Partial<Record<Preset, string>> = {
   'checkbox-field': 'Checkbox',
   'dropdown-field': 'Dropdown',
   submit: 'Submit button',
+  story: 'Scroll story',
+  progress: 'Reading progress',
 }
 
 type Props = {
@@ -73,6 +75,7 @@ export function InsertPanel({
           { label: 'Media', items: ['image', 'video', 'embed'] as const },
           { label: 'Actions', items: actions },
           { label: 'Forms', items: ['form', ...formFields] as const },
+          { label: 'Motion', items: ['story', 'progress'] as const },
         ].map((group) => (
           <section className="insert-category" key={group.label}>
             <h3>{group.label}</h3>

@@ -2,7 +2,7 @@ import type { Locator } from 'playwright'
 import { expect, it } from 'vitest'
 import { editor, openFormatting, openInspectorTab } from './harness.js'
 
-it('inserts a list, span, video and embed from the palette and publishes them', async () => {
+it('inserts a list, span, video, embed and reading progress from the palette and publishes them', async () => {
   const { server, page, canvas, publish, saved } = await editor()
   await canvas.locator('[data-lacuno-node="n-home-cta"]').waitFor()
 
@@ -93,6 +93,11 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
     .toBe('20px')
   await saved()
 
+  // Reading progress is a bar fixed along the top that follows the page's scroll.
+  await insert('Reading progress')
+  const bar = canvas.locator('span[data-lacuno-motion="scroll"]')
+  await expect.poll(() => bar.evaluate((element) => getComputedStyle(element).height)).toBe('3px')
+
   const published = await (await server.published!.request(`${await publish()}/`)).text()
   expect(published).toMatch(/<ol[^>]*><li[^>]*>First item<\/li><li[^>]*>Second item edited<\/li>/)
   expect(published).toMatch(/<span[^>]*>Span text<\/span>/)
@@ -102,4 +107,5 @@ it('inserts a list, span, video and embed from the palette and publishes them', 
   expect(published).toMatch(
     /<div class="[^"]+"><iframe src="https:\/\/example.com"><\/iframe><\/div>/,
   )
+  expect(published).toMatch(/<span class="[^"]+" data-lacuno-motion="scroll"><\/span>/)
 }, 240_000)

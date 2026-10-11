@@ -153,10 +153,11 @@ Motion is CSS on classes: style.set with these custom properties, values \`{"typ
 - --lc-scroll none on a smaller breakpoint turns it off there.
 - Everything is off for people who prefer reduced motion and in browsers without scroll timelines (Firefox): design the page to read well at rest. Every name keeps the element as styled as one of its frames. The canvas and page.screenshot show that rest state; the person presses Preview motion on the canvas to see it move.
 Scroll story (a pinned stage, steps in turn):
-- A section with attrs \`{"data-lc-story":{"type":"static","value":true}}\`. Its first child is the stage: display grid, place-items center. Inside the stage: a pinned image with --lc-scroll lc-scale-up and --lc-range entry, then one child per step with --lc-scroll lc-fade-through and no --lc-range.
+- A section with attrs \`{"data-lc-story":{"type":"static","value":true}}\`. Its first child is the stage: display grid, grid-template-rows minmax(0, max-content) auto, align-content and place-items center. Inside the stage: a pinned image with --lc-scroll lc-scale-up and --lc-range entry, max-height 100% so it fits the screen, then one child per step with --lc-scroll lc-fade-through and no --lc-range.
 - Steps are the stage's direct children; they take turns in order. Add, remove or move them freely.
 - Length: --lc-length on the section, in screens (steps + 1 by default). No overflow hidden on the section or its ancestors.
-Reading progress bar: a div with --lc-scroll lc-progress, --lc-timeline scroll(), --lc-range normal, position fixed, inset 0 0 auto 0, height 3px, transform-origin left, a background.`,
+Reading progress bar: an empty span with --lc-scroll lc-progress, --lc-timeline scroll(), --lc-range normal, position fixed, inset 0 0 auto 0, height 3px, transform-origin left, a background.
+- The editor's palette has these as Scroll story and Reading progress.`,
 
   settings: `## Settings
 - A page at \`/404\` is the not-found page.

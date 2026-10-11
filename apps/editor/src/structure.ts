@@ -50,6 +50,8 @@ export type Preset =
   | Action
   | 'form'
   | FormField
+  | 'story'
+  | 'progress'
 /** Wrap in link builds an `a` around the selection; the palette's Link is a text node. */
 type Buildable = Preset | 'link-wrapper'
 export const wrappers = [...structures, 'link'] as const
@@ -251,6 +253,22 @@ export function presetNode(
     text: { type: 'static', value },
     meta: { label },
   })
+  const element = (
+    tag: string,
+    label: string,
+    children: InsertNode[],
+    attrs: Record<string, string> = {},
+  ): InsertNode => ({
+    id: makeId(),
+    type: 'element',
+    tag,
+    classes: [],
+    attrs: Object.fromEntries(
+      Object.entries(attrs).map(([name, value]) => [name, { type: 'static' as const, value }]),
+    ),
+    meta: { label },
+    children,
+  })
   if (preset === 'image') {
     return {
       id: makeId(),
@@ -335,6 +353,25 @@ export function presetNode(
   if (preset === 'submit') return { ...submit, classes }
   if (preset in fieldPresets)
     return { ...field(...fieldPresets[preset as keyof typeof fieldPresets]), classes }
+  if (preset === 'story') {
+    // The stage pins a picture while the steps take turns; the defaults below style each part.
+    const steps = [
+      ['Meet the story.', 'Scroll, and the picture stays while the words take turns.'],
+      ['One idea at a time.', 'Each step fades in, has its moment and makes room for the next.'],
+      ['Make it yours.', 'Drop your picture on the placeholder and write each step.'],
+    ].map(([heading, body]) =>
+      element('div', 'Step', [text('h2', 'Step heading', heading!), text('p', 'Step text', body!)]),
+    )
+    return {
+      ...element('section', 'Scroll story', [
+        element('div', 'Stage', [presetNode('image', ''), ...steps]),
+      ]),
+      classes,
+      attrs: { 'data-lc-story': { type: 'static', value: true } },
+    }
+  }
+  // A span, which the canvas does not stretch to a drop target when empty, as it does a div.
+  if (preset === 'progress') return { ...element('span', 'Reading progress', []), classes }
   if (preset === 'list')
     return {
       id: makeId(),
@@ -359,22 +396,6 @@ export function presetNode(
   if (preset === 'menu') {
     // The button opens the panel through the browser's popover, so the page needs no script.
     const panel = `menu-${crypto.randomUUID().slice(0, 8)}`
-    const element = (
-      tag: string,
-      label: string,
-      children: InsertNode[],
-      attrs: Record<string, string> = {},
-    ): InsertNode => ({
-      id: makeId(),
-      type: 'element',
-      tag,
-      classes: [],
-      attrs: Object.fromEntries(
-        Object.entries(attrs).map(([name, value]) => [name, { type: 'static' as const, value }]),
-      ),
-      meta: { label },
-      children,
-    })
     const link = (value: string) => ({
       ...text('a', 'Link', value),
       attrs: { href: { type: 'static' as const, value: '#' } },
@@ -446,7 +467,13 @@ const defaults: Record<
   | 'form'
   | 'field'
   | 'control'
-  | 'submit',
+  | 'submit'
+  | 'story-stage'
+  | 'story-image'
+  | 'story-step'
+  | 'story-heading'
+  | 'story-text'
+  | 'progress',
   Record<string, string>
 > = {
   image: {
@@ -543,6 +570,55 @@ const defaults: Record<
     'font-weight': '600',
     cursor: 'pointer',
   },
+  // A story's stage pins for the story's length (motion's SCROLL_CSS): the picture takes the
+  // first row, shrinking to fit the screen, and the steps take turns in the second, one under
+  // the other where motion is off.
+  'story-stage': {
+    display: 'grid',
+    'grid-template-rows': 'minmax(0, max-content) auto',
+    'align-content': 'center',
+    'place-items': 'center',
+    gap: '32px',
+    padding: '48px 24px',
+    'box-sizing': 'border-box',
+  },
+  // Grows in while the story arrives, then stays as styled.
+  'story-image': {
+    '--lc-scroll': 'lc-scale-up',
+    '--lc-range': 'entry',
+    display: 'block',
+    width: '100%',
+    'max-width': '880px',
+    'max-height': '100%',
+    'min-height': '0',
+    'aspect-ratio': '16 / 10',
+    'object-fit': 'contain',
+    'border-radius': '24px',
+  },
+  'story-step': {
+    '--lc-scroll': 'lc-fade-through',
+    'max-width': '640px',
+    'text-align': 'center',
+  },
+  'story-heading': {
+    margin: '0 0 12px',
+    'font-size': 'clamp(32px, 5vw, 56px)',
+    'font-weight': '700',
+    'line-height': '1.1',
+    'letter-spacing': '-0.02em',
+  },
+  'story-text': { margin: '0', 'font-size': '20px', 'line-height': '1.5' },
+  progress: {
+    '--lc-scroll': 'lc-progress',
+    '--lc-timeline': 'scroll()',
+    '--lc-range': 'normal',
+    position: 'fixed',
+    inset: '0 0 auto 0',
+    height: '3px',
+    'z-index': '1000',
+    'transform-origin': 'left',
+    background: 'currentColor',
+  },
 }
 
 /** Where a menu folds into its button: Tablet and below, a breakpoint every site starts with. */
@@ -571,6 +647,15 @@ const menuParts: Record<string, keyof typeof defaults> = {
   a: 'menu-link',
 }
 
+/** A story's parts, by the labels the preset gives them. */
+const storyParts: Record<string, keyof typeof defaults> = {
+  Stage: 'story-stage',
+  Image: 'story-image',
+  Step: 'story-step',
+  'Step heading': 'story-heading',
+  'Step text': 'story-text',
+}
+
 /** The defaults of a form's parts; a checkbox keeps the browser's look. */
 const formParts: Record<string, keyof typeof defaults> = {
   form: 'form',
@@ -597,7 +682,11 @@ export function structureInsertion(
   if (empty) node.children = []
   const operations: Operation[] = []
   const part =
-    preset === 'menu' ? (each: InsertNode) => menuParts['tag' in each ? each.tag : ''] : formPart
+    preset === 'menu'
+      ? (each: InsertNode) => menuParts['tag' in each ? each.tag : '']
+      : preset === 'story'
+        ? (each: InsertNode) => storyParts[each.meta?.label ?? '']
+        : formPart
   const style = (each: InsertNode, key = part(each)) => {
     if (key) {
       const id = `c-${crypto.randomUUID()}`
