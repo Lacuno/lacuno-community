@@ -49,7 +49,7 @@ describe('node.create', () => {
         },
       },
     ])
-    expect(document.nodes['n-home']!.children).toEqual(['n-hero', 'n-feat', 'n-posts'])
+    expect(document.nodes['n-home']!.children).toEqual(['n-hero', 'n-feat', 'n-posts', 'n-story'])
     const feat = document.nodes['n-feat']!
     expect(feat.parent).toBe('n-home')
     expect(feat.children).toHaveLength(3)
@@ -249,7 +249,12 @@ describe('node.move', () => {
   })
   it('reparents with remove, insert and a parent update', () => {
     const { document } = run([{ type: 'node.move', id: 'n-hero-cta', parent: 'n-home', index: 0 }])
-    expect(document.nodes['n-home']!.children).toEqual(['n-hero-cta', 'n-hero', 'n-posts'])
+    expect(document.nodes['n-home']!.children).toEqual([
+      'n-hero-cta',
+      'n-hero',
+      'n-posts',
+      'n-story',
+    ])
     expect(document.nodes['n-hero-inner']!.children).toEqual(['n-hero-title', 'n-hero-image'])
     expect(document.nodes['n-hero-cta']!.parent).toBe('n-home')
   })
@@ -277,7 +282,7 @@ describe('node.move', () => {
 describe('node.delete', () => {
   it('removes the subtree and the parent link', () => {
     const { document, patches } = run([{ type: 'node.delete', id: 'n-hero' }])
-    expect(document.nodes['n-home']!.children).toEqual(['n-posts'])
+    expect(document.nodes['n-home']!.children).toEqual(['n-posts', 'n-story'])
     for (const id of ['n-hero', 'n-hero-inner', 'n-hero-title', 'n-hero-image', 'n-hero-cta'])
       expect(document.nodes[id]).toBeUndefined()
     expect(patches[0]).toEqual({ op: 'remove', path: ['nodes', 'n-home', 'children'], index: 0 })

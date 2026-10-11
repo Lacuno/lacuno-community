@@ -46,6 +46,8 @@ function hero(interval = 1000, annotateNodes = false) {
     },
   } as Partial<Node>)
   doc.nodes['n-rest'] = text('n-rest', ' can use too.')
+  // Only the words animate: the fixture's scroll story would add scroll-driven animations.
+  doc.nodes['n-home']!.children = ['n-hero', 'n-posts']
   const home = Object.values(doc.pages).find((page) => page.path === '/')!
   const result = render(doc, home, undefined, { resolveImage: plainImageResolver, annotateNodes })
   result.head += `<style>${generateStylesheet(doc).css}

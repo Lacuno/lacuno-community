@@ -57,7 +57,7 @@ describe('read tools', () => {
         await client.callTool({ name: 'document.read', arguments: {} }),
       )
     const { revision, assets } = await read()
-    expect(assets['a-hero']!.usedBy).toEqual(['nodes.n-hero-image'])
+    expect(assets['a-hero']!.usedBy).toEqual(['nodes.n-hero-image', 'nodes.n-product'])
     expect(assets['a-sans']!.usedBy).toEqual(['site.fonts.1'])
     expect(assets['a-spare']!.usedBy).toEqual([])
     const apply = (id: string) =>
@@ -103,7 +103,7 @@ describe('read tools', () => {
     const shallow = textOf(
       await client.callTool({ name: 'page.outline', arguments: { page: 'p-home', depth: 1 } }),
     )
-    expect(shallow.split('\n')).toHaveLength(3)
+    expect(shallow.split('\n')).toHaveLength(4)
     const comp = textOf(
       await client.callTool({ name: 'page.outline', arguments: { component: 'cmp-card' } }),
     )

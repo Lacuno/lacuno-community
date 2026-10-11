@@ -5,7 +5,8 @@ import { color, designToken, fn, kw, list, px, rem } from './values.js'
 
 /**
  * A small but complete marketing page used by tests across packages: design tokens with a dark mode,
- * classes, a combo class, breakpoints, states, a component with a slot, and a collection list.
+ * classes, a combo class, breakpoints, states, a component with a slot, a collection list and a
+ * scroll story.
  */
 export function fixtureDocument(): Document {
   const styles: StyleDecl[] = [
@@ -253,7 +254,60 @@ export function fixtureDocument(): Document {
       property: 'gap',
       value: designToken('t-space-md'),
     },
+    // scroll story: a pinned product that scales in, then steps that take turns
+    {
+      class: 'c-stage',
+      breakpoint: BASE_BREAKPOINT_ID,
+      state: 'none',
+      property: 'display',
+      value: kw('grid'),
+    },
+    {
+      class: 'c-stage',
+      breakpoint: BASE_BREAKPOINT_ID,
+      state: 'none',
+      property: 'place-items',
+      value: kw('center'),
+    },
+    {
+      class: 'c-product',
+      breakpoint: BASE_BREAKPOINT_ID,
+      state: 'none',
+      property: '--lc-scroll',
+      value: { type: 'raw', value: 'lc-scale-up' },
+    },
+    {
+      class: 'c-product',
+      breakpoint: BASE_BREAKPOINT_ID,
+      state: 'none',
+      property: '--lc-range',
+      value: { type: 'raw', value: 'entry' },
+    },
+    {
+      class: 'c-product',
+      breakpoint: BASE_BREAKPOINT_ID,
+      state: 'none',
+      property: 'max-width',
+      value: { type: 'unit', value: 60, unit: '%' },
+    },
+    {
+      class: 'c-step',
+      breakpoint: BASE_BREAKPOINT_ID,
+      state: 'none',
+      property: '--lc-scroll',
+      value: { type: 'raw', value: 'lc-fade-through' },
+    },
   ]
+
+  const step = (n: number, text: string) => ({
+    id: `n-step-${n}`,
+    type: 'text' as const,
+    tag: 'h2',
+    parent: 'n-stage',
+    children: [],
+    classes: ['c-step'],
+    text: { type: 'static' as const, value: text },
+  })
 
   const doc: Document = {
     version: DOCUMENT_VERSION,
@@ -308,7 +362,7 @@ export function fixtureDocument(): Document {
         type: 'element',
         tag: 'main',
         parent: null,
-        children: ['n-hero', 'n-posts'],
+        children: ['n-hero', 'n-posts', 'n-story'],
         classes: ['c-page'],
         semantic: { role: 'page' },
       },
@@ -391,6 +445,38 @@ export function fixtureDocument(): Document {
         component: 'cmp-card',
         props: { title: { type: 'field', field: 'f-title' } },
       },
+      'n-story': {
+        id: 'n-story',
+        type: 'element',
+        tag: 'section',
+        parent: 'n-home',
+        children: ['n-stage'],
+        classes: [],
+        attrs: { 'data-lc-story': { type: 'static', value: true } },
+      },
+      'n-stage': {
+        id: 'n-stage',
+        type: 'element',
+        tag: 'div',
+        parent: 'n-story',
+        children: ['n-product', 'n-step-1', 'n-step-2', 'n-step-3'],
+        classes: ['c-stage'],
+      },
+      'n-product': {
+        id: 'n-product',
+        type: 'element',
+        tag: 'img',
+        parent: 'n-stage',
+        children: [],
+        classes: ['c-product'],
+        attrs: {
+          src: { type: 'asset', asset: 'a-hero' },
+          alt: { type: 'static', value: 'The product' },
+        },
+      },
+      'n-step-1': step(1, 'Light.'),
+      'n-step-2': step(2, 'Fast.'),
+      'n-step-3': step(3, 'Yours.'),
       // card component subtree
       'n-card': {
         id: 'n-card',
@@ -501,6 +587,9 @@ export function fixtureDocument(): Document {
       },
       'c-card': { id: 'c-card', kind: 'class', name: 'card' },
       'c-post-grid': { id: 'c-post-grid', kind: 'class', name: 'post-grid' },
+      'c-stage': { id: 'c-stage', kind: 'class', name: 'stage' },
+      'c-product': { id: 'c-product', kind: 'class', name: 'product' },
+      'c-step': { id: 'c-step', kind: 'class', name: 'step' },
       'l-hero-title': { id: 'l-hero-title', kind: 'local' },
     },
     styles: Object.fromEntries(styles.map((s) => [styleKey(s), s])),

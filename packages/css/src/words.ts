@@ -21,7 +21,7 @@ const WORDS_CSS = `[data-lc-words] { --lc-interval: 2200ms; display: inline-grid
   [data-lc-words] > :not(:first-child) { display: none; }
 }`
 
-const percent = (n: number) => `${Number(n.toFixed(4))}%`
+export const percent = (n: number) => `${Number(n.toFixed(4))}%`
 
 /**
  * Keyframes and timing for lists of `count` words. A word shown `n` turns in a row is one element

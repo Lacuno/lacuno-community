@@ -1,4 +1,12 @@
-import { type ClassNames, classAttr, iconSvg, isMotionStyle, wordTurns } from '@lacuno/css'
+import {
+  type ClassNames,
+  classAttr,
+  iconSvg,
+  isMotionStyle,
+  isStory,
+  storySteps,
+  wordTurns,
+} from '@lacuno/css'
 import {
   type AssetRef,
   type Binding,
@@ -31,7 +39,7 @@ export type RenderState = {
   resolveImage: ImageResolver
   resolveAsset: (asset: AssetRef) => string
   /** Class ids carrying a motion custom property, see `motionClasses`. */
-  motion: ReadonlySet<string>
+  motion: ReadonlyMap<string, MotionMark>
   page: string
   warnings: Warning[]
   annotateNodes?: boolean
@@ -44,13 +52,20 @@ export type RenderState = {
   forms?: true
 }
 
-/** The classes that carry a Motion field, gathered once so marking a node is a set lookup. */
-export function motionClasses(doc: Document): ReadonlySet<string> {
-  return new Set(
-    Object.values(doc.styles)
-      .filter(isMotionStyle)
-      .map((style) => style.class),
-  )
+/** `data-lacuno-motion`'s value: `scroll` for an element that follows the scroll. */
+type MotionMark = '' | 'scroll'
+
+/**
+ * The classes that carry a Motion field, with the mark they give an element, gathered once so
+ * marking a node is a lookup.
+ */
+export function motionClasses(doc: Document): ReadonlyMap<string, MotionMark> {
+  const classes = new Map<string, MotionMark>()
+  for (const style of Object.values(doc.styles)) {
+    if (style.property === '--lc-scroll') classes.set(style.class, 'scroll')
+    else if (isMotionStyle(style) && !classes.has(style.class)) classes.set(style.class, '')
+  }
+  return classes
 }
 
 const DEFAULT_SIZES = '100vw'
@@ -123,7 +138,14 @@ function resolveAttrs(
     }
   }
   const node = state.doc.nodes[nodeId]
-  if (node?.classes.some((c) => state.motion.has(c))) out['data-lacuno-motion'] = ''
+  const marks = node?.classes.flatMap((c) => state.motion.get(c) ?? []) ?? []
+  if (marks.length) out['data-lacuno-motion'] = marks.includes('scroll') ? 'scroll' : ''
+  // A story's step count, and each step's place in it, for the turns `storyCss` hands out.
+  if (node && isStory(node)) out['data-lc-steps'] = String(storySteps(state.doc, node).length)
+  const stage = state.doc.nodes[node?.parent ?? '']
+  const story = state.doc.nodes[stage?.parent ?? '']
+  const step = story && isStory(story) ? storySteps(state.doc, story).indexOf(nodeId) + 1 : 0
+  if (step) out['data-lc-step'] = String(step)
   return imageAsset ? { attrs: out, imageAsset } : { attrs: out }
 }
 

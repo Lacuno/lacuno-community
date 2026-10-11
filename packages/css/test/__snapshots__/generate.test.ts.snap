@@ -85,6 +85,18 @@ a { color: inherit; }
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-md);
 }
+.product {
+  max-width: 60%;
+  --lc-range: entry;
+  --lc-scroll: lc-scale-up;
+}
+.stage {
+  display: grid;
+  place-items: center;
+}
+.step {
+  --lc-scroll: lc-fade-through;
+}
 .button.primary {
   color: #fff;
   background-color: var(--color-brand);
@@ -109,12 +121,18 @@ a { color: inherit; }
 }
 
 
-* { --lc-duration: 400ms; --lc-delay: 0ms; --lc-easing: ease-out; --lc-entrance: none; }
+* { --lc-duration: 400ms; --lc-delay: 0ms; --lc-easing: ease-out; --lc-entrance: none; --lc-scroll: none; --lc-range: entry; --lc-timeline: view(); --lc-parallax: 80px; }
 @keyframes lc-fade { from { opacity: 0; } }
 @keyframes lc-slide-up { from { opacity: 0; translate: 0 24px; } }
 @keyframes lc-slide-down { from { opacity: 0; translate: 0 -24px; } }
 @keyframes lc-slide-left { from { opacity: 0; translate: 24px 0; } }
 @keyframes lc-slide-right { from { opacity: 0; translate: -24px 0; } }
+@keyframes lc-scale-up { from { opacity: 0; scale: .85; } }
+@keyframes lc-blur-in { from { opacity: 0; filter: blur(12px); } }
+@keyframes lc-fade-out { to { opacity: 0; } }
+@keyframes lc-parallax { from { translate: 0 var(--lc-parallax); } to { translate: 0 calc(-1 * var(--lc-parallax)); } }
+@keyframes lc-fade-through { 0% { opacity: 0; translate: 0 24px; } 25%, 75% { opacity: 1; translate: 0; } 100% { opacity: 0; translate: 0 -24px; } }
+@keyframes lc-progress { from { scale: 0 1; } }
 @media (prefers-reduced-motion: no-preference) {
   :where([data-lacuno-motion]) {
     transition-property: opacity, scale, rotate, translate, transform, box-shadow, background-color, color, border-color, outline-color;
@@ -130,5 +148,27 @@ a { color: inherit; }
   [data-lacuno-motion] { animation: none !important; transition: none !important; }
 }
 
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :where(:root:not([data-lacuno-still]) [data-lc-story]) {
+      view-timeline-name: --lc-story;
+      min-height: calc(var(--lc-length, calc(var(--lc-steps, 2) + 1)) * 100svh);
+    }
+    :where(:root:not([data-lacuno-still]) [data-lc-story] > :first-child) { position: sticky; top: 0; height: 100svh; overflow: clip; }
+    :where(:root:not([data-lacuno-still]) [data-lc-story] *) { --lc-timeline: --lc-story; --lc-range: contain; }
+    :where(:root:not([data-lacuno-still]) [data-lc-step]) { grid-area: 2 / 1; }
+    :where(:root:not([data-lacuno-still]) [data-lacuno-motion="scroll"]) {
+      animation: var(--lc-scroll) linear both;
+      animation-timeline: var(--lc-timeline);
+      animation-range: var(--lc-range);
+    }
+  }
+}
+
+:where([data-lc-steps="3"]) { --lc-steps: 3; }
+:where([data-lc-steps="3"] [data-lc-step="1"]) { --lc-range: contain 0% contain 33.3333%; }
+:where([data-lc-steps="3"] [data-lc-step="2"]) { --lc-range: contain 33.3333% contain 66.6667%; }
+:where([data-lc-steps="3"] [data-lc-step="3"]) { --lc-range: contain 66.6667% contain 100%; }
 "
 `;

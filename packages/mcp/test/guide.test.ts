@@ -41,6 +41,9 @@ describe('guide and resources', () => {
     expect(await topic('text')).toContain('bulletList')
     expect(await topic('text')).toContain('attrs.href')
     expect(await topic('menu')).toContain('popovertarget')
+    expect(await topic('motion')).toContain('lc-parallax')
+    expect(await topic('motion')).toContain('data-lc-story')
+    expect(c.client.getInstructions()).toContain('motion')
     for (const name of ['build', 'check', 'looks', 'content', 'forms', 'settings'])
       expect(await topic(name)).toMatch(/^## /)
     // Every host reads the instructions the connection opens with, skills or not.

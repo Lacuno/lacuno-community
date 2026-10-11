@@ -1,3 +1,4 @@
+import { MOTION_PRESETS } from '@lacuno/css'
 import { OPERATIONS, type OperationDef } from '@lacuno/document'
 import { RichTag, WordIcon } from '@lacuno/schema'
 import { z } from 'zod'
@@ -8,7 +9,7 @@ import { InputError } from './errors.js'
  * purpose: hosts that never load the plugin's skills read this, and the guide's topics.
  */
 export const INSTRUCTIONS = `Lacuno builds websites. A site is one JSON document. The person sees every change live in the editor.
-- Call guide first. Before a task, call guide with its topic: build, check, looks, text, content, forms, menu, settings.
+- Call guide first. Before a task, call guide with its topic: build, check, looks, text, content, forms, menu, motion, settings.
 - Read once with document.read. Change with document.apply in few big batches. Pass the revision you read.
 - Check with page.outline, page.preview (text: true) and page.screenshot. Never rebuild the site on your machine.
 - The person says "this" or "here" and the editor is open in the chat: call editor.selection first.
@@ -29,9 +30,15 @@ Work like this:
 2. document.apply with a batch of operations and the revision as expectedRevision. All or nothing. The answer has the new revision, created ids and warnings. Stale revision: read again, send again.
 3. Check the page with page.outline, page.preview and page.screenshot: topic check.
 
-Topics, call guide with one: build, check, looks, text, content, forms, menu, settings.
+Topics, call guide with one: build, check, looks, text, content, forms, menu, motion, settings.
 Operations by group:
 `
+
+/** The motion presets that play on entering too, or those that only follow the scroll. */
+const presetNames = (scroll: boolean) =>
+  MOTION_PRESETS.filter((preset) => !!preset.scroll === scroll)
+    .map((preset) => preset.name)
+    .join(', ')
 
 /** How to do things, one topic each; `guide` answers a topic by name. */
 export const TOPICS: Record<string, string> = {
@@ -136,6 +143,20 @@ A mobile menu needs no script and no embed. The browser opens and closes it: cli
 - Desktop (base): the button \`display: none\`. The nav shows inline: display block, position static, inset auto, margin 0, padding 0, border 0, background transparent, width auto, height auto, overflow visible. The ul is the row: display flex, gap.
 - Tablet and smaller: the button \`display: inline-flex\`. The nav \`display: revert\` (the browser hides it until opened), position fixed, inset 0 0 0 auto, width min(80vw, 320px), padding, a background, a box-shadow. The ul: flex-direction column.
 - The editor's palette has this as Menu.`,
+
+  motion: `## Motion
+Motion is CSS on classes: style.set with these custom properties, values \`{"type":"raw","value":"…"}\`.
+- --lc-entrance: plays once when the element scrolls into view. --lc-scroll: follows the scrollbar. Set one, not both (scroll wins).
+- Names: ${presetNames(false)} (enter or scroll); ${presetNames(true)} (scroll).
+- --lc-duration (400ms), --lc-delay, --lc-easing shape entrances and hover transitions. Scroll motion is linear by nature.
+- --lc-range for scroll: entry (while entering, default), cover (while visible), exit (while leaving), or any animation-range value. lc-fade-out wants exit, lc-parallax cover. --lc-parallax: its distance, 80px by default.
+- --lc-scroll none on a smaller breakpoint turns it off there.
+- Everything is off for people who prefer reduced motion and in browsers without scroll timelines (Firefox): design the page to read well at rest. Every name keeps the element as styled as one of its frames. The canvas and page.screenshot show that rest state.
+Scroll story (a pinned stage, steps in turn):
+- A section with attrs \`{"data-lc-story":{"type":"static","value":true}}\`. Its first child is the stage: display grid, place-items center. Inside the stage: a pinned image with --lc-scroll lc-scale-up and --lc-range entry, then one child per step with --lc-scroll lc-fade-through and no --lc-range.
+- Steps are the stage's direct children; they take turns in order. Add, remove or move them freely.
+- Length: --lc-length on the section, in screens (steps + 1 by default). No overflow hidden on the section or its ancestors.
+Reading progress bar: a div with --lc-scroll lc-progress, --lc-timeline scroll(), --lc-range normal, position fixed, inset 0 0 auto 0, height 3px, transform-origin left, a background.`,
 
   settings: `## Settings
 - A page at \`/404\` is the not-found page.

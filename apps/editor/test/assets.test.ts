@@ -39,6 +39,7 @@ it('finds every kind of use of an asset, in words, with the element to show', ()
   expect(assetUses(doc, 'a-hero')).toEqual([
     { label: 'image.hero', place: 'Design tokens' },
     { label: 'Image', place: 'Home', node: 'n-hero-image' },
+    { label: 'Image', place: 'Home', node: 'n-product' },
     { label: 'Social image', place: 'Home' },
     { label: 'Favicon', place: 'Site settings' },
     { label: 'article · .card background-image', place: 'Card component', node: 'n-card' },

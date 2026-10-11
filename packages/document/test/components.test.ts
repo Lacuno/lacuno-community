@@ -63,7 +63,7 @@ describe('components', () => {
       props: [],
     })
     expect(document.nodes['n-hero']!.parent).toBeNull()
-    expect(document.nodes['n-home']!.children).toEqual(['n-hero-instance', 'n-posts'])
+    expect(document.nodes['n-home']!.children).toEqual(['n-hero-instance', 'n-posts', 'n-story'])
     expect(document.nodes['n-hero-instance']).toEqual({
       id: 'n-hero-instance',
       type: 'component',

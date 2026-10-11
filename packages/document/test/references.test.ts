@@ -71,6 +71,7 @@ describe('reference scanners', () => {
     d.site.fonts = [{ family: 'X', source: 'asset', asset: 'a-hero' }]
     expect(referencesToAsset(d, 'a-hero')).toEqual([
       'nodes.n-hero-image',
+      'nodes.n-product',
       'pages.p-home.seo.ogImage',
       'site.favicon',
       'site.fonts.0',

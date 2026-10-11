@@ -82,6 +82,7 @@ it.each([
             LIVE_STATES.has(state) ? `:${state}` : whole,
           )
           .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\n/, '')
+          .replace(' data-lacuno-still=""', '')
         expect(normalized).toBe(assembleDocument(compiled))
         expect(canvas.html).toContain('data-lacuno-node=')
       }

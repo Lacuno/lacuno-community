@@ -6,6 +6,10 @@ it('previews a page, an entry and a component, and names what is missing', () =>
   const doc = fixtureDocument()
   const home = renderPreview(doc, 's', { page: 'p-home' })
   expect(home).toMatchObject({ status: 200, body: { revision: doc.revision } })
+  // The canvas holds scroll motion still; published pages never carry the attribute.
+  expect(home.body).toMatchObject({
+    html: expect.stringContaining('<html data-lacuno-still="" lang="en">'),
+  })
   expect(renderPreview(doc, 's', { page: 'p-post', entry: 'e-1' }).status).toBe(200)
   const component = Object.keys(doc.components)[0]!
   expect(renderPreview(doc, 's', { page: 'p-home', component }).status).toBe(200)

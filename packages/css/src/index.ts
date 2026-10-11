@@ -5,7 +5,16 @@ export {
   styleElement,
 } from './generate.js'
 export { iconSvg } from './icons.js'
-export { isMotionStyle, MOTION_CSS, MOTION_SCRIPT } from './motion.js'
+export {
+  isMotionStyle,
+  isStory,
+  MOTION_CSS,
+  MOTION_PRESETS,
+  MOTION_SCRIPT,
+  SCROLL_CSS,
+  storyCss,
+  storySteps,
+} from './motion.js'
 export { compareProperties } from './order.js'
 export {
   type ClassNames,

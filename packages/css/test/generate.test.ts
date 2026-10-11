@@ -17,6 +17,8 @@ import {
   classNames,
   cssIdent,
   generateStylesheet,
+  MOTION_PRESETS,
+  SCROLL_CSS,
   selectorFor,
   serializeValue,
   TABLE_CSS,
@@ -381,4 +383,65 @@ it('turns equal words in a row into one run, the content only when written on th
     words: ['a'],
   })
   expect(bound.map((turn) => turn.slots)).toEqual([1, 1])
+})
+
+it('emits the scroll rules once when anything follows the scroll, and step turns per step count used', () => {
+  const doc = createEmptyDocument()
+  doc.classes.x = { id: 'x', kind: 'class', name: 'x' }
+  const add = (property: string, value: string) => {
+    const d = {
+      class: 'x',
+      breakpoint: 'base',
+      state: 'none' as const,
+      property,
+      value: { type: 'raw' as const, value },
+    }
+    doc.styles[styleKey(d)] = d
+  }
+  add('--lc-entrance', 'lc-fade')
+  let css = generateStylesheet(doc).css
+  expect(css).toContain('@keyframes lc-fade {')
+  expect(css).not.toContain('animation-timeline')
+  add('--lc-scroll', 'lc-parallax')
+  css = generateStylesheet(doc).css
+  expect(css.split(SCROLL_CSS)).toHaveLength(2)
+  for (const { name } of MOTION_PRESETS) expect(css).toContain(`@keyframes ${name} {`)
+  expect(css).not.toContain('data-lc-steps=')
+  // The shorthand resets the timeline and range, so they come after it.
+  const rule = SCROLL_CSS.slice(SCROLL_CSS.indexOf('animation:'))
+  expect(rule.indexOf('animation-timeline:')).toBeGreaterThan(0)
+  expect(rule.indexOf('animation-range:')).toBeGreaterThan(0)
+
+  // The fixture's story has three steps; a second story of three adds nothing, one of two does.
+  const fixture = fixtureDocument()
+  const turns = (css: string) => css.match(/:where\(\[data-lc-steps="\d+"\]\) \{[^}]*\}/g)
+  expect(turns(generateStylesheet(fixture).css)).toEqual([
+    ':where([data-lc-steps="3"]) { --lc-steps: 3; }',
+  ])
+  expect(generateStylesheet(fixture).css).toContain(
+    ':where([data-lc-steps="3"] [data-lc-step="2"]) { --lc-range: contain 33.3333% contain 66.6667%; }',
+  )
+  const copy = (id: string, children: string[]) => {
+    fixture.nodes[`${id}-story`] = {
+      ...fixture.nodes['n-story']!,
+      id: `${id}-story`,
+      children: [`${id}-stage`],
+    }
+    fixture.nodes[`${id}-stage`] = {
+      ...fixture.nodes['n-stage']!,
+      id: `${id}-stage`,
+      parent: `${id}-story`,
+      children,
+    }
+  }
+  copy('a', ['n-step-1', 'n-step-2', 'n-step-3'])
+  expect(turns(generateStylesheet(fixture).css)).toHaveLength(1)
+  copy('b', ['n-step-1', 'n-step-2'])
+  expect(turns(generateStylesheet(fixture).css)).toEqual([
+    ':where([data-lc-steps="2"]) { --lc-steps: 2; }',
+    ':where([data-lc-steps="3"]) { --lc-steps: 3; }',
+  ])
+  // The turns come after the story's own default range, which they override.
+  const all = generateStylesheet(fixture).css
+  expect(all.indexOf('[data-lc-step="1"]')).toBeGreaterThan(all.indexOf(SCROLL_CSS))
 })

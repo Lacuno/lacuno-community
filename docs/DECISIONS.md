@@ -455,3 +455,44 @@ recipient per form; a CAPTCHA service.
 retention rules. A fixed recipient needs no verification and cannot be used to mail strangers. A
 message whose email fails is lost and the visitor is told to try again. The database holding
 submissions, as D005 describes, remains the plan for the inbox, export and webhooks.
+
+## D030. Scroll motion is Motion fields on classes, behind a support guard, at rest on the canvas
+
+**Decision.** An element follows the scroll when one of its classes sets `--lc-scroll` to a preset
+(`lc-fade`, `lc-parallax`, `lc-fade-through`, …), with `--lc-range` and `--lc-timeline` where the
+preset needs them; the compiler marks it `data-lacuno-motion="scroll"` and the shared CSS turns
+the fields into `animation`, `animation-timeline` and `animation-range`. Presets are one table
+(`MOTION_PRESETS`) that the generator, the guide and the editor read; the same keyframes serve
+`--lc-entrance` and `--lc-scroll`. Every preset keeps the element as styled as one of its frames.
+All scroll rules sit in `@supports (animation-timeline: view())`, under reduced motion off, and
+exclude a root marked `data-lacuno-still`, which the canvas render carries, so the canvas,
+`page.screenshot`, Firefox and visitors who prefer less motion all see that rest state.
+
+**Alternatives.** A motion field on the node, with its own operations and breakpoint handling. A
+timeline editor. A generator option or a second stylesheet that leaves scroll rules out of the
+canvas.
+
+**Why.** A class property already has breakpoints, states, undo, collaboration, `style.set` and
+`styles.get`, so the schema gains nothing and an agent learns a few property names. Making the
+rest state a real frame keeps every fallback honest and lets the canvas edit elements that sit
+still, opaque and selectable. One attribute on the canvas root turns the same stylesheet off in
+edit mode and back on for a preview, with no second path to keep in step.
+
+## D031. A scroll story is a marked section whose stage's followers take turns, and flows where motion is off
+
+**Decision.** A story is an element with the attribute `data-lc-story`. Its first child, the
+stage, pins for the story's length, and everything inside follows the story's view timeline. The
+stage's direct children that follow the scroll without a range of their own on the base
+breakpoint are its steps: the compiler numbers them (`data-lc-step`, `data-lc-steps`) and the
+generator emits each step's turn for every step count the site uses, as it does for rotating
+words. Where scroll motion is off the story is an ordinary section and its steps follow each other
+down the page.
+
+**Alternatives.** A story node type with its own operations and inspector. Explicit ranges
+written by a "space evenly" action. Inline `--lc-range` styles per step. Hiding the steps that are
+not current on the canvas.
+
+**Why.** Adding, duplicating, moving and deleting steps are the structure tools that exist, and
+numbering at compile time means no range goes stale. Generated rules rather than inline styles
+leave a breakpoint free to override a step and stay out of the canvas's live paint. The fallback
+layout is the edit layout, so nothing overlaps while editing and every step can be clicked.
