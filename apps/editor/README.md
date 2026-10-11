@@ -249,7 +249,8 @@ app's card shows one thing: for an app with a terminal a one-line prompt to past
 follows the guide at lacuno.io/install.md, installs the Lacuno plugin and signs the user in), for
 claude.ai, Claude Desktop and ChatGPT the one address; the site's own address stays to copy for any
 other client. Beside the button, **Open in Claude** opens a claude.ai chat asking to show the open
-page, named with its path and site. The app then opens the
+page, by its id and the site's, at the MCP address Claude needs; on a self-hosted instance with no
+AI app connected yet it opens the panel with claude.ai chosen instead. The app then opens the
 editor's consent page, "Allow Claude Code to edit Acme?", and the header shows "Claude Code
 connected" once its first session opens. The panel lists every approved app with when it last acted
 and Disconnect. The **History** button beside undo and redo lists the latest 50 edits, by you and

@@ -2,7 +2,7 @@ import type { Page } from '@lacuno/schema'
 import { useId, useRef } from 'react'
 import { Brand, type Role, SignUpLink } from './App.js'
 import { embed, useConfig } from './api.js'
-import { type Connection, connectionLabel } from './ConnectPanel.js'
+import { type Connection, connectionLabel, siteMcpUrl } from './ConnectPanel.js'
 import { EditorIcon } from './EditorIcon.js'
 import { placePopover } from './popover.js'
 import type { DocumentSession } from './session.js'
@@ -38,16 +38,27 @@ export function EditorHeader({
   back: () => void
   uploadingImage: boolean
   publish: () => void
-  connections: Connection[]
-  connect: () => void
+  /** Undefined until first read. */
+  connections: Connection[] | undefined
+  /** Opens the Connect panel, with an app chosen by id. */
+  connect: (app?: string) => void
 }) {
   const { doc, snapshot, error, busy, dirty, conflict, saved } = session
-  const connection = connectionLabel(connections)
+  const connection = connectionLabel(connections ?? [])
   const { config } = useConfig()
   const historyId = useId()
   const historyPanel = useRef<HTMLDivElement>(null)
-  // Ids only: names are the site's content, which the model reads as such.
-  const show = doc && page && `Show me page ${page.id} of site ${siteId} in Lacuno.`
+  // Ids only: names are the site's content, which the model reads as such. The address is the one
+  // Claude needs a connector for.
+  const show =
+    doc &&
+    page &&
+    config &&
+    `Show me page ${page.id} of site ${siteId} in Lacuno (${config.mcp ?? siteMcpUrl(config, siteId)}).`
+  // With no AI app connected, Claude has no Lacuno to show the page in: Open in Claude connects it
+  // first. Behind a gateway an app may reach the site through its one address, which lists no
+  // connection here, so there the link always opens the chat.
+  const unconnected = !config?.authentication && connections?.length === 0
   // Spike: inside a host the chat is the way back, to the AI apps and to publishing.
   const embedded = !!embed
   return (
@@ -151,7 +162,7 @@ export function EditorHeader({
           type="button"
           className="connect-trigger"
           data-state={connection.state}
-          onClick={connect}
+          onClick={() => connect()}
         >
           <EditorIcon name="sparkle" />
           {connection.label}
@@ -163,6 +174,11 @@ export function EditorHeader({
           href={`https://claude.ai/new?q=${encodeURIComponent(show)}`}
           target="_blank"
           rel="noopener"
+          onClick={(event) => {
+            if (!unconnected) return
+            event.preventDefault()
+            connect('claude-ai')
+          }}
         >
           Open in Claude
         </a>

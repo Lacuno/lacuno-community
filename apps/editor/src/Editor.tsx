@@ -75,10 +75,11 @@ export function Editor({
   const [picked, setState] = useState<State>('none')
   const [colorsOpen, setColorsOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
-  const [connectOpen, setConnectOpen] = useState(false)
+  // Open with the app chosen on opening, if any.
+  const [connectOpen, setConnectOpen] = useState<{ app: string | undefined }>()
   const [askOpen, setAskOpen] = useState(false)
   const [cmsView, setCmsView] = useState<CmsView>()
-  const { connections, refresh: refreshConnections } = useConnections(siteId, connectOpen)
+  const { connections, refresh: refreshConnections } = useConnections(siteId, !!connectOpen)
   const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
     id: '',
     values: {},
@@ -240,18 +241,19 @@ export function Editor({
           setPublishOpen(true)
         }}
         connections={connections}
-        connect={() => {
+        connect={(app) => {
           setInlineTarget(undefined)
-          setConnectOpen(true)
+          setConnectOpen({ app })
         }}
       />
       {connectOpen && (
         <ConnectPanel
           siteId={siteId}
+          app={connectOpen.app}
           role={role}
-          connections={connections}
+          connections={connections ?? []}
           refresh={refreshConnections}
-          close={() => setConnectOpen(false)}
+          close={() => setConnectOpen(undefined)}
         />
       )}
       {askOpen && doc && node && page && (

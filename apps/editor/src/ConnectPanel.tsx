@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { type Role, SignUpLink } from './App.js'
-import { api, message, useConfig } from './api.js'
+import { api, type Config, message, useConfig } from './api.js'
 import { ConnectIcon } from './ConnectIcon.js'
 import { type ConnectApp, connectApps } from './connectApps.js'
 import { Dialog, ErrorNote } from './Dialog.js'
@@ -28,9 +28,13 @@ const time = (at: number) => new Date(at).toLocaleString()
 /** The one line to paste into an AI app with a terminal: its agent installs the plugin or MCP server for its host and signs the person in. */
 const guidePrompt = 'Set up Lacuno by following the guide at https://lacuno.io/install.md'
 
-/** The site's AI connections, polled every 10s, or every 2s while the panel is open. */
+/** The site's own MCP address. */
+export const siteMcpUrl = (config: Config, siteId: string) =>
+  `${config.origin || window.location.origin}/mcp/${siteId}`
+
+/** The site's AI connections, undefined until first read, polled every 10s, or every 2s while the panel is open. */
 export function useConnections(siteId: string, open: boolean) {
-  const [connections, setConnections] = useState<Connection[]>([])
+  const [connections, setConnections] = useState<Connection[]>()
   const refresh = useCallback(
     () => api<Connection[]>(`/api/sites/${siteId}/connections`).then(setConnections),
     [siteId],
@@ -55,12 +59,15 @@ export function connectionLabel(connections: Connection[]) {
 
 export function ConnectPanel({
   siteId,
+  app,
   role,
   connections,
   refresh,
   close,
 }: {
   siteId: string
+  /** The app chosen on opening, by id. */
+  app: string | undefined
   /** Everyone disconnects their own AI apps; the owner disconnects anyone's. */
   role: Role
   connections: Connection[]
@@ -68,14 +75,14 @@ export function ConnectPanel({
   close: () => void
 }) {
   const { config, error: configError } = useConfig()
-  const [chosen, setChosen] = useState<ConnectApp>()
+  const [chosen, setChosen] = useState(() => connectApps.find((item) => item.id === app))
   // The app the designer started registering, and the connections that existed then.
   const [waiting, setWaiting] = useState<{ app: string; known: string[] }>()
   const [status, setStatus] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const url = config ? `${config.origin || window.location.origin}/mcp/${siteId}` : ''
+  const url = config ? siteMcpUrl(config, siteId) : ''
   const copy = async (text: string, done: string) => {
     try {
       await navigator.clipboard.writeText(text)
