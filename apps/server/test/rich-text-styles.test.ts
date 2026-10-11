@@ -159,6 +159,8 @@ it('styles the tags inside rich text per class, by clicking them', async () => {
     expectedRevision: bare.revision,
     operations: [{ type: 'node.update', id: 'n-about-why-p1', classes: [] }],
   })
+  // A click while the canvas morphs the change in waits on an element that never settles.
+  await expect.poll(() => size(about.locator('h2'))).not.toBe('40px')
   await about.locator('h2').click()
   await expect
     .poll(() => inspector.locator('.selection-heading strong').textContent())
