@@ -69,6 +69,7 @@ type Document = {
   components: Map<ComponentId, Component>
   collections: Map<CollectionId, CollectionSchema>   // CMS schemas live in the document
   assets: Map<AssetId, AssetRef>        // metadata only, bytes live in storage
+  keyframes: Map<KeyframesId, Keyframes> // custom animations; the id is the CSS name
   redirects: Redirect[]
 }
 
@@ -165,6 +166,12 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
 - States map to pseudo-classes and pseudo-elements. The canvas stylesheet, and only that one,
   also emits each state rule as `<selector>[data-lc-state~="<state>"]`, so the editor can force the
   picked state on the selected element.
+- Motion is custom properties on classes (`--lc-entrance`, `--lc-scroll`, `--lc-range`, …) that
+  shared rules turn into animations (D030). `MOTION_CSS` comes with the first such property,
+  `SCROLL_CSS` (behind `@supports (animation-timeline: view())` and reduced motion off) with the
+  first `--lc-scroll` or story, then one rule set per story step count (D031) and one `@keyframes`
+  per custom keyframes record (D032). Every scroll rule excludes `:root[data-lacuno-still]`, the
+  canvas's edit mode.
 - Output is deterministic: sorted keys, stable formatting, so diffs are readable and snapshot tests
   are stable.
 - The same function runs in the canvas iframe and in the compiler. Parity tests render fixture
@@ -187,6 +194,9 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
   rule into the canvas and commit once on release as one undo step.
 - Text editing is Tiptap mounted into the text node in place.
 - Collection lists and collection pages render real entries from the document.
+- The canvas's `<html>` carries `data-lacuno-still`, so scroll motion holds still and every
+  element sits at rest, selectable. Preview motion lifts it and runs the published page's
+  entrance and scroll video functions against the canvas document from the editor's window.
 - Breakpoint switching resizes the iframe, so media queries behave exactly as they will in
   production.
 
@@ -220,6 +230,12 @@ generates is meant to be read, edited or kept.
 - A component instance's children are its slot content; a child names its slot with a static
   `slot` attribute, which is not emitted, and falls into `default` otherwise. An embed publishes
   its HTML verbatim, inside a `div` only when the embed has classes or attributes.
+- Motion: the compiler marks elements whose classes carry Motion fields with
+  `data-lacuno-motion` (`"scroll"` for those that follow the scroll) and numbers a story's steps
+  (`data-lc-step`, `data-lc-steps`). Scripts are inlined only where used: the entrance observer
+  when a style names `--lc-entrance`, and the scroll video script on a page with a `video`
+  marked `data-lc-scrub` (D033), which the compiler publishes muted, inline and without playback
+  controls. Each script is a function stringified, the same one the editor's Preview calls.
 - The build changes the process working directory for the duration of the Astro call, because
   Astro places its prerender bundle relative to the working directory. Builds must therefore run
   one at a time per process; the server's build queue runs them in a child process.

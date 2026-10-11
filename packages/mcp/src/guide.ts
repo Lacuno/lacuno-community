@@ -146,25 +146,26 @@ A mobile menu needs no script and no embed. The browser opens and closes it: cli
 
   motion: `## Motion
 Motion is CSS on classes: style.set with these custom properties, values \`{"type":"raw","value":"…"}\`.
-- --lc-entrance: plays once when the element scrolls into view. --lc-scroll: follows the scrollbar. Set one, not both (scroll wins).
-- Names: ${presetNames(false)} (enter or scroll); ${presetNames(true)} (scroll).
-- --lc-duration (400ms), --lc-delay, --lc-easing shape entrances and hover transitions. Scroll motion is linear by nature.
-- --lc-range for scroll: entry (while entering, default), cover (while visible), exit (while leaving), or any animation-range value. lc-fade-out wants exit, lc-parallax cover. --lc-parallax: its distance, 80px by default.
+- --lc-entrance plays once when the element scrolls into view; --lc-scroll follows the scrollbar. Set one, not both (scroll wins).
+- Names: ${presetNames(false)} (enter or scroll); ${presetNames(true)} (scroll only). Or the id of custom keyframes.
+- --lc-duration (400ms), --lc-delay and --lc-easing time entrances and hover transitions; scroll motion is linear.
+- --lc-range, scroll only: entry (while entering, the default outside a story), cover (while visible), exit (while leaving), or any animation-range value. lc-fade-out wants exit, lc-parallax cover; --lc-parallax is its distance, 80px by default.
 - --lc-scroll none on a smaller breakpoint turns it off there.
-- Everything is off for people who prefer reduced motion and in browsers without scroll timelines (Firefox): design the page to read well at rest. Every name keeps the element as styled as one of its frames. The canvas and page.screenshot show that rest state; the person presses Preview motion on the canvas to see it move.
-Custom keyframes: \`keyframes.create\` \`{"id":"rise","stops":[{"at":0,"styles":{"opacity":{"type":"raw","value":"0"},"translate":{"type":"raw","value":"0 40px"}}},{"at":60,"styles":{"translate":{"type":"raw","value":"0 -4px"}}}]}\`, earlier in the batch than the style.set of --lc-entrance or --lc-scroll rise.
-- Leave out a stop to mean "as styled": the element's own styles should be a frame of the motion, like the presets. Token values work inside stops.
-- Ids are lower-case idents, not lc-* or none, fixed once created. keyframes.update replaces the stops; keyframes.delete is refused while a style names them.
-Scroll story (a pinned stage, steps in turn):
-- A section with attrs \`{"data-lc-story":{"type":"static","value":true}}\`. Its first child is the stage: display grid, grid-template-rows minmax(0, max-content) auto, align-content and place-items center. Inside the stage: a pinned image with --lc-scroll lc-scale-up and --lc-range entry, max-height 100% so it fits the screen, then one child per step with --lc-scroll lc-fade-through and no --lc-range.
-- Steps are the stage's direct children; they take turns in order. Add, remove or move them freely.
-- Length: --lc-length on the section, in screens (steps + 1 by default). No overflow hidden on the section or its ancestors.
-Reading progress bar: an empty span with --lc-scroll lc-progress, --lc-timeline scroll(), --lc-range normal, position fixed, inset 0 0 auto 0, height 3px, transform-origin left, a background.
-Scroll video: a story whose pinned element is a video with attrs \`{"data-lc-scrub":{"type":"static","value":true}}\`; its time follows the story while the steps take turns. It never plays: published muted, without controls, autoplay or loop.
-- It needs a keyframe on every frame or it scrubs in jumps. Prepare the clip on your machine, then asset.upload the result:
+- Reduced motion and browsers without scroll timelines (Firefox) show every element as styled, and a story flows like any section: the page must read well at rest. Every name has the element as styled as one of its frames. The canvas and page.screenshot show that rest state; the person presses Preview motion on the canvas to see it move.
+Scroll story, the Apple-style product page (a pinned stage, steps in turn):
+- A section with attrs \`{"data-lc-story":{"type":"static","value":true}}\`. Its first child is the stage: display grid, grid-template-rows minmax(0, max-content) auto, align-content and place-items center. It pins for the story's length.
+- In the stage: the pinned image with --lc-scroll lc-scale-up, --lc-range entry and max-height 100%, then one child per step (a heading and a paragraph) with --lc-scroll lc-fade-through and no --lc-range. The picture takes the first row, the steps share the second.
+- Steps are the stage's direct children; they take turns in order. Add, remove or move them freely. Anything else in the story that follows the scroll runs while the stage is pinned (contain), unless its --lc-range says otherwise, like the picture's entry.
+- Length: --lc-length on the section, in screens (steps + 1 by default). No overflow hidden on the section or its ancestors (clip is fine).
+Scroll video: the pinned element is a video, \`src\` an asset binding, with attrs \`{"data-lc-scrub":{"type":"static","value":true}}\`. Its time follows the story; it never plays, and is published muted, without controls, autoplay or loop.
+- It needs a keyframe on every frame or it scrubs in jumps. Prepare the clip on your machine, then asset.upload it:
   ffmpeg -i in.mov -an -vf "scale=1280:-2,fps=24" -c:v libx264 -g 1 -crf 26 -pix_fmt yuv420p -movflags +faststart out.mp4
 - Uploads are at most 10 MB, about 15 to 20 s at 1280 px: shorter is better; raise -crf if it is too big.
-- The editor's palette has these as Scroll story, Scroll video and Reading progress.`,
+Reading progress bar: an empty span with --lc-scroll lc-progress, --lc-timeline scroll(), --lc-range normal, position fixed, inset 0 0 auto 0, height 3px, transform-origin left, a background.
+Custom keyframes: \`keyframes.create\` \`{"id":"rise","stops":[{"at":0,"styles":{"opacity":{"type":"raw","value":"0"},"translate":{"type":"raw","value":"0 40px"}}},{"at":60,"styles":{"translate":{"type":"raw","value":"0 -4px"}}}]}\`, earlier in the batch than the style.set of --lc-entrance or --lc-scroll rise.
+- Styles are keyed by kebab-case property; token values work. Leave out a stop to mean "as styled", so the element as styled stays a frame.
+- Ids are lower-case idents, not lc-* or none, fixed once created. keyframes.update replaces the stops; keyframes.delete is refused while a style names them.
+The editor's palette has Scroll story, Scroll video and Reading progress.`,
 
   settings: `## Settings
 - A page at \`/404\` is the not-found page.

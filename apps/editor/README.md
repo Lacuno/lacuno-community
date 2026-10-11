@@ -159,7 +159,7 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   turns on the canvas's motion preview for scroll motion. The Animation list ends with the site's
   custom keyframes and **New keyframes…**, a small dialog with a name and one line of CSS per stop
   (`opacity: 0; translate: 0 40px` at 0%); the pencil beside the list edits the chosen keyframes,
-  and Delete is refused while a style uses them.
+  and Delete takes them off the selected element too, refused while anything else uses them.
   Reduced-motion preferences disable motion in both preview and published output. Published
   entrance animations use a small IntersectionObserver script; content remains visible without
   JavaScript or observer support. Motion settings autosave, support undo/reset, and travel with presets.

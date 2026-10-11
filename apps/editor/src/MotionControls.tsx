@@ -199,6 +199,7 @@ export function MotionControls({
       {editing !== undefined && (
         <KeyframesDialog
           doc={doc}
+          node={node.id}
           keyframes={doc.keyframes[editing]}
           disabled={disabled}
           save={save}

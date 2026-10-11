@@ -3,7 +3,7 @@ import { editor, openFormatting } from './harness.js'
 
 const raw = (value: string) => ({ type: 'raw', value })
 
-it('creates custom keyframes from the Motion section, previews them and keeps them while used', async () => {
+it('creates custom keyframes from the Motion section, previews them, and deletes them once nothing else uses them', async () => {
   const { context, origin, siteId, document, page, canvas, saved } = await editor({
     width: 1400,
     height: 900,
@@ -13,6 +13,13 @@ it('creates custom keyframes from the Motion section, previews them and keeps th
       expectedRevision: (await document()).revision,
       operations: [
         { type: 'class.create', id: 'c-drift', local: true },
+        { type: 'class.create', id: 'c-other', name: 'other' },
+        {
+          type: 'node.create',
+          parent: 'n-home-main',
+          index: 0,
+          node: { id: 'n-other', type: 'element', tag: 'div', classes: ['c-other'], children: [] },
+        },
         {
           type: 'node.create',
           parent: 'n-home-main',
@@ -86,7 +93,7 @@ it('creates custom keyframes from the Motion section, previews them and keeps th
   await page.keyboard.press('Escape')
   await expect.poll(names).toEqual([])
 
-  // The pencil edits them; deleting is refused while a class uses them.
+  // The pencil edits them; deleting is refused while another element uses them.
   await edit.click()
   const editing = page.getByRole('dialog', { name: 'drift' })
   await editing.getByLabel('Stop 2 styles').fill('translate: 0 -8px')
@@ -94,11 +101,37 @@ it('creates custom keyframes from the Motion section, previews them and keeps th
   await expect
     .poll(async () => (await document()).keyframes.drift?.stops[1]?.styles.translate)
     .toEqual(raw('0 -8px'))
+  const other = (operation: object) =>
+    document().then(({ revision }) =>
+      context.request.post(`${origin}/api/sites/${siteId}/document/apply`, {
+        data: { expectedRevision: revision, operations: [operation] },
+      }),
+    )
+  const used = {
+    class: 'c-other',
+    breakpoint: 'base',
+    state: 'none',
+    property: '--lc-entrance',
+  }
+  // The editor has the other batch once the canvas marks the other element.
+  const marked = canvas.locator('[data-lacuno-node="n-other"]')
+  expect((await other({ type: 'style.set', ...used, value: raw('drift') })).status()).toBe(200)
+  await expect.poll(() => marked.getAttribute('data-lacuno-motion')).toBe('')
   await edit.click()
   await editing.getByRole('button', { name: 'Delete', exact: true }).click()
   expect(await editing.getByRole('alert').textContent()).toBe(
-    'Used by Heading. Choose another animation there first.',
+    'Used by other. Choose another animation there first.',
   )
   await editing.getByRole('button', { name: 'Cancel', exact: true }).click()
   expect((await document()).keyframes.drift).toBeDefined()
+
+  // Used only here, Delete takes them off the element too.
+  expect((await other({ type: 'style.clear', ...used })).status()).toBe(200)
+  await expect.poll(() => marked.getAttribute('data-lacuno-motion')).toBeNull()
+  await edit.click()
+  await editing.getByRole('button', { name: 'Delete', exact: true }).click()
+  await expect.poll(async () => (await document()).keyframes.drift).toBeUndefined()
+  expect(await style('--lc-scroll')).toBeUndefined()
+  await expect.poll(() => animation.inputValue()).toBe('none')
+  expect(await edit.count()).toBe(0)
 }, 60_000)

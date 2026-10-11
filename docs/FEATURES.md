@@ -23,7 +23,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Copy and paste of HTML plus CSS, Tailwind HTML, Webflow clipboard, Webstudio JSON, SVG, images | Next | Import is how people switch. Tailwind paste is how AI output gets in |
 | Gradients: linear and radial backgrounds and gradient text | MVP | A structured value with colour or token stops, edited with a stops bar in Appearance; a radial gradient takes a shape and a centre, see D017 |
 | Rotating words in a text, such as a headline's "AI → designer → you" | MVP | Slide or fade, CSS keyframes, per-word icons, empty words, texts in step read as one phrase, accessible and reduced-motion aware, edited in Motion, see D018 |
-| Scroll-driven and view-timeline animations, transitions | Next | Native CSS. No engine of our own |
+| Scroll-driven and view-timeline animations, transitions | MVP | Native CSS, no engine of our own, edited in Motion: one Animation list of presets that play once on entering or follow the scroll, with hover transitions timed alongside. **Scroll stories** pin a stage while its steps take turns, Apple-style; **custom keyframes** live in the document and serve both triggers; a **scroll video** in a story follows the scroll through a small script, from a clip prepared with one ffmpeg line. Everything sits behind `@supports` and reduced motion, so Firefox and the canvas show the page at rest; **Preview motion** on the canvas plays it. See D030 to D033 |
 | View transitions between pages | Next | Astro ships this |
 | Interactions timeline editor | Deferred | Native CSS covers most of the demand. Revisit with real user requests |
 | Multi-canvas showing several breakpoints side by side | Later | |

@@ -1,7 +1,13 @@
 import { contextFromDocument, serializeValue } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
 import { nodesUsingClass, referencesToKeyframes } from '@lacuno/document/references'
-import { type CssValue, type Document, type Keyframes, KeyframesId } from '@lacuno/schema'
+import {
+  type CssValue,
+  type Document,
+  type Keyframes,
+  KeyframesId,
+  type NodeId,
+} from '@lacuno/schema'
 import { useState } from 'react'
 import { Dialog, ErrorNote } from './Dialog.js'
 import { nodeLabel } from './structure.js'
@@ -32,10 +38,12 @@ function parseStyles(line: string, saved: Styles, doc: Document): Styles | undef
 
 /**
  * Creates or edits custom keyframes: a name, fixed once saved, and one line of CSS per stop. A bad
- * line or a repeated stop marks its field and keeps Save off.
+ * line or a repeated stop marks its field and keeps Save off. Delete also takes them off the
+ * selected element, and is refused while anything else uses them.
  */
 export function KeyframesDialog({
   doc,
+  node,
   keyframes,
   disabled,
   save,
@@ -43,6 +51,7 @@ export function KeyframesDialog({
   close,
 }: {
   doc: Document
+  node: NodeId
   keyframes?: Keyframes | undefined
   disabled: boolean
   save: (operations: Operation[]) => Promise<boolean>
@@ -172,17 +181,33 @@ export function KeyframesDialog({
               className="keyframes-delete"
               disabled={disabled}
               onClick={async () => {
-                const users = referencesToKeyframes(doc, keyframes.id).map((key) => {
-                  // A class by its name, an element's own style by the element.
-                  const { class: id } = doc.styles[key.replace('styles.', '')]!
-                  const user = doc.nodes[nodesUsingClass(doc, id)[0] ?? '']
-                  return doc.classes[id]?.name ?? (user ? nodeLabel(user) : 'an element')
-                })
+                const uses = referencesToKeyframes(doc, keyframes.id).map(
+                  (key) => doc.styles[key.replace('styles.', '')]!,
+                )
+                // Uses on a class only the selected element carries go with the keyframes.
+                const own = (style: (typeof uses)[number]) =>
+                  nodesUsingClass(doc, style.class).join() === node
+                const users = uses
+                  .filter((style) => !own(style))
+                  .map(({ class: id }) => {
+                    // A class by its name, an element's own style by the element.
+                    const user = doc.nodes[nodesUsingClass(doc, id)[0] ?? '']
+                    return doc.classes[id]?.name ?? (user ? nodeLabel(user) : 'an element')
+                  })
                 if (users.length)
                   setStatus(
                     `Used by ${[...new Set(users)].join(', ')}. Choose another animation there first.`,
                   )
-                else if (await save([{ type: 'keyframes.delete', id: keyframes.id }])) close()
+                else if (
+                  await save([
+                    ...uses.map(({ value: _value, important: _important, ...style }) => ({
+                      type: 'style.clear' as const,
+                      ...style,
+                    })),
+                    { type: 'keyframes.delete', id: keyframes.id },
+                  ])
+                )
+                  close()
               }}
             >
               Delete
