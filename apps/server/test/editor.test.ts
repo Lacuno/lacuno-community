@@ -527,9 +527,9 @@ it('edits a real template in the browser, persists changes, and protects drafts 
   await openFormatting(page, 'Motion')
   await page.getByLabel('Motion duration', { exact: true }).fill('1500')
   await saved()
-  await page.getByLabel('Entrance animation', { exact: true }).selectOption('lc-slide-up')
+  await page.getByLabel('Motion animation', { exact: true }).selectOption('lc-slide-up')
   await saved()
-  await page.getByRole('button', { name: 'Preview entrance', exact: true }).click()
+  await page.getByRole('button', { name: 'Preview', exact: true }).click()
   await expect
     .poll(() =>
       heading.evaluate((element) =>

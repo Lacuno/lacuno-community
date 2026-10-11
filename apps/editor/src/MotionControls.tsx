@@ -1,3 +1,4 @@
+import { isStory, MOTION_PRESETS, storySteps } from '@lacuno/css'
 import type { ReactNode } from 'react'
 import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 
@@ -5,78 +6,162 @@ import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 const ms = (time: string) => (/\ds$/.test(time) ? `${Number.parseFloat(time) * 1000}ms` : time)
 
 export function MotionControls({ children, ...props }: StyleControls & { children?: ReactNode }) {
-  const { disabled, node } = props
+  const { disabled, node, doc, breakpoint = 'base', state = 'none' } = props
   const { overridden, value: read, set } = useStyleField(props)
-  const preview = () =>
-    window.dispatchEvent(new CustomEvent('lacuno:motion-preview', { detail: { id: node.id } }))
+  // Off clears at the base; on a breakpoint or state it writes none over what applies there.
+  const off = (property: string) => {
+    if (breakpoint === 'base' && state === 'none') set(property, '')
+    else if (read(property, 'none') !== 'none') set(property, 'none')
+  }
+  const follow = read('--lc-scroll', 'none') !== 'none'
+  const name = follow ? read('--lc-scroll') : read('--lc-entrance', 'none')
+  const preset = MOTION_PRESETS.find((item) => item.name === name)
+  const choose = (next: string) => {
+    const chosen = MOTION_PRESETS.find((item) => item.name === next)
+    if (next === 'none') {
+      for (const property of ['--lc-entrance', '--lc-scroll', '--lc-range', '--lc-timeline'])
+        off(property)
+      set('--lc-parallax', '')
+      return
+    }
+    const scroll = chosen?.scroll || follow
+    set(scroll ? '--lc-scroll' : '--lc-entrance', next)
+    off(scroll ? '--lc-entrance' : '--lc-scroll')
+    // A preset's own range replaces the one the previous preset brought; a chosen range stays.
+    if (chosen?.range || preset?.range) set('--lc-range', chosen?.range ?? '')
+    set('--lc-timeline', chosen?.timeline ?? '')
+  }
+  const trigger = (scroll: boolean) => {
+    if (scroll === follow) return
+    set(scroll ? '--lc-scroll' : '--lc-entrance', name)
+    off(scroll ? '--lc-entrance' : '--lc-scroll')
+  }
+  let story = doc.nodes[node.parent ?? '']
+  while (story && !isStory(story)) story = doc.nodes[story.parent ?? '']
+  // Inside a story an element without a range follows the whole story, a step its own turn.
+  const ranges: Record<string, string> = !story
+    ? { entry: 'Entering', cover: 'Visible', exit: 'Leaving' }
+    : node.parent === story.children[0]
+      ? { '': 'In turn', contain: 'Whole story', entry: 'Entering' }
+      : { '': 'Whole story', entry: 'Entering' }
+  const range = read('--lc-range', story ? '' : 'entry')
+  const select = (
+    label: string,
+    marked: boolean,
+    value: string,
+    options: Record<string, string>,
+    change: (value: string) => void,
+  ) => (
+    <label>
+      {label}
+      <select
+        aria-label={`Motion ${label.toLowerCase()}`}
+        data-overridden={marked}
+        disabled={disabled}
+        value={value}
+        onChange={(event) => change(event.target.value)}
+      >
+        {/* A value written through MCP shows as itself. */}
+        {Object.entries(value in options ? options : { ...options, [value]: value }).map(
+          ([option, text]) => (
+            <option key={option} value={option}>
+              {text}
+            </option>
+          ),
+        )}
+      </select>
+    </label>
+  )
   return (
     <div className="motion-controls">
       {children}
       <div className="motion-timing">
-        {(['duration', 'delay'] as const).map((key) => (
-          <NumberField
-            key={key}
-            label={key === 'duration' ? 'Duration (ms)' : 'Delay (ms)'}
-            name={`Motion ${key}`}
-            value={ms(read(`--lc-${key}`, key === 'duration' ? '400ms' : '0ms'))}
-            unit="ms"
-            min={0}
-            max={10000}
-            disabled={disabled}
-            overridden={overridden(`--lc-${key}`)}
-            // An emptied timing field means no time, not an unset property.
-            set={(next) => set(`--lc-${key}`, next || '0ms')}
-          />
-        ))}
-        <label>
-          Easing
-          <select
-            aria-label="Motion easing"
-            data-overridden={overridden('--lc-easing')}
-            disabled={disabled}
-            value={read('--lc-easing', 'ease-out')}
-            onChange={(event) => set('--lc-easing', event.target.value)}
-          >
-            {['ease-out', 'ease-in-out', 'ease-in', 'ease', 'linear'].map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Entrance
-          <select
-            aria-label="Entrance animation"
-            data-overridden={overridden('--lc-entrance')}
-            disabled={disabled}
-            value={read('--lc-entrance', 'none')}
-            onChange={(event) => set('--lc-entrance', event.target.value)}
-          >
-            {Object.entries({
+        <div className="motion-wide">
+          {select(
+            'Animation',
+            overridden('--lc-scroll') || overridden('--lc-entrance'),
+            name,
+            {
               none: 'None',
-              'lc-fade': 'Fade in',
-              'lc-slide-up': 'Slide up',
-              'lc-slide-down': 'Slide down',
-              'lc-slide-left': 'Slide left',
-              'lc-slide-right': 'Slide right',
-            }).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
+              ...Object.fromEntries(MOTION_PRESETS.map((item) => [item.name, item.label])),
+            },
+            choose,
+          )}
+        </div>
+        {name !== 'none' && (
+          <fieldset className="motion-wide motion-trigger" aria-label="Motion trigger">
+            {[false, true].map((scroll) => (
+              <button
+                type="button"
+                key={String(scroll)}
+                aria-pressed={follow === scroll}
+                disabled={disabled || (!scroll && !!preset?.scroll)}
+                onClick={() => trigger(scroll)}
+              >
+                {scroll ? 'Follow scroll' : 'On enter'}
+              </button>
             ))}
-          </select>
-        </label>
+          </fieldset>
+        )}
+        {follow ? (
+          select('Range', overridden('--lc-range'), range, ranges, (next) =>
+            set('--lc-range', next),
+          )
+        ) : (
+          <>
+            {(['duration', 'delay'] as const).map((key) => (
+              <NumberField
+                key={key}
+                label={key === 'duration' ? 'Duration (ms)' : 'Delay (ms)'}
+                name={`Motion ${key}`}
+                value={ms(read(`--lc-${key}`, key === 'duration' ? '400ms' : '0ms'))}
+                unit="ms"
+                min={0}
+                max={10000}
+                disabled={disabled}
+                overridden={overridden(`--lc-${key}`)}
+                // An emptied timing field means no time, not an unset property.
+                set={(next) => set(`--lc-${key}`, next || '0ms')}
+              />
+            ))}
+            {select(
+              'Easing',
+              overridden('--lc-easing'),
+              read('--lc-easing', 'ease-out'),
+              Object.fromEntries(
+                ['ease-out', 'ease-in-out', 'ease-in', 'ease', 'linear'].map((v) => [v, v]),
+              ),
+              (next) => set('--lc-easing', next),
+            )}
+          </>
+        )}
         <button
           type="button"
-          disabled={disabled || read('--lc-entrance', 'none') === 'none'}
-          onClick={preview}
+          disabled={disabled || name === 'none'}
+          onClick={() =>
+            window.dispatchEvent(
+              follow
+                ? new CustomEvent('lacuno:canvas-preview')
+                : new CustomEvent('lacuno:motion-preview', { detail: { id: node.id } }),
+            )
+          }
         >
-          Preview entrance
+          Preview
         </button>
+        {isStory(node) && (
+          <NumberField
+            label="Length (screens)"
+            name="Story length"
+            value={read('--lc-length')}
+            placeholder={String(storySteps(doc, node).length + 1)}
+            min={1}
+            max={50}
+            disabled={disabled}
+            overridden={overridden('--lc-length')}
+            set={(next) => set('--lc-length', next)}
+          />
+        )}
       </div>
-      <p className="hint">
-        Entrances play once on entering the viewport. Timing applies to state changes too, such as a
-        hover you set with the state picker. Reduced-motion preferences are respected.
-      </p>
     </div>
   )
 }

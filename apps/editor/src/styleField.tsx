@@ -58,6 +58,7 @@ export function NumberField({
   value,
   factor = 1,
   unit = '',
+  placeholder,
   min,
   max,
   disabled,
@@ -70,6 +71,7 @@ export function NumberField({
   value: string
   factor?: number
   unit?: string
+  placeholder?: string
   min?: number | undefined
   max?: number | undefined
   disabled: boolean
@@ -87,6 +89,7 @@ export function NumberField({
         min={min}
         max={max}
         step="any"
+        placeholder={placeholder}
         disabled={disabled}
         value={value ? Math.round(Number.parseFloat(value) * factor * 1000) / 1000 : ''}
         onChange={(event) =>

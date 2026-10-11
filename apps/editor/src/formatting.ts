@@ -131,6 +131,11 @@ export const formattingGroups = [
       { property: '--lc-delay', label: 'Delay' },
       { property: '--lc-easing', label: 'Easing' },
       { property: '--lc-entrance', label: 'Entrance' },
+      { property: '--lc-scroll', label: 'Scroll animation' },
+      { property: '--lc-range', label: 'Range' },
+      { property: '--lc-timeline', label: 'Timeline' },
+      { property: '--lc-parallax', label: 'Parallax distance' },
+      { property: '--lc-length', label: 'Story length' },
     ],
   },
 ] as const

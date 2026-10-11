@@ -146,9 +146,13 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
   and inset controls. Existing custom transforms and complex shadows remain editable as CSS.
   Effects preview immediately, autosave, support undo/redo, and reset with **Reset formatting**.
   Rotation and scale use individual CSS properties, so they compose with existing transforms.
-- **Motion** configures duration, delay, and easing, which apply to entrances and to state changes
-  alike. Entrances include fade and slides from four directions, played once when an element
-  enters the viewport. **Preview entrance** replays one in the sandboxed canvas.
+- **Motion** picks one **Animation** (fade, slides from four directions, scale, blur, and the
+  scroll-only fade out, parallax, fade through and reading progress) and its **Trigger**: **On
+  enter** plays it once when the element enters the viewport, with duration, delay and easing,
+  which apply to state changes too; **Follow scroll** ties it to the scrollbar over a **Range**
+  (entering, visible or leaving; in a story its turn, the whole story or entering). A story section
+  also sets its **Length** in screens. **Preview** replays an entrance in the sandboxed canvas, or
+  turns on the canvas's motion preview for scroll motion.
   Reduced-motion preferences disable motion in both preview and published output. Published
   entrance animations use a small IntersectionObserver script; content remains visible without
   JavaScript or observer support. Motion settings autosave, support undo/reset, and travel with presets.

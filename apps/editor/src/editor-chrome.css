@@ -362,6 +362,19 @@
   align-self: end;
   font-size: 11px;
 }
+.motion-trigger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.motion-trigger button[aria-pressed="true"] {
+  background: #f4f1fd;
+  border-color: #c6b8e9;
+  color: #6550bc;
+}
 .rotating-words {
   display: grid;
   gap: 6px;
@@ -428,10 +441,6 @@
 }
 .word-icon-popover .word-icon {
   height: 32px;
-}
-.motion-controls .hint {
-  margin: 0;
-  font-size: 10px;
 }
 
 .gradient-controls,
