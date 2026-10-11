@@ -4,6 +4,15 @@ import { ImageLibrary } from './ImageLibrary.js'
 import { toggleAttr } from './structure.js'
 import { type StyleControls, useStyleField } from './styleField.js'
 
+/** A video's flags; following the scroll comes first. */
+const flags = {
+  'data-lc-scrub': 'Follow scroll',
+  controls: 'Controls',
+  autoplay: 'Autoplay',
+  loop: 'Loop',
+  muted: 'Muted',
+}
+
 /** Media content: the file, alternate text, and video playback flags. */
 export function MediaControls({
   siteId,
@@ -25,6 +34,9 @@ export function MediaControls({
 }) {
   const [open, setOpen] = useState(false)
   const isVideo = node.type === 'element' && node.tag === 'video'
+  const on = (name: string) =>
+    node.attrs?.[name]?.type === 'static' && node.attrs[name].value === true
+  const scrub = on('data-lc-scrub')
   return (
     <div className="image-controls">
       <button
@@ -50,17 +62,22 @@ export function MediaControls({
       )}
       {isVideo ? (
         <div className="video-flags">
-          {['controls', 'autoplay', 'loop', 'muted'].map((name) => (
-            <label key={name}>
-              <input
-                type="checkbox"
-                disabled={disabled}
-                checked={node.attrs?.[name]?.type === 'static' && node.attrs[name].value === true}
-                onChange={(event) => void autoSave([toggleAttr(node, name, event.target.checked)])}
-              />
-              {name[0]!.toUpperCase() + name.slice(1)}
-            </label>
-          ))}
+          {/* A video that follows the scroll never plays, so its playback flags hide. */}
+          {Object.entries(flags)
+            .filter(([name]) => !scrub || name === 'data-lc-scrub')
+            .map(([name, label]) => (
+              <label key={name}>
+                <input
+                  type="checkbox"
+                  disabled={disabled}
+                  checked={on(name)}
+                  onChange={(event) =>
+                    void autoSave([toggleAttr(node, name, event.target.checked)])
+                  }
+                />
+                {label}
+              </label>
+            ))}
         </div>
       ) : (
         <>

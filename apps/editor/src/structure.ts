@@ -51,6 +51,7 @@ export type Preset =
   | 'form'
   | FormField
   | 'story'
+  | 'scroll-video'
   | 'progress'
 /** Wrap in link builds an `a` around the selection; the palette's Link is a text node. */
 type Buildable = Preset | 'link-wrapper'
@@ -353,18 +354,36 @@ export function presetNode(
   if (preset === 'submit') return { ...submit, classes }
   if (preset in fieldPresets)
     return { ...field(...fieldPresets[preset as keyof typeof fieldPresets]), classes }
-  if (preset === 'story') {
-    // The stage pins a picture while the steps take turns; the defaults below style each part.
-    const steps = [
-      ['Meet the story.', 'Scroll, and the picture stays while the words take turns.'],
-      ['One idea at a time.', 'Each step fades in, has its moment and makes room for the next.'],
-      ['Make it yours.', 'Drop your picture on the placeholder and write each step.'],
-    ].map(([heading, body]) =>
+  if (preset === 'story' || preset === 'scroll-video') {
+    // The stage pins a picture, or a clip whose time follows the scroll, while the steps take
+    // turns; the defaults below style each part.
+    const video = preset === 'scroll-video'
+    const steps = (
+      video
+        ? [
+            ['Watch it move.', 'Scroll, and the clip plays forward; scroll back, and it rewinds.'],
+            ['Make it yours.', "Choose your clip in the video's Content tab and write each step."],
+          ]
+        : [
+            ['Meet the story.', 'Scroll, and the picture stays while the words take turns.'],
+            [
+              'One idea at a time.',
+              'Each step fades in, has its moment and makes room for the next.',
+            ],
+            ['Make it yours.', 'Drop your picture on the placeholder and write each step.'],
+          ]
+    ).map(([heading, body]) =>
       element('div', 'Step', [text('h2', 'Step heading', heading!), text('p', 'Step text', body!)]),
     )
+    const pin = video
+      ? {
+          ...presetNode('video', ''),
+          attrs: { 'data-lc-scrub': { type: 'static' as const, value: true } },
+        }
+      : presetNode('image', '')
     return {
-      ...element('section', 'Scroll story', [
-        element('div', 'Stage', [presetNode('image', ''), ...steps]),
+      ...element('section', video ? 'Scroll video' : 'Scroll story', [
+        element('div', 'Stage', [pin, ...steps]),
       ]),
       classes,
       attrs: { 'data-lc-story': { type: 'static', value: true } },
@@ -469,7 +488,7 @@ const defaults: Record<
   | 'control'
   | 'submit'
   | 'story-stage'
-  | 'story-image'
+  | 'story-media'
   | 'story-step'
   | 'story-heading'
   | 'story-text'
@@ -582,8 +601,8 @@ const defaults: Record<
     padding: '48px 24px',
     'box-sizing': 'border-box',
   },
-  // Grows in while the story arrives, then stays as styled.
-  'story-image': {
+  // The picture or clip grows in while the story arrives, then stays as styled.
+  'story-media': {
     '--lc-scroll': 'lc-scale-up',
     '--lc-range': 'entry',
     display: 'block',
@@ -650,7 +669,8 @@ const menuParts: Record<string, keyof typeof defaults> = {
 /** A story's parts, by the labels the preset gives them. */
 const storyParts: Record<string, keyof typeof defaults> = {
   Stage: 'story-stage',
-  Image: 'story-image',
+  Image: 'story-media',
+  Video: 'story-media',
   Step: 'story-step',
   'Step heading': 'story-heading',
   'Step text': 'story-text',
@@ -684,7 +704,7 @@ export function structureInsertion(
   const part =
     preset === 'menu'
       ? (each: InsertNode) => menuParts['tag' in each ? each.tag : '']
-      : preset === 'story'
+      : preset === 'story' || preset === 'scroll-video'
         ? (each: InsertNode) => storyParts[each.meta?.label ?? '']
         : formPart
   const style = (each: InsertNode, key = part(each)) => {

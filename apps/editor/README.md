@@ -84,8 +84,12 @@ changes. Production builds use `pnpm build`, followed by `pnpm --filter @lacuno/
 - **Assets** uploads PNG, JPEG, WebP and GIF images, MP4 and WebM videos, and WOFF2, WOFF, TTF and
   OTF fonts up to 10 MB; fonts are listed but not inserted. A List
   starts as three bulleted items; **List type** switches it to numbered. A Video's inspector
-  chooses an uploaded clip and toggles Controls, Autoplay, Loop and Muted; turning Autoplay on also
-  mutes it, since browsers refuse unmuted autoplay. An Embed's **Embed code** is published verbatim;
+  chooses an uploaded clip and toggles Follow scroll, Controls, Autoplay, Loop and Muted; turning
+  Autoplay on also mutes it, since browsers refuse unmuted autoplay. **Follow scroll** makes the
+  pinned video of a scroll story (the Motion group's **Scroll video**) show the frame of the
+  story's progress instead of playing, so the other four hide. It scrubs smoothly, backwards too,
+  only when every frame is a keyframe; prepare the clip before uploading it:
+  `ffmpeg -i in.mov -an -vf "scale=1280:-2,fps=24" -c:v libx264 -g 1 -crf 26 -pix_fmt yuv420p -movflags +faststart out.mp4`. An Embed's **Embed code** is published verbatim;
   the canvas shows a placeholder when the markup shows nothing there, such as scripts or iframes.
 - **Link target** appears in the inspector's Content tab for any `a` element. It names the current
   destination and opens the same page-or-URL popover the text toolbar uses. Choosing a page stores a

@@ -5,6 +5,7 @@ import { getMimeType } from 'hono/utils/mime'
 import { formRoute } from './forms.js'
 import type { Send } from './mail.js'
 import type { PublicationReader } from './publication-reader.js'
+import { rangedBody } from './ranges.js'
 
 /**
  * This app runs on the publishing listener only: no editor, auth, or draft API routes. Its one
@@ -67,7 +68,7 @@ export function publishedApp(reader: PublicationReader, send: Send | undefined) 
         c.header('Referrer-Policy', 'strict-origin-when-cross-origin')
         c.header('Origin-Agent-Cluster', '?1')
         c.header('X-Lacuno-Release', id)
-        return c.req.method === 'HEAD' ? c.body(null) : c.body(new Uint8Array(bytes))
+        return c.req.method === 'HEAD' ? c.body(null) : rangedBody(c, new Uint8Array(bytes))
       } catch (error) {
         if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? ''))
           throw error

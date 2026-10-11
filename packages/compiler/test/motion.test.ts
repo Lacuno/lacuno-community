@@ -293,3 +293,85 @@ it('follows the scroll and pins a story in published HTML, at rest with reduced 
     await browser.close()
   }
 }, 20000)
+
+/** The fixture's home with its story's picture a scroll video, and its rendering. */
+function scrubbed() {
+  const doc = fixtureDocument()
+  doc.nodes['n-product'] = {
+    ...doc.nodes['n-product']!,
+    tag: 'video',
+    attrs: {
+      src: { type: 'asset', asset: 'a-clip' },
+      'data-lc-scrub': { type: 'static', value: true },
+      autoplay: { type: 'static', value: true },
+      controls: { type: 'static', value: true },
+      loop: { type: 'static', value: true },
+    },
+  } as Node
+  return { doc, result: render(doc, home(doc), undefined, { resolveImage: plainImageResolver }) }
+}
+
+it('publishes a scroll video muted and quiet, with the scrub script only on its page', () => {
+  const { doc, result } = scrubbed()
+  expect(result.body).toContain(
+    '<video class="product" data-lacuno-motion="scroll" data-lc-scrub muted playsinline preload="metadata" src=',
+  )
+  expect(result.body).toContain('<script>(function scrubVideos(page')
+  const canvas = render(doc, home(doc), undefined, {
+    resolveImage: plainImageResolver,
+    annotateNodes: true,
+  })
+  expect(canvas.body).toContain('preload="metadata"')
+  expect(canvas.body).not.toContain('scrubVideos')
+  const plain = fixtureDocument()
+  expect(
+    render(plain, home(plain), undefined, { resolveImage: plainImageResolver }).body,
+  ).not.toContain('scrubVideos')
+})
+
+it("scrubs a scroll video along its story's pinned range, and leaves it with reduced motion", async () => {
+  const { doc, result } = scrubbed()
+  result.head += `<style>${generateStylesheet(doc).css}</style>`
+  // The page loads a screen and a half above the story, so the clip waits until it is near.
+  result.body = `<div style="height:1500px"></div>${result.body}<div style="height:1500px"></div>`
+  // No clip loads here: the video reports a ten-second duration and keeps the time it is given.
+  const stub = `<script>for (const video of document.querySelectorAll('video')) {
+    Object.defineProperty(video, 'duration', { value: 10 })
+    Object.defineProperty(video, 'currentTime', { value: 0, writable: true })
+  }</script>`
+  const html = assembleDocument({
+    ...result,
+    body: result.body.replace('<script>', `${stub}<script>`),
+  })
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 600 } })
+    const video = page.locator('video')
+    const time = () => video.evaluate((element: HTMLVideoElement) => element.currentTime)
+    const story = '[data-lc-story]'
+    await page.setContent(html)
+    expect(
+      await page.locator(story).evaluate((element) => element.getBoundingClientRect().top),
+    ).toBeGreaterThan(1200)
+    expect(await video.evaluate((element: HTMLVideoElement) => element.preload)).toBe('metadata')
+    // Four screens of story: 1800px pinned, so a quarter of the clip per 450px.
+    for (const [offset, seconds] of [
+      [-300, 0],
+      [0, 0],
+      [900, 5],
+      [1800, 10],
+      [2400, 10],
+    ] as const) {
+      await scrollTo(page, story, offset)
+      await expect.poll(async () => Math.round((await time()) * 10) / 10).toBe(seconds)
+    }
+    expect(await video.evaluate((element: HTMLVideoElement) => element.preload)).toBe('auto')
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.setContent(html)
+    await scrollTo(page, story, 900)
+    await page.evaluate(() => new Promise(requestAnimationFrame))
+    expect(await time()).toBe(0)
+  } finally {
+    await browser.close()
+  }
+}, 20000)

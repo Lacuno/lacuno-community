@@ -157,7 +157,11 @@ Scroll story (a pinned stage, steps in turn):
 - Steps are the stage's direct children; they take turns in order. Add, remove or move them freely.
 - Length: --lc-length on the section, in screens (steps + 1 by default). No overflow hidden on the section or its ancestors.
 Reading progress bar: an empty span with --lc-scroll lc-progress, --lc-timeline scroll(), --lc-range normal, position fixed, inset 0 0 auto 0, height 3px, transform-origin left, a background.
-- The editor's palette has these as Scroll story and Reading progress.`,
+Scroll video: a story whose pinned element is a video with attrs \`{"data-lc-scrub":{"type":"static","value":true}}\`; its time follows the story while the steps take turns. It never plays: published muted, without controls, autoplay or loop.
+- It needs a keyframe on every frame or it scrubs in jumps. Prepare the clip on your machine, then asset.upload the result:
+  ffmpeg -i in.mov -an -vf "scale=1280:-2,fps=24" -c:v libx264 -g 1 -crf 26 -pix_fmt yuv420p -movflags +faststart out.mp4
+- Uploads are at most 10 MB, about 15 to 20 s at 1280 px: shorter is better; raise -crf if it is too big.
+- The editor's palette has these as Scroll story, Scroll video and Reading progress.`,
 
   settings: `## Settings
 - A page at \`/404\` is the not-found page.

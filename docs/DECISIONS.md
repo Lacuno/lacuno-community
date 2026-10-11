@@ -496,3 +496,25 @@ not current on the canvas.
 numbering at compile time means no range goes stale. Generated rules rather than inline styles
 leave a breakpoint free to override a step and stay out of the canvas's live paint. The fallback
 layout is the edit layout, so nothing overlaps while editing and every step can be clicked.
+
+## D033. Scroll video scrubs with a small script, and the clip is prepared before upload
+
+**Decision.** A `video` marked `data-lc-scrub` inside a story never plays: the compiler publishes
+it muted, inline, with `preload="metadata"` and without controls, autoplay or loop, and a page
+with one carries `SCRUB_SCRIPT`, which sets the video's time to the story's progress through its
+pinned range on every scroll, and loads the clip in full once the story is within two screens. It
+runs only where the scroll CSS pins the stage, so Firefox and reduced motion show the first frame
+in the flowing story. The editor's Preview runs the same function on the canvas. Smooth
+scrubbing needs a keyframe on every frame, which the clip gets before upload from one documented
+ffmpeg line; any MP4 or WebM scrubs, an unprepared one in jumps. The editor does not re-encode.
+
+**Alternatives.** Re-encoding in the browser with WebCodecs and a media library, with an encoder
+UI and a flag on the asset. ffmpeg on the server or in a sidecar service. An image sequence drawn
+on a canvas.
+
+**Why.** A browser encoder would be the editor's first media dependency and a UI with caps and
+progress for one property of a file, with output no headless test can check. It would not spare
+the common phone clip a conversion either: a QuickTime `.mov`, often HEVC, which uploads refuse.
+ffmpeg in the image would weigh on every Cloud runtime and starve a one-CPU runtime for minutes.
+Agents building through MCP have ffmpeg at hand, and a designer can run the line or ask one to.
+An image sequence needs hundreds of assets, a preloader and a bigger script.

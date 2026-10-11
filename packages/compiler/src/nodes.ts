@@ -50,6 +50,8 @@ export type RenderState = {
   texts?: [NodeId, Resolved][]
   /** Set once the page has a Lacuno form, which needs `FORM_SCRIPT`. */
   forms?: true
+  /** Set once the page has a scroll video, which needs `SCRUB_SCRIPT`. */
+  scrub?: true
 }
 
 /** `data-lacuno-motion`'s value: `scroll` for an element that follows the scroll. */
@@ -201,6 +203,15 @@ function renderElement(node: ElementNode, scope: Scope, state: RenderState): str
     attrs.action = '/_lacuno/forms'
     attrs.method = 'post'
     state.forms = true
+  }
+  // A scroll video never plays: the scroll sets its time, so it is muted, inline and quiet until
+  // its story comes near.
+  if (node.tag === 'video' && attrs['data-lc-scrub']) {
+    delete attrs.autoplay
+    delete attrs.controls
+    delete attrs.loop
+    Object.assign(attrs, { muted: true, playsinline: true, preload: 'metadata' })
+    if (!state.annotateNodes) state.scrub = true
   }
   const open = `<${node.tag}${renderAttrs(attrs)}>`
   if (VOID_TAGS.has(node.tag)) return open

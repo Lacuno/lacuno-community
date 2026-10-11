@@ -193,6 +193,17 @@ describe('publishing', () => {
     const assetPath = originalHtml.match(/(?:src|href)="(\/(?:_astro|assets)\/[^" ]+)"/)?.[1]
     expect(assetPath).toBeTruthy()
     expect((await live(assetPath)).headers.get('cache-control')).toContain('immutable')
+    // Ranges, so a browser can seek a video.
+    const whole = new Uint8Array(await (await live(assetPath)).arrayBuffer())
+    const part = await live(assetPath, { headers: { range: 'bytes=2-5' } })
+    expect(part.status).toBe(206)
+    expect(part.headers.get('content-range')).toBe(`bytes 2-5/${whole.length}`)
+    expect(new Uint8Array(await part.arrayBuffer())).toEqual(whole.subarray(2, 6))
+    const tail = await live(assetPath, { headers: { range: 'bytes=-3' } })
+    expect(new Uint8Array(await tail.arrayBuffer())).toEqual(whole.subarray(-3))
+    expect((await live(assetPath, { headers: { range: `bytes=${whole.length}-` } })).status).toBe(
+      416,
+    )
     const crossOrigin = { expectedRevision: 161, expectedId: firstId }
     expect((await request(`${route}/releases`, cookie, crossOrigin, liveURL)).status).toBe(403)
   })

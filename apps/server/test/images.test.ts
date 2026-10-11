@@ -109,6 +109,10 @@ it('measures uploaded images, serves them resized to a listed width once, and ne
   const original = await request(route)
   expect(original.headers.get('content-type')).toBe('image/jpeg')
   expect(original.headers.get('cache-control')).toBe('private, max-age=31536000, immutable')
+  // Ranges, so the canvas can seek a video.
+  const part = await server.app.request(origin + route, { headers: { cookie, range: 'bytes=0-3' } })
+  expect(part.status).toBe(206)
+  expect(Buffer.from(await part.arrayBuffer())).toEqual(jpeg.subarray(0, 4))
   for (const width of ['500', 'abc', ''])
     expect((await request(`${route}?w=${width}`)).status).toBe(400)
 

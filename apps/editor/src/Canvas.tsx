@@ -1,4 +1,4 @@
-import { enterOnView, MOTION_CSS, sizeWords, TABLE_CSS } from '@lacuno/css'
+import { enterOnView, MOTION_CSS, scrubVideos, sizeWords, TABLE_CSS } from '@lacuno/css'
 import { kw, px, RichTag, type State } from '@lacuno/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
@@ -173,13 +173,13 @@ export function Canvas({
   // The nodes an agent batch just changed, outlined on the canvas until `until`.
   const flash = useRef({ ids: [] as string[], until: 0 })
   const dragCleanup = useRef<(() => void) | undefined>(undefined)
-  // Stops the entrances Preview runs on the canvas.
-  const stopEntrances = useRef<(() => void) | undefined>(undefined)
+  // Stops the entrances and scroll videos Preview runs on the canvas.
+  const stopMotion = useRef<(() => void) | undefined>(undefined)
   useEffect(
     () => () => {
       selectionCleanup.current?.()
       dragCleanup.current?.()
-      stopEntrances.current?.()
+      stopMotion.current?.()
     },
     [],
   )
@@ -484,14 +484,20 @@ export function Canvas({
     // A re-rendered list restarts its animation; align them all so texts in step stay in step.
     for (const list of doc.querySelectorAll('[data-lc-words]'))
       for (const animation of list.getAnimations({ subtree: true })) animation.startTime = 0
-    // Preview lifts the canvas's stillness, so the scroll rules apply, and runs the entrances; a
-    // morph re-runs them on the new elements.
+    // Preview lifts the canvas's stillness, so the scroll rules apply, and runs the entrances and
+    // scroll videos; a morph re-runs them on the new elements.
     const moving = latest.current.motionPreview
     doc.documentElement.toggleAttribute('data-lacuno-still', !moving)
-    stopEntrances.current?.()
-    stopEntrances.current = moving
-      ? enterOnView(doc as unknown as Parameters<typeof enterOnView>[0])
-      : undefined
+    stopMotion.current?.()
+    const stops = moving
+      ? [
+          enterOnView(doc as unknown as Parameters<typeof enterOnView>[0]),
+          scrubVideos(doc as unknown as Parameters<typeof scrubVideos>[0]),
+        ]
+      : []
+    stopMotion.current = () => {
+      for (const stop of stops) stop()
+    }
     for (const element of doc.querySelectorAll<HTMLElement>('[data-lacuno-node]'))
       element.draggable = !moving
     highlight(frame.current, latest.current.selected, latest.current.state, latest.current.inner)

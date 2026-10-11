@@ -43,6 +43,7 @@ import { createOAuth, gatewayUser, type OAuth, relayFetch } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
 import { SqlitePersistence } from './persistence.js'
 import { publishedApp } from './published.js'
+import { rangedBody } from './ranges.js'
 import { Releases } from './releases.js'
 
 export type ServerOptions = {
@@ -497,16 +498,18 @@ export async function createServer(options: ServerOptions) {
         const bytes = variant ?? (await readFile(path.join(siteDir, 'assets', hash)))
         // Addressed by content, so a browser keeps what it fetched. A type from before the known
         // list was checked is a download at most.
-        return c.body(new Uint8Array(bytes), 200, {
-          'Content-Type': variant
+        c.header(
+          'Content-Type',
+          variant
             ? 'image/webp'
             : AssetMime.safeParse(asset.mime).success
               ? asset.mime
               : 'application/octet-stream',
-          'Cache-Control': 'private, max-age=31536000, immutable',
-          'X-Content-Type-Options': 'nosniff',
-          'Content-Security-Policy': "sandbox; default-src 'none'",
-        })
+        )
+        c.header('Cache-Control', 'private, max-age=31536000, immutable')
+        c.header('X-Content-Type-Options', 'nosniff')
+        c.header('Content-Security-Policy', "sandbox; default-src 'none'")
+        return rangedBody(c, new Uint8Array(bytes))
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return c.notFound()
         throw error

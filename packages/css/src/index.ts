@@ -13,6 +13,8 @@ export {
   MOTION_PRESETS,
   MOTION_SCRIPT,
   SCROLL_CSS,
+  SCRUB_SCRIPT,
+  scrubVideos,
   storyCss,
   storySteps,
 } from './motion.js'
