@@ -161,6 +161,7 @@ export function RichTagInspector({
             breakpoint={breakpoint}
             state={state}
             read={read}
+            save={autoSave}
           />
           <ErrorNote message={validation} />
           <p className="hint" role="status">

@@ -375,6 +375,84 @@
   border-color: #c6b8e9;
   color: #6550bc;
 }
+.motion-animation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 6px;
+}
+.motion-animation button {
+  display: grid;
+  place-items: center;
+  width: 33px;
+  height: 33px;
+  /* Level with the select, which sits inside the label's margins. */
+  margin: 17px 0;
+  padding: 0;
+}
+
+.keyframes-dialog {
+  width: 460px;
+}
+.keyframes-dialog form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.keyframes-dialog label {
+  margin: 0;
+}
+.keyframes-stops {
+  display: grid;
+  gap: 8px;
+}
+.keyframes-stop {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+}
+.keyframes-stop label {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+.keyframes-stop input {
+  padding: 8px;
+}
+.keyframes-stop > input {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.keyframes-dialog [aria-invalid="true"] {
+  box-shadow: inset 0 0 0 1px #d98892;
+}
+.keyframes-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+}
+.keyframes-add {
+  justify-self: start;
+}
+.keyframes-dialog footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.keyframes-dialog .keyframes-delete {
+  margin-right: auto;
+  color: #a03240;
+}
+.keyframes-dialog .primary {
+  width: auto;
+}
 .rotating-words {
   display: grid;
   gap: 6px;

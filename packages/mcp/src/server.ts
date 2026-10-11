@@ -383,7 +383,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     {
       annotations: reads,
       description:
-        'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, components, collections, assets. No nodes, styles or entries. Each asset and collection lists `usedBy`, the places that reference it (empty when unused, so asset.delete can remove it).',
+        'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, keyframes, components, collections, assets. No nodes, styles or entries. Each asset and collection lists `usedBy`, the places that reference it (empty when unused, so asset.delete can remove it).',
     },
     async () => {
       const { document, revision } = store.read()

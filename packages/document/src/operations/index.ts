@@ -4,6 +4,7 @@ import { assetOperations } from './assets.js'
 import { collectionOperations } from './collections.js'
 import { componentOperations } from './components.js'
 import { designTokenOperations } from './design-tokens.js'
+import { keyframesOperations } from './keyframes.js'
 import { nodeOperations } from './nodes.js'
 import { pageOperations } from './pages.js'
 import { siteOperations } from './site.js'
@@ -16,6 +17,7 @@ export const OPERATIONS = [
   ...pageOperations,
   ...styleOperations,
   ...designTokenOperations,
+  ...keyframesOperations,
   ...componentOperations,
   ...collectionOperations,
   ...assetOperations,

@@ -1,4 +1,5 @@
 import { contextFromDocument, serializeValue } from '@lacuno/css'
+import type { Operation } from '@lacuno/document'
 import type { ReactNode } from 'react'
 import { ColorField } from './ColorField.js'
 import { colorProperties } from './colors.js'
@@ -40,10 +41,13 @@ export function FormattingControls({
   typography,
   words,
   focused = false,
+  save,
   ...controls
 }: StyleControls & {
   typography?: ReactNode
   focused?: boolean
+  /** Saves what a section's dialog creates, such as custom keyframes. */
+  save: (operations: Operation[]) => Promise<boolean>
   /** Rotating words, for a text element, shown above the Motion fields. */
   words?: ReactNode
 }) {
@@ -82,7 +86,9 @@ export function FormattingControls({
     ) : group.name === 'Layout' ? (
       <LayoutControls {...controls} />
     ) : group.name === 'Motion' ? (
-      <MotionControls {...controls}>{words}</MotionControls>
+      <MotionControls {...controls} save={save}>
+        {words}
+      </MotionControls>
     ) : group.name === 'Effects' ? (
       <EffectsControls {...controls} />
     ) : (

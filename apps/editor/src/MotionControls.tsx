@@ -1,12 +1,28 @@
 import { isStory, MOTION_PRESETS, storySteps } from '@lacuno/css'
-import type { ReactNode } from 'react'
+import type { Operation } from '@lacuno/document'
+import { type ReactNode, useState } from 'react'
+import { EditorIcon } from './EditorIcon.js'
+import { KeyframesDialog } from './KeyframesDialog.js'
 import { NumberField, type StyleControls, useStyleField } from './styleField.js'
 
 // The fields count milliseconds; a time set in seconds reads as its milliseconds.
 const ms = (time: string) => (/\ds$/.test(time) ? `${Number.parseFloat(time) * 1000}ms` : time)
 
-export function MotionControls({ children, ...props }: StyleControls & { children?: ReactNode }) {
+// The Animation option that opens the keyframes dialog; a space is never in an animation name.
+const NEW_KEYFRAMES = ' new'
+
+export function MotionControls({
+  children,
+  save,
+  ...props
+}: StyleControls & {
+  children?: ReactNode
+  /** Saves custom keyframes from their dialog. */
+  save: (operations: Operation[]) => Promise<boolean>
+}) {
   const { disabled, node, doc, breakpoint = 'base', state = 'none' } = props
+  // The keyframes the dialog edits, or '' for new ones; undefined while it is closed.
+  const [editing, setEditing] = useState<string>()
   const { overridden, value: read, set } = useStyleField(props)
   // Off clears at the base; on a breakpoint or state it writes none over what applies there.
   const off = (property: string) => {
@@ -45,12 +61,20 @@ export function MotionControls({ children, ...props }: StyleControls & { childre
       ? { '': 'In turn', contain: 'Whole story', entry: 'Entering' }
       : { '': 'Whole story', entry: 'Entering' }
   const range = read('--lc-range', story ? '' : 'entry')
+  const custom = doc.keyframes[name]
+  const options = (items: Record<string, string>) =>
+    Object.entries(items).map(([option, text]) => (
+      <option key={option} value={option}>
+        {text}
+      </option>
+    ))
   const select = (
     label: string,
     marked: boolean,
     value: string,
-    options: Record<string, string>,
+    items: Record<string, string>,
     change: (value: string) => void,
+    group?: Record<string, string>,
   ) => (
     <label>
       {label}
@@ -62,13 +86,8 @@ export function MotionControls({ children, ...props }: StyleControls & { childre
         onChange={(event) => change(event.target.value)}
       >
         {/* A value written through MCP shows as itself. */}
-        {Object.entries(value in options ? options : { ...options, [value]: value }).map(
-          ([option, text]) => (
-            <option key={option} value={option}>
-              {text}
-            </option>
-          ),
-        )}
+        {options(value in items || value in (group ?? {}) ? items : { ...items, [value]: value })}
+        {group && <optgroup label="Custom keyframes">{options(group)}</optgroup>}
       </select>
     </label>
   )
@@ -76,7 +95,7 @@ export function MotionControls({ children, ...props }: StyleControls & { childre
     <div className="motion-controls">
       {children}
       <div className="motion-timing">
-        <div className="motion-wide">
+        <div className="motion-wide motion-animation">
           {select(
             'Animation',
             overridden('--lc-scroll') || overridden('--lc-entrance'),
@@ -85,7 +104,22 @@ export function MotionControls({ children, ...props }: StyleControls & { childre
               none: 'None',
               ...Object.fromEntries(MOTION_PRESETS.map((item) => [item.name, item.label])),
             },
-            choose,
+            (next) => (next === NEW_KEYFRAMES ? setEditing('') : choose(next)),
+            {
+              ...Object.fromEntries(Object.keys(doc.keyframes).map((id) => [id, id])),
+              [NEW_KEYFRAMES]: 'New keyframes…',
+            },
+          )}
+          {custom && (
+            <button
+              type="button"
+              aria-label="Edit keyframes"
+              title="Edit keyframes"
+              disabled={disabled}
+              onClick={() => setEditing(name)}
+            >
+              <EditorIcon name="pencil" />
+            </button>
           )}
         </div>
         {name !== 'none' && (
@@ -162,6 +196,16 @@ export function MotionControls({ children, ...props }: StyleControls & { childre
           />
         )}
       </div>
+      {editing !== undefined && (
+        <KeyframesDialog
+          doc={doc}
+          keyframes={doc.keyframes[editing]}
+          disabled={disabled}
+          save={save}
+          created={choose}
+          close={() => setEditing(undefined)}
+        />
+      )}
     </div>
   )
 }

@@ -114,6 +114,25 @@ const SECTIONS: [string, string, (d: Document, other: Document) => Record<string
       )
     },
   ],
+  [
+    'keyframes',
+    'Keyframes',
+    (d) => {
+      const ctx = contextFromDocument(d, publicAssetPath)
+      return Object.fromEntries(
+        Object.values(d.keyframes).map((k) => {
+          const stops = k.stops.map((stop) => [
+            `${stop.at}%`,
+            Object.entries(stop.styles)
+              .map(([property, value]) => `${property}: ${serializeValue(value, ctx)}`)
+              .join('; '),
+          ])
+          const value = stops.map(([at, styles]) => `${at} { ${styles} }`).join(' ')
+          return [k.id, { fields: Object.fromEntries(stops), value }]
+        }),
+      )
+    },
+  ],
   ['classes', 'Classes', (d) => items(d.classes, (c) => c.name)],
   ['breakpoints', 'Breakpoints', (d) => items(d.breakpoints, (b) => b.label)],
   ['components', 'Components', (d) => items(d.components, (c) => c.name)],

@@ -15,6 +15,7 @@ import {
   NodeId,
   PageId,
 } from './ids.js'
+import { Keyframes, KeyframesId } from './keyframes.js'
 import { Node } from './nodes.js'
 import { Folder, Page, Redirect, TitleTemplate } from './pages.js'
 import { Breakpoint, Class, StyleDecl } from './styles.js'
@@ -51,6 +52,7 @@ export const Document = z.object({
   styles: z.record(z.string(), StyleDecl),
   breakpoints: z.record(BreakpointId, Breakpoint),
   designTokens: z.record(DesignTokenId, DesignToken).default({}),
+  keyframes: z.record(KeyframesId, Keyframes).default({}),
   components: z.record(ComponentId, Component).default({}),
   collections: z.record(CollectionId, CollectionSchema).default({}),
   entries: z.record(CollectionId, z.array(Entry)).default({}),

@@ -45,6 +45,8 @@ describe('guide and resources', () => {
     expect(await topic('motion')).toContain('data-lc-story')
     expect(await topic('motion')).toContain('data-lc-scrub')
     expect(await topic('motion')).toContain('-g 1')
+    expect(await topic('motion')).toContain('keyframes.create')
+    expect(guide).toContain('keyframes: keyframes.create, keyframes.update, keyframes.delete')
     expect(c.client.getInstructions()).toContain('motion')
     for (const name of ['build', 'check', 'looks', 'content', 'forms', 'settings'])
       expect(await topic(name)).toMatch(/^## /)

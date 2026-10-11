@@ -5,7 +5,7 @@ import {
   RichTag,
   State as StateSchema,
 } from '@lacuno/schema'
-import { isMotionStyle, isStory, MOTION_CSS, SCROLL_CSS, storyCss } from './motion.js'
+import { isMotionStyle, isStory, keyframesCss, MOTION_CSS, SCROLL_CSS, storyCss } from './motion.js'
 import { compareProperties } from './order.js'
 import { type ClassNames, classNames, compareSelectors, selectorFor } from './selector.js'
 import { hasTable, TABLE_CSS } from './table.js'
@@ -178,6 +178,8 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
     const stories = storyCss(doc)
     if (stories) sections.push(stories)
   }
+  const keyframes = keyframesCss(doc, ctx)
+  if (keyframes) sections.push(keyframes)
   const words = wordsCss(doc)
   if (words) sections.push(words)
   if (hasTable(doc)) sections.push(TABLE_CSS)

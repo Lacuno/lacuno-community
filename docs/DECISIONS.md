@@ -497,6 +497,25 @@ numbering at compile time means no range goes stale. Generated rules rather than
 leave a breakpoint free to override a step and stay out of the canvas's live paint. The fallback
 layout is the edit layout, so nothing overlaps while editing and every step can be clicked.
 
+## D032. Custom keyframes are a document record named by its id
+
+**Decision.** `doc.keyframes` maps an id to `{ id, stops: [{ at, styles }] }`. The id is the
+animation's CSS name, chosen by the author and fixed once created: a lower-case ident, not a
+preset's `lc-` name, `none` or a CSS-wide keyword. A class names it in `--lc-entrance` or
+`--lc-scroll` like a preset, and the generator emits it as `@keyframes <id>` with the stops'
+values serialized as every style value is, tokens included. `keyframes.create`, `update` and
+`delete` change them; delete is refused while a style names them, and `style.set` warns when an
+animation names neither a preset nor keyframes of the document. The editor edits them in a small
+dialog with one line of CSS per stop, opened from the Motion section's Animation list.
+
+**Alternatives.** Raw `@keyframes` in the site's head code. Keyframes as styles of a class under a
+pseudo-breakpoint. A generated id with a separate display name.
+
+**Why.** Using the id as the name means nothing is renamed and a style needs no lookup to point
+at it, and a record in the document is what undo, collaboration, `document.diff` and MCP already
+carry. Head code would be invisible to the inspector and the canvas and never checked; a
+pseudo-breakpoint would bend the style key into something it is not.
+
 ## D033. Scroll video scrubs with a small script, and the clip is prepared before upload
 
 **Decision.** A `video` marked `data-lc-scrub` inside a story never plays: the compiler publishes

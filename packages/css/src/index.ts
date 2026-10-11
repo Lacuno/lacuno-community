@@ -9,6 +9,7 @@ export {
   enterOnView,
   isMotionStyle,
   isStory,
+  keyframesCss,
   MOTION_CSS,
   MOTION_PRESETS,
   MOTION_SCRIPT,

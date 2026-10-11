@@ -43,6 +43,7 @@ const paths = {
   play: 'M7 4v16l13-8z',
   reload: 'M20 7V3l-4 4M20 7a9 9 0 1 0 1 7M20 7h-5',
   plus: 'M12 5v14M5 12h14',
+  pencil: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
   wrap: 'M4 6h13a4 4 0 0 1 0 8H9m4-4-4 4 4 4M4 14h1',
   stretch: 'M3 5v14M21 5v14M6 12h12m-9-3-3 3 3 3m6-6 3 3-3 3',
   distribute: 'M3 4v16M21 4v16M6 8h3v8H6zM15 8h3v8h-3z',

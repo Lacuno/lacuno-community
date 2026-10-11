@@ -492,6 +492,7 @@ export function Inspector({
         <FormattingControls
           {...controls}
           focused
+          save={autoSave}
           words={
             node.type === 'text' ? (
               <RotatingWordsControls node={node} disabled={disabled} save={autoSave} />

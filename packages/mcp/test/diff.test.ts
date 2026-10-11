@@ -159,6 +159,29 @@ describe('document.diff', () => {
     ])
   })
 
+  it('shows keyframes by stop, with token values as CSS', () => {
+    const before = fixtureDocument()
+    const after = fixtureDocument()
+    after.keyframes.drift = {
+      id: 'drift',
+      stops: [{ at: 0, styles: { opacity: { type: 'raw', value: '0' } } }],
+    }
+    expect(diffDocuments(before, after).keyframes).toEqual([
+      { change: 'added', id: 'drift', after: '0% { opacity: 0 }' },
+    ])
+    const changed = structuredClone(after)
+    changed.keyframes.drift!.stops[0]!.styles.color = { type: 'designToken', ref: 't-brand' }
+    expect(diffDocuments(after, changed).keyframes).toEqual([
+      {
+        change: 'changed',
+        id: 'drift',
+        field: '0%',
+        before: 'opacity: 0',
+        after: 'opacity: 0; color: var(--color-brand)',
+      },
+    ])
+  })
+
   it('keeps against inside the site folder', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-diff-'))
     const outside = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-outside-'))

@@ -152,6 +152,9 @@ Motion is CSS on classes: style.set with these custom properties, values \`{"typ
 - --lc-range for scroll: entry (while entering, default), cover (while visible), exit (while leaving), or any animation-range value. lc-fade-out wants exit, lc-parallax cover. --lc-parallax: its distance, 80px by default.
 - --lc-scroll none on a smaller breakpoint turns it off there.
 - Everything is off for people who prefer reduced motion and in browsers without scroll timelines (Firefox): design the page to read well at rest. Every name keeps the element as styled as one of its frames. The canvas and page.screenshot show that rest state; the person presses Preview motion on the canvas to see it move.
+Custom keyframes: \`keyframes.create\` \`{"id":"rise","stops":[{"at":0,"styles":{"opacity":{"type":"raw","value":"0"},"translate":{"type":"raw","value":"0 40px"}}},{"at":60,"styles":{"translate":{"type":"raw","value":"0 -4px"}}}]}\`, earlier in the batch than the style.set of --lc-entrance or --lc-scroll rise.
+- Leave out a stop to mean "as styled": the element's own styles should be a frame of the motion, like the presets. Token values work inside stops.
+- Ids are lower-case idents, not lc-* or none, fixed once created. keyframes.update replaces the stops; keyframes.delete is refused while a style names them.
 Scroll story (a pinned stage, steps in turn):
 - A section with attrs \`{"data-lc-story":{"type":"static","value":true}}\`. Its first child is the stage: display grid, grid-template-rows minmax(0, max-content) auto, align-content and place-items center. Inside the stage: a pinned image with --lc-scroll lc-scale-up and --lc-range entry, max-height 100% so it fits the screen, then one child per step with --lc-scroll lc-fade-through and no --lc-range.
 - Steps are the stage's direct children; they take turns in order. Add, remove or move them freely.

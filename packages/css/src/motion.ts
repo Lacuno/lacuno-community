@@ -7,6 +7,7 @@ import {
   styleKey,
 } from '@lacuno/schema'
 import { LIVE_STATES } from './selector.js'
+import { serializeValue, type ValueContext } from './value.js'
 import { percent } from './words.js'
 
 /**
@@ -174,6 +175,22 @@ export function storyCss(doc: Document): string {
         ),
       ].join('\n'),
     )
+    .join('\n')
+}
+
+/** The document's own keyframes, named by their ids, for `--lc-entrance` and `--lc-scroll`. */
+export function keyframesCss(doc: Document, ctx: ValueContext): string {
+  return Object.values(doc.keyframes)
+    .sort((a, b) => (a.id < b.id ? -1 : 1))
+    .map((keyframes) => {
+      const stops = keyframes.stops.map((stop) => {
+        const styles = Object.entries(stop.styles)
+          .map(([property, value]) => `${property}: ${serializeValue(value, ctx)};`)
+          .join(' ')
+        return `  ${percent(stop.at)} { ${styles} }`
+      })
+      return `@keyframes ${keyframes.id} {\n${stops.join('\n')}\n}`
+    })
     .join('\n')
 }
 

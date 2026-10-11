@@ -102,6 +102,52 @@ it('runs entrances once on viewport entry and honors reduced motion in published
   }
 }, 20000)
 
+it('plays custom keyframes as an entrance and ends it like a preset', async () => {
+  const doc = fixtureDocument()
+  const id = 'l-hero-title'
+  doc.keyframes.drift = {
+    id: 'drift',
+    stops: [{ at: 0, styles: { opacity: { type: 'raw', value: '0' } } }],
+  }
+  const style = {
+    class: id,
+    breakpoint: 'base',
+    state: 'none' as const,
+    property: '--lc-entrance',
+    value: { type: 'raw' as const, value: 'drift' },
+  }
+  doc.styles[styleKey(style)] = style
+  const result = render(
+    doc,
+    Object.values(doc.pages).find((page) => page.path === '/')!,
+    undefined,
+    { resolveImage: plainImageResolver },
+  )
+  result.head += `<style>${generateStylesheet(doc).css}</style>`
+  result.body = `<div style="height:1500px"></div>${result.body}`
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 600 } })
+    await page.setContent(assembleDocument(result))
+    const target = page.locator(`.${classNames(doc).get(id)}`)
+    await target.scrollIntoViewIfNeeded()
+    await expect
+      .poll(() =>
+        target.evaluate((element) =>
+          element.getAnimations().map((animation) => (animation as CSSAnimation).animationName),
+        ),
+      )
+      .toEqual(['drift'])
+    expect(await target.getAttribute('data-lc-enter')).toBe('')
+    await target.evaluate((element) => {
+      for (const animation of element.getAnimations()) animation.finish()
+    })
+    await expect.poll(() => target.getAttribute('data-lc-enter')).toBeNull()
+  } finally {
+    await browser.close()
+  }
+}, 20000)
+
 it('keeps mobile hover overrides out of desktop output', async () => {
   const doc = fixtureDocument()
   const id = 'l-hero-title'

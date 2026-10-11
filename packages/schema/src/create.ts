@@ -40,6 +40,7 @@ export function createEmptyDocument(name = 'Untitled'): Document {
       'mobile-p': { id: 'mobile-p', label: 'Mobile portrait', maxWidth: 479 },
     },
     designTokens: {},
+    keyframes: {},
     components: {},
     collections: {},
     entries: {},

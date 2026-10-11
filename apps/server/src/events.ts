@@ -49,6 +49,7 @@ const things: Record<string, [string, string]> = {
   folder: ['folder', 'folders'],
   class: ['class', 'classes'],
   designToken: ['design token', 'design tokens'],
+  keyframes: ['keyframes', 'keyframes'],
   mode: ['mode', 'modes'],
   breakpoint: ['breakpoint', 'breakpoints'],
   asset: ['file', 'files'],

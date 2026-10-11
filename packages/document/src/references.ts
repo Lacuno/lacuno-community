@@ -110,7 +110,10 @@ function addUses(uses: Uses, ids: Iterable<string>, ref: string, self?: string):
   }
 }
 
-/** Every design token's or asset's uses at once: style values, other design tokens, node bindings. */
+/**
+ * Every design token's or asset's uses at once: style values, other design tokens, keyframes, node
+ * bindings.
+ */
 function referencesToEach(doc: Document, kind: keyof Refs): Uses {
   const uses: Uses = new Map()
   for (const [key, decl] of Object.entries(doc.styles))
@@ -121,6 +124,12 @@ function referencesToEach(doc: Document, kind: keyof Refs): Uses {
       valueRefs(Object.values(token.values))[kind],
       `designTokens.${token.id}`,
       token.id,
+    )
+  for (const keyframes of Object.values(doc.keyframes))
+    addUses(
+      uses,
+      valueRefs(keyframes.stops.flatMap((stop) => Object.values(stop.styles)))[kind],
+      `keyframes.${keyframes.id}`,
     )
   for (const node of Object.values(doc.nodes))
     addUses(uses, nodeRefs(node)[kind], `nodes.${node.id}`)
@@ -134,6 +143,18 @@ export function referencesTo(doc: Document, kind: keyof Refs, id: string): strin
 
 export function referencesToDesignToken(doc: Document, id: string): string[] {
   return referencesTo(doc, 'designTokens', id)
+}
+
+/** The styles that name keyframes as an element's entrance or scroll animation. */
+export function referencesToKeyframes(doc: Document, id: string): string[] {
+  return Object.entries(doc.styles)
+    .filter(
+      ([, d]) =>
+        (d.property === '--lc-entrance' || d.property === '--lc-scroll') &&
+        (d.value as { value?: unknown }).value === id,
+    )
+    .map(([key]) => `styles.${key}`)
+    .sort()
 }
 
 /**

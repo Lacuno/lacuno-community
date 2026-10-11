@@ -445,3 +445,18 @@ it('emits the scroll rules once when anything follows the scroll, and step turns
   const all = generateStylesheet(fixture).css
   expect(all.indexOf('[data-lc-step="1"]')).toBeGreaterThan(all.indexOf(SCROLL_CSS))
 })
+
+it("emits the document's keyframes by id, with tokens through the value context", () => {
+  const doc = fixtureDocument()
+  expect(generateStylesheet(doc).css).not.toContain('@keyframes pop')
+  doc.keyframes.pop = {
+    id: 'pop',
+    stops: [
+      { at: 0, styles: { opacity: kw('0'), color: designToken('t-brand') } },
+      { at: 60, styles: { scale: kw('1.05') } },
+    ],
+  }
+  expect(generateStylesheet(doc).css).toContain(
+    '@keyframes pop {\n  0% { opacity: 0; color: var(--color-brand); }\n  60% { scale: 1.05; }\n}',
+  )
+})

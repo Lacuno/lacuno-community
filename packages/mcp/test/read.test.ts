@@ -29,6 +29,7 @@ describe('read tools', () => {
       'components',
       'designTokens',
       'folders',
+      'keyframes',
       'pages',
       'redirects',
       'revision',

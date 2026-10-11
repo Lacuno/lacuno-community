@@ -9,6 +9,7 @@ const SORTED_MAPS = [
   'styles',
   'breakpoints',
   'designTokens',
+  'keyframes',
   'components',
   'collections',
   'entries',

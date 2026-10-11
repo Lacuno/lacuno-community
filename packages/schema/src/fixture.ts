@@ -599,6 +599,7 @@ export function fixtureDocument(): Document {
       'mobile-l': { id: 'mobile-l', label: 'Mobile landscape', maxWidth: 767 },
       'mobile-p': { id: 'mobile-p', label: 'Mobile portrait', maxWidth: 479 },
     },
+    keyframes: {},
     designTokens: {
       't-font-body': {
         id: 't-font-body',

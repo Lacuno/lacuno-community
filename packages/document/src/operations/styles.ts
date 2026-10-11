@@ -1,3 +1,4 @@
+import { MOTION_PRESETS } from '@lacuno/css'
 import type { CssValue } from '@lacuno/schema'
 import {
   BASE_BREAKPOINT_ID,
@@ -122,6 +123,9 @@ function checkCoordinates(ctx: PlanContext, op: { class: string; breakpoint: str
   )
 }
 
+/** What `--lc-entrance` and `--lc-scroll` may name besides the document's keyframes. */
+const MOTION_NAMES = new Set(['none', ...MOTION_PRESETS.map((preset) => preset.name)])
+
 const styleSet = defineOperation(
   z.strictObject({
     type: z.literal('style.set'),
@@ -132,6 +136,14 @@ const styleSet = defineOperation(
   (op, ctx) => {
     checkCoordinates(ctx, op)
     checkCssValue(ctx, op.value)
+    const name = (op.value as { value?: unknown }).value
+    if (
+      (op.property === '--lc-entrance' || op.property === '--lc-scroll') &&
+      typeof name === 'string' &&
+      !MOTION_NAMES.has(name) &&
+      !ctx.doc.keyframes[name]
+    )
+      ctx.warn(`${op.property} ${name} is neither a preset nor keyframes of the document`)
     const { type: _type, important, tag, ...coords } = op
     const decl = { ...coords, ...(tag ? { tag } : {}), ...(important ? { important: true } : {}) }
     return [{ op: 'set', path: ['styles', styleKey(decl)], value: decl }]
