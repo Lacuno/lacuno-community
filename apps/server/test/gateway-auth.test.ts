@@ -92,8 +92,9 @@ describe('gateway mode', () => {
       // The gateway answers form posts.
       forms: true,
     })
-    // A gateway without one address for all sites sets none.
+    // A gateway without one address for all sites sets none, nor an analytics view without one.
     expect(config).not.toHaveProperty('mcp')
+    expect(config).not.toHaveProperty('analytics')
     // Without a relay the runtime cannot fetch Client ID Metadata Documents, so it only registers.
     const metadata = await (await request('/.well-known/oauth-authorization-server')).json()
     expect(metadata.registration_endpoint).toBe(`${origin}/api/auth/oauth2/register`)
@@ -260,6 +261,7 @@ describe('connecting an AI app through the gateway', () => {
   const form = { 'content-type': 'application/x-www-form-urlencoded' }
   const documentURL = 'https://app.example/oauth/client.json'
   const privateURL = 'https://internal.example/oauth/client.json'
+  const analytics = 'https://app.example/#analytics/w1/{site}'
   let dir = ''
   let server: Awaited<ReturnType<typeof createServer>>
   let siteId = ''
@@ -394,6 +396,7 @@ describe('connecting an AI app through the gateway', () => {
     dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-gateway-connect-'))
     server = await createServer({
       ...settings(dir),
+      gateway: { issuer, secret, analytics },
       cimdRelay: `http://127.0.0.1:${(relay.address() as AddressInfo).port}/cimd`,
       publishBaseURL: 'http://sites.localhost',
     })
@@ -407,6 +410,10 @@ describe('connecting an AI app through the gateway', () => {
     server.close()
     relay.close()
     await rm(dir, { recursive: true, force: true })
+  })
+
+  it("reports the gateway's analytics view to the editor", async () => {
+    expect((await (await call('/api/config')).json()).analytics).toBe(analytics)
   })
 
   it('connects a registered app for a Cloud user, until Cloud revokes the user', async () => {

@@ -124,6 +124,8 @@ export type Config = {
   home?: string
   /** Behind a gateway that offers one, its MCP address for all the user's sites. */
   mcp?: string
+  /** Behind a gateway that offers one, its analytics view, with `{site}` for the site id. */
+  analytics?: string
   /** Whether published forms email their submissions; servers before forms leave it out. */
   forms?: boolean
 }

@@ -537,3 +537,23 @@ the common phone clip a conversion either: a QuickTime `.mov`, often HEVC, which
 ffmpeg in the image would weigh on every Cloud runtime and starve a one-CPU runtime for minutes.
 Agents building through MCP have ffmpeg at hand, and a designer can run the line or ask one to.
 An image sequence needs hundreds of assets, a preloader and a bigger script.
+
+## D034. Analytics are the provider the owner chooses, in head code; a gateway may link its own
+
+**Decision.** Community has no analytics of its own and no editor control for them. A provider's
+snippet goes in the site's head code, whose info text names analytics; the MCP guide's `settings`
+topic tells AI apps to put the snippet of the provider the person names there, exactly as the
+provider gives it, after what is there. Behind a gateway, `LACUNO_GATEWAY_ANALYTICS` is a URL with
+one `{site}` placeholder; `/api/config` reports it as `analytics`, and the pages toolbar then shows
+an Analytics button that opens it for the site in a new tab.
+
+**Alternatives.** A select of provider snippets in Site settings; a structured analytics field in
+the site settings, with its own operation and compiler output; analytics computed by the runtime;
+numbers shown inside the editor.
+
+**Why.** Every provider's own instruction is to paste its snippet into the head, which head code
+already does, and with an AI app connected the owner need not even paste. A snippet table would
+need keeping current with other products' formats, and a field would persist what one text field
+holds. The guide names no provider and judges none: whether a configuration needs consent is the
+owner's call. A gateway that counts visits elsewhere links to its own view the way `home` links to
+its dashboard, so the editor never learns its routes.

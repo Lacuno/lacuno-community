@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { OwnerSetup } from './owner-setup.js'
 
 /** `home` is the gateway's dashboard, where the editor's logo leads; the issuer when not given. */
-export type GatewayOptions = { issuer: string; secret: string; home?: string }
+export type GatewayOptions = { issuer: string; secret: string; home?: string; analytics?: string }
 
 /** A 30-second HS256 token, signed with the gateway secret, for one of Cloud's internal services. */
 export const signForCloud = (

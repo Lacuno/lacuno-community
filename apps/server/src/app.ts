@@ -358,6 +358,7 @@ export async function createServer(options: ServerOptions) {
               gatewayProtocol: 1,
               home: options.gateway!.home ?? options.gateway!.issuer,
               mcp: options.mcp,
+              analytics: options.gateway!.analytics,
             }
           : {}),
       }),

@@ -37,6 +37,9 @@ const server = await createServer({
           issuer: gatewayIssuer,
           secret: gatewaySecret,
           ...(process.env.LACUNO_GATEWAY_HOME ? { home: process.env.LACUNO_GATEWAY_HOME } : {}),
+          ...(process.env.LACUNO_GATEWAY_ANALYTICS
+            ? { analytics: process.env.LACUNO_GATEWAY_ANALYTICS }
+            : {}),
         },
       }
     : {}),

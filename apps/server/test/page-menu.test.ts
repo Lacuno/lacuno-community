@@ -90,6 +90,31 @@ it('fits the pages panel at its narrowest and opens one page menu by right click
   await expect.poll(() => panel.locator('.page-link', { hasText: 'About copy' }).count()).toBe(0)
 })
 
+it("links the pages toolbar to a gateway's analytics view for the site", async () => {
+  const { page, siteId } = await editor()
+  const pages = page.getByRole('button', { name: 'Pages', exact: true })
+  const analytics = page.getByRole('button', { name: 'Analytics' })
+  await pages.click()
+  await page.getByRole('button', { name: 'Site settings' }).waitFor()
+  expect(await analytics.count()).toBe(0)
+  // A gateway that has an analytics view reports it with a placeholder for the site.
+  await page.route('**/api/config', async (route) => {
+    const response = await route.fetch()
+    await route.fulfill({
+      response,
+      json: {
+        ...(await response.json()),
+        analytics: 'https://app.example.test/#analytics/w1/{site}',
+      },
+    })
+  })
+  await page.context().route('https://app.example.test/**', (route) => route.fulfill({ body: '' }))
+  await page.reload()
+  await pages.click()
+  const [tab] = await Promise.all([page.context().waitForEvent('page'), analytics.click()])
+  await tab.waitForURL(`https://app.example.test/#analytics/w1/${siteId}`)
+})
+
 it('keeps the layer menu open after a right click and offers the element actions', async () => {
   const { page } = await editor()
   await page.getByRole('button', { name: 'Layers', exact: true }).click()

@@ -722,8 +722,10 @@
   font-size: 12px;
   white-space: nowrap;
 }
-.pages-toolbar .pages-site-settings {
-  margin-left: auto;
+.pages-toolbar > :first-child {
+  margin-right: auto;
+}
+.pages-toolbar .pages-icon {
   padding: 7px;
 }
 .page-row {

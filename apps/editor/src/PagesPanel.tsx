@@ -1,6 +1,7 @@
 import type { Operation } from '@lacuno/document'
 import { type Document, findEntry, type Page } from '@lacuno/schema'
 import { useState } from 'react'
+import { useConfig } from './api.js'
 import { collectionPageCreation, freePath } from './binding.js'
 import { CodeField } from './CodeField.js'
 import { entryTitle } from './cms.js'
@@ -35,6 +36,7 @@ export function PagesPanel({
   save: (operations: Operation[]) => Promise<boolean>
   autoSave: (operations: Operation[]) => Promise<boolean>
 }) {
+  const analytics = useConfig().config?.analytics
   const [editing, setEditing] = useState<Page | 'new' | 'site'>()
   const [menu, setMenu] = useState<{ page: Page; at: MenuPoint }>()
   const [deleting, setDeleting] = useState<Page>()
@@ -57,9 +59,20 @@ export function PagesPanel({
           <EditorIcon name="plus" />
           New page
         </button>
+        {analytics && (
+          <button
+            type="button"
+            className="pages-icon"
+            aria-label="Analytics"
+            title="Analytics"
+            onClick={() => window.open(analytics.replace('{site}', siteId), '_blank', 'noopener')}
+          >
+            <EditorIcon name="chart" />
+          </button>
+        )}
         <button
           type="button"
-          className="pages-site-settings"
+          className="pages-icon"
           aria-label="Site settings"
           title="Site settings"
           disabled={disabled}

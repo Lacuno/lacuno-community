@@ -172,6 +172,7 @@ The editor's palette has Scroll story, Scroll video and Reading progress.`,
 - A page's \`lang\` (en, de-AT) overrides \`site.locale\`.
 - \`site.titleTemplate\` like \`{page} — Acme\` shapes every title. A page's \`seo.titleTemplate\` replaces it; \`false\` keeps that page's title as it is.
 - \`seo.noindex\` keeps a page out of search and the sitemap.
+- Analytics: put the snippet of the provider the person names, exactly as its dashboard gives it, in \`site.headCode\` (site.update), after what is there.
 - site.publish only when the person asks, and only the owner may. It publishes to the testing address.
 - site.build makes the static output.`,
 }
