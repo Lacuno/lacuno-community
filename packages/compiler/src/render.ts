@@ -56,6 +56,11 @@ export function render(
     resolveImage: ctx.resolveImage,
     resolveAsset: ctx.resolveAsset ?? publicAssetPath,
     motion: motionClasses(doc),
+    entrances: new Set(
+      Object.values(doc.styles)
+        .filter((style) => style.property === '--lc-entrance')
+        .map((style) => style.class),
+    ),
     page: page.id,
     warnings: [],
     ...(ctx.annotateNodes ? { annotateNodes: true } : {}),
@@ -76,10 +81,7 @@ export function render(
     renderNode(page.root, scope, state) +
     (doc.site.bodyCode ?? '') +
     (page.bodyCode ?? '') +
-    (!ctx.annotateNodes &&
-    Object.values(doc.styles).some((style) => style.property === '--lc-entrance')
-      ? `<script>${MOTION_SCRIPT}</script>`
-      : '') +
+    (state.entrance ? `<script>${MOTION_SCRIPT}</script>` : '') +
     (!ctx.annotateNodes &&
     Object.values(doc.nodes).some((node) => node.type === 'text' && node.rotatingWords)
       ? `<script>(() => {${WORDS_SCRIPT}})();</script>`

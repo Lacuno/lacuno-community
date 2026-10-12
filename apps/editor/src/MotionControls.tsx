@@ -35,9 +35,10 @@ export function MotionControls({
   const choose = (next: string) => {
     const chosen = MOTION_PRESETS.find((item) => item.name === next)
     if (next === 'none') {
-      for (const property of ['--lc-entrance', '--lc-scroll', '--lc-range', '--lc-timeline'])
-        off(property)
-      set('--lc-parallax', '')
+      off('--lc-entrance')
+      off('--lc-scroll')
+      // With no animation these mean nothing; none would not be a valid range or timeline.
+      for (const property of ['--lc-range', '--lc-timeline', '--lc-parallax']) set(property, '')
       return
     }
     const scroll = chosen?.scroll || follow

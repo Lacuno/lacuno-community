@@ -7,6 +7,7 @@ import {
   type Keyframes,
   KeyframesId,
   type NodeId,
+  StyleDecl,
 } from '@lacuno/schema'
 import { useState } from 'react'
 import { Dialog, ErrorNote } from './Dialog.js'
@@ -25,7 +26,11 @@ function parseStyles(line: string, saved: Styles, doc: Document): Styles | undef
     const colon = part.indexOf(':')
     const property = part.slice(0, colon).trim()
     const value = part.slice(colon + 1).trim()
-    if (colon < 0 || !/^(-{2})?[a-z][a-z0-9-]*$/.test(property) || !CSS.supports(property, value))
+    if (
+      colon < 0 ||
+      !StyleDecl.shape.property.safeParse(property).success ||
+      !CSS.supports(property, value)
+    )
       return undefined
     const kept = saved[property]
     styles[property] =

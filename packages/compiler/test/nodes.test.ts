@@ -19,6 +19,7 @@ function state(doc: Document): RenderState {
     resolveImage: plainImageResolver,
     resolveAsset: publicAssetPath,
     motion: motionClasses(doc),
+    entrances: new Set(),
     page: 'p',
     warnings: [],
   }

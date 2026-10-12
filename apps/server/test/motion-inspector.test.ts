@@ -123,6 +123,8 @@ it('sets animation, trigger, range and story length in the Motion section', asyn
   await saved()
   expect(await style('c-hero', '--lc-scroll', 'mobile-p')).toEqual(raw('none'))
   expect(await style('c-hero', '--lc-scroll')).toEqual(raw('lc-progress'))
+  expect(await style('c-hero', '--lc-range', 'mobile-p')).toBeUndefined()
+  expect(await style('c-hero', '--lc-timeline', 'mobile-p')).toBeUndefined()
   expect(await animation.getAttribute('data-overridden')).toBe('true')
   await page.getByRole('button', { name: 'Desktop', exact: true }).click()
   await expect.poll(() => animation.inputValue()).toBe('lc-progress')

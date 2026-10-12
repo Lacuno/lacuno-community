@@ -40,6 +40,8 @@ export type RenderState = {
   resolveAsset: (asset: AssetRef) => string
   /** Class ids carrying a motion custom property, see `motionClasses`. */
   motion: ReadonlyMap<string, MotionMark>
+  /** Class ids naming an entrance in `--lc-entrance`. */
+  entrances: ReadonlySet<string>
   page: string
   warnings: Warning[]
   annotateNodes?: boolean
@@ -50,6 +52,8 @@ export type RenderState = {
   texts?: [NodeId, Resolved][]
   /** Set once the page has a Lacuno form, which needs `FORM_SCRIPT`. */
   forms?: true
+  /** Set once the page has an element with an entrance, which needs `MOTION_SCRIPT`. */
+  entrance?: true
   /** Set once the page has a scroll video, which needs `SCRUB_SCRIPT`. */
   scrub?: true
 }
@@ -142,6 +146,8 @@ function resolveAttrs(
   const node = state.doc.nodes[nodeId]
   const marks = node?.classes.flatMap((c) => state.motion.get(c) ?? []) ?? []
   if (marks.length) out['data-lacuno-motion'] = marks.includes('scroll') ? 'scroll' : ''
+  if (!state.annotateNodes && node?.classes.some((c) => state.entrances.has(c)))
+    state.entrance = true
   // A story's step count, and each step's place in it, for the turns `storyCss` hands out.
   if (node && isStory(node)) out['data-lc-steps'] = String(storySteps(state.doc, node).length)
   const stage = state.doc.nodes[node?.parent ?? '']

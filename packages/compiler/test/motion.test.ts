@@ -60,6 +60,10 @@ it('runs entrances once on viewport entry and honors reduced motion in published
     { resolveImage: plainImageResolver, annotateNodes: true },
   )
   expect(canvas.body).not.toContain('IntersectionObserver')
+  // Only a page with an entrance carries the script.
+  expect(
+    render(doc, doc.pages['p-not-found']!, undefined, { resolveImage: plainImageResolver }).body,
+  ).not.toContain('enterOnView')
   const browser = await chromium.launch({ headless: true })
   try {
     const page = await browser.newPage({ viewport: { width: 1000, height: 600 } })
