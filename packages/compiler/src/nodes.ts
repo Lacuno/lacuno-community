@@ -4,6 +4,7 @@ import {
   iconSvg,
   isMotionStyle,
   isStory,
+  storyOf,
   storySteps,
   wordTurns,
 } from '@lacuno/css'
@@ -211,8 +212,8 @@ function renderElement(node: ElementNode, scope: Scope, state: RenderState): str
     state.forms = true
   }
   // A scroll video never plays: the scroll sets its time, so it is muted, inline and quiet until
-  // its story comes near.
-  if (node.tag === 'video' && attrs['data-lc-scrub']) {
+  // its story comes near. Outside a story nothing would set its time, so the flag is ignored.
+  if (node.tag === 'video' && attrs['data-lc-scrub'] && storyOf(state.doc, node)) {
     delete attrs.autoplay
     delete attrs.controls
     delete attrs.loop

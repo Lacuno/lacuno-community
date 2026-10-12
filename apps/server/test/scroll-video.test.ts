@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 import { editor, openInspectorTab } from './harness.js'
 
 it('inserts a scroll video that follows the scroll in Preview and publishes muted', async () => {
-  const { server, page, canvas, document, publish, saved } = await editor({
+  const { server, context, origin, siteId, page, canvas, document, publish, saved } = await editor({
     width: 1400,
     height: 900,
   })
@@ -84,4 +84,19 @@ it('inserts a scroll video that follows the scroll in Preview and publishes mute
     /<video class="[^"]+" data-lacuno-motion="scroll" data-lc-scrub muted playsinline preload="metadata" src="\/assets\/[a-f0-9]{64}\.mp4"><\/video>/,
   )
   expect(published).toContain('scrubVideos')
+
+  // Outside a story nothing sets a video's time: Follow scroll is not offered and is ignored.
+  const story = stageOf(await document()).parent!
+  const response = await context.request.post(`${origin}/api/sites/${siteId}/document/apply`, {
+    data: {
+      expectedRevision: (await document()).revision,
+      operations: [{ type: 'node.update', id: story, attrs: {} }],
+    },
+  })
+  expect(response.status()).toBe(200)
+  await controls.waitFor()
+  expect(await follow.count()).toBe(0)
+  const loose = await (await server.published!.request(`${await publish()}/`)).text()
+  expect(loose).toMatch(/<video class="[^"]+" data-lacuno-motion="scroll" data-lc-scrub src=/)
+  expect(loose).not.toContain('scrubVideos')
 }, 240_000)

@@ -133,6 +133,13 @@ export const SCROLL_CSS = `@supports (animation-timeline: view()) {
 export const isStory = (node: Node | undefined): boolean =>
   node?.attrs?.['data-lc-story'] !== undefined
 
+/** The story a node sits inside, if any. */
+export function storyOf(doc: Document, node: Node): Node | undefined {
+  let story = doc.nodes[node.parent ?? '']
+  while (story && !isStory(story)) story = doc.nodes[story.parent ?? '']
+  return story
+}
+
 /**
  * A story's steps, in order: the children of its stage (its first child) whose classes follow the
  * scroll on the base breakpoint and set no range of their own there. They take turns through the
@@ -292,7 +299,10 @@ type ScrubPage = {
   defaultView: {
     innerHeight: number
     CSS: { supports(condition: string): boolean }
-    matchMedia(query: string): { matches: boolean }
+    matchMedia(query: string): {
+      matches: boolean
+      addEventListener(type: 'change', listener: () => void, options: { signal: AbortSignal }): void
+    }
     addEventListener(
       type: 'scroll' | 'resize',
       listener: () => void,
@@ -303,7 +313,8 @@ type ScrubPage = {
 
 /**
  * Sets each scroll video's time to its story's progress through the pinned (`contain`) range, so
- * the clip follows the scroll as the steps do, and returns what stops it and rewinds the clips.
+ * the clip follows the scroll as the steps do, unless motion is reduced (or becomes so), and returns
+ * what stops it and rewinds the clips.
  * It runs only where `SCROLL_CSS` pins the stage; elsewhere a clip shows its first frame in the
  * flowing story. A clip loads in full only once its story is within two screens. Like
  * `enterOnView`, it reads `page` only, so the editor's Preview runs it against the canvas.
@@ -312,10 +323,8 @@ export function scrubVideos(page: ScrubPage) {
   const view = page.defaultView!
   const running = new AbortController()
   const videos = Array.from(page.querySelectorAll('[data-lc-story] video[data-lc-scrub]'))
-  if (
-    view.CSS.supports('animation-timeline: view()') &&
-    !view.matchMedia('(prefers-reduced-motion: reduce)').matches
-  ) {
+  const reduced = view.matchMedia('(prefers-reduced-motion: reduce)')
+  if (view.CSS.supports('animation-timeline: view()') && !reduced.matches) {
     const update = () => {
       for (const video of videos) {
         const box = video.closest('[data-lc-story]')!.getBoundingClientRect()
@@ -332,6 +341,9 @@ export function scrubVideos(page: ScrubPage) {
     view.addEventListener('scroll', update, { passive: true, signal: running.signal })
     view.addEventListener('resize', update, { signal: running.signal })
     update()
+    reduced.addEventListener('change', () => reduced.matches && running.abort(), {
+      signal: running.signal,
+    })
     running.signal.addEventListener('abort', () => {
       for (const video of videos) video.currentTime = 0
     })

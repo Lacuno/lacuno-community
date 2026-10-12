@@ -377,6 +377,13 @@ it('publishes a scroll video muted and quiet, with the scrub script only on its 
   expect(
     render(plain, home(plain), undefined, { resolveImage: plainImageResolver }).body,
   ).not.toContain('scrubVideos')
+  // Outside a story nothing sets its time, so the video renders as written and brings no script.
+  delete doc.nodes['n-story']!.attrs!['data-lc-story']
+  const loose = render(doc, home(doc), undefined, { resolveImage: plainImageResolver }).body
+  expect(loose).toContain(
+    '<video autoplay class="product" controls data-lacuno-motion="scroll" data-lc-scrub loop src=',
+  )
+  expect(loose).not.toContain('scrubVideos')
 })
 
 it("scrubs a scroll video along its story's pinned range, and leaves it with reduced motion", async () => {
@@ -416,7 +423,14 @@ it("scrubs a scroll video along its story's pinned range, and leaves it with red
       await expect.poll(async () => Math.round((await time()) * 10) / 10).toBe(seconds)
     }
     expect(await video.evaluate((element: HTMLVideoElement) => element.preload)).toBe('auto')
+    // Reduced motion while the page is open rewinds the clip and stops it.
+    await scrollTo(page, story, 900)
+    await expect.poll(time).toBeGreaterThan(4)
     await page.emulateMedia({ reducedMotion: 'reduce' })
+    await expect.poll(time).toBe(0)
+    await scrollTo(page, story, 1800)
+    await page.evaluate(() => new Promise(requestAnimationFrame))
+    expect(await time()).toBe(0)
     await page.setContent(html)
     await scrollTo(page, story, 900)
     await page.evaluate(() => new Promise(requestAnimationFrame))

@@ -1,4 +1,4 @@
-import { isStory, MOTION_PRESETS, storySteps } from '@lacuno/css'
+import { isStory, MOTION_PRESETS, storyOf, storySteps } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
 import { type ReactNode, useState } from 'react'
 import { EditorIcon } from './EditorIcon.js'
@@ -53,8 +53,7 @@ export function MotionControls({
     set(scroll ? '--lc-scroll' : '--lc-entrance', name)
     off(scroll ? '--lc-entrance' : '--lc-scroll')
   }
-  let story = doc.nodes[node.parent ?? '']
-  while (story && !isStory(story)) story = doc.nodes[story.parent ?? '']
+  const story = storyOf(doc, node)
   // Inside a story an element without a range follows the whole story, a step its own turn.
   const ranges: Record<string, string> = !story
     ? { entry: 'Entering', cover: 'Visible', exit: 'Leaving' }

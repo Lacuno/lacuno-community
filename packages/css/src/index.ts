@@ -17,6 +17,7 @@ export {
   SCRUB_SCRIPT,
   scrubVideos,
   storyCss,
+  storyOf,
   storySteps,
 } from './motion.js'
 export { compareProperties } from './order.js'

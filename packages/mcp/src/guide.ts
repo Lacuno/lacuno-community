@@ -157,7 +157,7 @@ Scroll story, the Apple-style product page (a pinned stage, steps in turn):
 - In the stage: the pinned image with --lc-scroll lc-scale-up, --lc-range entry and max-height 100%, then one child per step (a heading and a paragraph) with --lc-scroll lc-fade-through and no --lc-range. The picture takes the first row, the steps share the second.
 - Steps are the stage's direct children; they take turns in order. Add, remove or move them freely. Anything else in the story that follows the scroll runs while the stage is pinned (contain), unless its --lc-range says otherwise, like the picture's entry.
 - Length: --lc-length on the section, in screens (steps + 1 by default). No overflow hidden on the section or its ancestors (clip is fine).
-Scroll video: the pinned element is a video, \`src\` an asset binding, with attrs \`{"data-lc-scrub":{"type":"static","value":true}}\`. Its time follows the story; it never plays, and is published muted, without controls, autoplay or loop.
+Scroll video: the pinned element is a video, \`src\` an asset binding, with attrs \`{"data-lc-scrub":{"type":"static","value":true}}\`. Its time follows the story; it never plays, and is published muted, without controls, autoplay or loop. Outside a story the attr is ignored.
 - It needs a keyframe on every frame or it scrubs in jumps. Prepare the clip on your machine, then asset.upload it:
   ffmpeg -i in.mov -an -vf "scale=1280:-2,fps=24" -c:v libx264 -g 1 -crf 26 -pix_fmt yuv420p -movflags +faststart out.mp4
 - Uploads are at most 10 MB, about 15 to 20 s at 1280 px: shorter is better; raise -crf if it is too big.

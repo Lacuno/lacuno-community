@@ -1,3 +1,4 @@
+import { storyOf } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
 import { useState } from 'react'
 import { ImageLibrary } from './ImageLibrary.js'
@@ -37,6 +38,8 @@ export function MediaControls({
   const on = (name: string) =>
     node.attrs?.[name]?.type === 'static' && node.attrs[name].value === true
   const scrub = on('data-lc-scrub')
+  // Only a story's scroll sets a video's time, so following it is offered inside one.
+  const story = !!storyOf(doc, node)
   return (
     <div className="image-controls">
       <button
@@ -64,7 +67,7 @@ export function MediaControls({
         <div className="video-flags">
           {/* A video that follows the scroll never plays, so its playback flags hide. */}
           {Object.entries(flags)
-            .filter(([name]) => !scrub || name === 'data-lc-scrub')
+            .filter(([name]) => (name === 'data-lc-scrub' ? story : !(story && scrub)))
             .map(([name, label]) => (
               <label key={name}>
                 <input
