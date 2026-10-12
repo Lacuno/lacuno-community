@@ -352,11 +352,14 @@
 .motion-wide {
   grid-column: 1 / -1;
 }
-.motion-controls :where(label) {
+.motion-controls label {
   display: grid;
   gap: 5px;
   margin: 0;
   font-size: 10px;
+}
+.motion-controls select {
+  padding: 8px;
 }
 .motion-controls :where(button) {
   align-self: end;
@@ -386,8 +389,6 @@
   place-items: center;
   width: 33px;
   height: 33px;
-  /* Level with the select, which sits inside the label's margins. */
-  margin: 17px 0;
   padding: 0;
 }
 
@@ -452,6 +453,7 @@
 }
 .keyframes-dialog .primary {
   width: auto;
+  min-height: 0;
 }
 .rotating-words {
   display: grid;
