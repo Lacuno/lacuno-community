@@ -67,6 +67,7 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     // The document's own public URL wins over the option, which is only a fallback.
     const doc = JSON.parse(await readFile(path.join(dir, 'lacuno.json'), 'utf8'))
     doc.site.url = 'https://own.example'
+    delete doc.pages['p-post'].seo
     await writeFile(path.join(dir, 'lacuno.json'), JSON.stringify(doc))
     await build(dir, { siteUrl: 'https://example.com', quiet: true })
     expect(await readFile(path.join(dir, 'dist/index.html'), 'utf8')).toContain(
@@ -74,6 +75,13 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     )
     expect(await readFile(path.join(dir, 'dist/robots.txt'), 'utf8')).toContain(
       'Sitemap: https://own.example/sitemap-index.xml',
+    )
+    // Sitemap URLs match the canonical links: no trailing slash except on the home page.
+    const ownSitemap = await readFile(path.join(dir, 'dist/sitemap-0.xml'), 'utf8')
+    expect(ownSitemap).toContain('<loc>https://own.example/</loc>')
+    expect(ownSitemap).toContain('<loc>https://own.example/blog/hello-world</loc>')
+    expect(await readFile(path.join(dir, 'dist/blog/hello-world/index.html'), 'utf8')).toContain(
+      '<link rel="canonical" href="https://own.example/blog/hello-world">',
     )
   })
 

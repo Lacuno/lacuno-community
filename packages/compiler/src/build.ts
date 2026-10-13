@@ -1,7 +1,7 @@
 import { cp, lstat, readdir, readFile, realpath, rename, rm } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import sitemap from '@astrojs/sitemap'
+import sitemap, { type SitemapItem } from '@astrojs/sitemap'
 import { generateStylesheet } from '@lacuno/css'
 import { type Document, DocumentError, parseDocument } from '@lacuno/schema'
 import { build as astroBuild } from 'astro'
@@ -220,7 +220,13 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
 
   // Astro's sitemap already leaves out the not-found page; noindex pages go too.
   const hidden = new Set(routes.filter((r) => doc.pages[r.page]?.seo?.noindex).map((r) => r.path))
-  const indexed = (url: string) => !hidden.has(new URL(url).pathname.replace(/(.)\/$/, '$1'))
+  const pathOf = (url: string) => new URL(url).pathname.replace(/(.)\/$/, '$1')
+  const indexed = (url: string) => !hidden.has(pathOf(url))
+  // Astro lists directory URLs with a trailing slash; list them as the canonical link has them.
+  const canonical = (item: SitemapItem) => ({
+    ...item,
+    url: new URL(pathOf(item.url), item.url).href,
+  })
 
   const { css } = generateStylesheet(doc, { assetUrl: publicAssetPath })
 
@@ -265,7 +271,9 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
       output: 'static',
       compressHTML: true,
       build: { inlineStylesheets: 'auto' },
-      ...(doc.site.url ? { site: doc.site.url, integrations: [sitemap({ filter: indexed })] } : {}),
+      ...(doc.site.url
+        ? { site: doc.site.url, integrations: [sitemap({ filter: indexed, serialize: canonical })] }
+        : {}),
       redirects: Object.fromEntries(
         doc.redirects.map((r) => [r.from, { status: r.status, destination: r.to }]),
       ),
