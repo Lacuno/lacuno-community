@@ -56,6 +56,8 @@ export function refusal(role: Role, method: string, path: string) {
     return 'Viewers can look but not change anything'
   if (role === 'editor' && !read && /^\/api\/sites\/[^/]+\/releases(\/|$)/.test(path))
     return 'Only the workspace owner can publish'
+  if (role === 'editor' && method === 'DELETE' && /^\/api\/sites\/[^/]+$/.test(path))
+    return 'Only the workspace owner can delete a site'
 }
 
 /** Generic opt-in authenticated reverse-proxy mode. No browser assertion or cookie is trusted. */

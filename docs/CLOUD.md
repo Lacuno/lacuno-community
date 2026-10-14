@@ -14,6 +14,9 @@ only through documented interfaces in this repository:
   the export sink that copies releases, assets and thumbnails to an edge.
 - **Site import**: `POST /api/sites` with a document and its assets, which also moves a site built
   in the browser's try editor into a workspace ([editor README](../apps/editor/README.md#try-build)).
+- **Site rename and delete**: `PUT /api/sites/<id>/name` with `{"name"}` renames a site through
+  its document, as Site settings do; `DELETE /api/sites/<id>` deletes it with its releases and files
+  (409 while a publish is queued or building, 204 also when it is gone already).
 - **Moving out**: a workspace export is a backup in the operator tool's format, imported with
   `backup-cli.js import` ([Moving from Lacuno Cloud](SELF_HOSTING.md#moving-from-lacuno-cloud)).
 - **Published listener**: `published-main.js --list` prints the production release of every site.

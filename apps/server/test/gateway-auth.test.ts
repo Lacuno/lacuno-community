@@ -63,7 +63,7 @@ describe('gateway mode', () => {
         'content-type': 'application/json',
         ...(assertion ? { 'x-lacuno-assertion': assertion } : {}),
       },
-      ...(method === 'POST' ? { body } : {}),
+      ...(body ? { body } : {}),
     })
   beforeAll(async () => {
     dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-gateway-'))
@@ -143,7 +143,7 @@ describe('gateway mode', () => {
     expect((await request('/api/sites', 'POST', body, create)).status).toBe(201)
   })
 
-  it('enforces the asserted role: viewers read, editors do not publish, absent is the owner', async () => {
+  it('enforces the asserted role: viewers read, editors neither publish nor delete sites, absent is the owner', async () => {
     const as = async (role: string, target: string, method = 'GET', body = '') =>
       request(
         target,
@@ -160,8 +160,11 @@ describe('gateway mode', () => {
     expect((await as('editor', '/api/sites/any/releases/r/activate', 'POST', '{}')).status).toBe(
       403,
     )
+    expect((await as('editor', '/api/sites/any', 'DELETE')).status).toBe(403)
     // Past the role check, the site is looked up.
+    expect((await as('editor', '/api/sites/any/name', 'PUT', '{"name":"A"}')).status).toBe(404)
     expect((await as('owner', '/api/sites/any/releases', 'POST', '{}')).status).toBe(404)
+    expect((await as('owner', '/api/sites/any', 'DELETE')).status).toBe(204)
     const owner = await assertion('/api/sites/any/releases', 'POST', '{}')
     expect((await request('/api/sites/any/releases', 'POST', '{}', owner)).status).toBe(404)
     expect((await as('admin', '/api/sites')).status).toBe(401)

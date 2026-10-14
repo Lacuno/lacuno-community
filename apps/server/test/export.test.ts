@@ -74,6 +74,7 @@ describe('export to the edge', () => {
     if (key!.startsWith('pointer/')) pointers.set(key!.slice('pointer/'.length), body.toString())
     else if (key === 'assets') lists.set(siteId!, body.toString())
     else if (key === 'activity') activity.push(JSON.parse(body.toString()))
+    else if (key === 'meta' && request.method === 'DELETE') names.delete(siteId!)
     else if (key === 'meta') names.set(siteId!, JSON.parse(body.toString()).name)
     else files.set(key!, body)
     response.writeHead(204).end()
@@ -97,8 +98,11 @@ describe('export to the edge', () => {
       .setAudience(origin)
       .sign(new TextEncoder().encode(secret))
   }
-  const call = async (target: string, data?: unknown) => {
-    const method = data === undefined ? 'GET' : 'POST'
+  const call = async (
+    target: string,
+    data?: unknown,
+    method = data === undefined ? 'GET' : 'POST',
+  ) => {
     const body = data === undefined ? '' : JSON.stringify(data)
     const response = await server.app.request(origin + target, {
       method,
@@ -110,7 +114,7 @@ describe('export to the edge', () => {
       ...(body ? { body } : {}),
     })
     expect(response.status, await response.clone().text()).toBeLessThan(300)
-    return response.json()
+    return response.status === 204 ? undefined : response.json()
   }
   type History = {
     publishedId: string | null
@@ -521,6 +525,16 @@ describe('export to the edge', () => {
     await new Promise((resolve) => setTimeout(resolve, 1500))
     expect(log).toEqual(['PUT meta'])
     expect(names.get(created.id)).toBe('Renamed')
+  })
+
+  it('sends a site’s new name and its deletion', async () => {
+    const { id } = await call('/api/sites', { name: 'Doomed' })
+    await call(`/api/sites/${id}/name`, { name: 'Renamed' }, 'PUT')
+    await expect.poll(() => names.get(id)).toBe('Renamed')
+    log.length = 0
+    await call(`/api/sites/${id}`, undefined, 'DELETE')
+    await expect.poll(() => names.has(id)).toBe(false)
+    expect(log).toEqual(['DELETE meta'])
   })
 })
 

@@ -81,7 +81,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | --- | --- | --- |
 | Accounts, workspaces, sites | MVP | |
 | Site thumbnails in the site list | MVP | The editor draws the home page's first screen in the browser, 640×400 WebP, ten seconds after an edit settles and when it closes |
-| Roles: owner, designer, content editor, viewer | MVP | Behind a gateway: owner, editor (no publishing) and viewer (read-only). A content editor role waits for content editor mode |
+| Roles: owner, designer, content editor, viewer | MVP | Behind a gateway: owner, editor (no publishing or deleting sites) and viewer (read-only). A content editor role waits for content editor mode |
 | Undo and redo across the whole document | MVP | Inverse patches of each committed batch |
 | Realtime multiplayer with presence | Next | Designed as server-ordered operations over a WebSocket, see the roadmap. Today every open editor receives other writers' batches live |
 | Comments pinned to elements | Next | Also how humans talk to the agent about a specific element |

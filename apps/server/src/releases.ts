@@ -175,12 +175,7 @@ export class Releases extends PublicationReader {
       )
       .get(siteId) as Pick<ReleaseRow, 'revision' | 'document' | 'origin'> | undefined
     if (!live || (live.origin ?? this.url(siteId)) === this.origin(siteId)) return
-    if (
-      this.sqlite
-        .prepare("SELECT id FROM releases WHERE site_id = ? AND status IN ('queued','building')")
-        .get(siteId)
-    )
-      return
+    if (this.busy(siteId)) return
     this.queue(siteId, live.revision, live.document, null, 'production')
   }
 
@@ -196,12 +191,14 @@ export class Releases extends PublicationReader {
   private checkPublication(siteId: string, expected: string | null, target: Target) {
     if (this.current(siteId, target) !== expected)
       throw conflict('The published release changed. Refresh release history and try again.')
-    if (
-      this.sqlite
-        .prepare("SELECT id FROM releases WHERE site_id = ? AND status IN ('queued','building')")
-        .get(siteId)
-    )
-      throw conflict('A publish is already queued or building for this site.')
+    if (this.busy(siteId)) throw conflict('A publish is already queued or building for this site.')
+  }
+
+  /** Whether a release of the site is queued or building. */
+  busy(siteId: string) {
+    return !!this.sqlite
+      .prepare("SELECT id FROM releases WHERE site_id = ? AND status IN ('queued','building')")
+      .get(siteId)
   }
 
   /** Points a target at a ready release without a build: rollback, promote or send to testing. */

@@ -163,6 +163,13 @@ export async function exportReport(
     console.error(`Export sink answered ${response?.status ?? 'nothing'} for ${key}`)
 }
 
+/** Tells Cloud a site was deleted, so it stops listing it. */
+export async function exportForget(options: ExportOptions, site: string) {
+  const response = await send(options, 'DELETE', site, 'meta').catch(() => undefined)
+  if (response?.status !== 204)
+    console.error(`Export sink answered ${response?.status ?? 'nothing'} for meta`)
+}
+
 /**
  * The hashes of the assets a document lists, sorted, one per line: the body of
  * `PUT <export>/sites/<site>/assets`, which tells Cloud the files the site uses now.

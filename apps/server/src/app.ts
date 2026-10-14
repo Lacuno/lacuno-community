@@ -28,7 +28,7 @@ import { z } from 'zod'
 import type { Auth, AuthSettings } from './auth.js'
 import { migrateApplication, openDatabase, sites, workspaces } from './database.js'
 import { type SiteEvent, siteEvents, summarize } from './events.js'
-import { exportAsset, exportReport, exportThumbnail } from './export.js'
+import { exportAsset, exportForget, exportReport, exportThumbnail } from './export.js'
 import { GatewayAuth, type GatewayOptions, refusal } from './gateway-auth.js'
 import { imageSize, imageVariant, RESIZABLE, warmVariants } from './images.js'
 import type { Send } from './mail.js'
@@ -658,6 +658,21 @@ export async function createServer(options: ServerOptions) {
         201,
       )
     })
+    // Before the site guard below, which matches this path too: deleting a site that is gone
+    // already succeeds, so a caller may retry.
+    app.delete('/api/sites/:id', async (c) => {
+      const id = c.req.param('id')
+      const site = and(eq(sites.id, id), eq(sites.workspaceId, c.get('workspaceId')))
+      if (!db.select({ id: sites.id }).from(sites).where(site).get()) return c.body(null, 204)
+      if (releases?.busy(id))
+        return c.json({ error: 'A publish is queued or building for this site.' }, 409)
+      stores.delete(id)
+      db.delete(sites).where(site).run()
+      for (const dir of ['sites', 'builds'])
+        await rm(path.join(options.dataDir, dir, id), { recursive: true, force: true })
+      if (exportOptions) void exportForget(exportOptions, id)
+      return c.body(null, 204)
+    })
     app.use('/api/sites/:id/*', async (c, next) => {
       const site = db
         .select({ id: sites.id })
@@ -698,6 +713,19 @@ export async function createServer(options: ServerOptions) {
       }
       return loading
     }
+    // The server's own change to a site, at its current revision, sent to its open editors.
+    const update = async (id: string, operations: Operation[]) => {
+      const site = await store(id)
+      const result = await site.apply({ expectedRevision: site.revision, operations })
+      siteEvents.emit(id, {
+        revision: result.revision,
+        patches: result.patches,
+        actor: { kind: 'editor' },
+        at: Date.now(),
+        summary: summarize(operations, result.patches),
+      })
+      return result
+    }
     // Images added before the server measured them get their size now, once, so the canvas can
     // list their variants; nothing waits on it.
     void (async () => {
@@ -712,15 +740,7 @@ export async function createServer(options: ServerOptions) {
           const size = bytes && (await imageSize(bytes))
           if (size) operations.push({ type: 'asset.update', id: asset.id, ...size })
         }
-        if (!operations.length) continue
-        const result = await site.apply({ expectedRevision: site.revision, operations })
-        siteEvents.emit(id, {
-          revision: result.revision,
-          patches: result.patches,
-          actor: { kind: 'editor' },
-          at: Date.now(),
-          summary: summarize(operations, result.patches),
-        })
+        if (operations.length) await update(id, operations)
       }
     })().catch((error) => console.error('Measuring images failed:', error))
     // An image's size is read from its bytes, unless the asset carries one already, and its first
@@ -950,6 +970,15 @@ export async function createServer(options: ServerOptions) {
         'Cache-Control': 'private, max-age=31536000, immutable',
         'X-Content-Type-Options': 'nosniff',
       })
+    })
+    app.put('/api/sites/:id/name', async (c) => {
+      const input = z
+        .strictObject({ name: SiteInput.shape.name })
+        .safeParse(await c.req.json().catch(() => null))
+      if (!input.success) return c.json({ error: 'Invalid site name' }, 400)
+      const { name } = input.data
+      const { revision } = await update(c.req.param('id'), [{ type: 'site.update', name }])
+      return c.json({ name, revision })
     })
     app.post('/api/sites/:id/document/apply', async (c) => {
       const input = BatchInput.safeParse(await c.req.json().catch(() => null))

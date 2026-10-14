@@ -47,7 +47,7 @@ connections outlive both until revoked (below).
 
 **Roles.** The runtime refuses what the asserted role does not allow, with 403: a `viewer` only
 reads (`GET` and `HEAD`) and cannot open the consent flow, an `editor` cannot publish, rename or
-roll back releases (`POST /api/sites/<id>/releases…`). The editor hides Publish from all but the
+roll back releases (`POST /api/sites/<id>/releases…`) or delete a site (`DELETE /api/sites/<id>`). The editor hides Publish from all but the
 owner and Connect from viewers, and opens read-only for a viewer. The runtime keeps each user's
 last asserted role, because MCP requests carry a token and no assertion: `site.publish` is
 offered only in sessions whose approving user was last asserted as `owner`. A gateway that lowers
@@ -152,7 +152,8 @@ of a site (its home page's first screen, a 640×400 WebP or JPEG the editor draw
 `PUT <export>/sites/<site>/thumbnail` sends the image before the request answers, and a failure
 fails that request, so the editor draws it again later. When a site is created or renamed, and for every
 site when the runtime starts, `PUT <export>/sites/<site>/meta` sends `{"name":"<site name>"}`, once
-and best effort, so the gateway lists sites without waking the runtime. After an AI app publishes, and at most
+and best effort, so the gateway lists sites without waking the runtime; when a site is deleted,
+`DELETE <export>/sites/<site>/meta` tells it, once and best effort. After an AI app publishes, and at most
 once an hour per MCP session after it changes the document, `PUT <export>/sites/<site>/activity`
 sends `{"user":"<sub>","app":"<app name>","action":"published"|"edited"}` for the person who
 connected it, once and best effort; the sink answers 204. Before a build starts its build process,
