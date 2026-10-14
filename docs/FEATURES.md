@@ -80,6 +80,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Feature | When | Notes |
 | --- | --- | --- |
 | Accounts, workspaces, sites | MVP | |
+| New site from the starter or blank | MVP | The site list's Start a new site asks for the starter template or one empty page; `POST /api/sites` takes `template: "starter" \| "blank"`, the starter by default. A gallery of proper templates comes later |
 | Site thumbnails in the site list | MVP | The editor draws the home page's first screen in the browser, 640×400 WebP, ten seconds after an edit settles and when it closes |
 | Roles: owner, designer, content editor, viewer | MVP | Behind a gateway: owner, editor (no publishing or deleting sites) and viewer (read-only). A content editor role waits for content editor mode |
 | Undo and redo across the whole document | MVP | Inverse patches of each committed batch |

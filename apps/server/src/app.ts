@@ -16,7 +16,14 @@ import {
 } from '@lacuno/document'
 import type { Screenshot } from '@lacuno/mcp/screenshot'
 import { renderPreview } from '@lacuno/renderer'
-import { AssetHash, AssetMime, type AssetRef, hashAsset, parseDocument } from '@lacuno/schema'
+import {
+  AssetHash,
+  AssetMime,
+  type AssetRef,
+  createEmptyDocument,
+  hashAsset,
+  parseDocument,
+} from '@lacuno/schema'
 import type Database from 'better-sqlite3'
 import { and, eq, sql } from 'drizzle-orm'
 import { type Context, Hono, type MiddlewareHandler } from 'hono'
@@ -80,10 +87,13 @@ export type ServerOptions = {
 const SiteInput = z
   .strictObject({
     name: z.string().trim().min(1).max(200),
+    // A new site starts from the starter template or from one empty page; an import brings its own.
+    template: z.enum(['starter', 'blank']).optional(),
     document: z.unknown().optional(),
     assets: z.record(AssetHash, z.base64()).optional(),
   })
   .refine((input) => (input.document === undefined) === (input.assets === undefined))
+  .refine((input) => input.document === undefined || input.template === undefined)
 /** An empty release name clears it. */
 const ReleaseName = z
   .string()
@@ -609,11 +619,13 @@ export async function createServer(options: ServerOptions) {
     app.post('/api/sites', async (c) => {
       const input = SiteInput.safeParse(await c.req.json().catch(() => null))
       if (!input.success) return c.json({ error: 'Invalid site' }, 400)
-      const { name, document: imported, assets } = input.data
+      const { name, template, document: imported, assets } = input.data
       const source = parseDocument(
         assets
           ? imported
-          : JSON.parse(await readFile(path.join(options.templateDir, 'lacuno.json'), 'utf8')),
+          : template === 'blank'
+            ? createEmptyDocument(name)
+            : JSON.parse(await readFile(path.join(options.templateDir, 'lacuno.json'), 'utf8')),
       )
       const document = parseDocument({
         ...source,

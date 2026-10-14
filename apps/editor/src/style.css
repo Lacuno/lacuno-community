@@ -333,6 +333,39 @@ p {
 .create-card p {
   font-size: 13px;
 }
+.template-choice {
+  border: 0;
+  padding: 0;
+  margin: 12px 0 16px;
+  display: grid;
+  gap: 8px;
+}
+.template-choice legend {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.template-choice label {
+  display: flex;
+  margin: 0;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid #e3e1e8;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.template-choice input {
+  width: auto;
+  margin: 2px 0 0;
+}
+.template-choice label:has(:checked) {
+  border-color: var(--accent);
+}
+.template-choice label > span {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
 .create-icon {
   color: var(--accent);
   font-size: 30px;

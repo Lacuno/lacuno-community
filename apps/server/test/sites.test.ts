@@ -69,6 +69,31 @@ afterEach(async () => {
   await rm(options.dataDir, { recursive: true, force: true })
 })
 
+it('starts a site from the starter by default, or blank with one empty page', async () => {
+  const owner = await register('owner@example.test')
+  type Doc = { site: { name: string }; pages: object; nodes: Record<string, { children: [] }> }
+  const read = async (id: string) =>
+    ((await (await request(`/api/sites/${id}/document`, owner)).json()) as { document: Doc })
+      .document
+  const starter = await read(await createSite(owner))
+  expect(Object.keys(starter.nodes).length).toBeGreaterThan(1)
+  const created = await request('/api/sites', owner, 'POST', { name: 'Empty', template: 'blank' })
+  expect(created.status).toBe(201)
+  const blank = await read(((await created.json()) as { id: string }).id)
+  expect(blank.site.name).toBe('Empty')
+  expect(Object.values(blank.pages)).toEqual([expect.objectContaining({ name: 'Home', path: '/' })])
+  expect(Object.values(blank.nodes)).toEqual([expect.objectContaining({ children: [] })])
+  const unknown = await request('/api/sites', owner, 'POST', { name: 'X', template: 'shop' })
+  expect(unknown.status).toBe(400)
+  const both = await request('/api/sites', owner, 'POST', {
+    name: 'X',
+    template: 'blank',
+    document: starter,
+    assets: {},
+  })
+  expect(both.status).toBe(400)
+})
+
 it('renames a site through its document and tells its open editors', async () => {
   const owner = await register('owner@example.test')
   const id = await createSite(owner)

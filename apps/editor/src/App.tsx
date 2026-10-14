@@ -260,8 +260,10 @@ function Sites({
                 setBusy(true)
                 setError('')
                 try {
+                  const form = new FormData(event.currentTarget)
                   const site = await api<Site>('/api/sites', {
-                    name: new FormData(event.currentTarget).get('name'),
+                    name: form.get('name'),
+                    template: form.get('template'),
                   })
                   open(site.id)
                 } catch (e) {
@@ -272,11 +274,27 @@ function Sites({
             >
               <span className="create-icon">+</span>
               <h2>Start a new site</h2>
-              <p className="muted">A complete starter, ready to make your own.</p>
               <label>
                 Site name
                 <input name="name" required maxLength={200} placeholder="My new site" />
               </label>
+              <fieldset className="template-choice">
+                <legend>Start from</legend>
+                <label>
+                  <input type="radio" name="template" value="starter" defaultChecked />
+                  <span>
+                    <strong>Starter</strong>
+                    <span className="muted">A complete site, ready to make your own.</span>
+                  </span>
+                </label>
+                <label>
+                  <input type="radio" name="template" value="blank" />
+                  <span>
+                    <strong>Blank</strong>
+                    <span className="muted">One empty page.</span>
+                  </span>
+                </label>
+              </fieldset>
               <button type="submit" className="primary" disabled={busy}>
                 {busy ? 'Creating…' : 'Create site'}
                 <span aria-hidden="true">→</span>
