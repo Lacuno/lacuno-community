@@ -9,6 +9,7 @@ import { nodeOperations } from './nodes.js'
 import { pageOperations } from './pages.js'
 import { siteOperations } from './site.js'
 import { styleOperations } from './styles.js'
+import { translationOperations } from './translations.js'
 
 /** Every operation the document layer understands, in catalog order. Later groups append here. */
 export const OPERATIONS = [
@@ -21,6 +22,7 @@ export const OPERATIONS = [
   ...componentOperations,
   ...collectionOperations,
   ...assetOperations,
+  ...translationOperations,
 ]
 
 export const OPERATIONS_BY_TYPE: ReadonlyMap<string, OperationDef> = new Map(

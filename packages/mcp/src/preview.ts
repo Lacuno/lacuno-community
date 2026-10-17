@@ -18,7 +18,7 @@ import {
 } from '@lacuno/schema'
 import { InputError } from './errors.js'
 
-export type PreviewRoute = { page: Page; entry?: Entry; listPage?: number }
+export type PreviewRoute = { page: Page; entry?: Entry; listPage?: number; locale?: string }
 
 /** A page id, a page path or a route path; a collection page also needs an entry id or slug. */
 export function resolveRoute(doc: Document, page: string, entry?: string): PreviewRoute {
@@ -26,7 +26,8 @@ export function resolveRoute(doc: Document, page: string, entry?: string): Previ
   const route = routes.find((r) => {
     const p = doc.pages[r.page]!
     if (r.path === page) return true
-    if (p.id !== page && p.path !== page) return false
+    // A page id or path names the page in the primary language.
+    if (r.locale || (p.id !== page && p.path !== page)) return false
     return !r.entry || r.entry === entry || r.path === routePath(p.path, entry)
   })
   if (!route)
@@ -41,6 +42,7 @@ export function resolveRoute(doc: Document, page: string, entry?: string): Previ
     page: p,
     ...(e ? { entry: e } : {}),
     ...(route.listPage ? { listPage: route.listPage } : {}),
+    ...(route.locale ? { locale: route.locale } : {}),
   }
 }
 
@@ -53,6 +55,7 @@ export function previewHtml(doc: Document, route: PreviewRoute, annotateNodes = 
     resolveImage: plainImageResolver,
     ...(annotateNodes ? { annotateNodes } : {}),
     ...(route.listPage ? { listPage: route.listPage } : {}),
+    ...(route.locale ? { locale: route.locale } : {}),
   })
   const { css } = generateStylesheet(doc, { assetUrl: publicAssetPath })
   result.head += `\n${styleElement(css)}`
@@ -66,6 +69,7 @@ export function previewText(doc: Document, route: PreviewRoute): string[] {
     resolveImage: plainImageResolver,
     texts,
     ...(route.listPage ? { listPage: route.listPage } : {}),
+    ...(route.locale ? { locale: route.locale } : {}),
   })
   return texts.flatMap(([id, v]) => {
     // Rich text becomes plain text, an asset has no text, anything else reads as a string.

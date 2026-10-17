@@ -1,5 +1,13 @@
 import { classNames, MOTION_SCRIPT, SCRUB_SCRIPT, WORDS_SCRIPT } from '@lacuno/css'
-import { type AssetRef, type Document, type Entry, type Page, pageLang } from '@lacuno/schema'
+import {
+  type AssetRef,
+  type Document,
+  type Entry,
+  findEntry,
+  localize,
+  type Page,
+  pageLang,
+} from '@lacuno/schema'
 import { publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
 import { FORM_SCRIPT } from './forms.js'
@@ -7,7 +15,7 @@ import { renderHead } from './head.js'
 import { renderAttrs } from './html.js'
 import type { ImageResolver } from './images.js'
 import { motionClasses, type RenderState, renderNode, type Warning } from './nodes.js'
-import { entrySlug, listPagePath, routePath } from './routes.js'
+import { alternates, entrySlug, listPagePath, routePath } from './routes.js'
 import type { Scope } from './scope.js'
 
 export type RenderContext = {
@@ -19,6 +27,8 @@ export type RenderContext = {
   texts?: RenderState['texts']
   /** Which page of the page's paginated list to render. */
   listPage?: number
+  /** The language to render in, a route's `locale`; the primary when left out. */
+  locale?: string
 }
 
 export type RenderResult = {
@@ -28,13 +38,24 @@ export type RenderResult = {
   warnings: Warning[]
 }
 
-/** Pure: document and page in, head and body HTML out. Never touches the filesystem. */
+/**
+ * Pure: document and page in, head and body HTML out. Never touches the filesystem. In another
+ * language than the primary, the page renders from the document as that language shows it.
+ */
 export function render(
-  doc: Document,
-  page: Page,
-  entry: Entry | undefined,
+  source: Document,
+  sourcePage: Page,
+  sourceEntry: Entry | undefined,
   ctx: RenderContext,
 ): RenderResult {
+  const doc = ctx.locale ? localize(source, ctx.locale) : source
+  const page = ctx.locale ? doc.pages[sourcePage.id]! : sourcePage
+  const entry = ctx.locale && sourceEntry ? findEntry(doc, sourceEntry.id)?.entry : sourceEntry
+  const languages = alternates(source, {
+    page: page.id,
+    ...(entry ? { entry: entry.id } : {}),
+    ...(ctx.listPage ? { listPage: ctx.listPage } : {}),
+  })
   const scope: Scope = { frames: [], lang: pageLang(doc, page) }
   let slug: string | undefined
   if (page.collection) {
@@ -67,6 +88,8 @@ export function render(
     ...(ctx.editingComponent ? { editingComponent: ctx.editingComponent } : {}),
     ...(ctx.texts ? { texts: ctx.texts } : {}),
     ...(ctx.listPage ? { listPage: ctx.listPage } : {}),
+    languages,
+    locale: ctx.locale ?? languages[0]!.locale,
   }
   const headInput = {
     doc,
@@ -75,6 +98,7 @@ export function render(
     ...(entry ? { entry } : {}),
     resolveImage: ctx.resolveImage,
     resolveAsset: state.resolveAsset,
+    ...(languages.length > 1 ? { alternates: languages } : {}),
   }
   const head = renderHead(doc.site.url ? { ...headInput, siteUrl: doc.site.url } : headInput)
   const body =

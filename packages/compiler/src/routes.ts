@@ -1,16 +1,29 @@
-import type {
-  CollectionListNode,
-  CollectionSchema,
-  Document,
-  Entry,
-  EntryId,
-  PageId,
+import {
+  type CollectionListNode,
+  type CollectionSchema,
+  type Document,
+  type Entry,
+  type EntryId,
+  findEntry,
+  localize,
+  type PageId,
+  publishedLocales,
+  siteLocales,
 } from '@lacuno/schema'
 import { RenderError } from './errors.js'
 import { applyQuery } from './query.js'
 
-/** One output path. `listPage` is the page of a paginated list, 2 and on; the first has none. */
-export type Route = { path: string; page: PageId; entry?: EntryId; listPage?: number }
+/**
+ * One output path. `listPage` is the page of a paginated list, 2 and on; the first has none.
+ * `locale` is the language of the route, absent for the primary.
+ */
+export type Route = {
+  path: string
+  page: PageId
+  entry?: EntryId
+  listPage?: number
+  locale?: string
+}
 
 export function entrySlug(entry: Entry, collection: CollectionSchema): string {
   return String(entry.fields[collection.slugField])
@@ -22,8 +35,12 @@ export function routePath(pagePath: string, slug?: string): string {
   return pagePath.replace(/\[[a-z0-9-]+\]/g, slug)
 }
 
-/** Every output path of the site, sorted. Collection pages expand to one route per entry. */
-export function enumerateRoutes(doc: Document): Route[] {
+/**
+ * Every output path of the site, sorted: the primary language's, then each other published
+ * language's under its prefix, and with `drafts` the draft languages' too. Collection pages
+ * expand to one route per entry.
+ */
+export function enumerateRoutes(doc: Document, options: { drafts?: boolean } = {}): Route[] {
   const routes: Route[] = []
   const seen = new Map<string, PageId>()
   const add = (route: Route) => {
@@ -37,25 +54,45 @@ export function enumerateRoutes(doc: Document): Route[] {
     seen.set(route.path, route.page)
     routes.push(route)
   }
-  for (const page of Object.values(doc.pages)) {
-    if (!page.collection) {
-      add({ path: page.path, page: page.id })
-      const list = paginatedList(doc, page.root)
-      for (let n = 2; list && n <= listPages(doc, list); n++)
-        add({ path: listPagePath(page.path, n), page: page.id, listPage: n })
-      continue
+  siteLocales(doc).forEach(({ code, draft }, i) => {
+    if (draft && !options.drafts) return
+    const local = localize(doc, code)
+    const lang = i ? { locale: code } : {}
+    for (const page of Object.values(local.pages)) {
+      if (!page.collection) {
+        add({ path: page.path, page: page.id, ...lang })
+        const list = paginatedList(local, page.root)
+        for (let n = 2; list && n <= listPages(local, list); n++)
+          add({ path: listPagePath(page.path, n), page: page.id, listPage: n, ...lang })
+        continue
+      }
+      // parseDocument has already checked that the page's collection exists.
+      const collection = local.collections[page.collection]!
+      for (const entry of local.entries[page.collection] ?? []) {
+        add({
+          path: routePath(page.path, entrySlug(entry, collection)),
+          page: page.id,
+          entry: entry.id,
+          ...lang,
+        })
+      }
     }
-    // parseDocument has already checked that the page's collection exists.
-    const collection = doc.collections[page.collection]!
-    for (const entry of doc.entries[page.collection] ?? []) {
-      add({
-        path: routePath(page.path, entrySlug(entry, collection)),
-        page: page.id,
-        entry: entry.id,
-      })
-    }
-  }
+  })
   return routes.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+}
+
+/** A route's page, entry and list page in each published language, the primary first. */
+export function alternates(
+  doc: Document,
+  route: Pick<Route, 'page' | 'entry' | 'listPage'>,
+): { locale: string; path: string }[] {
+  return publishedLocales(doc).map(({ code }) => {
+    const local = localize(doc, code)
+    const found = route.entry === undefined ? undefined : findEntry(local, route.entry)
+    const slug = found && entrySlug(found.entry, found.collection)
+    const path = routePath(local.pages[route.page]!.path, slug)
+    return { locale: code, path: listPagePath(path, route.listPage ?? 1) }
+  })
 }
 
 /** The paginated list on a page, found by walking its tree; validation allows only one. */

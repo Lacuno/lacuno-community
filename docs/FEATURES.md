@@ -38,7 +38,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | Generated OG images from a template | Next | Rendered at build time |
 | Sitemap, robots.txt, redirects, 404 and 500 pages | MVP | In: sitemap without hidden and not-found pages, robots.txt, redirects edited in Site settings (published as Astro's meta-refresh pages), and a not-found page at `/404` built to `404.html`. Still to come: redirects emitted for Caddy, Netlify and Cloudflare formats, and a 500 page |
 | Structured data presets: Article, Organization, Product, FAQ | Next | |
-| Localization: locale-aware routes, translated fields, hreflang | Later | Data model reserves it from day one |
+| Localization: locale-aware routes, translated fields, hreflang | MVP | In: languages layered on one design (D035), set through `document.apply`: the first language at `/`, every other one under `/<code>/` with its own page and entry slugs. Text, the translatable attributes, component props, page names, SEO title, description and image, entry fields and the title template take a value per language, and anything left untranslated shows the first language's. Each built page has its `lang`, its own canonical, `hreflang` links to every language plus `x-default`, and `og:locale:alternate`; the sitemap lists every language of a page; draft languages stay unpublished. A Language switcher element links the same page in each language, as a list or a dropdown, without script. Still to come: languages and translations in the editor, and MCP tools for translating |
 
 ## Content
 

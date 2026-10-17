@@ -23,6 +23,8 @@ const FieldBase = {
   label: z.string().min(1),
   required: z.boolean().optional(),
   help: z.string().optional(),
+  /** Whether entries hold a value per language; see `isTranslatable` for the default. */
+  translatable: z.boolean().optional(),
 }
 
 /** One choice of an option field. The value is stored on entries; the label is what people see. */

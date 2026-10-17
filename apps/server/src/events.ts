@@ -58,6 +58,8 @@ const things: Record<string, [string, string]> = {
   field: ['field', 'fields'],
   entry: ['entry', 'entries'],
   redirect: ['redirect', 'redirects'],
+  locale: ['language', 'languages'],
+  translation: ['translation', 'translations'],
 }
 
 /** One operation in words, such as "added an element" or "edited text". */

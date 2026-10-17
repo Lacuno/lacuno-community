@@ -22,9 +22,31 @@ import { Breakpoint, Class, StyleDecl } from './styles.js'
 
 export const DOCUMENT_VERSION = 1
 
+const Lang = Page.shape.lang.unwrap()
+
+/** A language the site is in. Draft languages are previewed but not published. */
+export const Locale = z.strictObject({
+  code: Lang,
+  label: z.string().min(1).optional(),
+  draft: z.boolean().optional(),
+})
+export type Locale = z.infer<typeof Locale>
+
+/** One translated value, with the hash of the primary-language value it was made from. */
+export const Translation = z.strictObject({ value: z.unknown(), source: z.string() })
+export type Translation = z.infer<typeof Translation>
+
 export const SiteSettings = z.object({
   name: z.string().min(1),
-  locale: Page.shape.lang.unwrap().default('en'),
+  locale: Lang.default('en'),
+  /** The site's languages, the primary first; without them the site is in `locale` only. */
+  locales: z
+    .array(Locale)
+    .min(1)
+    .refine((all) => new Set(all.map((l) => l.code)).size === all.length, {
+      message: 'each language once',
+    })
+    .optional(),
   modes: z.array(Mode).min(1),
   fonts: z.array(Font).default([]),
   favicon: AssetId.optional(),
@@ -58,11 +80,23 @@ export const Document = z.object({
   entries: z.record(CollectionId, z.array(Entry)).default({}),
   assets: z.record(AssetId, AssetRef).default({}),
   redirects: z.array(Redirect).default([]),
+  /** Per language, the translated values by translation key, see `parseKey`. */
+  translations: z.record(Lang, z.record(z.string(), Translation)).default({}),
 })
 export type Document = z.infer<typeof Document>
 
+/** The site's languages, the primary first. */
+export const siteLocales = (doc: Document): Locale[] =>
+  doc.site.locales ?? [{ code: doc.site.locale }]
+
+export const primaryLocale = (doc: Document): string => siteLocales(doc)[0]!.code
+
+/** The languages that are published: the primary and every one that is not a draft. */
+export const publishedLocales = (doc: Document): Locale[] =>
+  siteLocales(doc).filter((l, i) => i === 0 || !l.draft)
+
 /** The page's language: its own, or else the site's. */
-export const pageLang = (doc: Document, page: Page): string => page.lang ?? doc.site.locale
+export const pageLang = (doc: Document, page: Page): string => page.lang ?? primaryLocale(doc)
 
 /** An entry by id, with its collection, whichever collection holds it. */
 export function findEntry(

@@ -159,6 +159,7 @@ const tagLabels: Record<string, string> = {
 export function nodeLabel(node: Node) {
   if (node.meta?.label) return node.meta.label
   if (node.type === 'text' && node.tag === 'div') return 'Rich text'
+  if (node.type === 'language-switcher') return 'Language switcher'
   return 'tag' in node ? (tagLabels[node.tag] ?? node.tag) : node.type
 }
 

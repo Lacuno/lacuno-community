@@ -230,6 +230,16 @@ export const CodeComponentNode = z.object({
   client: z.enum(['none', 'load', 'idle', 'visible']).optional(),
 })
 
+/** Links to the page in each published language, as a list or a dropdown. Has no children. */
+export const LanguageSwitcherNode = z.object({
+  ...Base,
+  type: z.literal('language-switcher'),
+  /** `list` when left out. */
+  display: z.enum(['list', 'dropdown']).optional(),
+  /** What each link reads: the language's name (when left out), its code, or both. */
+  label: z.enum(['name', 'code', 'both']).optional(),
+})
+
 export const Node = z.discriminatedUnion('type', [
   ElementNode,
   TextNode,
@@ -238,12 +248,14 @@ export const Node = z.discriminatedUnion('type', [
   CollectionListNode,
   EmbedNode,
   CodeComponentNode,
+  LanguageSwitcherNode,
 ])
 export type Node = z.infer<typeof Node>
 export type ElementNode = z.infer<typeof ElementNode>
 export type TextNode = z.infer<typeof TextNode>
 export type CollectionListNode = z.infer<typeof CollectionListNode>
 export type ComponentInstanceNode = z.infer<typeof ComponentInstanceNode>
+export type LanguageSwitcherNode = z.infer<typeof LanguageSwitcherNode>
 
 /** The attrs of every field shown inside a rich text, in order. */
 export function fieldTokens(node: unknown): unknown[] {

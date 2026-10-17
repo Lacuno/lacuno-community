@@ -4,13 +4,12 @@ import { type Document, fixtureDocument, hashAsset } from '@lacuno/schema'
 import sharp from 'sharp'
 
 /**
- * The fixture document as a site folder: `lacuno.json` plus a generated hero PNG, a stub MP4
- * and two stub WOFF2 files under `assets/<sha256>`. Used by the build integration test, the
- * Lighthouse script and, later, as the seed for template work.
+ * The fixture document, or another made from it, as a site folder: `lacuno.json` plus a
+ * generated hero PNG, a stub MP4 and two stub WOFF2 files under `assets/<sha256>`. Used by the
+ * build integration test, the Lighthouse script and, later, as the seed for template work.
  */
-export async function writeFixtureSite(dir: string): Promise<Document> {
+export async function writeFixtureSite(dir: string, doc = fixtureDocument()): Promise<Document> {
   const bytes = await fixtureAssetBytes()
-  const doc = fixtureDocument()
   await mkdir(path.join(dir, 'assets'), { recursive: true })
   for (const [id, data] of Object.entries(bytes)) {
     const asset = doc.assets[id]

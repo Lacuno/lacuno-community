@@ -5,7 +5,12 @@ import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
-import { referencesToCollection, referencesToEntry, referencesToField } from '../references.js'
+import {
+  deleteTranslationsPatches,
+  referencesToCollection,
+  referencesToEntry,
+  referencesToField,
+} from '../references.js'
 
 // Mirrors packages/schema/src/collections.ts's FieldDef, with `id` optional: the discriminated
 // union built from FieldDef.options.map((o) => o.extend({ id: FieldId.optional() })) loses its
@@ -20,6 +25,7 @@ const FieldLiteralBase = {
   label: z.string().min(1),
   required: z.boolean().optional(),
   help: z.string().optional(),
+  translatable: z.boolean().optional(),
 }
 
 /** A field definition to create: any FieldDef variant with the id optional. */
@@ -148,6 +154,10 @@ const collectionDelete = defineOperation(
       ctx.fail(`collection ${op.id} is referenced`, { id: op.id, referencedBy })
     const patches: Patch[] = [{ op: 'delete', path: ['collections', op.id] }]
     if (ctx.doc.entries[op.id]) patches.push({ op: 'delete', path: ['entries', op.id] })
+    const entries = new Set(ctx.doc.entries[op.id]?.map((e) => e.id))
+    patches.push(
+      ...deleteTranslationsPatches(ctx.doc, (t) => t.type === 'entry' && entries.has(t.id)),
+    )
     return patches
   },
 )
@@ -189,6 +199,7 @@ const fieldUpdate = defineOperation(
     label: z.string().min(1).optional(),
     required: z.boolean().nullable().optional(),
     help: z.string().nullable().optional(),
+    translatable: z.boolean().nullable().optional(),
     options: z.array(OptionChoice).min(1).optional(),
     reference: CollectionId.optional(),
   }),
@@ -216,6 +227,7 @@ const fieldUpdate = defineOperation(
         label: op.label,
         required: op.required,
         help: op.help,
+        translatable: op.translatable,
         options: op.options,
         reference: op.reference,
       },
@@ -263,7 +275,11 @@ const fieldRemove = defineOperation(
         ? [{ op: 'delete', path: ['entries', op.collection, i, 'fields', op.id] }]
         : [],
     )
-    return [...drops, { op: 'remove', path: ['collections', op.collection, 'fields'], index }]
+    return [
+      ...drops,
+      { op: 'remove', path: ['collections', op.collection, 'fields'], index },
+      ...deleteTranslationsPatches(ctx.doc, (t) => t.type === 'entry' && t.field === op.id),
+    ]
   },
 )
 
@@ -437,7 +453,10 @@ const entryDelete = defineOperation(
     const { index } = entryIndex(ctx, op.collection, op.id)
     const referencedBy = referencesToEntry(ctx.doc, op.collection, op.id)
     if (referencedBy.length) ctx.fail(`entry ${op.id} is referenced`, { id: op.id, referencedBy })
-    return [{ op: 'remove', path: ['entries', op.collection], index }]
+    return [
+      { op: 'remove', path: ['entries', op.collection], index },
+      ...deleteTranslationsPatches(ctx.doc, (t) => t.type === 'entry' && t.id === op.id),
+    ]
   },
 )
 

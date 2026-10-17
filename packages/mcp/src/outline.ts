@@ -34,6 +34,8 @@ function label(node: Node): string {
       return '[embed]'
     case 'code-component':
       return `[code ${node.source}]`
+    case 'language-switcher':
+      return '[language switcher]'
   }
 }
 

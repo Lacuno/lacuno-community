@@ -557,3 +557,30 @@ need keeping current with other products' formats, and a field would persist wha
 holds. The guide names no provider and judges none: whether a configuration needs consent is the
 owner's call. A gateway that counts visits elsewhere links to its own view the way `home` links to
 its dashboard, so the editor never learns its routes.
+
+## D035. Languages are translations layered on one design, rendered by localizing the document first
+
+**Decision.** A site's languages are `site.locales`, the first being the primary; a document
+without them is a site in `site.locale` alone. The page tree, classes, components and styles stay
+single. Translations live in `translations`, per language and per key (`node:<id>.text`,
+`page:<id>.path`, `entry:<id>.<field>` and a few more), each with a short hash of the primary
+value it was made from, so a translation whose source has since changed reads as outdated; the
+status is computed, never stored. Building a language calls `localize(doc, locale)`, which returns
+a copy with that language's values in place and every page path under `/<code>`, then renders
+that copy the way it renders the primary. The primary keeps `/`, each other language gets its
+prefix and its own last path segment per page. Draft languages are left out of the build, the
+alternates and the sitemap. Visitors are never redirected by language: each page links its
+other languages, and a Language switcher element offers them.
+
+**Alternatives.** A page tree per language; translated values inside each node and entry next to
+the primary ones; locale-aware rendering throughout the compiler; Astro's i18n routing and its
+sitemap pairing; redirects by `Accept-Language`.
+
+**Why.** One design means a layout change reaches every language at once and a translation can
+never drift from the structure it belongs to. Keys keep translations out of the records they
+translate, so a one-language document is unchanged and builds exactly as before, and removing a
+node, page, entry, field or prop removes its keys with it. Links name pages by id, so a localized
+copy needs no rewriting of links: the existing render already resolves them to the copy's paths.
+Astro pairs languages by identical paths after the prefix, which translated slugs break, so the
+compiler computes the alternates itself. Automatic redirects hide pages from crawlers and from
+people who want another language.

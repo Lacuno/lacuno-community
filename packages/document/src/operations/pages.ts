@@ -4,7 +4,7 @@ import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
-import { referencesToPage, subtreeIds } from '../references.js'
+import { deleteTranslationsPatches, referencesToPage, subtreeIds } from '../references.js'
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 
 const PagePath = Page.shape.path
@@ -63,7 +63,11 @@ const pageDelete = defineOperation(
     const own = new Set(subtreeIds(ctx.doc, page.root).map((id) => `nodes.${id}`))
     const referencedBy = referencesToPage(ctx.doc, op.id).filter((ref) => !own.has(ref))
     if (referencedBy.length) ctx.fail(`page ${op.id} is referenced`, { id: op.id, referencedBy })
-    return [{ op: 'delete', path: ['pages', op.id] }, ...deleteSubtreePatches(ctx.doc, page.root)]
+    return [
+      { op: 'delete', path: ['pages', op.id] },
+      ...deleteSubtreePatches(ctx.doc, page.root),
+      ...deleteTranslationsPatches(ctx.doc, (t) => t.type === 'page' && t.id === op.id),
+    ]
   },
 )
 

@@ -46,5 +46,6 @@ export function createEmptyDocument(name = 'Untitled'): Document {
     entries: {},
     assets: {},
     redirects: [],
+    translations: {},
   }
 }

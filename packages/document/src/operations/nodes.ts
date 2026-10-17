@@ -5,6 +5,7 @@ import {
   CollectionId,
   CollectionListNode,
   ComponentId,
+  LanguageSwitcherNode,
   NodeId as NodeIdSchema,
   NodeMeta,
   RichText,
@@ -17,9 +18,16 @@ import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'
 import type { Patch } from '../patch.js'
-import { isDescendant, isRootNode, parentIndex, subtreeIds } from '../references.js'
+import {
+  deleteTranslationsPatches,
+  isDescendant,
+  isRootNode,
+  parentIndex,
+  subtreeIds,
+} from '../references.js'
 
 const Query = CollectionListNode.shape.query.unwrap()
+const { display: Display, label: SwitcherLabel } = LanguageSwitcherNode.shape
 
 const literalBase = {
   id: NodeIdSchema.optional(),
@@ -56,6 +64,11 @@ export type NodeLiteral = LiteralBase &
     | { type: 'slot'; name: string }
     | { type: 'collection-list'; tag: string; collection: string; query?: z.infer<typeof Query> }
     | { type: 'embed'; html: string }
+    | {
+        type: 'language-switcher'
+        display?: z.infer<typeof Display>
+        label?: z.infer<typeof SwitcherLabel>
+      }
   )
 
 export const NodeLiteral: z.ZodType<NodeLiteral> = z.lazy(() =>
@@ -101,6 +114,13 @@ export const NodeLiteral: z.ZodType<NodeLiteral> = z.lazy(() =>
       html: z.string(),
       children: z.array(NodeLiteral).optional(),
     }),
+    z.strictObject({
+      ...literalBase,
+      type: z.literal('language-switcher'),
+      display: Display,
+      label: SwitcherLabel,
+      children: z.array(NodeLiteral).optional(),
+    }),
   ]),
 ) as z.ZodType<NodeLiteral>
 
@@ -123,7 +143,10 @@ export function materialize(
   parent: NodeId | null,
   ctx: PlanContext,
 ): { rootId: NodeId; patches: Patch[] } {
-  if ((literal.type === 'text' || literal.type === 'embed') && literal.children?.length)
+  if (
+    (literal.type === 'text' || literal.type === 'embed' || literal.type === 'language-switcher') &&
+    literal.children?.length
+  )
     ctx.fail(`${literal.type} nodes cannot have children`)
   const id = ctx.id('node', literal.id)
   requireClasses(ctx, literal.classes ?? [])
@@ -184,6 +207,14 @@ export function materialize(
     case 'embed':
       node = { ...base, type: 'embed', html: literal.html }
       break
+    case 'language-switcher':
+      node = {
+        ...base,
+        type: 'language-switcher',
+        ...(literal.display ? { display: literal.display } : {}),
+        ...(literal.label ? { label: literal.label } : {}),
+      }
+      break
   }
   return {
     rootId: id,
@@ -194,8 +225,13 @@ export function materialize(
   }
 }
 
+/** Deletes a subtree's nodes and their translations. */
 export function deleteSubtreePatches(doc: Document, rootId: NodeId): Patch[] {
-  return subtreeIds(doc, rootId).map((id): Patch => ({ op: 'delete', path: ['nodes', id] }))
+  const ids = new Set(subtreeIds(doc, rootId))
+  return [
+    ...[...ids].map((id): Patch => ({ op: 'delete', path: ['nodes', id] })),
+    ...deleteTranslationsPatches(doc, (t) => t.type === 'node' && ids.has(t.id)),
+  ]
 }
 
 function requireParent(
@@ -240,6 +276,8 @@ const nodeUpdate = defineOperation(
     html: z.string().optional(),
     props: z.record(z.string(), Binding).nullable().optional(),
     query: Query.nullable().optional(),
+    display: Display.unwrap().nullable().optional(),
+    label: SwitcherLabel.unwrap().nullable().optional(),
     /** The collection a list shows; field bindings inside must be fields of it. */
     collection: CollectionId.optional(),
     semantic: Semantic.nullable().optional(),
@@ -257,6 +295,8 @@ const nodeUpdate = defineOperation(
       ctx.fail('html applies to embed nodes only', { id: op.id })
     if (op.props !== undefined && node.type !== 'component')
       ctx.fail('props applies to component instances only', { id: op.id })
+    if ((op.display !== undefined || op.label !== undefined) && node.type !== 'language-switcher')
+      ctx.fail('display and label apply to language switchers only', { id: op.id })
     if ((op.query !== undefined || op.collection !== undefined) && node.type !== 'collection-list')
       ctx.fail('query and collection apply to collection lists only', { id: op.id })
     if (op.collection)

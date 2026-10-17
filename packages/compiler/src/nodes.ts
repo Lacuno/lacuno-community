@@ -14,11 +14,13 @@ import {
   type Document,
   type ElementNode,
   type FieldToken,
+  type LanguageSwitcherNode,
   type Node,
   type NodeId,
   plainText,
   type RichText,
   type RotatingWords,
+  siteLocales,
   type TextNode,
 } from '@lacuno/schema'
 import { isImage } from './assets.js'
@@ -44,6 +46,10 @@ export type RenderState = {
   /** Class ids naming an entrance in `--lc-entrance`. */
   entrances: ReadonlySet<string>
   page: string
+  /** The route in each published language, the primary first, for a language switcher. */
+  languages: { locale: string; path: string }[]
+  /** The language being rendered. */
+  locale: string
   warnings: Warning[]
   annotateNodes?: boolean
   editingComponent?: string
@@ -421,6 +427,54 @@ function pagination(
   }</nav>`
 }
 
+/** A language's name in itself, "Deutsch": the site's label for it, else the platform's, else the code. */
+function languageName(code: string, label: string | undefined): string {
+  if (label) return label
+  try {
+    const name = new Intl.DisplayNames([code], { type: 'language' }).of(code) ?? code
+    return name.charAt(0).toLocaleUpperCase(code) + name.slice(1)
+  } catch {
+    return code
+  }
+}
+
+/**
+ * A link to the page in each published language, the current one marked; a dropdown keeps them
+ * in a `<details>` that shows the current language. Published, a site in one language has none.
+ */
+function renderLanguageSwitcher(
+  node: LanguageSwitcherNode,
+  scope: Scope,
+  state: RenderState,
+): string {
+  if (state.languages.length < 2 && !state.annotateNodes) return ''
+  const attrs: AttrMap = {
+    'aria-label': 'Language',
+    ...resolveAttrs(node.attrs, scope, state, node.id).attrs,
+  }
+  const classes = classesOf(node, scope, state)
+  if (classes.length) attrs.class = classAttr(state.names, classes)
+  const labels = new Map(siteLocales(state.doc).map((l) => [l.code, l.label]))
+  const text = (code: string) => {
+    const name = languageName(code, labels.get(code))
+    const upper = code.toUpperCase()
+    return escapeHtml(
+      node.label === 'code' ? upper : node.label === 'both' ? `${name} (${upper})` : name,
+    )
+  }
+  const links = state.languages
+    .map(({ locale, path }) => {
+      const current = locale === state.locale ? { 'aria-current': 'true' } : {}
+      return `<a${renderAttrs({ href: path, hreflang: locale, lang: locale, ...current })}>${text(locale)}</a>`
+    })
+    .join('')
+  const inner =
+    node.display === 'dropdown'
+      ? `<details><summary>${text(state.locale)}</summary>${links}</details>`
+      : links
+  return `<nav${renderAttrs(attrs)}>${inner}</nav>`
+}
+
 export function renderChildren(ids: readonly NodeId[], scope: Scope, state: RenderState): string {
   return ids.map((id) => renderNode(id, scope, state)).join('')
 }
@@ -450,5 +504,7 @@ export function renderNode(id: NodeId, scope: Scope, state: RenderState): string
     }
     case 'code-component':
       throw new RenderError('code components are not supported yet', node.id, state.page)
+    case 'language-switcher':
+      return renderLanguageSwitcher(node, scope, state)
   }
 }

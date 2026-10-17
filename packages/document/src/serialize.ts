@@ -14,6 +14,7 @@ const SORTED_MAPS = [
   'collections',
   'entries',
   'assets',
+  'translations',
 ] as const
 
 /** Every top-level key in schema order, so serializing needs no reparse. */

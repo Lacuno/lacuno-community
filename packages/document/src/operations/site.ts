@@ -30,7 +30,11 @@ const siteUpdate = defineOperation(
           f.asset,
         )
     const { type: _type, ...values } = op
-    return partialPatches(['site'], values, ctx.doc.site)
+    const patches = partialPatches(['site'], values, ctx.doc.site)
+    // The primary language is the first of the site's languages, when it has them.
+    if (op.locale && ctx.doc.site.locales)
+      patches.push({ op: 'set', path: ['site', 'locales', 0, 'code'], value: op.locale })
+    return patches
   },
 )
 

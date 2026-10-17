@@ -2,7 +2,13 @@ import { ComponentId, NodeId, nodeBindings, PropDef } from '@lacuno/schema'
 import { z } from 'zod'
 import { defineOperation } from '../define.js'
 import { partialPatches } from '../partial.js'
-import { instancesOfComponent, isRootNode, parentIndex, subtreeIds } from '../references.js'
+import {
+  deleteTranslationsPatches,
+  instancesOfComponent,
+  isRootNode,
+  parentIndex,
+  subtreeIds,
+} from '../references.js'
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 
 const componentCreate = defineOperation(
@@ -38,11 +44,21 @@ const componentUpdate = defineOperation(
   }),
   (op, ctx) => {
     const cmp = ctx.require(ctx.doc.components[op.id], `unknown component ${op.id}`, op.id)
-    return partialPatches(
-      ['components', op.id],
-      { name: op.name, props: op.props, description: op.description },
-      cmp,
-    )
+    const instances = instancesOfComponent(ctx.doc, op.id)
+    const kept = new Set((op.props ?? cmp.props).map((p) => p.name))
+    return [
+      ...partialPatches(
+        ['components', op.id],
+        { name: op.name, props: op.props, description: op.description },
+        cmp,
+      ),
+      // A prop that goes takes its translations on every instance with it.
+      ...deleteTranslationsPatches(
+        ctx.doc,
+        (t) =>
+          t.type === 'node' && t.part === 'prop' && instances.includes(t.id) && !kept.has(t.name),
+      ),
+    ]
   },
 )
 

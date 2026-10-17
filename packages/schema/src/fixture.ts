@@ -1,6 +1,7 @@
 import type { Document } from './document.js'
 import { DOCUMENT_VERSION } from './document.js'
 import { BASE_BREAKPOINT_ID, type StyleDecl, styleKey } from './styles.js'
+import { sourceHash, translationSource } from './translations.js'
 import { color, designToken, fn, kw, list, px, rem } from './values.js'
 
 /**
@@ -767,6 +768,72 @@ export function fixtureDocument(): Document {
       ],
     },
     redirects: [{ from: '/old-blog', to: '/blog', status: 301 }],
+    translations: {},
+  }
+  return doc
+}
+
+/** Rich text of one paragraph. */
+const paragraph = (text: string) => ({
+  type: 'doc' as const,
+  content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+})
+
+/**
+ * The fixture in English and German, with French as a draft: an About page with a language
+ * switcher and a link home, and German translations of it, the home page and the first post.
+ */
+export function fixtureTwoLanguageDocument(): Document {
+  const doc = fixtureDocument()
+  doc.site.locales = [{ code: 'en' }, { code: 'de' }, { code: 'fr', draft: true }]
+  doc.pages['p-about'] = { id: 'p-about', name: 'About', path: '/about', root: 'n-about' }
+  const base = { parent: 'n-about', children: [], classes: [] }
+  Object.assign(doc.nodes, {
+    'n-about': {
+      id: 'n-about',
+      type: 'element',
+      tag: 'main',
+      parent: null,
+      children: ['n-switcher', 'n-about-title', 'n-about-home'],
+      classes: ['c-page'],
+    },
+    'n-switcher': { ...base, id: 'n-switcher', type: 'language-switcher' },
+    'n-about-title': {
+      ...base,
+      id: 'n-about-title',
+      type: 'text',
+      tag: 'h1',
+      text: paragraph('About us'),
+    },
+    'n-about-home': {
+      ...base,
+      id: 'n-about-home',
+      type: 'text',
+      tag: 'a',
+      attrs: { href: { type: 'page', page: 'p-home' } },
+      text: { type: 'static', value: 'Back home' },
+    },
+  } satisfies Document['nodes'])
+  const translated = (values: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(values).map(([key, value]) => [
+        key,
+        { value, source: sourceHash(translationSource(doc, key)?.value) },
+      ]),
+    )
+  doc.translations = {
+    de: translated({
+      'page:p-about.path': 'ueber-uns',
+      'page:p-about.name': 'Über uns',
+      'node:n-about-title.text': paragraph('Über uns'),
+      'node:n-about-home.text': 'Zur Startseite',
+      'page:p-home.seo.title': 'Fixture GmbH',
+      'node:n-hero-title.text': paragraph('Gestalten. Veröffentlichen. Besitzen.'),
+      'node:n-hero-image.attr.alt': 'Ein blaues Rechteck anstelle eines Titelbilds',
+      'entry:e-1.f-title': 'Hallo Welt',
+      'entry:e-1.f-slug': 'hallo-welt',
+    }),
+    fr: translated({ 'node:n-about-title.text': paragraph('À propos') }),
   }
   return doc
 }

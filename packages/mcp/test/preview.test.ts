@@ -1,5 +1,5 @@
 import { DocumentStore } from '@lacuno/document'
-import { fixtureDocument } from '@lacuno/schema'
+import { fixtureDocument, fixtureTwoLanguageDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { connect, jsonOf, textOf } from './helpers.js'
 
@@ -14,6 +14,17 @@ const setup = async () => {
 }
 
 describe('page.preview', () => {
+  it('previews another language by its path, and the primary by page id', async () => {
+    const c = await connect(DocumentStore.inMemory(fixtureTwoLanguageDocument()))
+    close = c.close
+    const preview = async (page: string) =>
+      textOf(await c.client.callTool({ name: 'page.preview', arguments: { page } }))
+    const de = await preview('/de/ueber-uns')
+    expect(de).toContain('<html lang="de">')
+    expect(de).toContain('<h1>Über uns</h1>')
+    expect(await preview('p-about')).toContain('<h1>About us</h1>')
+  })
+
   it('returns the home page as a full HTML document', async () => {
     const client = await setup()
     const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))

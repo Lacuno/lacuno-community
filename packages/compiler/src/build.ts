@@ -3,14 +3,14 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import sitemap, { type SitemapItem } from '@astrojs/sitemap'
 import { generateStylesheet } from '@lacuno/css'
-import { type Document, DocumentError, parseDocument } from '@lacuno/schema'
+import { type Document, DocumentError, parseDocument, publishedLocales } from '@lacuno/schema'
 import { build as astroBuild } from 'astro'
 import { publicAssetPath } from './assets.js'
 import { BuildError, RenderError } from './errors.js'
 import { plainImageResolver } from './images.js'
 import type { Warning } from './nodes.js'
 import { render } from './render.js'
-import { enumerateRoutes } from './routes.js'
+import { alternates, enumerateRoutes } from './routes.js'
 import { link, writeScaffold } from './scaffold.js'
 
 export type BuildOptions = {
@@ -189,10 +189,11 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
     }
   }
 
-  const doc = await loadDocument(site)
-  // The one place the site url is normalized, whether it came from the file or the option.
-  const url = doc.site.url ?? options.siteUrl
-  if (url) doc.site.url = url.replace(/\/+$/, '')
+  const loaded = await loadDocument(site)
+  // The one place the site url is normalized, whether it came from the file or the option. A new
+  // document, not a change to the loaded one, whose languages the validation already localized.
+  const url = (loaded.site.url ?? options.siteUrl)?.replace(/\/+$/, '')
+  const doc = url ? { ...loaded, site: { ...loaded.site, url } } : loaded
 
   // Dry render every route before Astro runs: catches reference errors early and collects
   // warnings, which Astro's build would otherwise swallow.
@@ -210,6 +211,7 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
         ...render(doc, page, entry, {
           resolveImage: plainImageResolver,
           ...(route.listPage ? { listPage: route.listPage } : {}),
+          ...(route.locale ? { locale: route.locale } : {}),
         }).warnings,
       )
     }
@@ -218,15 +220,34 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
     throw e
   }
 
-  // Astro's sitemap already leaves out the not-found page; noindex pages go too.
-  const hidden = new Set(routes.filter((r) => doc.pages[r.page]?.seo?.noindex).map((r) => r.path))
+  // Astro's sitemap already leaves out the not-found page, but not another language's; noindex
+  // pages go too.
+  const hidden = new Set(
+    routes
+      .filter((r) => doc.pages[r.page]?.seo?.noindex || doc.pages[r.page]?.path === '/404')
+      .map((r) => r.path),
+  )
   const pathOf = (url: string) => new URL(url).pathname.replace(/(.)\/$/, '$1')
   const indexed = (url: string) => !hidden.has(pathOf(url))
+  // Each URL of a site in several languages lists the page in every language.
+  const links = new Map(
+    publishedLocales(doc).length > 1
+      ? routes.map((r) => [
+          r.path,
+          alternates(doc, r).map((a) => ({ url: `${doc.site.url}${a.path}`, lang: a.locale })),
+        ])
+      : [],
+  )
   // Astro lists directory URLs with a trailing slash; list them as the canonical link has them.
-  const canonical = (item: SitemapItem) => ({
-    ...item,
-    url: new URL(pathOf(item.url), item.url).href,
-  })
+  const canonical = (item: SitemapItem) => {
+    const path = pathOf(item.url)
+    const alternate = links.get(path)
+    return {
+      ...item,
+      url: new URL(path, item.url).href,
+      ...(alternate ? { links: alternate } : {}),
+    }
+  }
 
   const { css } = generateStylesheet(doc, { assetUrl: publicAssetPath })
 

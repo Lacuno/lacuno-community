@@ -1,6 +1,7 @@
 import { Document, findEntry } from './document.js'
 import { nodeBindings } from './nodes.js'
 import { BASE_BREAKPOINT_ID, styleKey } from './styles.js'
+import { checkTranslations } from './translations.js'
 
 export type Issue = { path: string; message: string }
 
@@ -176,6 +177,7 @@ export function checkReferences(doc: Document): Issue[] {
     })
   }
 
+  issues.push(...checkTranslations(doc))
   return issues
 }
 

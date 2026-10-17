@@ -44,6 +44,7 @@ const entry = route.entry
 const result = render(doc, page, entry, {
   resolveImage: imageResolverFrom(images),
   listPage: route.listPage,
+  locale: route.locale,
 })
 ---
 <html {...result.htmlAttrs}>

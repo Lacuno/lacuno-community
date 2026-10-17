@@ -71,11 +71,13 @@ type Document = {
   assets: Map<AssetId, AssetRef>        // metadata only, bytes live in storage
   keyframes: Map<KeyframesId, Keyframes> // custom animations; the id is the CSS name
   redirects: Redirect[]
+  translations: Record<Lang, Record<TranslationKey, { value; source }>>  // per language, D035
 }
 
 type Node = {
   id: NodeId
   type: 'element' | 'text' | 'component' | 'slot' | 'collection-list' | 'embed' | 'code-component'
+    | 'language-switcher'
   tag?: string                          // real HTML tag, always explicit for elements
   parent: NodeId | null
   children: NodeId[]
@@ -217,6 +219,9 @@ generates is meant to be read, edited or kept.
 - Astro's programmatic build then produces `dist/`: compressed HTML, one minified stylesheet
   inlined when small, images optimized to WebP with a width set, hashed asset names,
   redirects as meta-refresh pages, robots and a sitemap when the site URL is known.
+- A site in several languages renders each other language from `localize(doc, locale)`, the
+  document with that language's translations applied and its pages under `/<code>`, so the
+  renderer itself knows nothing of languages beyond the head's alternates and the switcher.
 - Every route is rendered once before Astro runs, so reference errors and warnings surface with
   node and page ids instead of being buried in bundler output. Warnings never fail a build; a
   missing reference always does. Errors are reported as `document` (invalid file), `render` (with

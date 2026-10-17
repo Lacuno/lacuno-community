@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { hashAsset } from '@lacuno/schema'
+import { fixtureTwoLanguageDocument, hashAsset } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { build } from '../src/build.js'
 import { writeFixtureSite } from '../src/fixture-site.js'
@@ -83,6 +83,33 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     expect(await readFile(path.join(dir, 'dist/blog/hello-world/index.html'), 'utf8')).toContain(
       '<link rel="canonical" href="https://own.example/blog/hello-world">',
     )
+  })
+
+  it('builds every published language with alternates in the head and the sitemap', async () => {
+    const dir = await tmp()
+    await writeFixtureSite(dir, fixtureTwoLanguageDocument())
+    const result = await build(dir, { siteUrl: 'https://example.com', quiet: true })
+    expect(result.pages).toBe(12)
+    const about = await readFile(path.join(dir, 'dist/de/ueber-uns/index.html'), 'utf8')
+    expect(about).toContain('<html lang="de">')
+    expect(about).toContain('<h1>Über uns</h1>')
+    expect(about).toContain('<link rel="canonical" href="https://example.com/de/ueber-uns">')
+    expect(about).toContain(
+      '<link rel="alternate" hreflang="x-default" href="https://example.com/about">',
+    )
+    expect(about).toContain('hreflang="de" lang="de">Deutsch</a>')
+    expect(await readFile(path.join(dir, 'dist/de/index.html'), 'utf8')).toContain(
+      'Gestalten. Veröffentlichen. Besitzen.',
+    )
+    expect(existsSync(path.join(dir, 'dist/de/blog/hallo-welt/index.html'))).toBe(true)
+    expect(existsSync(path.join(dir, 'dist/fr'))).toBe(false)
+    const sitemap = await readFile(path.join(dir, 'dist/sitemap-0.xml'), 'utf8')
+    const links =
+      '<xhtml:link rel="alternate" hreflang="en" href="https://example.com/about"/><xhtml:link rel="alternate" hreflang="de" href="https://example.com/de/ueber-uns"/>'
+    expect(sitemap).toContain(`<url><loc>https://example.com/about</loc>${links}</url>`)
+    expect(sitemap).toContain(`<url><loc>https://example.com/de/ueber-uns</loc>${links}</url>`)
+    expect(sitemap).not.toContain('/404')
+    expect(sitemap).not.toContain('/blog/')
   })
 
   it('reuses optimized images from an image cache, with the same output, and keeps only what it used', async () => {

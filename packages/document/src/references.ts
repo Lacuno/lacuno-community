@@ -1,5 +1,6 @@
-import type { CssValue, Document, FieldDef, Node, NodeId } from '@lacuno/schema'
-import { nodeBindings } from '@lacuno/schema'
+import type { CssValue, Document, FieldDef, Node, NodeId, TranslationTarget } from '@lacuno/schema'
+import { nodeBindings, parseKey } from '@lacuno/schema'
+import type { Patch } from './patch.js'
 
 export function subtreeIds(doc: Document, rootId: NodeId): NodeId[] {
   const out: NodeId[] = []
@@ -303,4 +304,17 @@ export function designTokensUsingMode(doc: Document, modeId: string): string[] {
     .filter((t) => t.values[modeId] !== undefined)
     .map((t) => t.id)
     .sort()
+}
+
+/** Deletes, in every language, the translations of the values `match` picks. */
+export function deleteTranslationsPatches(
+  doc: Document,
+  match: (target: TranslationTarget) => boolean,
+): Patch[] {
+  return Object.entries(doc.translations).flatMap(([locale, keys]) =>
+    Object.keys(keys).flatMap((key): Patch[] => {
+      const target = parseKey(key)
+      return target && match(target) ? [{ op: 'delete', path: ['translations', locale, key] }] : []
+    }),
+  )
 }

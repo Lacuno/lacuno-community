@@ -21,6 +21,8 @@ function state(doc: Document): RenderState {
     motion: motionClasses(doc),
     entrances: new Set(),
     page: 'p',
+    languages: [{ locale: 'en', path: '/' }],
+    locale: 'en',
     warnings: [],
   }
 }

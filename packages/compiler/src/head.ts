@@ -23,6 +23,8 @@ export type HeadInput = {
   resolveAsset?: (asset: AssetRef) => string
   /** A collection page's entry, whose fields may give the title, description and image. */
   entry?: Entry
+  /** The route in each published language, the primary first, when there is more than one. */
+  alternates?: { locale: string; path: string }[]
 }
 
 const FONT_FORMAT: Record<string, string> = {
@@ -123,6 +125,12 @@ export function renderHead(input: HeadInput): string {
   if (seo.noindex) parts.push(meta('robots', 'noindex'))
   const canonical = seo.canonical ?? (siteUrl ? absolute(path) : undefined)
   if (canonical) parts.push(`<link rel="canonical" href="${escapeAttr(canonical)}">`)
+  if (siteUrl && input.alternates) {
+    const link = (lang: string, p: string) =>
+      `<link rel="alternate" hreflang="${escapeAttr(lang)}" href="${escapeAttr(absolute(p))}">`
+    parts.push(...input.alternates.map((a) => link(a.locale, a.path)))
+    parts.push(link('x-default', input.alternates[0]!.path))
+  }
   const favicon = doc.site.favicon ? doc.assets[doc.site.favicon] : undefined
   if (favicon)
     parts.push(
@@ -132,8 +140,17 @@ export function renderHead(input: HeadInput): string {
   parts.push(og('og:title', title))
   parts.push(og('og:site_name', doc.site.name))
   // Open Graph wants language_TERRITORY (`en_US`); a bare language has no valid form.
-  const locale = pageLang(doc, page).match(/^([a-z]{2,3})(?:-\w+)*-([a-z]{2})$/i)
-  if (locale) parts.push(og('og:locale', `${locale[1]}_${locale[2]!.toUpperCase()}`))
+  const ogLocale = (lang: string) => {
+    const m = lang.match(/^([a-z]{2,3})(?:-\w+)*-([a-z]{2})$/i)
+    return m && `${m[1]}_${m[2]!.toUpperCase()}`
+  }
+  const lang = pageLang(doc, page)
+  const locale = ogLocale(lang)
+  if (locale) parts.push(og('og:locale', locale))
+  for (const other of input.alternates ?? []) {
+    const alternate = other.locale !== lang && ogLocale(other.locale)
+    if (alternate) parts.push(og('og:locale:alternate', alternate))
+  }
   if (seo.description) parts.push(og('og:description', seo.description))
   if (siteUrl) parts.push(og('og:url', absolute(path)))
   if (seo.ogImage) {

@@ -15,7 +15,7 @@ const setup = async () => {
 }
 
 describe('read tools', () => {
-  it('document.read gives an overview without nodes, styles or entries', async () => {
+  it('document.read gives an overview without nodes, styles, entries or translations', async () => {
     const { client } = await setup()
     const doc = jsonOf<Record<string, unknown>>(
       await client.callTool({ name: 'document.read', arguments: {} }),
