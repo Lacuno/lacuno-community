@@ -95,6 +95,17 @@ export const primaryLocale = (doc: Document): string => siteLocales(doc)[0]!.cod
 export const publishedLocales = (doc: Document): Locale[] =>
   siteLocales(doc).filter((l, i) => i === 0 || !l.draft)
 
+/** A language's name in itself, "Deutsch": the site's label for it, else the platform's, else the code. */
+export function languageName(code: string, label?: string): string {
+  if (label) return label
+  try {
+    const name = new Intl.DisplayNames([code], { type: 'language' }).of(code) ?? code
+    return name.charAt(0).toLocaleUpperCase(code) + name.slice(1)
+  } catch {
+    return code
+  }
+}
+
 /** The page's language: its own, or else the site's. */
 export const pageLang = (doc: Document, page: Page): string => page.lang ?? primaryLocale(doc)
 

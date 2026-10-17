@@ -1,3 +1,4 @@
+import { siteLocales } from '@lacuno/schema'
 import { AssetsPanel } from './AssetsPanel.js'
 import { message } from './api.js'
 import { nodeHome } from './assets.js'
@@ -15,6 +16,8 @@ import {
   structureInsertion,
   subtreeRestriction,
 } from './structure.js'
+import { TranslationsPanel } from './TranslationsPanel.js'
+import { layoutLocked } from './translating.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 
 export const sidebars = {
@@ -24,6 +27,7 @@ export const sidebars = {
   Pages: 'page',
   CMS: 'database',
   Assets: 'image',
+  Translations: 'globe',
 } as const
 export type Panel = keyof typeof sidebars
 
@@ -45,6 +49,7 @@ export function Sidebar({
   nodeAction,
   openColors,
   openCms,
+  setLocale,
 }: {
   session: DocumentSession
   editing: ComponentEditing
@@ -63,31 +68,36 @@ export function Sidebar({
   openColors: () => void
   openCms: (view: CmsView) => void
   nodeAction: (action: NodeAction, id: string) => void
+  setLocale: (code: string) => void
 }) {
-  const { doc, frozen, save, leave, setError } = session
+  const { doc, frozen, translating, save, leave, setError } = session
   const { editableDoc, editingRoot, editingComponent, editingId } = editing
+  // Translations is a panel of a site in more than one language only.
+  const several = !!session.snapshot && siteLocales(session.snapshot.document).length > 1
   return (
     <aside className="layers-panel">
       <nav className="sidebar-rail" aria-label="Editor panels">
-        {(Object.keys(sidebars) as Panel[]).map((name) => (
-          <button
-            key={name}
-            type="button"
-            aria-label={name}
-            title={name}
-            aria-pressed={sidebar === name}
-            onClick={() => setSidebar(name)}
-          >
-            <EditorIcon name={sidebars[name]} />
-            {expanded && <span>{name}</span>}
-          </button>
-        ))}
+        {(Object.keys(sidebars) as Panel[])
+          .filter((name) => name !== 'Translations' || several)
+          .map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-label={name}
+              title={name}
+              aria-pressed={sidebar === name}
+              onClick={() => setSidebar(name)}
+            >
+              <EditorIcon name={sidebars[name]} />
+              {expanded && <span>{name}</span>}
+            </button>
+          ))}
         <button
           type="button"
           className="sidebar-styles"
           aria-label="Design tokens"
           title="Design tokens"
-          disabled={frozen || !doc}
+          disabled={frozen || translating || !doc}
           onClick={openColors}
         >
           <EditorIcon name="token" />
@@ -114,6 +124,15 @@ export function Sidebar({
             disabled={frozen}
             save={save}
             autoSave={(operations) => save(operations, 'auto')}
+            translating={
+              translating && session.snapshot
+                ? {
+                    source: session.snapshot.document,
+                    locale: session.locale,
+                    lock: layoutLocked(doc),
+                  }
+                : undefined
+            }
             choose={(id) =>
               void leave(() => {
                 setPageId(id)
@@ -181,18 +200,23 @@ export function Sidebar({
         {sidebar === 'Add' && (
           <>
             <div className="panel-title">Add elements</div>
-            {editableDoc && editingRoot && (
-              <InsertPanel
-                doc={editableDoc}
-                root={editingRoot}
-                selected={selected}
-                disabled={frozen}
-                save={save}
-                select={(id) => {
-                  setSelected(id)
-                  setSidebar('Layers')
-                }}
-              />
+            {translating && doc ? (
+              <p className="hint">{layoutLocked(doc)}</p>
+            ) : (
+              editableDoc &&
+              editingRoot && (
+                <InsertPanel
+                  doc={editableDoc}
+                  root={editingRoot}
+                  selected={selected}
+                  disabled={frozen}
+                  save={save}
+                  select={(id) => {
+                    setSelected(id)
+                    setSidebar('Layers')
+                  }}
+                />
+              )
             )}
           </>
         )}
@@ -205,7 +229,7 @@ export function Sidebar({
               save={save}
               doc={doc}
               editing={editingId}
-              disabled={frozen}
+              disabled={frozen || translating}
               createReason={
                 !selected
                   ? 'Select an element or container on the canvas to create a component.'
@@ -220,6 +244,21 @@ export function Sidebar({
               edit={editing.editComponent}
             />
           </>
+        )}
+        {sidebar === 'Translations' && several && (
+          <TranslationsPanel
+            siteId={siteId}
+            session={session}
+            open={(locale, page, node) =>
+              void leave(() => {
+                setLocale(locale)
+                editing.setComponentId('')
+                setPageId(page)
+                setEntryId('')
+                setSelected(node)
+              })
+            }
+          />
         )}
         {sidebar === 'Layers' && (
           <LayersPanel

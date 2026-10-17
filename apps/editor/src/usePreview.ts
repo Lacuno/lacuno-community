@@ -7,13 +7,15 @@ export type Preview = {
   warnings: { node: string; message: string }[]
 }
 /** The preview route's query: the page, its entry on a collection page, the component being edited. */
-export type PreviewQuery = { page: string; entry?: string; component?: string }
+export type PreviewQuery = { page: string; entry?: string; component?: string; locale?: string }
 
 type Options = {
   siteId: string
   pageId: string
   activeEntry: string
   editingId: string
+  /** Another language than the primary, or '' for the primary. */
+  locale: string
   revision: number | undefined
   /** Held by the editor, since a save lands its own canvas here (session.ts). */
   preview: Preview | undefined
@@ -28,6 +30,7 @@ export function usePreview({
   pageId,
   activeEntry,
   editingId,
+  locale,
   revision,
   preview,
   setPreview,
@@ -37,12 +40,12 @@ export function usePreview({
   // biome-ignore lint/correctness/useExhaustiveDependencies: a different page or entry must discard the prior canvas.
   useEffect(() => {
     setPreview(undefined)
-  }, [pageId, activeEntry, editingId])
+  }, [pageId, activeEntry, editingId, locale])
   useEffect(() => {
     if (!pageId || revision === undefined || preview?.revision === revision) return
     const controller = new AbortController()
     api<Preview>(
-      `/api/sites/${siteId}/preview?page=${encodeURIComponent(pageId)}&entry=${encodeURIComponent(activeEntry)}${editingId ? `&component=${encodeURIComponent(editingId)}` : ''}`,
+      `/api/sites/${siteId}/preview?page=${encodeURIComponent(pageId)}&entry=${encodeURIComponent(activeEntry)}${editingId ? `&component=${encodeURIComponent(editingId)}` : ''}${locale ? `&locale=${encodeURIComponent(locale)}` : ''}`,
       undefined,
       controller.signal,
     )
@@ -55,5 +58,16 @@ export function usePreview({
         if (!controller.signal.aborted) setError(e.message)
       })
     return () => controller.abort()
-  }, [siteId, pageId, activeEntry, revision, editingId, preview, setPreview, onStale, setError])
+  }, [
+    siteId,
+    pageId,
+    activeEntry,
+    revision,
+    editingId,
+    locale,
+    preview,
+    setPreview,
+    onStale,
+    setError,
+  ])
 }

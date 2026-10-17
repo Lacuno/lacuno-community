@@ -1,5 +1,5 @@
 import type { Operation } from '@lacuno/document'
-import { type Document, findEntry, type Page } from '@lacuno/schema'
+import { type Document, findEntry, type Page, translationProgress } from '@lacuno/schema'
 import { useState } from 'react'
 import { useConfig } from './api.js'
 import { collectionPageCreation, freePath } from './binding.js'
@@ -18,6 +18,10 @@ import {
   pageSeo,
 } from './pages.js'
 import { codeInfo, ImageChoice, SiteSettings } from './SiteSettings.js'
+import { percentDone } from './translating.js'
+
+/** Shown in another language than the primary: its document, its code and why the layout is locked. */
+export type Translating = { source: Document; locale: string; lock: string }
 
 export function PagesPanel({
   doc,
@@ -27,6 +31,7 @@ export function PagesPanel({
   choose,
   save,
   autoSave,
+  translating,
 }: {
   doc: Document
   siteId: string
@@ -35,6 +40,7 @@ export function PagesPanel({
   choose: (id: string) => void
   save: (operations: Operation[]) => Promise<boolean>
   autoSave: (operations: Operation[]) => Promise<boolean>
+  translating: Translating | undefined
 }) {
   const analytics = useConfig().config?.analytics
   const [editing, setEditing] = useState<Page | 'new' | 'site'>()
@@ -43,8 +49,13 @@ export function PagesPanel({
   // The page being dragged and where it would land: before the page at `index` of the list.
   const [dragging, setDragging] = useState<string>()
   const [dropAt, setDropAt] = useState<number>()
-  const pages = orderedPages(doc)
-  const protectedPage = (page: Page) => page.path === '/' || Object.keys(doc.pages).length <= 1
+  // In the primary's order: the home page keeps its place first.
+  const pages = orderedPages(translating?.source ?? doc).map((page) => doc.pages[page.id]!)
+  const protectedPage = (page: Page) =>
+    translating?.source.pages[page.id]?.path === '/' ||
+    page.path === '/' ||
+    Object.keys(doc.pages).length <= 1
+  const layout = disabled || !!translating
   const openMenu = (page: Page, event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault()
     setMenu(menu?.page.id === page.id ? undefined : { page, at: menuPoint(event) })
@@ -55,7 +66,7 @@ export function PagesPanel({
         Pages<span>{Object.keys(doc.pages).length}</span>
       </div>
       <div className="pages-toolbar">
-        <button type="button" disabled={disabled} onClick={() => setEditing('new')}>
+        <button type="button" disabled={layout} onClick={() => setEditing('new')}>
           <EditorIcon name="plus" />
           New page
         </button>
@@ -86,7 +97,7 @@ export function PagesPanel({
           <li
             className={`page-row ${dropAt === index ? 'drop-before' : ''} ${dropAt === index + 1 && index === pages.length - 1 ? 'drop-after' : ''}`}
             key={page.id}
-            draggable={!disabled}
+            draggable={!layout}
             onDragStart={(event) => {
               event.dataTransfer.effectAllowed = 'move'
               // Firefox starts a drag only with data set.
@@ -122,6 +133,14 @@ export function PagesPanel({
                 {page.name}
                 <small className="page-path">{page.path}</small>
               </span>
+              {translating && (
+                <small className="page-path">
+                  {percentDone(
+                    translationProgress(translating.source, translating.locale, page.id),
+                  )}
+                  %
+                </small>
+              )}
             </button>
             <button
               type="button"
@@ -149,6 +168,7 @@ export function PagesPanel({
             { label: 'Page settings', run: () => setEditing(menu.page) },
             {
               label: 'Duplicate',
+              disabled: layout,
               run: async () => {
                 const copy = duplicatePage(doc, menu.page.id)
                 if (await save(copy.operations)) choose(copy.id)
@@ -157,7 +177,7 @@ export function PagesPanel({
             {
               label: 'Delete…',
               danger: true,
-              disabled: protectedPage(menu.page),
+              disabled: layout || protectedPage(menu.page),
               run: () => setDeleting(menu.page),
             },
           ]}
@@ -205,6 +225,7 @@ export function PagesPanel({
           siteId={siteId}
           page={editing === 'new' ? undefined : editing}
           disabled={disabled}
+          layoutLock={translating?.lock ?? ''}
           close={() => setEditing(undefined)}
           save={save}
           choose={choose}
@@ -219,6 +240,7 @@ export function PageSettings({
   siteId,
   page,
   disabled,
+  layoutLock,
   close,
   save,
   choose,
@@ -227,6 +249,8 @@ export function PageSettings({
   siteId: string
   page?: Page | undefined
   disabled: boolean
+  /** Outside the primary language: why only the page's own words can change, else ''. */
+  layoutLock: string
   close: () => void
   save: (operations: Operation[]) => Promise<boolean>
   choose: (id: string) => void
@@ -256,6 +280,9 @@ export function PageSettings({
   const hasNotFound = Object.values(doc.pages).some((other) => other.path === '/404')
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // In another language only the name, the path's own last segment and the SEO words change.
+  const shared = disabled || !!layoutLock
+  const ownSegment = !layoutLock || /^\/[^/]+\/.*[a-z0-9-]$/.test(page?.path ?? '')
   const run = async (operations: Operation[], id?: string) => {
     if (await save(operations)) {
       close()
@@ -349,6 +376,7 @@ export function PageSettings({
           }
         }}
       >
+        {layoutLock && <p className="note">{layoutLock}</p>}
         {!page && Object.keys(doc.collections).length > 0 && (
           <label>
             Page for
@@ -404,7 +432,7 @@ export function PageSettings({
           <input
             required
             value={path}
-            disabled={disabled || notFound}
+            disabled={disabled || notFound || !ownSegment}
             placeholder="/about"
             onChange={(event) => setPath(event.target.value)}
           />
@@ -422,7 +450,7 @@ export function PageSettings({
           Language
           <input
             value={lang}
-            disabled={disabled}
+            disabled={shared}
             placeholder={doc.site.locale}
             onChange={(event) => setLang(event.target.value)}
           />
@@ -441,7 +469,7 @@ export function PageSettings({
             <input
               type="checkbox"
               checked={template}
-              disabled={disabled}
+              disabled={shared}
               onChange={(event) => setTemplate(event.target.checked)}
             />
             Title template · {siteTitle.replaceAll('{page}', title.trim() || name.trim())}
@@ -463,7 +491,7 @@ export function PageSettings({
             <select
               aria-label="SEO from entry"
               value={seoEntry}
-              disabled={disabled}
+              disabled={shared}
               onChange={(event) => {
                 setSeoEntry(event.target.value)
                 setSeoFields({})
@@ -495,7 +523,7 @@ export function PageSettings({
               <select
                 aria-label={`SEO ${label.toLowerCase()}`}
                 value={seoFields[key] ?? ''}
-                disabled={disabled}
+                disabled={shared}
                 onChange={(event) =>
                   setSeoFields({ ...seoFields, [key]: event.target.value || undefined })
                 }
@@ -521,7 +549,7 @@ export function PageSettings({
           Canonical URL
           <input
             value={canonical}
-            disabled={disabled}
+            disabled={shared}
             placeholder={doc.site.url ? doc.site.url + path.trim() : 'https://example.com/about'}
             onChange={(event) => setCanonical(event.target.value)}
           />
@@ -530,7 +558,7 @@ export function PageSettings({
           <input
             type="checkbox"
             checked={noindex}
-            disabled={disabled}
+            disabled={shared}
             onChange={(event) => setNoindex(event.target.checked)}
           />
           Hide from search engines
@@ -547,14 +575,14 @@ export function PageSettings({
           label="Head code"
           info={codeInfo('head')}
           value={headCode}
-          disabled={disabled}
+          disabled={shared}
           change={setHeadCode}
         />
         <CodeField
           label="Body code"
           info={codeInfo('body')}
           value={bodyCode}
-          disabled={disabled}
+          disabled={shared}
           change={setBodyCode}
         />
         <ErrorNote message={error} />
@@ -566,7 +594,7 @@ export function PageSettings({
         <div className="page-management-actions">
           <button
             type="button"
-            disabled={disabled}
+            disabled={shared}
             onClick={() => {
               try {
                 const result = duplicatePage(doc, page.id)
@@ -580,7 +608,7 @@ export function PageSettings({
           </button>
           <button
             type="button"
-            disabled={disabled || Object.keys(doc.pages).length <= 1 || page.path === '/'}
+            disabled={shared || Object.keys(doc.pages).length <= 1 || page.path === '/'}
             onClick={() => setConfirmDelete(true)}
           >
             Delete page

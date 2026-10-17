@@ -15,6 +15,7 @@ import {
   type ElementNode,
   type FieldToken,
   type LanguageSwitcherNode,
+  languageName,
   type Node,
   type NodeId,
   plainText,
@@ -50,6 +51,8 @@ export type RenderState = {
   languages: { locale: string; path: string }[]
   /** The language being rendered. */
   locale: string
+  /** On the canvas in another language: the elements whose translation is missing or outdated. */
+  translations?: ReadonlyMap<string, 'missing' | 'outdated'>
   warnings: Warning[]
   annotateNodes?: boolean
   editingComponent?: string
@@ -149,6 +152,8 @@ function resolveAttrs(
       }
       if (root === nodeId) out['data-lacuno-node'] = frame.instance
     }
+    const translation = state.translations?.get(nodeId)
+    if (translation) out['data-lacuno-translation'] = translation
   }
   const node = state.doc.nodes[nodeId]
   const marks = node?.classes.flatMap((c) => state.motion.get(c) ?? []) ?? []
@@ -425,17 +430,6 @@ function pagination(
   }<span>Page ${current} of ${pages}</span>${
     current < pages ? link(current + 1, 'next', 'Next →') : ''
   }</nav>`
-}
-
-/** A language's name in itself, "Deutsch": the site's label for it, else the platform's, else the code. */
-function languageName(code: string, label: string | undefined): string {
-  if (label) return label
-  try {
-    const name = new Intl.DisplayNames([code], { type: 'language' }).of(code) ?? code
-    return name.charAt(0).toLocaleUpperCase(code) + name.slice(1)
-  } catch {
-    return code
-  }
 }
 
 /**

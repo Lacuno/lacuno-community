@@ -14,6 +14,8 @@ import {
   siteLocales,
   sourceHash,
   type TextNode,
+  translationKeys,
+  translationProgress,
   translationStatus,
 } from '../src/index.js'
 
@@ -182,5 +184,51 @@ describe('translation checks', () => {
     const doc = fixtureTwoLanguageDocument()
     doc.pages['p-about']!.path = '/de'
     expect(messages(doc)).toContain('pages.p-about: path /de is the address of language de')
+  })
+})
+
+describe('translation keys of a document', () => {
+  const doc = parseDocument(fixtureTwoLanguageDocument())
+
+  it('lists every translatable value in order, with its kind and where it is', () => {
+    const items = translationKeys(doc)
+    expect(items.slice(0, 4).map((i) => i.key)).toEqual([
+      'page:p-home.name',
+      'page:p-home.seo.title',
+      'page:p-home.seo.description',
+      'node:n-hero-title.text',
+    ])
+    expect(items.find((i) => i.key === 'page:p-about.path')).toEqual({
+      key: 'page:p-about.path',
+      kind: 'slug',
+      value: 'about',
+      context: { type: 'page', page: 'p-about' },
+    })
+    expect(items.find((i) => i.key === 'node:n-hero-image.attr.alt')?.context).toEqual({
+      type: 'page',
+      page: 'p-home',
+      node: 'n-hero-image',
+    })
+    expect(items.at(-1)).toMatchObject({
+      key: 'entry:e-3.f-slug',
+      context: { type: 'entry', collection: 'col-posts', entry: 'e-3', field: 'f-slug' },
+    })
+    // The home page's path and a collection page's [slug] have no segment of their own.
+    expect(items.map((i) => i.key)).not.toContain('page:p-home.path')
+    expect(items.map((i) => i.key)).not.toContain('page:p-post.path')
+  })
+
+  it('counts a language done, outdated and missing for the site or one page', () => {
+    expect(translationProgress(doc, 'de')).toEqual({ done: 9, outdated: 0, missing: 16 })
+    expect(translationProgress(doc, 'de', 'p-about')).toEqual({ done: 4, outdated: 0, missing: 0 })
+    // A collection page counts its collection's entries.
+    expect(translationProgress(doc, 'de', 'p-post')).toEqual({ done: 2, outdated: 0, missing: 6 })
+    const changed = fixtureTwoLanguageDocument()
+    changed.pages['p-about']!.name = 'About us'
+    expect(translationProgress(changed, 'de', 'p-about')).toEqual({
+      done: 3,
+      outdated: 1,
+      missing: 0,
+    })
   })
 })

@@ -267,3 +267,6 @@
 .editor .focused-inspector .inspector-feedback .hint {
   font-size: 11px;
 }
+.layout-lock {
+  display: contents;
+}

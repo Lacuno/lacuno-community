@@ -1,7 +1,7 @@
 import type { Operation } from '@lacuno/document'
 import { referencesToEntry } from '@lacuno/document/references'
 import { assetUrl } from '@lacuno/renderer'
-import type { CollectionSchema, Document, Entry } from '@lacuno/schema'
+import { type CollectionSchema, type Document, type Entry, isTranslatable } from '@lacuno/schema'
 import { useEffect, useMemo, useState } from 'react'
 import {
   duplicateEntry,
@@ -29,6 +29,8 @@ export type EntryContext = {
   col: CollectionSchema
   readOnly: boolean
   disabled: boolean
+  /** Outside the primary language: why only translatable fields change, else ''. */
+  layoutLock: string
   save: (operations: Operation[]) => Promise<boolean>
   undo: () => void
   upload: (file: File) => Promise<string | undefined>
@@ -42,7 +44,7 @@ export function Entries(
     setDirty: (dirty: boolean) => void
   },
 ) {
-  const { doc, col, readOnly, disabled, undo, open, setOpen } = props
+  const { doc, col, readOnly, disabled, layoutLock, undo, open, setOpen } = props
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<EntrySort>()
   const [page, setPage] = useState(0)
@@ -98,7 +100,7 @@ export function Entries(
           <button
             type="button"
             className="cms-primary"
-            disabled={disabled}
+            disabled={disabled || !!layoutLock}
             onClick={() => setOpen('new')}
           >
             <EditorIcon name="plus" />
@@ -231,6 +233,7 @@ function EntryForm({
   col,
   readOnly,
   disabled,
+  layoutLock,
   save,
   upload,
   entry,
@@ -314,7 +317,7 @@ function EntryForm({
           <>
             <button
               type="button"
-              disabled={disabled || dirty}
+              disabled={disabled || dirty || !!layoutLock}
               onClick={async () => {
                 const copy = duplicateEntry(doc, col, entry)
                 if (copy.type === 'entry.create' && (await save([copy]))) setOpen(copy.id!)
@@ -325,7 +328,7 @@ function EntryForm({
             <button
               type="button"
               className="asset-delete"
-              disabled={disabled}
+              disabled={disabled || !!layoutLock}
               onClick={() => setConfirming(true)}
             >
               Delete
@@ -376,6 +379,7 @@ function EntryForm({
         </div>
       )}
       <ErrorNote message={error} />
+      {layoutLock && <p className="note">{layoutLock}</p>}
       <div className="cms-entry-fields">
         {col.fields.map((field) => (
           <FieldInput
@@ -384,7 +388,7 @@ function EntryForm({
             doc={doc}
             field={field}
             value={values[field.id]}
-            disabled={readOnly || disabled}
+            disabled={readOnly || disabled || (!!layoutLock && !isTranslatable(field))}
             change={(value) => change(field.id, value)}
             upload={upload}
           />

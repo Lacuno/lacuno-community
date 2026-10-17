@@ -1,6 +1,13 @@
 import type { Operation } from '@lacuno/document'
 import { referencesToCollection, referencesToField } from '@lacuno/document/references'
-import type { CollectionSchema, Document, FieldDef, OptionChoice } from '@lacuno/schema'
+import {
+  type CollectionSchema,
+  type Document,
+  type FieldDef,
+  isTranslatable,
+  type OptionChoice,
+  siteLocales,
+} from '@lacuno/schema'
 import { useState } from 'react'
 import { collectionPage, collectionPageCreation, listPage, listPageCreation } from './binding.js'
 import { FIELD_TYPES, type FieldType, fieldTypeLabel, newField, slugify } from './cms.js'
@@ -356,6 +363,12 @@ function FieldForm({
   const [name, setName] = useState(field.name)
   const [help, setHelp] = useState(field.help ?? '')
   const [required, setRequired] = useState(!!field.required)
+  // Offered once the site has another language, for the field types that can hold one per language.
+  const { translatable: _, ...untold } = field
+  const translatableByDefault = isTranslatable(untold)
+  const canTranslate =
+    siteLocales(doc).length > 1 && isTranslatable({ ...field, translatable: true })
+  const [translatable, setTranslatable] = useState(isTranslatable(field))
   const [options, setOptions] = useState<OptionChoice[]>(
     field.type === 'option' ? field.options : [],
   )
@@ -394,6 +407,9 @@ function FieldForm({
       label: label.trim(),
       help: help.trim() || null,
       required: required || null,
+      ...(translatable !== isTranslatable(field)
+        ? { translatable: translatable === translatableByDefault ? null : translatable }
+        : {}),
       ...(field.type === 'option'
         ? { options: values.map((option) => (option.label ? option : { value: option.value })) }
         : {}),
@@ -443,6 +459,17 @@ function FieldForm({
         />
         Required
       </label>
+      {canTranslate && (
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={translatable}
+            disabled={locked}
+            onChange={(event) => setTranslatable(event.target.checked)}
+          />
+          Translatable
+        </label>
+      )}
       {(field.type === 'reference' || field.type === 'multi-reference') && (
         <label>
           Entries of

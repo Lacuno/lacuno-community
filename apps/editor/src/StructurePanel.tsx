@@ -32,6 +32,7 @@ const tileLabels: Partial<Record<Preset, string>> = {
   story: 'Scroll story',
   'scroll-video': 'Scroll video',
   progress: 'Reading progress',
+  'language-switcher': 'Language switcher',
 }
 
 type Props = {
@@ -74,7 +75,7 @@ export function InsertPanel({
           { label: 'Structure', items: [...structures, 'list'] as const },
           { label: 'Text', items: ['heading', 'paragraph', 'span'] as const },
           { label: 'Media', items: ['image', 'video', 'embed'] as const },
-          { label: 'Actions', items: actions },
+          { label: 'Actions', items: [...actions, 'language-switcher'] as const },
           { label: 'Forms', items: ['form', ...formFields] as const },
           { label: 'Motion', items: ['story', 'scroll-video', 'progress'] as const },
         ].map((group) => (

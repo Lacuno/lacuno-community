@@ -28,6 +28,7 @@ export function InlineTextEditor({
   breakpoint,
   doc,
   disabled,
+  layoutLock,
   save,
   close,
   registerFlush,
@@ -37,6 +38,8 @@ export function InlineTextEditor({
   target: InlineTarget
   doc: Document
   disabled: boolean
+  /** Why the element's own styles cannot change here, or '' when they can; its words still can. */
+  layoutLock: string
   save: (operations: Operation[]) => Promise<boolean>
   close: () => void
   registerFlush: (flush: () => Promise<boolean>) => () => void
@@ -288,6 +291,10 @@ export function InlineTextEditor({
   }
   /** An element style, previewed on the canvas and saved with the text. */
   const block = (property: string, value: CssValue | null, preview: string) => {
+    if (layoutLock) {
+      setError(layoutLock)
+      return
+    }
     blockChanges.current[property] = value
     target.element.style.setProperty(property, preview)
     dirtyChanged(true)
@@ -441,7 +448,12 @@ export function InlineTextEditor({
             type="button"
             className="insert-table"
             // Not in a heading or a link, which cannot hold a table.
-            disabled={disabled || /^h[1-6]$/.test(target.node.tag) || !!target.element.closest('a')}
+            disabled={
+              disabled ||
+              !!layoutLock ||
+              /^h[1-6]$/.test(target.node.tag) ||
+              !!target.element.closest('a')
+            }
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => insertTable(editor)}
           >

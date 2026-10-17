@@ -1,7 +1,7 @@
 import { IMAGE_WIDTHS } from '@lacuno/compiler'
 import { assembleDocument, render } from '@lacuno/compiler/render'
 import { generateStylesheet, styleElement } from '@lacuno/css'
-import type { AssetRef, Document, Entry, Page } from '@lacuno/schema'
+import { type AssetRef, type Document, type Entry, type Page, siteLocales } from '@lacuno/schema'
 
 export type CanvasResult = { html: string; warnings: { node: string; message: string }[] }
 
@@ -46,6 +46,7 @@ export function renderCanvas(
   entry: Entry | undefined,
   siteId: string,
   editingComponent?: string,
+  locale?: string,
 ): CanvasResult {
   if (editingComponent) {
     const component = doc.components[editingComponent]
@@ -82,6 +83,7 @@ export function renderCanvas(
   const result = render(doc, page, entry, {
     annotateNodes: true,
     ...(editingComponent ? { editingComponent } : {}),
+    ...(locale ? { locale } : {}),
     resolveAsset: url,
     resolveImage: (asset) => ({
       ...canvasImage(siteId, asset),
@@ -101,11 +103,11 @@ export function renderCanvas(
   return { html: assembleDocument(result), warnings: result.warnings }
 }
 
-/** The editor's preview route: a page, entry or component the document lacks is an error. */
+/** The editor's preview route: a page, entry, component or language the document lacks is an error. */
 export function renderPreview(
   doc: Document,
   siteId: string,
-  query: { page?: string; entry?: string; component?: string },
+  query: { page?: string; entry?: string; component?: string; locale?: string },
 ):
   | { status: 200; body: CanvasResult & { revision: number } }
   | { status: 400 | 404; body: { error: string } } {
@@ -121,8 +123,13 @@ export function renderPreview(
     return { status: 400, body: { error: 'Choose a collection entry to preview' } }
   if (query.component && !doc.components[query.component])
     return { status: 404, body: { error: 'Component not found' } }
+  if (query.locale && !siteLocales(doc).some((l) => l.code === query.locale))
+    return { status: 404, body: { error: 'Language not found' } }
   return {
     status: 200,
-    body: { ...renderCanvas(doc, page, entry, siteId, query.component), revision: doc.revision },
+    body: {
+      ...renderCanvas(doc, page, entry, siteId, query.component, query.locale),
+      revision: doc.revision,
+    },
   }
 }

@@ -10,6 +10,7 @@ import type { InspectorTab } from './InspectorTabs.js'
 import { RichTagInspector } from './RichTagInspector.js'
 import type { InnerTag } from './richTags.js'
 import type { DocumentSession } from './session.js'
+import { layoutLocked } from './translating.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 
 const InlineTextEditor = lazy(() =>
@@ -72,6 +73,7 @@ export function InspectorColumn({
               target={inlineTarget}
               doc={doc}
               disabled={busy || conflict}
+              layoutLock={session.translating ? layoutLocked(doc) : ''}
               save={save}
               close={() => setInlineTarget(undefined)}
               registerFlush={registerFlush}
@@ -148,6 +150,7 @@ export function InspectorColumn({
         save={save}
         autoSave={(operations) => save(operations, 'auto')}
         dirtyChanged={setDirty}
+        layoutLock={session.translating ? layoutLocked(doc) : ''}
       />
     )
   return (

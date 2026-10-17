@@ -24,7 +24,7 @@ export type TranslationTarget =
 export const TRANSLATABLE_ATTRS = ['alt', 'title', 'placeholder', 'aria-label', 'data-success']
 
 /** How an entry field's value is translated, for the field types that can be. */
-const FIELD_KINDS: Partial<Record<FieldDef['type'], Kind>> = {
+const FIELD_KINDS: Partial<Record<FieldDef['type'], TranslationKind>> = {
   text: 'string',
   richtext: 'richtext',
   slug: 'slug',
@@ -56,9 +56,9 @@ export function parseKey(key: string): TranslationTarget | undefined {
   if (site) return { type: 'site' }
 }
 
-type Kind = 'string' | 'richtext' | 'slug' | 'asset' | 'template'
+export type TranslationKind = 'string' | 'richtext' | 'slug' | 'asset' | 'template'
 
-const KIND_SCHEMA: Record<Kind, z.ZodType> = {
+const KIND_SCHEMA: Record<TranslationKind, z.ZodType> = {
   string: z.string(),
   richtext: RichText,
   slug: z.string().regex(/^[a-z0-9-]+$/, 'a slug is lower-case letters, digits and dashes'),
@@ -67,7 +67,7 @@ const KIND_SCHEMA: Record<Kind, z.ZodType> = {
 }
 
 /** A translatable value in a document: what kind it is, and reading and writing it in place. */
-type Slot = { kind: Kind; get: () => unknown; set: (value: unknown) => void }
+type Slot = { kind: TranslationKind; get: () => unknown; set: (value: unknown) => void }
 
 function slot(doc: Document, key: TranslationKey): Slot | undefined {
   const target = parseKey(key)
@@ -270,4 +270,81 @@ export function checkTranslations(doc: Document): Issue[] {
     }
   }
   return issues
+}
+
+/** One translatable value of a document: its key, its kind, its primary value and where it is. */
+export type TranslationItem = {
+  key: TranslationKey
+  kind: TranslationKind
+  value: unknown
+  context:
+    | { type: 'site' }
+    | { type: 'page'; page: string; node?: string }
+    | { type: 'component'; component: string; node: string }
+    | { type: 'entry'; collection: string; entry: string; field: string }
+}
+
+const PAGE_PARTS = ['name', 'path', 'seo.title', 'seo.description', 'seo.ogImage']
+
+/**
+ * Every value of the document that can be translated, in a stable order: the site, then each
+ * page with its elements in tree order, then each component, then each collection's entries.
+ */
+export function translationKeys(doc: Document): TranslationItem[] {
+  const items: TranslationItem[] = []
+  const add = (key: TranslationKey, context: TranslationItem['context']) => {
+    const target = slot(doc, key)
+    const value = target?.get()
+    if (target && value !== undefined && value !== '')
+      items.push({ key, kind: target.kind, value, context })
+  }
+  const nodes = (id: string, context: (node: string) => TranslationItem['context']) => {
+    const node = doc.nodes[id]
+    if (!node) return
+    add(`node:${id}.text`, context(id))
+    for (const name of TRANSLATABLE_ATTRS) add(`node:${id}.attr.${name}`, context(id))
+    if (node.type === 'component')
+      for (const prop of Object.keys(node.props ?? {})) add(`node:${id}.prop.${prop}`, context(id))
+    for (const child of node.children) nodes(child, context)
+  }
+  add('site.titleTemplate', { type: 'site' })
+  for (const page of Object.values(doc.pages)) {
+    for (const part of PAGE_PARTS) add(`page:${page.id}.${part}`, { type: 'page', page: page.id })
+    nodes(page.root, (node) => ({ type: 'page', page: page.id, node }))
+  }
+  for (const component of Object.values(doc.components))
+    nodes(component.root, (node) => ({ type: 'component', component: component.id, node }))
+  for (const collection of Object.values(doc.collections))
+    for (const entry of doc.entries[collection.id] ?? [])
+      for (const field of collection.fields)
+        add(`entry:${entry.id}.${field.id}`, {
+          type: 'entry',
+          collection: collection.id,
+          entry: entry.id,
+          field: field.id,
+        })
+  return items
+}
+
+export type TranslationProgress = { done: number; outdated: number; missing: number }
+
+/**
+ * How much of a language is translated: the whole site's values, or one page's (its own, its
+ * elements' and, on a collection page, its collection's entries).
+ */
+export function translationProgress(
+  doc: Document,
+  locale: string,
+  page?: string,
+): TranslationProgress {
+  const progress = { done: 0, outdated: 0, missing: 0 }
+  const collection = page ? doc.pages[page]?.collection : undefined
+  for (const { key, context } of translationKeys(doc)) {
+    const counts =
+      !page ||
+      (context.type === 'page' && context.page === page) ||
+      (context.type === 'entry' && context.collection === collection)
+    if (counts) progress[translationStatus(doc, locale, key)]++
+  }
+  return progress
 }

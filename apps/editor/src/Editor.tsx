@@ -28,6 +28,7 @@ import {
   subtreeRestriction,
 } from './structure.js'
 import { useThumbnail } from './thumbnail.js'
+import { layoutLocked } from './translating.js'
 import { useComponentEditing } from './useComponentEditing.js'
 import { useImageDrop } from './useImageDrop.js'
 import { type Preview, usePreview } from './usePreview.js'
@@ -62,6 +63,24 @@ export function Editor({
   const [inlineTarget, setInlineTarget] = useState<InlineTarget>()
   const elementActionsId = useId()
   const [pageId, setPageId] = useState('')
+  // The language shown, remembered per site; the session falls back to the primary.
+  const localeKey = `lacuno:locale:${siteId}`
+  const [chosenLocale, setChosenLocale] = useState(() => {
+    try {
+      return localStorage.getItem(localeKey) ?? ''
+    } catch {
+      return ''
+    }
+  })
+  const setLocale = useCallback(
+    (code: string) => {
+      setChosenLocale(code)
+      try {
+        localStorage.setItem(localeKey, code)
+      } catch {}
+    },
+    [localeKey],
+  )
   const [entryId, setEntryId] = useState('')
   const [selected, setSelectedNode] = useState('')
   // A tag inside the selected rich-text block, styled for every block with the block's class.
@@ -95,10 +114,20 @@ export function Editor({
     setPageId,
     onLeave: () => setInlineTarget(undefined),
     // Read when a save goes out, after the render that declares these below.
-    canvas: () => ({ page: pageId, entry: activeEntry, component: editing.editingId }),
+    canvas: () => ({
+      page: pageId,
+      entry: activeEntry,
+      component: editing.editingId,
+      ...(session.translating ? { locale: session.locale } : {}),
+    }),
     setPreview,
+    locale: chosenLocale,
   })
   const { doc, error, busy, conflict, unsettled, frozen, save, leave, setError } = session
+  // A removed language is forgotten, so adding it again later does not switch to it.
+  useEffect(() => {
+    if (session.snapshot && chosenLocale && chosenLocale !== session.locale) setLocale('')
+  }, [session.snapshot, session.locale, chosenLocale, setLocale])
   const page = doc?.pages[pageId]
   // A picked state only stays active while the selection can be in it.
   const node = doc?.nodes[selected]
@@ -120,6 +149,7 @@ export function Editor({
     pageId,
     activeEntry,
     editingId: editing.editingId,
+    locale: session.translating ? session.locale : '',
     revision: session.revision,
     preview,
     setPreview,
@@ -129,7 +159,11 @@ export function Editor({
   // The try editor keeps its one site in the browser, with no site list to show it in.
   const { config } = useConfig()
   // Inside a host the thumbnail's own image fetches carry no token; the dashboard is not shown.
-  useThumbnail(siteId, doc, !!config && !config.try && role !== 'viewer' && !embed)
+  useThumbnail(
+    siteId,
+    session.snapshot?.document,
+    !!config && !config.try && role !== 'viewer' && !embed,
+  )
   // Spike: a host renders the view inline by default; the editor needs the whole window.
   useEffect(() => {
     if (embed) hostRequest('ui/request-display-mode', { mode: 'fullscreen' })
@@ -172,6 +206,10 @@ export function Editor({
   latest.current = { editableDoc, save }
   async function nodeAction(action: NodeAction, id: string) {
     if (!editableDoc || conflict) return
+    if (session.translating) {
+      notify(layoutLocked(editableDoc))
+      return
+    }
     // A draft in a panel or a save in flight goes first; the key then acts on what it left.
     if (unsettled && !(await session.flushPending())) return
     const { editableDoc: current, save: commit } = latest.current
@@ -212,7 +250,13 @@ export function Editor({
     root: editingRoot,
     uploadImage: dropImage,
     // A pending draft is no reason to refuse a drag: the drop flushes it first.
-    disabled: busy || conflict || session.readOnly || !!inlineTarget || uploadingImage,
+    disabled:
+      busy ||
+      conflict ||
+      session.readOnly ||
+      session.translating ||
+      !!inlineTarget ||
+      uploadingImage,
     flush: session.flushPending,
     notice: notify,
     save,
@@ -245,6 +289,7 @@ export function Editor({
           setInlineTarget(undefined)
           setConnectOpen({ app })
         }}
+        setLocale={setLocale}
       />
       {connectOpen && (
         <ConnectPanel
@@ -303,6 +348,7 @@ export function Editor({
           doc={doc}
           readOnly={session.readOnly}
           disabled={session.conflict}
+          layoutLock={session.translating ? layoutLocked(doc) : ''}
           save={save}
           undo={() => session.travel('undo')}
           view={cmsView}
@@ -325,6 +371,7 @@ export function Editor({
           siteId={siteId}
           page={page}
           disabled={frozen}
+          layoutLock={session.translating ? layoutLocked(doc) : ''}
           close={() => setPageSettingsOpen(false)}
           save={save}
           choose={(id) => {
@@ -359,6 +406,7 @@ export function Editor({
           openCms={setCmsView}
           elementActionsId={elementActionsId}
           nodeAction={(action, id) => void nodeAction(action, id)}
+          setLocale={setLocale}
         />
         <CanvasPanel
           session={session}

@@ -166,3 +166,30 @@ describe('language switcher', () => {
     )
   })
 })
+
+describe('translation status on the canvas', () => {
+  it('marks missing and outdated text on the canvas only', () => {
+    const doc = site((d) => {
+      d.pages['p-about']!.name = 'About'
+      ;(d.nodes['n-about-home'] as { text: unknown }).text = { type: 'static', value: 'Home' }
+    })
+    const about = doc.pages['p-about']!
+    const canvas = render(doc, about, undefined, { ...ctx, locale: 'de', annotateNodes: true }).body
+    expect(canvas).toContain('data-lacuno-translation="outdated"')
+    expect(canvas).toMatch(
+      /data-lacuno-node="n-about-home"[^>]*data-lacuno-translation="outdated"|data-lacuno-translation="outdated"[^>]*data-lacuno-node="n-about-home"/,
+    )
+    const home = render(doc, doc.pages['p-home']!, undefined, {
+      ...ctx,
+      locale: 'de',
+      annotateNodes: true,
+    }).body
+    expect(home).toContain('data-lacuno-translation="missing"')
+    expect(render(doc, about, undefined, { ...ctx, locale: 'de' }).body).not.toContain(
+      'data-lacuno-translation',
+    )
+    expect(render(doc, about, undefined, { ...ctx, annotateNodes: true }).body).not.toContain(
+      'data-lacuno-translation',
+    )
+  })
+})

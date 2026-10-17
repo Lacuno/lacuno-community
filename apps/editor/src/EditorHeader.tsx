@@ -1,11 +1,13 @@
-import type { Page } from '@lacuno/schema'
-import { useId, useRef } from 'react'
+import { languageName, type Page, siteLocales, translationProgress } from '@lacuno/schema'
+import { useId, useRef, useState } from 'react'
 import { Brand, type Role, SignUpLink } from './App.js'
 import { embed, useConfig } from './api.js'
 import { type Connection, connectionLabel, siteMcpUrl } from './ConnectPanel.js'
 import { EditorIcon } from './EditorIcon.js'
+import { Menu, type MenuPoint, menuPoint } from './Menu.js'
 import { placePopover } from './popover.js'
 import type { DocumentSession } from './session.js'
+import { percentDone } from './translating.js'
 
 /** When an edit happened, in words for recent ones. */
 function ago(at: number) {
@@ -28,6 +30,7 @@ export function EditorHeader({
   publish,
   connections,
   connect,
+  setLocale,
 }: {
   siteId: string
   session: DocumentSession
@@ -42,12 +45,15 @@ export function EditorHeader({
   connections: Connection[] | undefined
   /** Opens the Connect panel, with an app chosen by id. */
   connect: (app?: string) => void
+  setLocale: (code: string) => void
 }) {
   const { doc, snapshot, error, busy, dirty, conflict, saved } = session
   const connection = connectionLabel(connections ?? [])
   const { config } = useConfig()
   const historyId = useId()
   const historyPanel = useRef<HTMLDivElement>(null)
+  const [languages, setLanguages] = useState<MenuPoint>()
+  const locales = snapshot ? siteLocales(snapshot.document) : []
   // Ids only: names are the site's content, which the model reads as such. The address is the one
   // Claude needs a connector for.
   const show =
@@ -80,6 +86,36 @@ export function EditorHeader({
         <span className="site-page-divider"> / </span>
         {page?.name}
       </span>
+      {locales.length > 1 && (
+        <button
+          type="button"
+          className="language-picker"
+          data-translating={session.translating || undefined}
+          aria-haspopup="menu"
+          aria-expanded={!!languages}
+          aria-label="Language"
+          title="Language"
+          onClick={(event) => {
+            const at = menuPoint(event)
+            setLanguages((open) => (open ? undefined : at))
+          }}
+        >
+          {session.locale.toUpperCase()}
+        </button>
+      )}
+      {languages && snapshot && (
+        <Menu
+          at={languages}
+          label="Languages"
+          close={() => setLanguages(undefined)}
+          items={locales.map((locale, index) => ({
+            label: `${languageName(locale.code, locale.label)}${locale.draft ? ' (draft)' : ''}${
+              index ? ` · ${percentDone(translationProgress(snapshot.document, locale.code))}%` : ''
+            }`,
+            run: () => void session.leave(() => setLocale(locale.code)),
+          }))}
+        />
+      )}
       <div className="row history-controls">
         <button
           type="button"

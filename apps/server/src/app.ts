@@ -122,6 +122,7 @@ const BatchInput = z.strictObject({
       page: z.string(),
       entry: z.string().default(''),
       component: z.string().default(''),
+      locale: z.string().default(''),
     })
     .optional(),
 })

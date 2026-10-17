@@ -14,6 +14,7 @@ import { type InnerTag, RICH_TAG_NAMES, richClassName } from './richTags.js'
 import type { DocumentSession } from './session.js'
 import { isLocked, type NodeAction, nodeLabel } from './structure.js'
 import { tokensOfGroup, tokenValue } from './tokens.js'
+import { layoutLocked } from './translating.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 import type { Preview } from './usePreview.js'
 
@@ -112,7 +113,7 @@ export function CanvasPanel({
           <span>Shared design · {componentUsage(doc, editingComponent.id)} instances affected</span>
           <button
             type="button"
-            disabled={frozen}
+            disabled={frozen || session.translating}
             onClick={() => editing.setComponentDialog('settings')}
           >
             Component settings…
@@ -275,7 +276,9 @@ export function CanvasPanel({
                 ? 'View only'
                 : doc && node && isLocked(doc, selected)
                   ? 'Locked'
-                  : ''
+                  : doc && session.translating
+                    ? layoutLocked(doc)
+                    : ''
             }
             select={(id, tag) => {
               reveal()

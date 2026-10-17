@@ -7,6 +7,9 @@ import {
   localize,
   type Page,
   pageLang,
+  primaryLocale,
+  translationKeys,
+  translationStatus,
 } from '@lacuno/schema'
 import { publicAssetPath } from './assets.js'
 import { RenderError } from './errors.js'
@@ -38,6 +41,17 @@ export type RenderResult = {
   warnings: Warning[]
 }
 
+/** The elements with a value the language lacks, or has from an older primary value: the canvas marks them. */
+function untranslated(doc: Document, locale: string): Map<string, 'missing' | 'outdated'> {
+  const marks = new Map<string, 'missing' | 'outdated'>()
+  for (const { key, context } of translationKeys(doc)) {
+    if (!('node' in context) || !context.node || marks.get(context.node) === 'missing') continue
+    const status = translationStatus(doc, locale, key)
+    if (status !== 'done') marks.set(context.node, status)
+  }
+  return marks
+}
+
 /**
  * Pure: document and page in, head and body HTML out. Never touches the filesystem. In another
  * language than the primary, the page renders from the document as that language shows it.
@@ -50,7 +64,8 @@ export function render(
 ): RenderResult {
   const doc = ctx.locale ? localize(source, ctx.locale) : source
   const page = ctx.locale ? doc.pages[sourcePage.id]! : sourcePage
-  const entry = ctx.locale && sourceEntry ? findEntry(doc, sourceEntry.id)?.entry : sourceEntry
+  const entry =
+    ctx.locale && sourceEntry ? (findEntry(doc, sourceEntry.id)?.entry ?? sourceEntry) : sourceEntry
   const languages = alternates(source, {
     page: page.id,
     ...(entry ? { entry: entry.id } : {}),
@@ -90,6 +105,9 @@ export function render(
     ...(ctx.listPage ? { listPage: ctx.listPage } : {}),
     languages,
     locale: ctx.locale ?? languages[0]!.locale,
+    ...(ctx.annotateNodes && ctx.locale && ctx.locale !== primaryLocale(source)
+      ? { translations: untranslated(source, ctx.locale) }
+      : {}),
   }
   const headInput = {
     doc,

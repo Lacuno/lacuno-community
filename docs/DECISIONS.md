@@ -584,3 +584,12 @@ copy needs no rewriting of links: the existing render already resolves them to t
 Astro pairs languages by identical paths after the prefix, which translated slugs break, so the
 compiler computes the alternates itself. Automatic redirects hide pages from crawlers and from
 people who want another language.
+
+**Editor.** The editor shows another language by handing every panel `localize(doc, locale)`
+and the canvas the same render with `locale`, so the panels read that language's values
+without code of their own. Edits made there pass through one mapper on their way to the server
+(`apps/editor/src/translating.ts`): a changed text, translatable attribute, prop, page name,
+last path segment, SEO field, entry field or title template becomes `translation.set`, a value
+set back to the primary's or cleared becomes `translation.delete`, and anything else is refused
+with one line, so the structure, classes and styles only change in the primary language. Undo
+replays the patches as before.

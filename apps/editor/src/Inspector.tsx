@@ -2,7 +2,7 @@ import { classNames, contextFromDocument, selectorFor, serializeValue } from '@l
 import type { Operation } from '@lacuno/document'
 import { assetUrl, canvasImage } from '@lacuno/renderer'
 import type { CssValue, Document, Node, RichTag, State } from '@lacuno/schema'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { BindingControls, ListSettings } from './BindingControls.js'
 import { boundFieldLabel } from './binding.js'
 import { breakpointMedia } from './breakpoints.js'
@@ -82,6 +82,7 @@ export function Inspector({
   pageName,
   changeBreakpoint,
   changeState,
+  layoutLock,
 }: {
   tab: InspectorTab
   setTab: (tab: InspectorTab) => void
@@ -104,6 +105,8 @@ export function Inspector({
   save: (ops: Operation[]) => Promise<boolean>
   autoSave: (ops: Operation[]) => Promise<boolean>
   dirtyChanged: (dirty: boolean) => void
+  /** Why styles and classes cannot change here, or '' when they can. */
+  layoutLock: string
 }) {
   const isImage = node.type === 'element' && node.tag === 'img'
   const isVideo = node.type === 'element' && node.tag === 'video'
@@ -417,6 +420,49 @@ export function Inspector({
             </select>
           </label>
         )}
+        {node.type === 'language-switcher' && (
+          <>
+            <label>
+              Display
+              <select
+                value={node.display ?? 'list'}
+                disabled={disabled}
+                onChange={(event) =>
+                  void autoSave([
+                    {
+                      type: 'node.update',
+                      id: node.id,
+                      display: event.target.value as 'list' | 'dropdown',
+                    },
+                  ])
+                }
+              >
+                <option value="list">List</option>
+                <option value="dropdown">Dropdown</option>
+              </select>
+            </label>
+            <label>
+              Label
+              <select
+                value={node.label ?? 'name'}
+                disabled={disabled}
+                onChange={(event) =>
+                  void autoSave([
+                    {
+                      type: 'node.update',
+                      id: node.id,
+                      label: event.target.value as 'name' | 'code' | 'both',
+                    },
+                  ])
+                }
+              >
+                <option value="name">Name</option>
+                <option value="code">Code</option>
+                <option value="both">Name and code</option>
+              </select>
+            </label>
+          </>
+        )}
         {node.type === 'embed' && (
           <CodeField
             label="Embed code"
@@ -564,6 +610,18 @@ export function Inspector({
       </div>
     </>
   )
+  // Outside the primary language the styles show but cannot change.
+  const lockLayout = (panel: ReactNode) =>
+    layoutLock ? (
+      <>
+        <p className="note">{layoutLock}</p>
+        <fieldset disabled className="layout-lock">
+          {panel}
+        </fieldset>
+      </>
+    ) : (
+      panel
+    )
   return (
     <aside className="inspector focused-inspector">
       <div className="selection-heading">
@@ -664,7 +722,11 @@ export function Inspector({
       <div className="inspector-body">
         {shared && <p className="note">Shared component. Changes appear in every instance.</p>}
         {locked && <p className="note">This element or its parent is locked.</p>}
-        <InspectorTabs active={tab} change={setTab} panels={{ style, content, advanced }} />
+        <InspectorTabs
+          active={tab}
+          change={setTab}
+          panels={{ style: lockLayout(style), content, advanced: lockLayout(advanced) }}
+        />
         <div className="inspector-feedback" aria-live="polite">
           <ErrorNote message={validation || tokenError} />
           {(conflict || busy || edits || autosave.hasFailed) && (

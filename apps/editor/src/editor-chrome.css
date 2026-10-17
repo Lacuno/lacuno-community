@@ -1180,6 +1180,16 @@
   gap: 0;
 }
 
+.editor-header .language-picker {
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.editor-header .language-picker[data-translating] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
 .editor .save-state {
   margin-left: auto;
   white-space: nowrap;
@@ -2158,4 +2168,93 @@
 .history-popover .history-summary {
   grid-column: 1 / -1;
   margin: 0;
+}
+.language-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.language-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+.language-list li > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.language-list input:not([type="checkbox"]) {
+  width: 8rem;
+}
+.language-list em {
+  color: var(--muted);
+  font-style: normal;
+}
+.language-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 8px;
+}
+.sidebar-content > .hint {
+  padding: 0 18px;
+}
+.translations-toolbar {
+  display: grid;
+  gap: 6px;
+  padding: 0 18px 8px;
+}
+.translations-counts {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.translations-list {
+  padding: 0 18px 12px;
+}
+.translations-list h3 {
+  margin: 12px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.translation-row {
+  display: grid;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.translation-row > :first-child {
+  justify-self: start;
+  font-weight: 500;
+}
+.translation-row .text-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  text-align: left;
+}
+.translation-source {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.translation-row[data-status="outdated"] .translation-source::after {
+  content: " · outdated";
+  color: #b7791f;
+}
+.translation-rich {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }

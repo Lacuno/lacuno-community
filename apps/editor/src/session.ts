@@ -1,11 +1,12 @@
 import type { Operation } from '@lacuno/document'
 import { applyPatches, invertPatches, type Patch } from '@lacuno/document/patch'
-import { type Document, parseDocument } from '@lacuno/schema'
+import { type Document, localize, parseDocument, primaryLocale, siteLocales } from '@lacuno/schema'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { ApiError, api, message, streamUrl, take } from './api.js'
 import { committedHistory, emptyHistory, type HistoryEntry, historyShortcut } from './history.js'
 import { catchUp, land, liveStream, type SiteEvent, touchedNodes } from './liveEvents.js'
+import { toTranslations } from './translating.js'
 import type { Preview, PreviewQuery } from './usePreview.js'
 
 export type Snapshot = { document: Document; revision: number }
@@ -21,12 +22,14 @@ type Options = {
   /** What the canvas shows: each save asks for it rendered in the same answer (usePreview.ts). */
   canvas: () => PreviewQuery
   setPreview: (preview: Preview) => void
+  /** The language the panels show and edit; the primary when it is not one of the site's. */
+  locale: string
 }
 
 /** The saved document, everything that writes to it and the undo history over it. */
 export function useDocumentSession(
   siteId: string,
-  { readOnly = false, blocked, setPageId, onLeave, canvas, setPreview }: Options,
+  { readOnly = false, blocked, setPageId, onLeave, canvas, setPreview, locale: chosen }: Options,
 ) {
   const [snapshot, setSnapshot] = useState<Snapshot>()
   const [error, setError] = useState('')
@@ -55,7 +58,17 @@ export function useDocumentSession(
     return true
   }
   const revision = snapshot?.revision
-  const doc = snapshot?.document
+  const source = snapshot?.document
+  const locale =
+    source && siteLocales(source).some((l) => l.code === chosen)
+      ? chosen
+      : ((source && primaryLocale(source)) ?? '')
+  // In another language than the primary, every panel shows and edits that language's values.
+  const translating = !!source && locale !== primaryLocale(source)
+  const doc = source && localize(source, locale)
+  // Panels that hold a draft start over in another language, as they do after a reload.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new language is the reason to start over.
+  useEffect(() => setGeneration((value) => value + 1), [locale])
   // Nothing may change the document while a save is in flight, edits are pending or it conflicts.
   const unsettled = busy || dirty || conflict
   const frozen = unsettled || blocked
@@ -225,8 +238,16 @@ export function useDocumentSession(
       for (const wake of waiting.current.splice(0)) wake()
     }
   }
-  const save = (operations: Operation[], action: 'edit' | 'auto' = 'edit') =>
-    commit({ operations }, action)
+  async function save(operations: Operation[], action: 'edit' | 'auto' = 'edit') {
+    if (!translating || !source) return commit({ operations }, action)
+    try {
+      const translations = toTranslations(source, locale, operations)
+      return translations.length ? commit({ operations: translations }, action) : true
+    } catch (e) {
+      setError(message(e))
+      return false
+    }
+  }
   const canUndo = !!snapshot && editHistory.undo.length > 0 && !frozen && !readOnly
   const canRedo = !!snapshot && editHistory.redo.length > 0 && !frozen && !readOnly
   function travel(direction: 'undo' | 'redo') {
@@ -262,6 +283,8 @@ export function useDocumentSession(
     snapshot,
     activity,
     doc,
+    locale,
+    translating,
     revision,
     error,
     setError,

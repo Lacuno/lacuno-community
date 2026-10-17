@@ -22,7 +22,7 @@ export function LayersPanel({
   elementActionsId: string
   nodeAction: (action: NodeAction, id: string) => void
 }) {
-  const { frozen, save, leave } = session
+  const { frozen, translating, save, leave } = session
   const { editableDoc, editingRoot, editingComponent } = editing
   return (
     <>
@@ -55,7 +55,7 @@ export function LayersPanel({
             nodeAction={nodeAction}
             doc={editableDoc}
             selected={selected}
-            disabled={frozen}
+            disabled={frozen || translating}
             save={save}
             select={setSelected}
           />
@@ -67,7 +67,7 @@ export function LayersPanel({
             rootLabel={editingComponent?.name ?? 'Body'}
             reveal={revealSelection}
             key={editingRoot}
-            disabled={frozen}
+            disabled={frozen || translating}
             save={save}
             nodeAction={nodeAction}
             doc={editableDoc}

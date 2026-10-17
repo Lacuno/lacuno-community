@@ -1,6 +1,6 @@
 import type { Operation } from '@lacuno/document'
 import { isDescendant, subtreeIds } from '@lacuno/document/references'
-import type { Document, ElementNode, Node, TextNode } from '@lacuno/schema'
+import type { Document, ElementNode, LanguageSwitcherNode, Node, TextNode } from '@lacuno/schema'
 import { localClassCopier } from './copyLocalClasses.js'
 
 type DefinedFields<T> = { [K in keyof T]: Exclude<T[K], undefined> }
@@ -8,6 +8,7 @@ export type InsertNode = (
   | DefinedFields<Omit<ElementNode, 'parent' | 'children'>>
   | DefinedFields<Omit<TextNode, 'parent' | 'children'>>
   | DefinedFields<Omit<Extract<Node, { type: 'embed' }>, 'parent' | 'children'>>
+  | DefinedFields<Omit<LanguageSwitcherNode, 'parent' | 'children'>>
 ) & { children?: InsertNode[] }
 
 type TreeFields<T> = T extends Node
@@ -53,6 +54,7 @@ export type Preset =
   | 'story'
   | 'scroll-video'
   | 'progress'
+  | 'language-switcher'
 /** Wrap in link builds an `a` around the selection; the palette's Link is a text node. */
 type Buildable = Preset | 'link-wrapper'
 export const wrappers = [...structures, 'link'] as const
@@ -302,6 +304,7 @@ export function presetNode(
     }
   if (preset === 'embed')
     return { id: makeId(), type: 'embed', html: '', classes, meta: { label: 'Embed' } }
+  if (preset === 'language-switcher') return { id: makeId(), type: 'language-switcher', classes }
   // A label wraps its text and control, so no id and for pair is needed.
   const field = (kind: string, label: string, required = false): InsertNode => {
     const control: InsertNode = {

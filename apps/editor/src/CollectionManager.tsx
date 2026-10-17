@@ -20,6 +20,7 @@ export function CollectionManager({
   doc,
   readOnly,
   disabled,
+  layoutLock,
   save,
   undo,
   view,
@@ -31,6 +32,8 @@ export function CollectionManager({
   doc: Document
   readOnly: boolean
   disabled: boolean
+  /** Outside the primary language: why only translatable entry fields change, else ''. */
+  layoutLock: string
   save: (operations: Operation[]) => Promise<boolean>
   undo: () => void
   view: CmsView
@@ -167,6 +170,7 @@ export function CollectionManager({
                   col={col}
                   readOnly={readOnly}
                   disabled={disabled}
+                  layoutLock={layoutLock}
                   save={save}
                   undo={undo}
                   upload={upload}

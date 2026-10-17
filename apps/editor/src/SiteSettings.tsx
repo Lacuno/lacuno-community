@@ -1,5 +1,5 @@
 import type { Operation } from '@lacuno/document'
-import type { Document } from '@lacuno/schema'
+import { type Document, languageName, siteLocales } from '@lacuno/schema'
 import { useState } from 'react'
 import { CodeField } from './CodeField.js'
 import { Dialog, ErrorNote } from './Dialog.js'
@@ -67,6 +67,141 @@ export function ImageChoice({
 
 type SiteField = 'name' | 'url' | 'locale' | 'titleTemplate' | 'headCode' | 'bodyCode'
 
+const COMMON_LANGUAGES =
+  'en de fr es it pt nl pl sv da fi nb cs sk hu ro hr sl el tr ru uk ja zh ko ar he hi'
+
+/**
+ * The site's other languages after the primary: label, draft, order, removal, and adding one. A
+ * site in one language shows only the Add row.
+ */
+function Languages({
+  doc,
+  write,
+}: {
+  doc: Document
+  write: (key: string, operations: Operation[]) => Promise<boolean>
+}) {
+  const locales = siteLocales(doc)
+  const codes = locales.map((l) => l.code)
+  const [code, setCode] = useState('')
+  const [issue, setIssue] = useState('')
+  const move = (from: number, to: number) => {
+    const order = [...codes]
+    order.splice(to, 0, ...order.splice(from, 1))
+    void write('languages', [{ type: 'locale.reorder', codes: order }])
+  }
+  return (
+    <>
+      {locales.length > 1 && (
+        <ul className="language-list" aria-label="Languages">
+          {locales.map((locale, index) => {
+            const name = languageName(locale.code)
+            const count = Object.keys(doc.translations[locale.code] ?? {}).length
+            return (
+              <li key={locale.code}>
+                <span>
+                  <strong>{locale.code}</strong> {name}
+                  {index === 0 && <em> Primary</em>}
+                </span>
+                <input
+                  aria-label={`Label of ${locale.code}`}
+                  placeholder={name}
+                  defaultValue={locale.label ?? ''}
+                  onBlur={(event) => {
+                    const label = event.target.value.trim()
+                    if (label !== (locale.label ?? ''))
+                      void write('languages', [
+                        { type: 'locale.update', code: locale.code, label: label || null },
+                      ])
+                  }}
+                />
+                {index > 0 && (
+                  <label className="check-label">
+                    <input
+                      type="checkbox"
+                      checked={!!locale.draft}
+                      onChange={(event) =>
+                        void write('languages', [
+                          { type: 'locale.update', code: locale.code, draft: event.target.checked },
+                        ])
+                      }
+                    />
+                    Draft
+                  </label>
+                )}
+                <button
+                  type="button"
+                  aria-label={`Move ${locale.code} up`}
+                  disabled={index === 0}
+                  onClick={() => move(index, index - 1)}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${locale.code} down`}
+                  disabled={index === locales.length - 1}
+                  onClick={() => move(index, index + 1)}
+                >
+                  ↓
+                </button>
+                {index > 0 && (
+                  <button
+                    type="button"
+                    aria-label={`Remove ${locale.code}`}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Remove ${name}? ${count === 1 ? 'Its 1 translation goes' : `Its ${count} translations go`} with it.`,
+                        )
+                      )
+                        void write('languages', [{ type: 'locale.remove', code: locale.code }])
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <form
+        className="language-form"
+        onSubmit={async (event) => {
+          event.preventDefault()
+          const next = code.trim()
+          const problem = !next
+            ? 'Enter a language code such as en or de-AT.'
+            : codes.includes(next)
+              ? 'The site already has this language.'
+              : langError(next)
+          setIssue(problem)
+          if (!problem && (await write('languages', [{ type: 'locale.add', code: next }])))
+            setCode('')
+        }}
+      >
+        <input
+          aria-label="Language code"
+          placeholder="de"
+          list="language-codes"
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+        />
+        <datalist id="language-codes">
+          {COMMON_LANGUAGES.split(' ').map((c) => (
+            <option key={c} value={c}>
+              {languageName(c)}
+            </option>
+          ))}
+        </datalist>
+        <button type="submit">Add language</button>
+      </form>
+      <ErrorNote message={issue} />
+    </>
+  )
+}
+
 export function SiteSettings({
   doc,
   siteId,
@@ -100,7 +235,14 @@ export function SiteSettings({
     const value = key.endsWith('Code') ? form[key] : form[key].trim()
     setErrors({ ...errors, [key]: issue })
     if (issue || value === (site[key] ?? '')) return
-    void write(key, [{ type: 'site.update', [key]: value || null } as Operation])
+    // A site that once had more languages keeps its one in `locales`: that one is replaced.
+    if (key === 'locale' && site.locales)
+      void write(key, [
+        { type: 'locale.add', code: value },
+        { type: 'locale.reorder', codes: [value, site.locale] },
+        { type: 'locale.remove', code: site.locale },
+      ])
+    else void write(key, [{ type: 'site.update', [key]: value || null } as Operation])
   }
   const field = (key: SiteField, label: string, issue: () => string, placeholder?: string) => (
     <>
@@ -124,15 +266,18 @@ export function SiteSettings({
         The address visitors use, such as your own domain. It drives the canonical link, social
         sharing URLs and the sitemap, and overrides the server's published address.
       </p>
-      {field(
-        'locale',
-        'Language',
-        () =>
-          form.locale.trim()
-            ? langError(form.locale.trim())
-            : 'Enter a language code such as en or de-AT.',
-        'en',
-      )}
+      {siteLocales(doc).length === 1 &&
+        field(
+          'locale',
+          'Language',
+          () =>
+            form.locale.trim()
+              ? langError(form.locale.trim())
+              : 'Enter a language code such as en or de-AT.',
+          'en',
+        )}
+      <Languages doc={doc} write={write} />
+      <ErrorNote message={errors.languages ?? ''} />
       {field(
         'titleTemplate',
         'Title template',
