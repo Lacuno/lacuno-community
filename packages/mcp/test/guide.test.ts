@@ -56,7 +56,7 @@ describe('guide and resources', () => {
     for (const name of ['build', 'check', 'looks', 'content', 'forms', 'settings'])
       expect(await topic(name)).toMatch(/^## /)
     // Every host reads the instructions the connection opens with, skills or not.
-    expect(c.client.getInstructions()).toContain('Call guide first')
+    expect(c.client.getInstructions()).toContain('guide is a reference')
     const nodesOnly = textOf(
       await c.client.callTool({ name: 'guide', arguments: { group: 'node' } }),
     )

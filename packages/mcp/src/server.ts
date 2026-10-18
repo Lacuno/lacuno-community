@@ -213,7 +213,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'guide',
     {
       annotations: reads,
-      description: `Docs only, changes nothing. No group: the basics. A topic (${Object.keys(TOPICS).join(', ')}): how to do it. An operation group (${operationGroups().join(', ')}): the exact schemas of the ${MCP_OPERATIONS.length} operations document.apply takes.`,
+      description: `Reference, changes nothing. No group: the basics. A topic (${Object.keys(TOPICS).join(', ')}): notes on it. An operation group (${operationGroups().join(', ')}): the exact schemas of the ${MCP_OPERATIONS.length} operations document.apply takes.`,
       inputSchema: { group: z.string().optional() },
     },
     async ({ group }) => {
