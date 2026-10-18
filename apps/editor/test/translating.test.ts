@@ -1,5 +1,11 @@
 import type { Operation } from '@lacuno/document'
-import { fixtureTwoLanguageDocument, localize, parseDocument } from '@lacuno/schema'
+import {
+  fixtureTwoLanguageDocument,
+  localize,
+  parseDocument,
+  type RotatingWords,
+  type TextNode,
+} from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { toTranslations } from '../src/translating.js'
 
@@ -121,6 +127,35 @@ describe('edits in another language', () => {
       { type: 'site.update', name: 'Andere' },
     ]
     for (const op of refused) expect(() => map(op), op.type).toThrow('Change the layout in English')
+  })
+
+  it('turns rotating words into translations and keeps their number and icons', () => {
+    const d = fixtureTwoLanguageDocument()
+    ;(d.nodes['n-hero-title'] as TextNode).rotatingWords = {
+      words: ['designers', { text: 'teams', icon: 'sparkles' }],
+      interval: 3000,
+    }
+    const words = parseDocument(d)
+    const edit = (rotatingWords: RotatingWords | null) =>
+      toTranslations(words, 'de', [{ type: 'node.update', id: 'n-hero-title', rotatingWords }])
+    expect(
+      edit({ words: ['Gestalter', { text: 'teams', icon: 'sparkles' }], interval: 3000 }),
+    ).toEqual([
+      {
+        type: 'translation.set',
+        locale: 'de',
+        key: 'node:n-hero-title.word.0',
+        value: 'Gestalter',
+      },
+    ])
+    expect(() => edit({ words: ['designers'], interval: 3000 })).toThrow('Change the layout')
+    expect(() =>
+      edit({ words: ['designers', { text: 'teams', icon: 'bot' }], interval: 3000 }),
+    ).toThrow('Change the layout')
+    expect(() =>
+      edit({ words: ['designers', { text: 'teams', icon: 'sparkles' }], interval: 900 }),
+    ).toThrow('Change the layout')
+    expect(() => edit(null)).toThrow('Change the layout')
   })
 
   it('lets language and translation operations through', () => {

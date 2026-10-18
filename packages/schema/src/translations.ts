@@ -8,6 +8,7 @@ import type { Issue } from './validate.js'
 
 /**
  * Names one translatable value: `node:<id>.text`, `node:<id>.attr.<name>`, `node:<id>.prop.<prop>`,
+ * `node:<id>.word.<n>` (a rotating word, from 0),
  * `page:<id>.path`, `page:<id>.name`, `page:<id>.seo.title|description|ogImage`,
  * `entry:<id>.<fieldId>` or `site.titleTemplate`.
  */
@@ -16,6 +17,7 @@ export type TranslationKey = string
 export type TranslationTarget =
   | { type: 'node'; id: string; part: 'text' }
   | { type: 'node'; id: string; part: 'attr' | 'prop'; name: string }
+  | { type: 'node'; id: string; part: 'word'; index: number }
   | { type: 'page'; id: string; part: 'path' | 'name' | 'title' | 'description' | 'ogImage' }
   | { type: 'entry'; id: string; field: string }
   | { type: 'site' }
@@ -40,14 +42,15 @@ export const isTranslatable = (field: FieldDef): boolean =>
 
 const ID = '([A-Za-z0-9_-]{1,64})'
 const KEY = new RegExp(
-  `^(?:node:${ID}\\.(?:(text)|(attr|prop)\\.([a-z][a-zA-Z0-9-]*))|page:${ID}\\.(path|name|seo\\.title|seo\\.description|seo\\.ogImage)|entry:${ID}\\.${ID}|(site\\.titleTemplate))$`,
+  `^(?:node:${ID}\\.(?:(text)|(attr|prop)\\.([a-z][a-zA-Z0-9-]*)|word\\.(\\d{1,2}))|page:${ID}\\.(path|name|seo\\.title|seo\\.description|seo\\.ogImage)|entry:${ID}\\.${ID}|(site\\.titleTemplate))$`,
 )
 
 export function parseKey(key: string): TranslationTarget | undefined {
   const m = KEY.exec(key)
   if (!m) return undefined
-  const [, node, text, part, name, page, pagePart, entry, field, site] = m
+  const [, node, text, part, name, word, page, pagePart, entry, field, site] = m
   if (node && text) return { type: 'node', id: node, part: 'text' }
+  if (node && word) return { type: 'node', id: node, part: 'word', index: Number(word) }
   if (node && name && (part === 'prop' || TRANSLATABLE_ATTRS.includes(name)))
     return { type: 'node', id: node, part: part as 'attr' | 'prop', name }
   if (page && pagePart)
@@ -84,6 +87,19 @@ function slot(doc: Document, key: TranslationKey): Slot | undefined {
           kind: 'string',
           get: () => text.value,
           set: (v) => (node.text = { type: 'static', value: v as string }),
+        }
+      }
+      if (target.part === 'word') {
+        const words = node?.type === 'text' ? node.rotatingWords?.words : undefined
+        const word = words?.[target.index]
+        if (!words || word === undefined) return undefined
+        return {
+          kind: 'string',
+          get: () => (typeof word === 'string' ? word : word.text),
+          // A word keeps its icon: only its text is the language's own.
+          set: (v) =>
+            (words[target.index] =
+              typeof word === 'string' ? (v as string) : { ...word, text: v as string }),
         }
       }
       const map = target.part === 'attr' ? node?.attrs : node?.type === 'component' && node.props
@@ -303,6 +319,8 @@ export function translationKeys(doc: Document): TranslationItem[] {
     if (!node) return
     add(`node:${id}.text`, context(id))
     for (const name of TRANSLATABLE_ATTRS) add(`node:${id}.attr.${name}`, context(id))
+    const words = node.type === 'text' ? (node.rotatingWords?.words.length ?? 0) : 0
+    for (let n = 0; n < words; n++) add(`node:${id}.word.${n}`, context(id))
     if (node.type === 'component')
       for (const prop of Object.keys(node.props ?? {})) add(`node:${id}.prop.${prop}`, context(id))
     for (const child of node.children) nodes(child, context)

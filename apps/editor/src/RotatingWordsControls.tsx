@@ -18,16 +18,19 @@ const toWord = (text: string, icon: WordIcon | undefined): RotatingWord =>
 
 /**
  * Words that take turns with the text's own, one row each: an icon and the word, kept as typed
- * (spaces count, empty is allowed), saved when a field is left or Enter is pressed.
+ * (spaces count, empty is allowed), saved when a field is left or Enter is pressed. `wordsOnly`
+ * shows just the words' texts, for translating them.
  */
 export function RotatingWordsControls({
   node,
   disabled,
   save,
+  wordsOnly,
 }: {
   node: TextNode
   disabled: boolean
   save: (operations: Operation[]) => Promise<boolean>
+  wordsOnly?: boolean
 }) {
   const current = node.rotatingWords
   const [intervalDraft, setIntervalDraft] = useState<string>()
@@ -52,6 +55,31 @@ export function RotatingWordsControls({
   const enter = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') event.currentTarget.blur()
   }
+  const wordField = (word: RotatingWord, index: number) => (
+    <input
+      aria-label={`Word ${index + 1}`}
+      placeholder="Empty"
+      disabled={disabled}
+      defaultValue={wordText(word)}
+      onBlur={(event) => {
+        if (event.target.value !== wordText(word))
+          setWord(index, toWord(event.target.value, wordIcon(word)))
+      }}
+      onKeyDown={enter}
+    />
+  )
+  if (wordsOnly)
+    return (
+      <fieldset className="rotating-words">
+        <legend>Rotating words</legend>
+        {current?.words.map((word, index) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: words may repeat, as below
+          <div className="rotating-word" key={`${index}:${wordText(word)}`}>
+            {wordField(word, index)}
+          </div>
+        ))}
+      </fieldset>
+    )
   const own =
     node.text.type === 'doc'
       ? plainText(node.text)
@@ -83,17 +111,7 @@ export function RotatingWordsControls({
                   disabled={disabled}
                   set={(icon) => setWord(index, toWord(wordText(word), icon))}
                 />
-                <input
-                  aria-label={`Word ${index + 1}`}
-                  placeholder="Empty"
-                  disabled={disabled}
-                  defaultValue={wordText(word)}
-                  onBlur={(event) => {
-                    if (event.target.value !== wordText(word))
-                      setWord(index, toWord(event.target.value, wordIcon(word)))
-                  }}
-                  onKeyDown={enter}
-                />
+                {wordField(word, index)}
                 <button
                   type="button"
                   className="gradient-remove"

@@ -119,6 +119,31 @@ describe('localize', () => {
     expect(de.site.locale).toBe('de')
   })
 
+  it('translates rotating words and keeps their icons', () => {
+    const d = fixtureTwoLanguageDocument()
+    ;(d.nodes['n-hero-title'] as TextNode).rotatingWords = {
+      words: ['designers', { text: 'teams', icon: 'sparkles' }],
+    }
+    d.translations.de!['node:n-hero-title.word.1'] = { value: 'Teams', source: sourceHash('teams') }
+    const doc = parseDocument(d)
+    expect(parseKey('node:n-hero-title.word.1')).toEqual({
+      type: 'node',
+      id: 'n-hero-title',
+      part: 'word',
+      index: 1,
+    })
+    expect(translationKeys(doc).filter((i) => i.key.includes('.word.'))).toMatchObject([
+      { key: 'node:n-hero-title.word.0', kind: 'string', value: 'designers' },
+      { key: 'node:n-hero-title.word.1', kind: 'string', value: 'teams' },
+    ])
+    expect((localize(doc, 'de').nodes['n-hero-title'] as TextNode).rotatingWords!.words).toEqual([
+      'designers',
+      { text: 'Teams', icon: 'sparkles' },
+    ])
+    expect(translationStatus(doc, 'de', 'node:n-hero-title.word.1')).toBe('done')
+    expect(translationStatus(doc, 'de', 'node:n-hero-title.word.0')).toBe('missing')
+  })
+
   it('leaves the document alone and remembers each language', () => {
     expect(doc.pages['p-about']!.path).toBe('/about')
     expect(localize(doc, 'de')).toBe(de)

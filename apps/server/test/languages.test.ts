@@ -18,6 +18,11 @@ it('adds a language, translates the site in it and removes it again', async () =
         id: image.id,
         attrs: { ...image.attrs, alt: { type: 'static', value: 'The About page' } },
       },
+      {
+        type: 'node.update',
+        id: 'n-home-choice-kicker',
+        rotatingWords: { words: ['designers', { text: 'teams', icon: 'sparkles' }] },
+      },
     ],
   })
   const picker = page.getByRole('button', { name: 'Language', exact: true })
@@ -87,6 +92,22 @@ it('adds a language, translates the site in it and removes it again', async () =
     type: 'static',
     value: 'The About page',
   })
+  // A rotating word translates in the Content tab; its icon stays the primary's.
+  await canvas.locator('[data-lacuno-node="n-home-choice-kicker"]').click()
+  await openInspectorTab(page, 'Content')
+  // The Style tab shows the words too, locked.
+  const word = page.getByLabel('Word 2', { exact: true }).and(page.locator(':enabled'))
+  await word.fill('Teams')
+  await word.blur()
+  await saved()
+  const words = await site()
+  expect(words.translations.de!['node:n-home-choice-kicker.word.1']).toMatchObject({
+    value: 'Teams',
+  })
+  expect((words.nodes['n-home-choice-kicker'] as TextNode).rotatingWords!.words[1]).toEqual({
+    text: 'teams',
+    icon: 'sparkles',
+  })
   await page.getByRole('button', { name: 'Clear selection' }).click()
   // The rest of the page still reads English, dimmed.
   await expect
@@ -98,7 +119,7 @@ it('adds a language, translates the site in it and removes it again', async () =
   // Translations: counts, the missing ones, and one translated in place.
   await page.getByRole('button', { name: 'Translations', exact: true }).click()
   const counts = page.locator('.translations-counts')
-  await expect.poll(() => counts.textContent()).toMatch(/^2 done · 0 outdated · \d+ missing$/)
+  await expect.poll(() => counts.textContent()).toMatch(/^3 done · 0 outdated · \d+ missing$/)
   await page.getByLabel('Show', { exact: true }).selectOption('missing')
   const home = page.getByRole('region', { name: 'Home' })
   await expect.poll(() => home.getByText('Deine Website').count()).toBe(0)
@@ -106,7 +127,7 @@ it('adds a language, translates the site in it and removes it again', async () =
   await name.getByLabel('Translation').fill('Startseite')
   await name.getByLabel('Translation').press('Enter')
   await saved()
-  await expect.poll(() => counts.textContent()).toMatch(/^3 done/)
+  await expect.poll(() => counts.textContent()).toMatch(/^4 done/)
   await expect.poll(() => name.count()).toBe(0)
   await page.locator('.sidebar-content').evaluate((element) => element.scrollTo(0, 0))
   await page.screenshot({

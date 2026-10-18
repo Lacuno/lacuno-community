@@ -48,7 +48,8 @@ function label(doc: Document, { key, context }: TranslationItem): string {
   }
   if (!context.node) return PAGE_PARTS[key.slice(key.indexOf('.') + 1)] ?? key
   const node = doc.nodes[context.node]
-  const part = /\.(?:attr|prop)\.(.+)$/.exec(key)?.[1]
+  const word = /\.word\.(\d+)$/.exec(key)?.[1]
+  const part = word ? `rotating word ${Number(word) + 1}` : /\.(?:attr|prop)\.(.+)$/.exec(key)?.[1]
   return `${node ? nodeLabel(node) : 'Element'}${part ? ` · ${part}` : ''}`
 }
 

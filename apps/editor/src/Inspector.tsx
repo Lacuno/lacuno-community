@@ -463,6 +463,10 @@ export function Inspector({
             </label>
           </>
         )}
+        {/* Outside the primary language the words' texts translate here; the rest is layout. */}
+        {layoutLock && node.type === 'text' && node.rotatingWords && (
+          <RotatingWordsControls node={node} disabled={disabled} save={autoSave} wordsOnly />
+        )}
         {node.type === 'embed' && (
           <CodeField
             label="Embed code"

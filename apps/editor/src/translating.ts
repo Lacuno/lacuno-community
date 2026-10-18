@@ -72,9 +72,25 @@ export function toTranslations(doc: Document, locale: string, operations: Operat
         out.push(op)
         break
       case 'node.update': {
-        const { type: _type, id, text, attrs, props, ...rest } = op
+        const { type: _type, id, text, attrs, props, rotatingWords, ...rest } = op
         const node = shown.nodes[id] ?? refuse()
         unchanged(node, rest)
+        if (rotatingWords !== undefined) {
+          // The words' texts are the language's own; their number, icons and timing the layout's.
+          const shownWords = node.type === 'text' ? node.rotatingWords : undefined
+          const textOf = (word: string | { text: string }) =>
+            typeof word === 'string' ? word : word.text
+          if (!shownWords || rotatingWords?.words.length !== shownWords.words.length) refuse()
+          const layout = (words: typeof shownWords) => ({
+            ...words,
+            words: words!.words.map((word) =>
+              typeof word === 'string' ? '' : { ...word, text: '' },
+            ),
+          })
+          unchanged(layout(shownWords), layout(rotatingWords!))
+          for (const [n, word] of shownWords!.words.entries())
+            set(`node:${id}.word.${n}`, textOf(word), textOf(rotatingWords!.words[n]!))
+        }
         if (text !== undefined && node.type === 'text') {
           // A plain text stays plain: the canvas's editor hands back rich text for it.
           const plain = node.text.type === 'static' && text.type === 'doc'

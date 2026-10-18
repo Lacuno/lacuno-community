@@ -563,7 +563,8 @@ its dashboard, so the editor never learns its routes.
 **Decision.** A site's languages are `site.locales`, the first being the primary; a document
 without them is a site in `site.locale` alone. The page tree, classes, components and styles stay
 single. Translations live in `translations`, per language and per key (`node:<id>.text`,
-`page:<id>.path`, `entry:<id>.<field>` and a few more), each with a short hash of the primary
+`node:<id>.word.<n>` for a rotating word, `page:<id>.path`, `entry:<id>.<field>` and a few more),
+each with a short hash of the primary
 value it was made from, so a translation whose source has since changed reads as outdated; the
 status is computed, never stored. Building a language calls `localize(doc, locale)`, which returns
 a copy with that language's values in place and every page path under `/<code>`, then renders
