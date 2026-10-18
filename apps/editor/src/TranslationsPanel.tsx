@@ -11,6 +11,7 @@ import {
   translationStatus,
 } from '@lacuno/schema'
 import { lazy, Suspense, useRef, useState } from 'react'
+import type { TranslateRequest } from './AutoTranslate.js'
 import { entryTitle } from './cms.js'
 import { ImageChoice } from './SiteSettings.js'
 import type { DocumentSession } from './session.js'
@@ -124,9 +125,15 @@ export function TranslationsPanel({
   siteId,
   session,
   open,
+  translate,
+  translated,
 }: {
   siteId: string
   session: DocumentSession
+  /** Opens Auto-translate for a language or one page of it. */
+  translate: (request: TranslateRequest) => void
+  /** The last auto-translation's line. */
+  translated: string
   /** Shows an element of a page in a language. */
   open: (locale: string, page: string, node: string) => void
 }) {
@@ -182,66 +189,86 @@ export function TranslationsPanel({
           <option value="missing">Missing</option>
           <option value="outdated">Outdated</option>
         </select>
+        <button type="button" disabled={disabled} onClick={() => translate({ locale })}>
+          Auto-translate
+        </button>
         <p className="translations-counts" role="status">
           {progress.done} done · {progress.outdated} outdated · {progress.missing} missing
         </p>
+        {translated && <p className="translations-counts">{translated}</p>}
       </div>
       <div className="translations-list">
-        {[...groups].map(([name, items]) => (
-          <section key={name} aria-label={name}>
-            <h3>{name}</h3>
-            {items.map((item) => {
-              const { context } = item
-              const status = translationStatus(source, locale, item.key)
-              return (
-                <div key={item.key} className="translation-row" data-status={status}>
-                  {context.type === 'page' && context.node ? (
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() => open(locale, context.page, context.node!)}
-                    >
-                      {label(source, item)}
-                    </button>
-                  ) : (
-                    <span>{label(source, item)}</span>
-                  )}
-                  <p className="translation-source">{preview(source, item)}</p>
-                  <TranslationField
-                    // A value saved or undone elsewhere starts the field over.
-                    key={JSON.stringify(translations[item.key]?.value ?? null)}
-                    siteId={siteId}
-                    doc={source}
-                    item={item}
-                    value={translations[item.key]?.value}
+        {[...groups].map(([name, items]) => {
+          const where = items[0]!.context
+          return (
+            <section key={name} aria-label={name}>
+              <h3>
+                {name}
+                {where.type === 'page' && (
+                  <button
+                    type="button"
+                    className="text-button"
                     disabled={disabled}
-                    write={(value) => write(item.key, value)}
-                  />
-                  {status === 'outdated' && (
-                    <button
-                      type="button"
-                      className="text-button"
+                    aria-label={`Auto-translate ${name}`}
+                    onClick={() => translate({ locale, page: where.page })}
+                  >
+                    Auto-translate
+                  </button>
+                )}
+              </h3>
+              {items.map((item) => {
+                const { context } = item
+                const status = translationStatus(source, locale, item.key)
+                return (
+                  <div key={item.key} className="translation-row" data-status={status}>
+                    {context.type === 'page' && context.node ? (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => open(locale, context.page, context.node!)}
+                      >
+                        {label(source, item)}
+                      </button>
+                    ) : (
+                      <span>{label(source, item)}</span>
+                    )}
+                    <p className="translation-source">{preview(source, item)}</p>
+                    <TranslationField
+                      // A value saved or undone elsewhere starts the field over.
+                      key={JSON.stringify(translations[item.key]?.value ?? null)}
+                      siteId={siteId}
+                      doc={source}
+                      item={item}
+                      value={translations[item.key]?.value}
                       disabled={disabled}
-                      aria-label={`Keep the translation of ${label(source, item)}`}
-                      onClick={() =>
-                        void session.save([
-                          {
-                            type: 'translation.set',
-                            locale,
-                            key: item.key,
-                            value: translations[item.key]!.value,
-                          },
-                        ])
-                      }
-                    >
-                      Keep
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </section>
-        ))}
+                      write={(value) => write(item.key, value)}
+                    />
+                    {status === 'outdated' && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        disabled={disabled}
+                        aria-label={`Keep the translation of ${label(source, item)}`}
+                        onClick={() =>
+                          void session.save([
+                            {
+                              type: 'translation.set',
+                              locale,
+                              key: item.key,
+                              value: translations[item.key]!.value,
+                            },
+                          ])
+                        }
+                      >
+                        Keep
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </section>
+          )
+        })}
       </div>
     </>
   )

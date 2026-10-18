@@ -9,7 +9,7 @@ import { InputError } from './errors.js'
  * purpose: hosts that never load the plugin's skills read this, and the guide's topics.
  */
 export const INSTRUCTIONS = `Lacuno builds websites. A site is one JSON document. The person sees every change live in the editor.
-- Call guide first. Before a task, call guide with its topic: build, check, looks, text, content, forms, menu, motion, settings.
+- Call guide first. Before a task, call guide with its topic: build, check, looks, text, content, forms, menu, motion, settings, translate.
 - Read once with document.read. Change with document.apply in few big batches. Pass the revision you read.
 - Check with page.outline, page.preview (text: true) and page.screenshot. Never rebuild the site on your machine.
 - The person says "this" or "here" and the editor is open in the chat: call editor.selection first.
@@ -30,7 +30,7 @@ Work like this:
 2. document.apply with a batch of operations and the revision as expectedRevision. All or nothing. The answer has the new revision, created ids and warnings. Stale revision: read again, send again.
 3. Check the page with page.outline, page.preview and page.screenshot: topic check.
 
-Topics, call guide with one: build, check, looks, text, content, forms, menu, motion, settings.
+Topics, call guide with one: build, check, looks, text, content, forms, menu, motion, settings, translate.
 Operations by group:
 `
 
@@ -175,6 +175,18 @@ The editor's palette has Scroll story, Scroll video and Reading progress.`,
 - Analytics: put the snippet of the provider the person names, exactly as its dashboard gives it, in \`site.headCode\` (site.update), after what is there.
 - site.publish only when the person asks, and only the owner may. It publishes to the testing address.
 - site.build makes the static output.`,
+
+  translate: `## Translate
+A site has one primary language and translations into the others (\`site.locales\`). The layout stays the primary's; only texts, attributes, page names, slugs, SEO fields and entry fields translate.
+1. translations.list with the \`locale\`: the missing and outdated values, with \`glossary\` and \`tone\`. \`page\` for one page; \`next\` as \`cursor\` for more.
+2. Translate each \`source\` in its \`context\`. translations.apply with up to 200 items per call and the revision from the list, then the revision from each answer. \`remaining\` says how many are left.
+- Follow \`glossary\` exactly: a term with a \`translation\` always becomes it; a term without one stays as it is.
+- \`tone\` formal or informal: address the reader that way (Sie or du, vous or tu). No tone: match the source.
+- Rich text: the same JSON nodes and marks, links with the same href. Translate only the text.
+- Slugs (kind slug): lowercase ASCII letters, digits and hyphens, in the language, without stop words where natural: \`ueber-uns\` for about-us.
+- SEO title about 60 characters, description about 155.
+- Never translate brand names, product names, code, addresses, emails or phone numbers.
+- Check with page.preview (text: true) on the language's path, \`/de/…\` for German.`,
 }
 
 /** asset.create only records an asset; the bytes come with the asset.import tool. */

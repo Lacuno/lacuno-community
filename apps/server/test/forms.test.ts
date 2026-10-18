@@ -24,6 +24,7 @@ beforeAll(async () => {
     publishBaseURL: 'http://localhost:3001',
     secret: 'forms-test-secret-4c9e1a7b2d8f3e6a5b0c',
     allowSignup: true,
+    autoTranslate: '/translate',
     mail: async (mail) => {
       if (fail) throw new Error('SMTP is down')
       sent.push(mail)
@@ -89,6 +90,7 @@ const answer = async (response: Response) => [response.status, await response.js
 it('says forms work when the server sends mail', async () => {
   expect(await (await server.app.request(`${origin}/api/config`)).json()).toMatchObject({
     forms: true,
+    autoTranslate: '/translate',
   })
 })
 
@@ -188,9 +190,10 @@ it('tells the visitor to try again when the mail fails or is off', async () => {
     secret: 'forms-test-secret-4c9e1a7b2d8f3e6a5b0c',
   })
   try {
-    expect(await (await silent.app.request(`${origin}/api/config`)).json()).toMatchObject({
-      forms: false,
-    })
+    const config = await (await silent.app.request(`${origin}/api/config`)).json()
+    expect(config).toMatchObject({ forms: false })
+    // Without an auto-translate service configured, the config names none.
+    expect(config).not.toHaveProperty('autoTranslate')
     const response = await silent.published!.request(
       `http://${site}.localhost:3001/_lacuno/forms`,
       {

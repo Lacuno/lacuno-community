@@ -593,3 +593,15 @@ last path segment, SEO field, entry field or title template becomes `translation
 set back to the primary's or cleared becomes `translation.delete`, and anything else is refused
 with one line, so the structure, classes and styles only change in the primary language. Undo
 replays the patches as before.
+
+**Glossary, tone and AI translation.** The glossary (`site.glossary`, terms with an optional
+translation per language; a term without one is never translated) and each translated language's
+`tone` (formal or informal) and `autoTranslate` flag live in the document, so every client that
+translates follows the same rules. AI apps translate through two MCP tools: `translations.list`
+reads the missing and outdated values of a language in pages, with their context, the glossary
+terms that apply and the tone, and `translations.apply` writes a batch of them as
+`translation.set` operations through the same store as `document.apply`, so the batch is atomic,
+checked per item and shown live. Community calls no model (D016): the editor's Auto-translate
+button hands the person's own AI a prompt, unless the server names an auto-translate service
+(`LACUNO_AUTO_TRANSLATE_URL`), whose small contract, status and jobs, is in ARCHITECTURE; any
+such service writes through the document like every other client.

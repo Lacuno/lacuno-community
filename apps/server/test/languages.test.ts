@@ -31,7 +31,24 @@ it('adds a language, translates the site in it and removes it again', async () =
   await settings.getByLabel('Language code', { exact: true }).fill('de')
   await settings.getByRole('button', { name: 'Add language', exact: true }).click()
   await saved()
-  await settings.getByRole('list', { name: 'Languages' }).getByText('Deutsch').waitFor()
+  await settings.getByLabel('Name of de', { exact: true }).waitFor()
+  // German's tone, and a glossary: one term kept as it is, one translated.
+  expect(await settings.getByRole('checkbox', { name: 'Keep in sync' }).count()).toBe(0)
+  await settings.getByLabel('Tone of de', { exact: true }).selectOption('informal')
+  await saved()
+  for (const term of ['Lacuno', 'Website']) {
+    await settings.getByLabel('New term', { exact: true }).fill(term)
+    await settings.getByRole('button', { name: 'Add term', exact: true }).click()
+    await saved()
+  }
+  await settings.getByLabel('Website in de', { exact: true }).fill('Webseite')
+  await settings.getByLabel('Website in de', { exact: true }).blur()
+  await saved()
+  expect((await site()).site).toMatchObject({
+    locales: [{ code: 'en-US' }, { code: 'de', tone: 'informal' }],
+    glossary: [{ term: 'Lacuno' }, { term: 'Website', translations: { de: 'Webseite' } }],
+  })
+  await page.screenshot({ path: path.join(root, '.lacuno/editor-preview/languages-settings.png') })
   await settings.getByRole('button', { name: 'Close', exact: true }).click()
 
   // The picker switches the editor to German, where the layout is locked.
@@ -136,7 +153,8 @@ it('adds a language, translates the site in it and removes it again', async () =
     expect(dialog.message()).toMatch(/^Remove Deutsch\? Its \d+ translations go with it\.$/)
     void dialog.accept()
   })
-  await settings.getByRole('button', { name: 'Remove de', exact: true }).click()
+  await settings.getByRole('button', { name: 'Actions for de', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Remove' }).click()
   await saved()
   await settings.getByRole('button', { name: 'Close', exact: true }).click()
   await expect.poll(() => picker.count()).toBe(0)

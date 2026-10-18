@@ -338,13 +338,15 @@ export function translationProgress(
   page?: string,
 ): TranslationProgress {
   const progress = { done: 0, outdated: 0, missing: 0 }
-  const collection = page ? doc.pages[page]?.collection : undefined
-  for (const { key, context } of translationKeys(doc)) {
-    const counts =
-      !page ||
-      (context.type === 'page' && context.page === page) ||
-      (context.type === 'entry' && context.collection === collection)
-    if (counts) progress[translationStatus(doc, locale, key)]++
-  }
+  for (const item of translationKeys(doc))
+    if (!page || onPage(doc, item, page)) progress[translationStatus(doc, locale, item.key)]++
   return progress
+}
+
+/** Whether a value is one page's: its own, its elements' or, on a collection page, its entries'. */
+export function onPage(doc: Document, { context }: TranslationItem, page: string): boolean {
+  return (
+    (context.type === 'page' && context.page === page) ||
+    (context.type === 'entry' && context.collection === doc.pages[page]?.collection)
+  )
 }

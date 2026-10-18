@@ -24,13 +24,33 @@ export const DOCUMENT_VERSION = 1
 
 const Lang = Page.shape.lang.unwrap()
 
-/** A language the site is in. Draft languages are previewed but not published. */
+/**
+ * A language the site is in. Draft languages are previewed but not published. A translation
+ * into it takes its `tone`; `autoTranslate` asks an auto-translate service to keep it in sync.
+ */
 export const Locale = z.strictObject({
   code: Lang,
   label: z.string().min(1).optional(),
   draft: z.boolean().optional(),
+  tone: z.enum(['formal', 'informal']).optional(),
+  autoTranslate: z.boolean().optional(),
 })
 export type Locale = z.infer<typeof Locale>
+
+/** A term translated the same way everywhere, or, without translations, never translated. */
+export const GlossaryTerm = z.strictObject({
+  term: z.string().trim().min(1),
+  translations: z.record(Lang, z.string().min(1)).optional(),
+  note: z.string().optional(),
+})
+export type GlossaryTerm = z.infer<typeof GlossaryTerm>
+
+export const Glossary = z
+  .array(GlossaryTerm)
+  .max(200)
+  .refine((all) => new Set(all.map((t) => t.term.toLowerCase())).size === all.length, {
+    message: 'each glossary term once',
+  })
 
 /** One translated value, with the hash of the primary-language value it was made from. */
 export const Translation = z.strictObject({ value: z.unknown(), source: z.string() })
@@ -46,7 +66,11 @@ export const SiteSettings = z.object({
     .refine((all) => new Set(all.map((l) => l.code)).size === all.length, {
       message: 'each language once',
     })
+    .refine(([primary]) => !primary?.tone && primary?.autoTranslate === undefined, {
+      message: 'the primary language takes no tone or auto-translate',
+    })
     .optional(),
+  glossary: Glossary.optional(),
   modes: z.array(Mode).min(1),
   fonts: z.array(Font).default([]),
   favicon: AssetId.optional(),

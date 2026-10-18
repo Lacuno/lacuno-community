@@ -128,6 +128,18 @@ export type Config = {
   analytics?: string
   /** Whether published forms email their submissions; servers before forms leave it out. */
   forms?: boolean
+  /**
+   * An auto-translate service's address, when the server is configured with one. The editor calls
+   * it with the person's own credentials, and the service authenticates them itself:
+   * - `GET <url>/status?site=<id>`: `{ available: true }` or `{ available: false, upgradeUrl?, reason? }`
+   * - `POST <url>/jobs` `{ site, locale, scope: 'page' | 'missing' | 'all', page? }`: `{ job }`,
+   *   where `all` is the missing and the outdated values
+   * - `GET <url>/jobs/<id>`: `{ job }`; `DELETE <url>/jobs/<id>` cancels it
+   * A job is `{ id, status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled', done, total,
+   * error? }`. The service writes its translations through the site's document like any client,
+   * so the editor shows them live.
+   */
+  autoTranslate?: string
 }
 
 /** The server's config, read when a component that needs it mounts. */

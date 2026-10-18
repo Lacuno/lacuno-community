@@ -1,5 +1,6 @@
 import { siteLocales } from '@lacuno/schema'
 import { AssetsPanel } from './AssetsPanel.js'
+import type { TranslateRequest } from './AutoTranslate.js'
 import { message } from './api.js'
 import { nodeHome } from './assets.js'
 import { CmsPanel } from './CmsPanel.js'
@@ -50,6 +51,9 @@ export function Sidebar({
   openColors,
   openCms,
   setLocale,
+  translate,
+  translated,
+  keepInSync,
 }: {
   session: DocumentSession
   editing: ComponentEditing
@@ -69,6 +73,11 @@ export function Sidebar({
   openCms: (view: CmsView) => void
   nodeAction: (action: NodeAction, id: string) => void
   setLocale: (code: string) => void
+  /** Opens Auto-translate for a language or one page of it. */
+  translate: (request: TranslateRequest) => void
+  /** The last auto-translation's line. */
+  translated: string
+  keepInSync: boolean
 }) {
   const { doc, frozen, translating, save, leave, setError } = session
   const { editableDoc, editingRoot, editingComponent, editingId } = editing
@@ -124,6 +133,7 @@ export function Sidebar({
             disabled={frozen}
             save={save}
             autoSave={(operations) => save(operations, 'auto')}
+            keepInSync={keepInSync}
             translating={
               translating && session.snapshot
                 ? {
@@ -249,6 +259,8 @@ export function Sidebar({
           <TranslationsPanel
             siteId={siteId}
             session={session}
+            translate={translate}
+            translated={translated}
             open={(locale, page, node) =>
               void leave(() => {
                 setLocale(locale)

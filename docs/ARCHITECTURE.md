@@ -286,6 +286,19 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
   than its original (a 9 MB hero photo goes as 580 KB); the browser serves those from memory and
   aborts every other request, and answers a JPEG at quality 80 of the first screen or of the full
   page cut at 4000 px (`maxHeight`), a PNG of a node, since a photo page's PNG ran to several MB.
+- **Auto-translate.** A server may name an auto-translate service in `LACUNO_AUTO_TRANSLATE_URL`, a
+  path on its own origin or a URL, which `/api/config` passes on as `autoTranslate`. The server
+  itself never calls it and no model is called here: the editor asks the service directly, with
+  the person's credentials, and the service authenticates the request itself.
+  - `GET <url>/status?site=<id>` answers `{ available: true }` or
+    `{ available: false, upgradeUrl?, reason? }`; the editor asks once when it opens and again
+    after each Auto-translate dialog, and an answer that fails counts as not available.
+  - `POST <url>/jobs` with `{ site, locale, scope: 'page' | 'missing' | 'all', page? }` starts a
+    job (`all` is the missing and the outdated values) and answers `{ job }`.
+  - `GET <url>/jobs/<id>` answers `{ job }`, `DELETE <url>/jobs/<id>` cancels it. A job is
+    `{ id, status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled', done, total, error? }`.
+  - The service writes translations through the site's document like any other client, so the
+    editor shows them live, and it reads a language's `autoTranslate` flag to keep it in sync.
 - **Forms** are plain `form` elements. One without its own `action` publishes posting to
   `/_lacuno/forms` on the site's host, with a honeypot and a small script that sends it in the
   background and shows the result. The publishing listener validates the message, rate-limits it

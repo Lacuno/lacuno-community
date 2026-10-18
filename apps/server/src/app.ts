@@ -81,6 +81,8 @@ export type ServerOptions = {
   allowedOrigins?: string[]
   /** Spike: the MCP connector's address, which names the view's origin at claude.ai. */
   connectorUrl?: string
+  /** An auto-translate service's address, a path here or a URL, which the editor calls itself. */
+  autoTranslate?: string
 }
 
 /** A new site from the template, or from a document with its asset bytes as base64 by hash. */
@@ -362,6 +364,7 @@ export async function createServer(options: ServerOptions) {
         local: ['localhost', '127.0.0.1'].includes(new URL(origin).hostname),
         // Behind a gateway, the gateway answers form posts.
         forms: !!gateway || !!options.mail,
+        ...(options.autoTranslate ? { autoTranslate: options.autoTranslate } : {}),
         // Behind a gateway the editor links back to it: the gateway's issuer is its dashboard.
         ...(gateway
           ? {

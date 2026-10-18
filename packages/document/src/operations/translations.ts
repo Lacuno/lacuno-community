@@ -1,4 +1,5 @@
 import {
+  Glossary,
   Locale,
   type Locale as LocaleType,
   primaryLocale,
@@ -16,7 +17,10 @@ const Code = Locale.shape.code
 
 /** Replaces the site's languages, keeping `site.locale` on the primary for older readers. */
 function setLocales(ctx: PlanContext, locales: LocaleType[]): Patch[] {
-  if (locales[0]!.draft) ctx.fail('the primary language cannot be a draft')
+  const [primary] = locales
+  if (primary!.draft) ctx.fail('the primary language cannot be a draft')
+  if (primary!.tone || primary!.autoTranslate !== undefined)
+    ctx.fail('the primary language takes no tone or auto-translate')
   return [
     { op: 'set', path: ['site', 'locales'], value: locales },
     { op: 'set', path: ['site', 'locale'], value: locales[0]!.code },
@@ -42,6 +46,8 @@ const localeUpdate = defineOperation(
     code: Code,
     label: Locale.shape.label.unwrap().nullable().optional(),
     draft: z.boolean().optional(),
+    tone: Locale.shape.tone.unwrap().nullable().optional(),
+    autoTranslate: z.boolean().optional(),
   }),
   (op, ctx) => {
     const locales = [...siteLocales(ctx.doc)]
@@ -51,6 +57,10 @@ const localeUpdate = defineOperation(
     else if (op.label !== undefined) locale.label = op.label
     if (op.draft) locale.draft = true
     else if (op.draft === false) delete locale.draft
+    if (op.tone === null) delete locale.tone
+    else if (op.tone !== undefined) locale.tone = op.tone
+    if (op.autoTranslate) locale.autoTranslate = true
+    else if (op.autoTranslate === false) delete locale.autoTranslate
     locales[index] = locale
     return setLocales(ctx, locales)
   },
@@ -118,6 +128,17 @@ const translationDelete = defineOperation(
   },
 )
 
+/** Replaces the site's glossary; an empty list removes it. */
+const glossarySet = defineOperation(
+  z.strictObject({ type: z.literal('glossary.set'), terms: Glossary }),
+  (op, ctx): Patch[] =>
+    op.terms.length
+      ? [{ op: 'set', path: ['site', 'glossary'], value: op.terms }]
+      : ctx.doc.site.glossary
+        ? [{ op: 'delete', path: ['site', 'glossary'] }]
+        : [],
+)
+
 export const translationOperations = [
   localeAdd,
   localeUpdate,
@@ -125,4 +146,5 @@ export const translationOperations = [
   localeReorder,
   translationSet,
   translationDelete,
+  glossarySet,
 ]

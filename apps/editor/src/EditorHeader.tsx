@@ -31,6 +31,7 @@ export function EditorHeader({
   connections,
   connect,
   setLocale,
+  translate,
 }: {
   siteId: string
   session: DocumentSession
@@ -46,6 +47,8 @@ export function EditorHeader({
   /** Opens the Connect panel, with an app chosen by id. */
   connect: (app?: string) => void
   setLocale: (code: string) => void
+  /** Opens Auto-translate for a language. */
+  translate: (locale: string) => void
 }) {
   const { doc, snapshot, error, busy, dirty, conflict, saved } = session
   const connection = connectionLabel(connections ?? [])
@@ -108,12 +111,19 @@ export function EditorHeader({
           at={languages}
           label="Languages"
           close={() => setLanguages(undefined)}
-          items={locales.map((locale, index) => ({
-            label: `${languageName(locale.code, locale.label)}${locale.draft ? ' (draft)' : ''}${
-              index ? ` · ${percentDone(translationProgress(snapshot.document, locale.code))}%` : ''
-            }`,
-            run: () => void session.leave(() => setLocale(locale.code)),
-          }))}
+          items={[
+            ...locales.map((locale, index) => ({
+              label: `${languageName(locale.code, locale.label)}${locale.draft ? ' (draft)' : ''}${
+                index
+                  ? ` · ${percentDone(translationProgress(snapshot.document, locale.code))}%`
+                  : ''
+              }`,
+              run: () => void session.leave(() => setLocale(locale.code)),
+            })),
+            ...(session.translating
+              ? [{ label: 'Auto-translate', run: () => translate(session.locale) }]
+              : []),
+          ]}
         />
       )}
       <div className="row history-controls">

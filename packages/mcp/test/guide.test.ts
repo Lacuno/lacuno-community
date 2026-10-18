@@ -26,6 +26,8 @@ describe('guide and resources', () => {
       'page.preview',
       'site.build',
       'styles.get',
+      'translations.apply',
+      'translations.list',
     ])
     const guide = textOf(await c.client.callTool({ name: 'guide', arguments: {} }))
     for (const op of MCP_OPERATIONS) expect(guide).toContain(op.type)
@@ -46,6 +48,9 @@ describe('guide and resources', () => {
     expect(await topic('motion')).toContain('data-lc-scrub')
     expect(await topic('motion')).toContain('-g 1')
     expect(await topic('motion')).toContain('keyframes.create')
+    expect(await topic('translate')).toContain('translations.apply')
+    expect(await topic('translate')).toContain('glossary')
+    expect(c.client.getInstructions()).toContain('translate')
     expect(guide).toContain('keyframes: keyframes.create, keyframes.update, keyframes.delete')
     expect(c.client.getInstructions()).toContain('motion')
     for (const name of ['build', 'check', 'looks', 'content', 'forms', 'settings'])
@@ -89,8 +94,8 @@ describe('guide and resources', () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const size = Buffer.byteLength(JSON.stringify(await c.client.listTools()), 'utf8')
-    // The annotations on every tool take about a kilobyte of it.
-    expect(size).toBeLessThan(7000)
+    // The annotations on every tool take about a kilobyte of it, the two translation tools 1.5.
+    expect(size).toBeLessThan(8500)
   })
 
   it('refuses asset.create and points at asset.import', async () => {

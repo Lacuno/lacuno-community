@@ -51,12 +51,13 @@ from a repository without a server, and for building templates.
 - **Progressive discovery.** Agents start with `guide` for the document model and workflow, then
   call it again with a `group` argument for the operation schemas of one group at a time, instead
   of loading every operation schema up front.
-- **Reading.** `document.read`, `page.outline`, `node.get`, `styles.get`, `entries.list`, plus
-  the document schema and operations schema as resources.
+- **Reading.** `document.read`, `page.outline`, `node.get`, `styles.get`, `entries.list`,
+  `translations.list`, plus the document schema and operations schema as resources.
 - **Writing.** `document.apply` is the one writing tool: an atomic batch of operations (D026) with
   version pinning. Every write names the document version it read, and a stale write is rejected
   with the current version so the agent re-reads and retries instead of overwriting. Dry run
-  returns the resulting patches without applying them.
+  returns the resulting patches without applying them. `translations.apply` is a shorthand for a
+  batch of `translation.set` operations through the same path.
 - **Looking.** `page.preview` returns a route's HTML as published, or its visible text with node
   ids; `page.screenshot` returns a JPEG of a route or a PNG of a node through an optional Playwright
   Chromium; `page.view` shows the page to the person, see below; `document.diff` summarises a

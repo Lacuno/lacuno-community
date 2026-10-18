@@ -49,6 +49,7 @@ and site creation. `pnpm dev` builds the editor before starting the server.
 | `LACUNO_SCREENSHOT_URL` | Unset: Playwright where installed, otherwise no `page.screenshot` | Screenshot service for AI apps' `page.screenshot`, such as `http://screenshots:3000` |
 | `LACUNO_SCREENSHOT_SECRET` | Unset | Bearer secret the server sends and the screenshot service requires; set on both or neither |
 | `LACUNO_SCREENSHOT_SLOTS` | `2` | Screenshot service only: pages rendered at once; others wait up to 20 seconds |
+| `LACUNO_AUTO_TRANSLATE_URL` | Unset: Auto-translate offers your own AI | An auto-translate service the editor calls for the Auto-translate button, a path on this origin or a URL; see the contract in `docs/ARCHITECTURE.md` |
 
 Relative directory settings resolve from the repository root. Both source and bundled servers
 automatically load the root `.env`; exported environment variables take precedence. Without `.env`,

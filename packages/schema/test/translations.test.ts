@@ -42,6 +42,21 @@ describe('languages', () => {
     doc.site.locales = [{ code: 'en' }, { code: 'en' }]
     expect(() => parseDocument(doc)).toThrow(/each language once/)
   })
+
+  it('keeps tone and sync to translated languages, and a glossary term once', () => {
+    const doc = fixtureTwoLanguageDocument()
+    doc.site.locales = [{ code: 'en' }, { code: 'de', tone: 'formal', autoTranslate: true }]
+    delete doc.translations.fr
+    doc.site.glossary = [{ term: 'Lacuno' }, { term: 'Site', translations: { de: 'Website' } }]
+    expect(parseDocument(doc).site.glossary).toHaveLength(2)
+    doc.site.locales = [{ code: 'en', tone: 'formal' }, { code: 'de' }]
+    expect(() => parseDocument(doc)).toThrow(/primary language takes no tone/)
+    doc.site.locales = [{ code: 'en', autoTranslate: false }, { code: 'de' }]
+    expect(() => parseDocument(doc)).toThrow(/primary language takes no tone/)
+    doc.site.locales = [{ code: 'en' }, { code: 'de' }]
+    doc.site.glossary = [{ term: 'Site' }, { term: 'SITE' }]
+    expect(() => parseDocument(doc)).toThrow(/each glossary term once/)
+  })
 })
 
 describe('translation keys', () => {

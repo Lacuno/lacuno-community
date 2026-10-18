@@ -23,6 +23,9 @@ if (publishBaseURL && publishPort === port)
 const mail = smtp()
 // Spike: the connector URL claude.ai is given names the view's origin the runtime must allow.
 const connectorUrl = process.env.LACUNO_CONNECTOR_URL
+const autoTranslate = process.env.LACUNO_AUTO_TRANSLATE_URL
+if (autoTranslate && !autoTranslate.startsWith('/') && !URL.canParse(autoTranslate))
+  throw new Error('LACUNO_AUTO_TRANSLATE_URL must be a path such as /translate or a URL')
 const screenshotUrl = process.env.LACUNO_SCREENSHOT_URL
 const screenshot = screenshotUrl
   ? serviceScreenshot(screenshotUrl, process.env.LACUNO_SCREENSHOT_SECRET)
@@ -55,6 +58,7 @@ const server = await createServer({
   allowSignup: process.env.LACUNO_ALLOW_SIGNUP === 'true',
   ...(mail ? { mail } : {}),
   ...(screenshot && { screenshot }),
+  ...(autoTranslate ? { autoTranslate } : {}),
 })
 const listener = serve(
   { fetch: server.app.fetch, port, hostname: process.env.HOST ?? '127.0.0.1' },

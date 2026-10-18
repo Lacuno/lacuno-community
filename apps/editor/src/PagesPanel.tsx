@@ -32,6 +32,7 @@ export function PagesPanel({
   save,
   autoSave,
   translating,
+  keepInSync,
 }: {
   doc: Document
   siteId: string
@@ -41,6 +42,8 @@ export function PagesPanel({
   save: (operations: Operation[]) => Promise<boolean>
   autoSave: (operations: Operation[]) => Promise<boolean>
   translating: Translating | undefined
+  /** Whether an auto-translate service can keep languages in sync. */
+  keepInSync: boolean
 }) {
   const analytics = useConfig().config?.analytics
   const [editing, setEditing] = useState<Page | 'new' | 'site'>()
@@ -215,6 +218,7 @@ export function PagesPanel({
         <SiteSettings
           doc={doc}
           siteId={siteId}
+          keepInSync={keepInSync}
           close={() => setEditing(undefined)}
           autoSave={autoSave}
         />

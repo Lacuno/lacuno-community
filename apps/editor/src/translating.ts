@@ -68,6 +68,7 @@ export function toTranslations(doc: Document, locale: string, operations: Operat
       case 'locale.reorder':
       case 'translation.set':
       case 'translation.delete':
+      case 'glossary.set':
         out.push(op)
         break
       case 'node.update': {

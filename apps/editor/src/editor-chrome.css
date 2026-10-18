@@ -2108,6 +2108,29 @@
 .editor .ask-dialog textarea {
   margin: 8px 0 12px;
 }
+.ask-dialog .text-button {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+}
+.auto-translate-dialog fieldset {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  padding: 0;
+  border: 0;
+  font-size: 13px;
+}
+.auto-translate-dialog legend {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.auto-translate-dialog progress {
+  width: 100%;
+  margin-top: 12px;
+}
 .ask-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2169,6 +2192,34 @@
   grid-column: 1 / -1;
   margin: 0;
 }
+.glossary {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+}
+.glossary th {
+  padding: 0 6px 4px 0;
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+}
+.glossary th:last-child {
+  width: 24px;
+}
+.glossary td {
+  padding: 3px 6px 3px 0;
+}
+.editor .glossary input {
+  width: 100%;
+}
+.glossary-remove {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+}
 .language-list {
   margin: 0;
   padding: 0;
@@ -2178,20 +2229,29 @@
 .language-list li {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 4px 0;
 }
-.language-list li > span {
+.language-code {
+  width: 3.5rem;
+  flex: none;
+  font-weight: 600;
+}
+.editor .language-list input:not([type="checkbox"]) {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.language-list input:not([type="checkbox"]) {
-  width: 8rem;
+.language-options {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+.editor .language-list select {
+  width: auto;
 }
 .language-list em {
+  flex: none;
   color: var(--muted);
   font-style: normal;
 }
@@ -2242,6 +2302,18 @@
   color: var(--accent);
   font-size: 12px;
   text-align: left;
+}
+.translations-list h3 {
+  display: flex;
+  justify-content: space-between;
+}
+.translations-list h3 .text-button {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  text-transform: none;
 }
 .translation-source {
   margin: 0;

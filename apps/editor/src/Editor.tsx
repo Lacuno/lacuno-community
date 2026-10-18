@@ -2,6 +2,7 @@ import type { Document, State } from '@lacuno/schema'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Role } from './App.js'
 import { AskAi, prompt } from './AskAi.js'
+import { AutoTranslate, type TranslateRequest, useAutoTranslate } from './AutoTranslate.js'
 import { api, embed, message, useConfig } from './api.js'
 import type { LivePreview } from './Canvas.js'
 import { CanvasPanel } from './CanvasPanel.js'
@@ -97,6 +98,9 @@ export function Editor({
   // Open with the app chosen on opening, if any.
   const [connectOpen, setConnectOpen] = useState<{ app: string | undefined }>()
   const [askOpen, setAskOpen] = useState(false)
+  const autoTranslate = useAutoTranslate(siteId)
+  const [translateOpen, setTranslateOpen] = useState<TranslateRequest>()
+  const [translated, setTranslated] = useState('')
   const [cmsView, setCmsView] = useState<CmsView>()
   const { connections, refresh: refreshConnections } = useConnections(siteId, !!connectOpen)
   const [computed, setComputed] = useState<{ id: string; values: Record<string, string> }>({
@@ -290,6 +294,7 @@ export function Editor({
           setConnectOpen({ app })
         }}
         setLocale={setLocale}
+        translate={(locale) => setTranslateOpen({ locale, page: pageId })}
       />
       {connectOpen && (
         <ConnectPanel
@@ -303,11 +308,23 @@ export function Editor({
       )}
       {askOpen && doc && node && page && (
         <AskAi
-          site={siteId}
-          page={page.id}
-          label={nodeLabel(node)}
-          id={selected}
+          title={`Ask your AI about ${nodeLabel(node)}`}
+          prompt={prompt(siteId, page.id, selected)}
           close={() => setAskOpen(false)}
+        />
+      )}
+      {translateOpen && session.snapshot && (
+        <AutoTranslate
+          siteId={siteId}
+          doc={session.snapshot.document}
+          request={translateOpen}
+          service={autoTranslate}
+          connect={() => setConnectOpen({ app: undefined })}
+          translated={setTranslated}
+          close={() => {
+            setTranslateOpen(undefined)
+            autoTranslate.refresh()
+          }}
         />
       )}
       {publishOpen && session.snapshot && (
@@ -407,6 +424,9 @@ export function Editor({
           elementActionsId={elementActionsId}
           nodeAction={(action, id) => void nodeAction(action, id)}
           setLocale={setLocale}
+          translate={setTranslateOpen}
+          translated={translated}
+          keepInSync={!!autoTranslate.status?.available}
         />
         <CanvasPanel
           session={session}

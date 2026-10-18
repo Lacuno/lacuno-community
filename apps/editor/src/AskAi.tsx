@@ -10,24 +10,25 @@ export const prompt = (site: string, page: string, id: string) =>
   `In Lacuno, on site ${site}, page ${page}, element ${id}: fix what looks off. Align it with its neighbours, make its spacing match the rest of the page, and keep the text readable at phone width. Keep the change small, check it with a screenshot, then tell me what you changed.`
 
 /**
- * A ready-made prompt about the selected element for the designer's own AI app. Lacuno calls no
- * model: the text opens prefilled in claude.ai, Claude Desktop or ChatGPT, or is copied for any
- * other app.
+ * A ready-made prompt for the designer's own AI app, about the selected element or a task such as
+ * translating. Lacuno calls no model: the text opens prefilled in claude.ai, Claude Desktop or
+ * ChatGPT, or is copied for any other app. `lead` is one line above the prompt.
  */
 export function AskAi({
-  site,
-  page,
-  label,
-  id,
+  title,
+  prompt: initial,
+  lead,
+  connect,
   close,
 }: {
-  site: string
-  page: string
-  label: string
-  id: string
+  title: string
+  prompt: string
+  lead?: string
+  /** Opens the Connect panel, linked from the lead. */
+  connect?: () => void
   close: () => void
 }) {
-  const [text, setText] = useState(() => prompt(site, page, id))
+  const [text, setText] = useState(initial)
   const [status, setStatus] = useState('')
   const field = useId()
   const copy = async () => {
@@ -41,11 +42,21 @@ export function AskAi({
   const encoded = encodeURIComponent(text)
   return (
     <Dialog
-      title={`Ask your AI about ${label}`}
+      title={title}
       className="publish-dialog ask-dialog"
       closeName="Close ask your AI"
       close={close}
     >
+      {lead && (
+        <p>
+          {lead}{' '}
+          {connect && (
+            <button type="button" className="text-button" onClick={connect}>
+              Connect your AI
+            </button>
+          )}
+        </p>
+      )}
       <label htmlFor={field}>Prompt</label>
       <textarea
         id={field}
@@ -69,7 +80,7 @@ export function AskAi({
       <p role="status" className="connect-status">
         {status}
       </p>
-      <p className="hint">Your AI needs Lacuno connected: see Connect your AI.</p>
+      {!lead && <p className="hint">Your AI needs Lacuno connected: see Connect your AI.</p>}
     </Dialog>
   )
 }

@@ -12,7 +12,19 @@ import {
   referencesToEntry,
   subtreeIds,
 } from '@lacuno/document'
-import { AssetMime, type AssetRef, Document, type Node, parseDocument } from '@lacuno/schema'
+import {
+  AssetMime,
+  type AssetRef,
+  Document,
+  type Node,
+  onPage,
+  parseDocument,
+  primaryLocale,
+  siteLocales,
+  type TranslationItem,
+  translationKeys,
+  translationStatus,
+} from '@lacuno/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { diffDocuments, formatDiff } from './diff.js'
@@ -130,6 +142,46 @@ const adds = {
   openWorldHint: false,
 }
 
+/** A translated language of the site, or why not. */
+function translatedLocale(d: Document, locale: string) {
+  const found = siteLocales(d).find((l) => l.code === locale)
+  if (!found) throw new InputError(`unknown language ${locale}`)
+  if (locale === primaryLocale(d))
+    throw new InputError(`${locale} is the primary language; change the value itself instead`)
+  return found
+}
+
+const PAGE_PARTS: Record<string, string> = {
+  name: 'page name',
+  path: 'URL slug',
+  'seo.title': 'SEO title',
+  'seo.description': 'SEO description',
+  'seo.ogImage': 'social image',
+}
+
+/** Where a value is, in a few plain words: its page or collection, element and field. */
+function translationContext(d: Document, { key, context }: TranslationItem): string {
+  if (context.type === 'site') return 'site title template'
+  if (context.type === 'entry') {
+    const collection = d.collections[context.collection]
+    const field = collection?.fields.find((f) => f.id === context.field)
+    return `collection ${collection?.name}, entry ${context.entry}, field ${field?.label}`
+  }
+  const where =
+    context.type === 'page'
+      ? `page ${d.pages[context.page]?.name} (${d.pages[context.page]?.path})`
+      : `component ${d.components[context.component]?.name}`
+  if (context.type === 'page' && !context.node)
+    return `${where}, ${PAGE_PARTS[key.slice(key.indexOf('.') + 1)]}`
+  const node = d.nodes[context.node as string]
+  const part = /\.(attr|prop)\.(.+)$/.exec(key)
+  return `${where}, ${node && ('tag' in node ? node.tag : node.type)}${part ? ` ${part[1]} ${part[2]}` : ' text'}`
+}
+
+/** Missing and outdated translations of a language, the ones still to do. */
+const remaining = (d: Document, locale: string) =>
+  translationKeys(d).filter((item) => translationStatus(d, locale, item.key) !== 'done').length
+
 function lenient(shape: z.ZodRawShape): z.ZodRawShape {
   return Object.fromEntries(
     Object.entries(shape).map(([key, field]) => [
@@ -221,6 +273,109 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
               }
             : applied,
         )
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'translations.list',
+    {
+      annotations: reads,
+      description:
+        "Read-only: the values to translate into a language, with the site's glossary and the language's tone. Missing and outdated ones by default, every one with status all; page: one page's. Pass next as cursor for more.",
+      inputSchema: {
+        locale: z.string(),
+        status: z.enum(['missing', 'outdated', 'all']).optional(),
+        page: z.string().optional(),
+        limit: z.number().int().min(1).max(500).optional(),
+        cursor: z.string().optional(),
+      },
+    },
+    async ({ locale, status, page, limit = 200, cursor }) => {
+      try {
+        const { document: d, revision } = store.read()
+        const { tone } = translatedLocale(d, locale)
+        if (page !== undefined && !d.pages[page]) throw new InputError(`unknown page ${page}`)
+        let all = translationKeys(d)
+        if (cursor !== undefined) {
+          const at = all.findIndex((item) => item.key === cursor)
+          if (at < 0) throw new InputError(`unknown cursor ${cursor}; list again without it`)
+          all = all.slice(at + 1)
+        }
+        const items = []
+        let next: string | undefined
+        for (const item of all) {
+          if (page !== undefined && !onPage(d, item, page)) continue
+          const state = translationStatus(d, locale, item.key)
+          if (!(status === 'all' || (status ? state === status : state !== 'done'))) continue
+          if (items.length === limit) {
+            next = items.at(-1)!.key
+            break
+          }
+          const current = d.translations[locale]?.[item.key]?.value
+          items.push({
+            key: item.key,
+            kind: item.kind,
+            source: item.value,
+            ...(current !== undefined ? { current } : {}),
+            status: state,
+            context: translationContext(d, item),
+          })
+        }
+        // A term without translations is never translated; one with them, only into those.
+        const glossary = (d.site.glossary ?? []).flatMap(({ term, translations, note }) =>
+          !translations || translations[locale]
+            ? [{ term, ...(translations ? { translation: translations[locale] } : {}), note }]
+            : [],
+        )
+        return ok({ revision, locale, tone, glossary, items, next })
+      } catch (e) {
+        return fail(e)
+      }
+    },
+  )
+
+  server.registerTool(
+    'translations.apply',
+    {
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      description:
+        "Writes translations into a language atomically: keys from translations.list, each value of its source's kind. Pass the revision you listed. Answers how many remain.",
+      inputSchema: {
+        locale: z.string(),
+        expectedRevision: z.number().int().nonnegative(),
+        items: z
+          .array(z.object({ key: z.string(), value: z.unknown() }))
+          .min(1)
+          .max(500),
+        dryRun: z.boolean().optional(),
+      },
+    },
+    async ({ locale, expectedRevision, items, dryRun }) => {
+      try {
+        translatedLocale(store.read().document, locale)
+        const batch = {
+          expectedRevision,
+          operations: items.map(
+            ({ key, value }): Operation => ({ type: 'translation.set', locale, key, value }),
+          ),
+          ...(dryRun ? { dryRun } : {}),
+        }
+        const { patches, ...result } = await store.apply(batch)
+        if (!dryRun) options.onApply?.(batch, { patches, ...result })
+        const d = store.read().document
+        return ok({
+          ...result,
+          applied: items.length,
+          remaining: remaining(dryRun ? applyPatches(d, patches) : d, locale),
+        })
       } catch (e) {
         return fail(e)
       }

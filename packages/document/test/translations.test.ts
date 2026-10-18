@@ -63,6 +63,51 @@ describe('languages', () => {
     failing([{ type: 'locale.update', code: 'it' }], /unknown language it/)
   })
 
+  it('sets a tone and the sync flag on a translated language, never on the primary', () => {
+    const { document } = run([
+      { type: 'locale.update', code: 'de', tone: 'informal', autoTranslate: true },
+      { type: 'locale.update', code: 'fr', tone: 'formal' },
+      { type: 'locale.update', code: 'fr', tone: null },
+    ])
+    expect(document.site.locales).toEqual([
+      { code: 'en' },
+      { code: 'de', tone: 'informal', autoTranslate: true },
+      { code: 'fr', draft: true },
+    ])
+    failing(
+      [{ type: 'locale.update', code: 'en', tone: 'formal' }],
+      /primary language takes no tone/,
+    )
+    failing(
+      [
+        { type: 'locale.update', code: 'de', autoTranslate: true },
+        { type: 'locale.reorder', codes: ['de', 'en', 'fr'] },
+      ],
+      /primary language takes no tone/,
+    )
+  })
+
+  it('replaces the glossary, each term once, and removes it when empty', () => {
+    const terms = [
+      { term: 'Lacuno' },
+      { term: 'Site', translations: { de: 'Website' }, note: 'the whole site' },
+    ]
+    const { document } = run([{ type: 'glossary.set', terms }])
+    expect(document.site.glossary).toEqual(terms)
+    expect(run([{ type: 'glossary.set', terms: [] }], document).document.site.glossary).toBe(
+      undefined,
+    )
+    expect(run([{ type: 'glossary.set', terms: [] }]).document.site).not.toHaveProperty('glossary')
+    failing(
+      [{ type: 'glossary.set', terms: [{ term: 'Site' }, { term: 'site' }] }],
+      /each glossary term once/,
+    )
+    failing(
+      [{ type: 'glossary.set', terms: Array.from({ length: 201 }, (_, i) => ({ term: `t${i}` })) }],
+      /200/,
+    )
+  })
+
   it('removes a language with its translations, but never the primary', () => {
     const { document } = run([{ type: 'locale.remove', code: 'de' }])
     expect(document.site.locales!.map((l) => l.code)).toEqual(['en', 'fr'])
