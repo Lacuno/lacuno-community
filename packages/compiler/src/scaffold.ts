@@ -1,5 +1,6 @@
 import { copyFile, link as hardLink, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import type { CompiledToken } from '@lacuno/css'
 import type { CssValue, Document } from '@lacuno/schema'
 import { assetFileName, isImage } from './assets.js'
 import { BuildError } from './errors.js'
@@ -10,6 +11,8 @@ export type ScaffoldInput = {
   siteDir: string
   doc: Document
   css: string
+  /** The default mode's design tokens, published as `/_lacuno/tokens.json`. */
+  tokens: CompiledToken[]
   /** Installed `astro` package directory, linked as `node_modules/astro`. */
   astroDir: string
   /** The compiler package directory, linked as `node_modules/@lacuno/compiler`. */
@@ -118,7 +121,14 @@ export async function linkFile(source: string, target: string): Promise<void> {
 export async function writeScaffold(input: ScaffoldInput): Promise<void> {
   const { root, siteDir, doc } = input
   await rm(root, { recursive: true, force: true })
-  for (const d of ['src/pages', 'src/styles', 'src/data', 'src/assets', 'public/assets']) {
+  for (const d of [
+    'src/pages',
+    'src/styles',
+    'src/data',
+    'src/assets',
+    'public/assets',
+    'public/_lacuno',
+  ]) {
     await mkdir(path.join(root, d), { recursive: true })
   }
   await link(input.astroDir, path.join(root, 'node_modules', 'astro'))
@@ -132,6 +142,7 @@ export async function writeScaffold(input: ScaffoldInput): Promise<void> {
     JSON.stringify({ maxImageWidth: input.maxImageWidth }),
   )
   await writeFile(path.join(root, 'public/robots.txt'), robots(doc.site.url))
+  await writeFile(path.join(root, 'public/_lacuno/tokens.json'), JSON.stringify(input.tokens))
 
   const inCss = cssImageAssets(doc)
   for (const asset of Object.values(doc.assets)) {

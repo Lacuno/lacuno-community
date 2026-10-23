@@ -35,7 +35,15 @@ describe('writeScaffold', () => {
     const doc = await writeFixtureSite(siteDir)
     const fake = await tmp()
     const root = path.join(siteDir, '.lacuno', 'astro')
-    await writeScaffold({ root, siteDir, doc, css: 'body{}', astroDir: fake, compilerDir: fake })
+    await writeScaffold({
+      root,
+      siteDir,
+      doc,
+      css: 'body{}',
+      tokens: [],
+      astroDir: fake,
+      compilerDir: fake,
+    })
     const hero = doc.assets['a-hero']!
     expect(await readFile(path.join(root, 'src/pages/[...path].astro'), 'utf8')).toBe(ROUTE_SOURCE)
     expect(await readFile(path.join(root, 'src/data/images.ts'), 'utf8')).toBe(IMAGES_SOURCE)
@@ -59,10 +67,26 @@ describe('writeScaffold', () => {
     doc.site.url = 'https://example.com'
     const fake = await tmp()
     const root = path.join(siteDir, '.lacuno', 'astro')
-    await writeScaffold({ root, siteDir, doc, css: '', astroDir: fake, compilerDir: fake })
+    await writeScaffold({
+      root,
+      siteDir,
+      doc,
+      css: '',
+      tokens: [],
+      astroDir: fake,
+      compilerDir: fake,
+    })
     const stale = path.join(root, 'src/stale.txt')
     await writeFile(stale, 'x')
-    await writeScaffold({ root, siteDir, doc, css: '', astroDir: fake, compilerDir: fake })
+    await writeScaffold({
+      root,
+      siteDir,
+      doc,
+      css: '',
+      tokens: [],
+      astroDir: fake,
+      compilerDir: fake,
+    })
     expect(existsSync(stale)).toBe(false)
     expect(await readFile(path.join(root, 'public/robots.txt'), 'utf8')).toContain(
       'Sitemap: https://example.com/sitemap-index.xml',
@@ -92,10 +116,18 @@ describe('writeScaffold', () => {
     const fake = await tmp()
     const root = path.join(siteDir, '.lacuno', 'astro')
     await expect(
-      writeScaffold({ root, siteDir, doc, css: '', astroDir: fake, compilerDir: fake }),
+      writeScaffold({ root, siteDir, doc, css: '', tokens: [], astroDir: fake, compilerDir: fake }),
     ).rejects.toMatchObject({ kind: 'render', message: expect.stringContaining('a-pdf') })
     delete doc.assets['a-pdf']
-    await writeScaffold({ root, siteDir, doc, css: '', astroDir: fake, compilerDir: fake })
+    await writeScaffold({
+      root,
+      siteDir,
+      doc,
+      css: '',
+      tokens: [],
+      astroDir: fake,
+      compilerDir: fake,
+    })
     const hero = doc.assets['a-hero']!
     expect(existsSync(path.join(root, 'public/assets', `${hero.hash}.png`))).toBe(true)
     expect(existsSync(path.join(root, 'src/assets', `${hero.hash}.png`))).toBe(true)

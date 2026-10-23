@@ -1,4 +1,11 @@
-import type { AssetRef, Breakpoint, Document, State, StyleDecl } from '@lacuno/schema'
+import type {
+  AssetRef,
+  Breakpoint,
+  DesignTokenGroup,
+  Document,
+  State,
+  StyleDecl,
+} from '@lacuno/schema'
 import {
   BASE_BREAKPOINT_ID,
   designTokenCssName,
@@ -21,9 +28,19 @@ export type GenerateOptions = {
   previewStates?: boolean
 }
 
+/** A design token as it compiles for one mode: `value` is exactly what the stylesheet sets. */
+export type CompiledToken = {
+  name: string
+  cssName: string
+  group: DesignTokenGroup
+  value: string
+}
+
 export type Stylesheet = {
   css: string
   classNames: ClassNames
+  /** The `:root` design tokens, those of the default mode. */
+  tokens: CompiledToken[]
 }
 
 const STATE_ORDER: readonly State[] = StateSchema.options
@@ -39,27 +56,30 @@ img, video, svg { display: block; max-width: 100%; height: auto; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; }`
 
+function modeTokens(doc: Document, mode: string, ctx: ValueContext): CompiledToken[] {
+  return Object.values(doc.designTokens)
+    .sort((a, b) => (a.name < b.name ? -1 : 1))
+    .flatMap((t) => {
+      const v = t.values[mode]
+      if (!v) return []
+      const value = serializeValue(v, ctx)
+      return [{ name: t.name, cssName: designTokenCssName(t.name), group: t.group, value }]
+    })
+}
+
 /** Emit `:root` design tokens for the default mode and overrides per extra mode. */
-function generateDesignTokens(doc: Document, ctx: ValueContext): string {
-  const modes = doc.site.modes
-  const def = modes.find((m) => m.default) ?? modes[0]
-  if (!def) return ''
-  const designTokens = Object.values(doc.designTokens).sort((a, b) => (a.name < b.name ? -1 : 1))
-  const lines = (mode: string): string[] =>
-    designTokens
-      .map((t) => {
-        const v = t.values[mode]
-        return v ? `  ${designTokenCssName(t.name)}: ${serializeValue(v, ctx)};` : undefined
-      })
-      .filter((l): l is string => !!l)
+function generateDesignTokens(doc: Document, root: CompiledToken[], ctx: ValueContext): string {
+  const lines = (tokens: CompiledToken[]): string[] =>
+    tokens.map((t) => `  ${t.cssName}: ${t.value};`)
+  const def = defaultMode(doc)
   const blocks: string[] = []
 
-  const rootLines = lines(def.id)
+  const rootLines = lines(root)
   if (rootLines.length) blocks.push(`:root {\n${rootLines.join('\n')}\n}`)
 
-  for (const mode of modes) {
+  for (const mode of doc.site.modes) {
     if (mode === def) continue
-    const own = lines(mode.id)
+    const own = lines(modeTokens(doc, mode.id, ctx))
     if (!own.length) continue
     const body = own.join('\n')
     if (mode.media) {
@@ -71,6 +91,10 @@ function generateDesignTokens(doc: Document, ctx: ValueContext): string {
     if (mode.selector) blocks.push(`${mode.selector} {\n${body}\n}`)
   }
   return blocks.join('\n')
+}
+
+function defaultMode(doc: Document) {
+  return doc.site.modes.find((m) => m.default) ?? doc.site.modes[0]
 }
 
 function breakpointOrder(doc: Document): Breakpoint[] {
@@ -160,7 +184,9 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
   const sections: string[] = []
 
   if (options.reset !== false) sections.push(RESET)
-  const designTokens = generateDesignTokens(doc, ctx)
+  const def = defaultMode(doc)
+  const tokens = def ? modeTokens(doc, def.id, ctx) : []
+  const designTokens = generateDesignTokens(doc, tokens, ctx)
   if (designTokens) sections.push(designTokens)
 
   const decls = Object.values(doc.styles)
@@ -183,7 +209,7 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
   const words = wordsCss(doc)
   if (words) sections.push(words)
   if (hasTable(doc)) sections.push(TABLE_CSS)
-  return { css: `${sections.join('\n\n')}\n`, classNames: names }
+  return { css: `${sections.join('\n\n')}\n`, classNames: names, tokens }
 }
 
 /** A stylesheet inlined in HTML: `<` becomes the CSS escape `\3c ` so it cannot close the element. */

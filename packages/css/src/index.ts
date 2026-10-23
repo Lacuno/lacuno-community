@@ -1,4 +1,5 @@
 export {
+  type CompiledToken,
   type GenerateOptions,
   generateStylesheet,
   type Stylesheet,

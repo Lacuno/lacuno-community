@@ -193,6 +193,10 @@ describe('publishing', () => {
     const assetPath = originalHtml.match(/(?:src|href)="(\/(?:_astro|assets)\/[^" ]+)"/)?.[1]
     expect(assetPath).toBeTruthy()
     expect((await live(assetPath)).headers.get('cache-control')).toContain('immutable')
+    const tokens = await live('/_lacuno/tokens.json')
+    expect(tokens.headers.get('content-type')).toBe('application/json')
+    expect(tokens.headers.get('cache-control')).toBe('no-cache')
+    expect(Array.isArray(await tokens.json())).toBe(true)
     // Ranges, so a browser can seek a video.
     const whole = new Uint8Array(await (await live(assetPath)).arrayBuffer())
     const part = await live(assetPath, { headers: { range: 'bytes=2-5' } })
@@ -350,6 +354,9 @@ describe('publishing', () => {
         expect(page.headers.get('x-lacuno-release')).toBe(sent)
         expect(page.headers.get('x-robots-tag')).toBe('noindex, nofollow')
         expect((await testing('/missing')).headers.get('x-robots-tag')).toBe('noindex, nofollow')
+        expect((await testing('/_lacuno/tokens.json')).headers.get('content-type')).toBe(
+          'application/json',
+        )
         const livePage = await live()
         expect(livePage.headers.get('x-lacuno-release')).toBe(production)
         expect(livePage.headers.get('x-robots-tag')).toBeNull()

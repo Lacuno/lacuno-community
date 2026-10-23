@@ -50,6 +50,15 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     expect(existsSync(path.join(dir, 'dist/old-blog/index.html'))).toBe(true)
     expect(existsSync(path.join(dir, 'dist/sitemap-index.xml'))).toBe(true)
     expect(await readFile(path.join(dir, 'dist/404.html'), 'utf8')).toContain('Page not found')
+    // The default mode's design tokens, as the stylesheet's :root sets them.
+    const tokens = JSON.parse(await readFile(path.join(dir, 'dist/_lacuno/tokens.json'), 'utf8'))
+    expect(tokens).toContainEqual({
+      name: 'color.brand',
+      cssName: '--color-brand',
+      group: 'color',
+      value: '#3b5bdb',
+    })
+    expect(tokens).toContainEqual(expect.objectContaining({ name: 'color.fg', value: '#111' }))
     expect(existsSync(path.join(dir, 'dist/404/index.html'))).toBe(false)
     // The noindex post page and the not-found page stay out of the sitemap.
     const sitemap = await readFile(path.join(dir, 'dist/sitemap-0.xml'), 'utf8')
