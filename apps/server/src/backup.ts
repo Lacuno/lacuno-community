@@ -145,6 +145,11 @@ async function snapshotFiles(source: string, destination: string) {
       const directory = `builds/${row.site_id}/${row.id}/dist`
       for (const name of await files(source, directory)) required.add(name)
     }
+    // Site passwords stay with the live server; a database from before them has none.
+    if (snapshot.prepare("SELECT 1 FROM sqlite_master WHERE name='site_password'").get()) {
+      snapshot.pragma('secure_delete = ON')
+      snapshot.exec('DELETE FROM site_password')
+    }
     // Interrupted jobs must never resume against a partially copied build directory.
     snapshot
       .prepare(

@@ -69,6 +69,7 @@ committed but not scheduled. **Deferred** means we have decided not to build it 
 | --- | --- | --- |
 | One-click publish: compile to Astro, build, serve static output from the instance | MVP | |
 | Testing and production environments with separate URLs | MVP | |
+| Password protection for the testing and the live site | MVP | Set in the Publish dialog; visitors see a password page until they enter it, and stay in for 30 days or until it changes. Cloud manages its own |
 | Managed custom domains and automatic TLS provisioning | Cloud | Community operators configure their own DNS, proxy and certificates |
 | Export the static output as a zip or push it to a git repository | MVP | The escape hatch. Astro is an internal engine, so its project is not exported (D012) |
 | Deploy hooks for Cloudflare Pages, Netlify, Vercel, GitHub Pages | Next | Push the built output |

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import path from 'node:path'
 import { serve } from '@hono/node-server'
 import Database from 'better-sqlite3'
@@ -22,7 +23,12 @@ if (process.argv[2] === '--list') {
   sqlite.close()
 } else {
   const server = serve({
-    fetch: publishedApp(reader, smtp()).fetch,
+    // Without the editor runtime's secret, visitors unlock a protected site again here.
+    fetch: publishedApp(
+      reader,
+      smtp(),
+      process.env.BETTER_AUTH_SECRET ?? randomBytes(32).toString('hex'),
+    ).fetch,
     port,
     hostname: process.env.HOST ?? '127.0.0.1',
   })

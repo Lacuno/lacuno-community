@@ -149,3 +149,22 @@
 .release-list > li > button + button {
   margin-left: 8px;
 }
+.site-passwords {
+  margin-top: 24px;
+}
+.site-passwords h3 {
+  font-size: 14px;
+}
+.site-passwords form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-top: 8px;
+}
+.site-passwords .cms-switch {
+  width: 150px;
+}
+.site-passwords input {
+  flex: 1;
+}

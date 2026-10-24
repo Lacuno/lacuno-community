@@ -48,6 +48,7 @@ import {
 } from './mcp.js'
 import { createOAuth, gatewayUser, type OAuth, relayFetch } from './oauth.js'
 import { OwnerSetup } from './owner-setup.js'
+import { hashPassword } from './passwords.js'
 import { SqlitePersistence } from './persistence.js'
 import { publishedApp } from './published.js'
 import { rangedBody } from './ranges.js'
@@ -272,7 +273,8 @@ export async function createServer(options: ServerOptions) {
     const bearerAllows = (method: string, path: string, held: EditorToken) =>
       (method === 'GET' && ['/api/config', '/api/auth/get-session'].includes(path)) ||
       (path.startsWith(`/api/sites/${held.siteId}/`) &&
-        (method === 'GET' || !/^\/api\/sites\/[^/]+\/(releases|connections)(\/|$)/.test(path)))
+        (method === 'GET' ||
+          !/^\/api\/sites\/[^/]+\/(releases|connections|passwords)(\/|$)/.test(path)))
     // What each person's embedded editor last selected, by site and user, for editor.selection.
     const selections = new Map<string, { page: string; node?: string | undefined; at: number }>()
     const allowedOrigins = new Set(options.allowedOrigins ?? [])
@@ -900,6 +902,40 @@ export async function createServer(options: ServerOptions) {
       releases!.rollback(c.req.param('id'), id, expectedId, target)
       return c.json({ id, target })
     })
+    // Cloud owns a gateway runtime's passwords: its gateway checks them, so they answer 404 here.
+    if (!gateway) {
+      app.get('/api/sites/:id/passwords', (c) => {
+        const set = sqlite
+          .prepare('SELECT target FROM site_password WHERE site_id=?')
+          .pluck()
+          .all(c.req.param('id'))
+        return c.json({ production: set.includes('production'), testing: set.includes('testing') })
+      })
+      app.put('/api/sites/:id/passwords/:target{production|testing}', async (c) => {
+        const input = z
+          .strictObject({ password: z.string().min(8).max(200) })
+          .safeParse(await c.req.json().catch(() => null))
+        if (!input.success) return c.json({ error: 'A password has 8 to 200 characters.' }, 400)
+        // A new version signs out everyone the old password let in.
+        sqlite
+          .prepare(
+            'INSERT INTO site_password(site_id,target,hash,version) VALUES(?,?,?,?) ON CONFLICT(site_id,target) DO UPDATE SET hash=excluded.hash,version=excluded.version',
+          )
+          .run(
+            c.req.param('id'),
+            c.req.param('target'),
+            await hashPassword(input.data.password),
+            Date.now(),
+          )
+        return c.body(null, 204)
+      })
+      app.delete('/api/sites/:id/passwords/:target{production|testing}', (c) => {
+        sqlite
+          .prepare('DELETE FROM site_password WHERE site_id=? AND target=?')
+          .run(c.req.param('id'), c.req.param('target'))
+        return c.body(null, 204)
+      })
+    }
     app.get('/api/sites/:id/document', async (c) => c.json((await store(c.req.param('id'))).read()))
     // Every committed batch as it lands, after replaying the kept ones the client has not seen.
     app.get('/api/sites/:id/events', (c) => {
@@ -1042,7 +1078,7 @@ export async function createServer(options: ServerOptions) {
     return {
       app,
       oauth,
-      published: releases ? publishedApp(releases, options.mail) : undefined,
+      published: releases ? publishedApp(releases, options.mail, options.secret) : undefined,
       close: () => {
         releases?.close()
         sqlite.close()

@@ -329,7 +329,8 @@
 .cms-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-.cms-manager .cms-switch {
+.cms-manager .cms-switch,
+.site-passwords .cms-switch {
   display: inline-flex;
   align-items: center;
   gap: 10px;

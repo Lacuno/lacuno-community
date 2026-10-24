@@ -1,10 +1,14 @@
 import { getConnInfo } from '@hono/node-server/conninfo'
-import { Hono } from 'hono'
+import { type Context, Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import type { Send } from './mail.js'
 
 /** The published site a form was sent from: its public origin and who gets its messages. */
 export type FormSite = { origin: string; owner: string; testing: boolean }
+
+/** The visitor's address: a proxy in front appends the address it was reached from. */
+export const clientIp = (c: Context) =>
+  c.req.header('x-forwarded-for')?.split(',').pop()?.trim() || getConnInfo(c).remote.address
 
 const refused = { error: "This form couldn't be sent." }
 const escapeHtml = (text: string) => text.replace(/[&<>"]/g, (char) => `&#${char.charCodeAt(0)};`)
@@ -39,9 +43,7 @@ export function formRoute(send: Send | undefined, site: (url: URL) => FormSite |
         !fields.some(([, value]) => value.trim())
       )
         return c.json(refused, 400)
-      // A proxy in front appends the address it was reached from.
-      const ip =
-        c.req.header('x-forwarded-for')?.split(',').pop()?.trim() || getConnInfo(c).remote.address
+      const ip = clientIp(c)
       const now = Date.now()
       for (const [key, times] of recent) {
         const kept = times.filter((time) => now - time < 10 * 60 * 1000)

@@ -181,4 +181,21 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM lacuno_migrations WHERE version = 8').get()) return
+      // Each protected target's password as a scrypt hash, and the version its cookies are signed
+      // with (passwords.ts); backups leave them out.
+      sqlite.exec(`
+      CREATE TABLE site_password (
+        site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        target TEXT NOT NULL CHECK(target IN ('production','testing')),
+        hash TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        PRIMARY KEY(site_id, target)
+      );
+      INSERT INTO lacuno_migrations (version) VALUES (8);
+    `)
+    })
+    .immediate()
 }

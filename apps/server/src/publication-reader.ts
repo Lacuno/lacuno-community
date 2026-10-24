@@ -74,6 +74,19 @@ export class PublicationReader {
         .get(siteId) as { email: string }
     ).email
   }
+  /** A target's password, if it has one, with the site's name for its password page. */
+  password(siteId: string, target: Target) {
+    try {
+      return this.sqlite
+        .prepare(
+          'SELECT site_password.hash, site_password.version, sites.name FROM site_password JOIN sites ON sites.id = site_password.site_id WHERE site_id = ? AND target = ?',
+        )
+        .get(siteId, target) as { hash: string; version: number; name: string } | undefined
+    } catch (error) {
+      // published-main may serve a database the editor runtime has not migrated yet.
+      if (!String(error).includes('no such table: site_password')) throw error
+    }
+  }
   /** `--list` prints the production rows; the cloud runtime parses exactly this shape. */
   publications() {
     return this.sqlite

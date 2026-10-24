@@ -129,6 +129,9 @@ and checks the persisted result.
 | `POST /api/sites/:id/releases` | `{expectedRevision,expectedId,name?,target?}` → `202 {id,target}`; enqueue an immutable snapshot that goes live on `target` (`production` by default) when it is built |
 | `POST /api/sites/:id/releases/:releaseId/activate` | `{expectedId,target?}` → `{id,target}`; point `target` (`production` by default) at a successful release without a build: rollback, promote or send to testing; draft unchanged |
 | `POST /api/sites/:id/releases/:releaseId/name` | `{name}` → rename a release; an empty name clears it |
+| `GET /api/sites/:id/passwords` | `{production,testing}`: which targets have a password, never the password or its hash; 404 behind a gateway |
+| `PUT /api/sites/:id/passwords/:target` | `{password}` of 8 to 200 characters → 204; sets or changes `production`'s or `testing`'s password and signs out its visitors; 404 behind a gateway |
+| `DELETE /api/sites/:id/passwords/:target` | → 204; removes the target's password; 404 behind a gateway |
 | `POST /api/sites/:id/thumbnail`, `GET /api/sites/:id/thumbnail` | `{revision,image}` (a WebP or JPEG of the home page's first screen, base64, up to 256 KB) → `204`; a newer revision replaces an older one. `GET` returns the image |
 | `GET /api/sites/:id/events` | Server-sent events, one `batch` per committed apply: `{revision,patches,actor,at,summary}`; `?since=<revision>` or `Last-Event-ID` replays what was missed |
 | `GET /api/sites/:id/connections` | AI apps approved for the site: `[{id,app,approvedAt,lastActiveAt,active}]` |
@@ -198,6 +201,15 @@ or a body over 64 KB is refused, and each visitor sends at most five messages to
 minutes, counted in memory by the last `X-Forwarded-For` address (the one your proxy adds) or the
 connection's. Without mail settings the endpoint answers 503 and the editor says forms are off.
 
+A target with a password (the Publish dialog's Password section) answers every page with a plain
+password page: 401, `noindex` and `no-store`. Its form posts to `POST /_lacuno/unlock`, which checks
+the scrypt hash, allows ten tries a minute per visitor and site, and sets `lacuno_access` for 30 days
+(HttpOnly, SameSite=Lax, Secure on an https publishing base), an HMAC signed with a key derived from
+`BETTER_AUTH_SECRET` over the site, target, password version and expiry; it then redirects to the
+page asked for on the same host. Unlocked answers are `private, no-store`, `/assets/` and `/_astro/`
+stay open, and form posts need the cookie. Changing or removing a password signs everyone out.
+Backups leave passwords out. Behind a gateway, Cloud owns passwords and the editor hides the section.
+
 Each release stores the exact document and revision in SQLite and hard-links the site's assets into
 `data/builds/<site-id>/<release-id>/` (copied when the data directory spans filesystems): an asset
 is content-addressed, hashed on upload and never rewritten, so the snapshot has nothing to verify.
@@ -235,7 +247,8 @@ changes how requests are authenticated; see [GATEWAY_AUTH.md](../../docs/GATEWAY
 
 For maintenance, `node apps/server/dist/published-main.js` runs only the published-site listener
 against an existing database opened read-only. Set `LACUNO_DATA_DIR`, `LACUNO_PUBLISH_BASE_URL`,
-`LACUNO_PUBLISH_PORT` and `HOST` explicitly, and the mail settings for forms. It does not migrate data, run builds, expose the editor
+`LACUNO_PUBLISH_PORT` and `HOST` explicitly, the mail settings for forms, and `BETTER_AUTH_SECRET`
+so that visitors who unlocked a protected site stay in (without it they unlock again). It does not migrate data, run builds, expose the editor
 or accept authenticated management requests; `--list` prints the production release of every site
 for health checks. It can serve existing releases while the editor runtime is stopped for a
 controlled upgrade; mount its data read-only and keep it away from management traffic. Backups use

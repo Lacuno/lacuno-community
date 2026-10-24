@@ -4,15 +4,17 @@ import { Hono } from 'hono'
 import { getMimeType } from 'hono/utils/mime'
 import { formRoute } from './forms.js'
 import type { Send } from './mail.js'
+import { accessRoutes } from './passwords.js'
 import type { PublicationReader } from './publication-reader.js'
 import { rangedBody } from './ranges.js'
 
 /**
  * This app runs on the publishing listener only: no editor, auth, or draft API routes. Its one
- * write is a published form's message, mailed with `send`.
+ * write is a published form's message, mailed with `send`. `secret` signs password cookies.
  */
-export function publishedApp(reader: PublicationReader, send: Send | undefined) {
+export function publishedApp(reader: PublicationReader, send: Send | undefined, secret: string) {
   const app = new Hono()
+  app.route('/', accessRoutes(reader, secret))
   app.route(
     '/',
     formRoute(send, (url) => {

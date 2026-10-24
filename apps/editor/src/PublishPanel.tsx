@@ -28,6 +28,93 @@ type History = {
   releases: Release[]
 }
 
+const targets = { production: 'Live site', testing: 'Testing site' } as const
+
+/** Each target's password switch and field; the server never sends a password back. */
+function Passwords({ siteId }: { siteId: string }) {
+  const [set, setSet] = useState<Record<Target, boolean>>()
+  const [drafts, setDrafts] = useState<Partial<Record<Target, string>>>({})
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const url = `/api/sites/${siteId}/passwords`
+  useEffect(() => {
+    api<Record<Target, boolean>>(url).then(setSet, (error) => setError(message(error)))
+  }, [url])
+  const save = async (target: Target, password?: string) => {
+    setBusy(true)
+    setError('')
+    try {
+      await api(
+        `${url}/${target}`,
+        password ? { password } : {},
+        undefined,
+        password ? 'PUT' : 'DELETE',
+      )
+      setSet(await api<Record<Target, boolean>>(url))
+      setDrafts(({ [target]: _, ...rest }) => rest)
+    } catch (error) {
+      setError(message(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <section className="site-passwords">
+      <h3>Password</h3>
+      {set &&
+        (Object.keys(targets) as Target[]).map((target) => {
+          const draft = drafts[target]
+          const on = set[target] || draft !== undefined
+          return (
+            <form
+              key={target}
+              onSubmit={(event) => {
+                event.preventDefault()
+                void save(target, draft)
+              }}
+            >
+              <button
+                type="button"
+                role="switch"
+                className="cms-switch"
+                aria-checked={on}
+                disabled={busy}
+                onClick={() =>
+                  set[target]
+                    ? void save(target)
+                    : setDrafts(({ [target]: open, ...rest }) =>
+                        open === undefined ? { ...rest, [target]: '' } : rest,
+                      )
+                }
+              >
+                <span aria-hidden="true" />
+                {targets[target]}
+              </button>
+              {on && (
+                <>
+                  <input
+                    type="password"
+                    aria-label={`${targets[target]} password`}
+                    placeholder={set[target] ? '••••••••' : 'Password'}
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={200}
+                    value={draft ?? ''}
+                    onChange={(event) => setDrafts({ ...drafts, [target]: event.target.value })}
+                  />
+                  <button type="submit" disabled={busy || (draft ?? '').length < 8}>
+                    {set[target] ? 'Change' : 'Save'}
+                  </button>
+                </>
+              )}
+            </form>
+          )
+        })}
+      <ErrorNote message={error} />
+    </section>
+  )
+}
+
 const statusLabel = {
   queued: 'Queued',
   waiting: 'Waiting for a build slot',
@@ -337,6 +424,7 @@ export function PublishPanel({
                   available.
                 </p>
               )}
+              {config && config.authentication !== 'gateway' && <Passwords siteId={siteId} />}
             </>
           )}
           <div className="release-heading">

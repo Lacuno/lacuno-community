@@ -37,7 +37,7 @@ export async function launch(
   const hostname = '127.0.0.1'
   const app = serve({ fetch: (request, env) => server!.app.fetch(request, env), port: 0, hostname })
   const published = serve({
-    fetch: (request) => server!.published!.fetch(request),
+    fetch: (request, env) => server!.published!.fetch(request, env),
     port: 0,
     hostname,
   })
