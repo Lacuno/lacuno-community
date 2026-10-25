@@ -89,12 +89,12 @@ it('opens the editor read-only for a viewer, whose writes the runtime refuses', 
 
   const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } })
   page.setDefaultTimeout(8000)
+  // The gateway's home lists the sites: the editor has no Sites page of its own there.
+  await page.route(`${issuer}/**`, (route) => route.fulfill({ body: 'Dashboard' }))
   await page.goto(origin)
-  // The workspace's own name, and nothing to create.
-  await expect.poll(() => page.locator('.sites-main .eyebrow').textContent()).toBe('Studio')
-  expect(await page.getByRole('button', { name: 'Create site' }).count()).toBe(0)
+  await page.waitForURL(`${issuer}/`)
 
-  await page.getByRole('button', { name: /Studio site/ }).click()
+  await page.goto(`${origin}/?site=${id}`)
   const canvas = page.frameLocator('iframe[title="Site canvas"]')
   const heading = canvas.getByRole('heading').first()
   await heading.waitFor()
@@ -154,6 +154,9 @@ it('opens the editor read-only for a viewer, whose writes the runtime refuses', 
     expect(await cms.getByRole('button', { name }).count()).toBe(0)
   await page.keyboard.press('Escape')
   await cms.waitFor({ state: 'detached' })
+  // Closing the site goes home too.
+  await page.getByRole('button', { name: 'Back to sites' }).click()
+  await page.waitForURL(`${issuer}/`)
 
   // Writes sent straight to the API are refused, whatever the editor shows.
   const write = async (method: 'post' | 'delete', route: string, data: unknown = {}) =>

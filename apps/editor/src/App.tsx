@@ -312,6 +312,9 @@ export function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [site, setSite] = useState(opened)
+  const { config, error: configError } = useConfig()
+  // Behind a gateway its home lists the sites, so the editor has no Sites page of its own.
+  const home = embed ? undefined : config?.home
   useEffect(() => {
     // That site's document, or else the workspace's sites, read alongside the session rather than
     // after it, so the canvas is one round trip away instead of two.
@@ -322,6 +325,7 @@ export function App() {
       .finally(() => setLoading(false))
   }, [])
   function open(id: string) {
+    if (!id && home) return location.assign(home)
     setSite(id)
     // Inside a host the page is the host's; its address is not the editor's to change.
     if (!embed) history.replaceState(null, '', id ? `/?site=${encodeURIComponent(id)}` : '/')
@@ -339,6 +343,10 @@ export function App() {
   if (!user) return <Auth onLogin={setUser} />
   if (location.pathname === '/consent') return <Consent />
   if (site) return <Editor siteId={site} role={user.role ?? 'owner'} back={() => open('')} />
+  // Without a site, go home; the config comes first, so the Sites page never flashes on the way.
+  if (home) location.replace(home)
+  if (home || (!config && !configError))
+    return <div className="loading">Opening your workspace…</div>
   return (
     <Sites
       user={user}
