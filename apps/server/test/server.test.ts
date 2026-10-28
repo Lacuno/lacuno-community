@@ -80,10 +80,10 @@ describe('server foundation', () => {
     expect(response.headers.get('content-type')).toBe(asset.mime)
     expect(await hashAsset(new Uint8Array(await response.arrayBuffer()))).toBe(asset.hash)
     const other = await register('preview-other@example.test')
-    for (const route of [previewRoute, assetRoute]) {
-      expect((await request(route)).status).toBe(401)
-      expect((await request(route, other)).status).toBe(404)
-    }
+    expect((await request(previewRoute)).status).toBe(401)
+    expect((await request(previewRoute, other)).status).toBe(404)
+    // An asset is public by its content hash, which only the document names.
+    expect((await request(assetRoute)).status).toBe(200)
   })
   it('renders the canvas an edit names into the apply answer', async () => {
     const owner = await register()
@@ -433,7 +433,6 @@ it('stages authenticated image uploads and serves only registered workspace asse
   const served = await request(bytesRoute, cookie)
   expect(Buffer.from(await served.arrayBuffer())).toEqual(Buffer.from(data, 'base64'))
   expect(served.headers.get('content-type')).toBe('image/png')
-  expect((await request(bytesRoute, stranger)).status).toBe(404)
   expect((await (await request(route, cookie, { name: 'same.png', data })).json()).id).toBe(
     asset.id,
   )

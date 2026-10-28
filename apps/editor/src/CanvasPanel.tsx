@@ -38,8 +38,7 @@ export function CanvasPanel({
   reveal,
   inlineTarget,
   setInlineTarget,
-  focus,
-  setFocus,
+  openPreview,
   nodeAction,
   bindDragSurface,
   livePreview,
@@ -66,8 +65,8 @@ export function CanvasPanel({
   reveal: () => void
   inlineTarget: InlineTarget | undefined
   setInlineTarget: (target: InlineTarget | undefined) => void
-  focus: boolean
-  setFocus: (focus: boolean) => void
+  /** Opens preview mode on the page being edited. */
+  openPreview: () => void
   nodeAction: (action: NodeAction, id: string) => void
   bindDragSurface: (surface: Document) => () => void
   livePreview: LivePreview
@@ -196,11 +195,10 @@ export function CanvasPanel({
           </select>
           <button
             type="button"
-            aria-label="Focus canvas"
-            aria-pressed={focus}
-            title="Focus canvas"
-            disabled={!!inlineTarget}
-            onClick={() => setFocus(!focus)}
+            aria-label="Preview site"
+            title="Preview site"
+            disabled={!!inlineTarget || !page}
+            onClick={openPreview}
           >
             <EditorIcon name="focus" />
           </button>
@@ -231,7 +229,6 @@ export function CanvasPanel({
               if (node?.type !== 'text' || frozen || !doc || isLocked(doc, id)) return
               if (node.text.type !== 'doc' && node.text.type !== 'static') return
               setSelected(id)
-              setFocus(false)
               setInlineTarget({ node, element })
             }}
             onNodeAction={nodeAction}

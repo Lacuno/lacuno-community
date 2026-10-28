@@ -18,6 +18,7 @@ import { ProjectColors } from './ProjectColors.js'
 import { PublishPanel } from './PublishPanel.js'
 import { type InnerTag, tagStates } from './richTags.js'
 import { type Panel, Sidebar } from './Sidebar.js'
+import { SitePreview } from './SitePreview.js'
 import { useDocumentSession } from './session.js'
 import { applicableStates } from './states.js'
 import {
@@ -57,7 +58,6 @@ export function Editor({
   role: Role
   back: () => void
 }) {
-  const [focus, setFocus] = useState(false)
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false)
   const [sidebar, setSidebar] = useState<Panel>('Layers')
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
@@ -95,6 +95,7 @@ export function Editor({
   const [picked, setState] = useState<State>('none')
   const [colorsOpen, setColorsOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   // Open with the app chosen on opening, if any.
   const [connectOpen, setConnectOpen] = useState<{ app: string | undefined }>()
   const [askOpen, setAskOpen] = useState(false)
@@ -327,6 +328,17 @@ export function Editor({
           }}
         />
       )}
+      {previewOpen && (
+        <SitePreview
+          siteId={siteId}
+          start={{
+            page: pageId,
+            entry: activeEntry,
+            locale: session.translating ? session.locale : '',
+          }}
+          close={() => setPreviewOpen(false)}
+        />
+      )}
       {publishOpen && session.snapshot && (
         <PublishPanel
           siteId={siteId}
@@ -404,7 +416,7 @@ export function Editor({
         selected={selected}
         setSelected={setSelected}
       />
-      <div className="editor-body" data-sidebar-expanded={sidebarExpanded} data-focus={focus}>
+      <div className="editor-body" data-sidebar-expanded={sidebarExpanded}>
         <Sidebar
           session={session}
           editing={editing}
@@ -448,8 +460,9 @@ export function Editor({
           reveal={() => setRevealSelection((value) => value + 1)}
           inlineTarget={inlineTarget}
           setInlineTarget={setInlineTarget}
-          focus={focus}
-          setFocus={setFocus}
+          openPreview={async () => {
+            if (await session.flushPending()) setPreviewOpen(true)
+          }}
           nodeAction={(action, id) => void nodeAction(action, id)}
           bindDragSurface={bindDragSurface}
           livePreview={draft}

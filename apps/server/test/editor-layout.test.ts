@@ -77,41 +77,6 @@ it('keeps the compact canvas in place across selection and formatting states', a
   expect(errors).toEqual([])
 }, 120_000)
 
-it('preserves edits in focus mode and restores the inspector for inline text', async () => {
-  const { page, canvas, saved } = await editor()
-  const heading = canvas.locator('[data-lacuno-node="n-home-title"]')
-  await heading.click()
-  const inspector = page.locator('aside.inspector')
-  await inspector.evaluate((element) => {
-    element.setAttribute('data-focus-check', 'same-panel')
-  })
-  await openInspectorTab(page, 'Content')
-  await page.getByLabel('Text', { exact: true }).fill('More room to create.')
-  const before = (await page.locator('.canvas-workspace').boundingBox())!
-  await page.getByRole('button', { name: 'Focus canvas', exact: true }).click()
-  await expect.poll(() => page.locator('.editor-body').getAttribute('data-focus')).toBe('true')
-  expect(await inspector.isVisible()).toBe(false)
-  expect(await inspector.getAttribute('data-focus-check')).toBe('same-panel')
-  const focused = (await page.locator('.canvas-workspace').boundingBox())!
-  expect(focused.width).toBeGreaterThan(before.width)
-  expect(focused.y).toBe(before.y)
-  await saved()
-  await expect.poll(() => heading.textContent()).toBe('More room to create.')
-  await page.getByRole('button', { name: 'Focus canvas', exact: true, pressed: true }).click()
-  expect(await inspector.isVisible()).toBe(true)
-  expect(await inspector.getAttribute('data-focus-check')).toBe('same-panel')
-  expect(await page.getByLabel('Text', { exact: true }).inputValue()).toBe('More room to create.')
-
-  await page.getByRole('button', { name: 'Focus canvas', exact: true }).click()
-  await heading.dblclick()
-  await canvas.getByLabel('Canvas text editor').waitFor()
-  await expect.poll(() => page.locator('.editor-body').getAttribute('data-focus')).toBe('false')
-  expect(
-    await page.getByRole('button', { name: 'Done editing text', exact: true }).isVisible(),
-  ).toBe(true)
-  await page.getByRole('button', { name: 'Cancel text edit', exact: true }).click()
-}, 60_000)
-
 it('resizes elements at an explicit canvas zoom and undoes the edit once', async () => {
   const { page, canvas, saved } = await editor()
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')

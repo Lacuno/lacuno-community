@@ -1,4 +1,4 @@
-import { IMAGE_WIDTHS } from '@lacuno/compiler'
+import { enumerateRoutes, IMAGE_WIDTHS, type RenderContext } from '@lacuno/compiler'
 import { assembleDocument, render } from '@lacuno/compiler/render'
 import { generateStylesheet, styleElement } from '@lacuno/css'
 import { type AssetRef, type Document, type Entry, type Page, siteLocales } from '@lacuno/schema'
@@ -38,6 +38,16 @@ export function canvasImage(
   if (!variants.length) return { src, srcset: '', sizes }
   return { src, srcset: [...variants, `${src} ${asset.width}w`].join(', '), sizes }
 }
+
+/** Assets as the editor's API serves them, for the canvas and the site preview. */
+const editorAssets = (siteId: string): Pick<RenderContext, 'resolveAsset' | 'resolveImage'> => ({
+  resolveAsset: (asset) => assetUrl(siteId, asset),
+  resolveImage: (asset) => ({
+    ...canvasImage(siteId, asset),
+    width: asset.width ?? 0,
+    height: asset.height ?? 0,
+  }),
+})
 
 /** The canvas uses the compiler's DOM and CSS, with selection metadata and the editor's asset URLs. */
 export function renderCanvas(
@@ -79,20 +89,17 @@ export function renderCanvas(
     }
     page = { ...page, root: body }
   }
-  const url = (asset: AssetRef) => assetUrl(siteId, asset)
   const result = render(doc, page, entry, {
     annotateNodes: true,
     ...(editingComponent ? { editingComponent } : {}),
     ...(locale ? { locale } : {}),
-    resolveAsset: url,
-    resolveImage: (asset) => ({
-      ...canvasImage(siteId, asset),
-      width: asset.width ?? 0,
-      height: asset.height ?? 0,
-    }),
+    ...editorAssets(siteId),
   })
   // Only the canvas emits the forced state selectors the editor's state picker switches on.
-  const { css } = generateStylesheet(doc, { assetUrl: url, previewStates: true })
+  const { css } = generateStylesheet(doc, {
+    assetUrl: (asset) => assetUrl(siteId, asset),
+    previewStates: true,
+  })
   // A second barrier in addition to the iframe sandbox: site code cannot execute, submit forms,
   // change the base URL, or load another frame in the editor's authenticated origin.
   const policy =
@@ -131,5 +138,65 @@ export function renderPreview(
       ...renderCanvas(doc, page, entry, siteId, query.component, query.locale),
       revision: doc.revision,
     },
+  }
+}
+
+/**
+ * The site preview's frame runs the site's scripts with an origin of its own, so it cannot reach
+ * the editor: it hands a click on one of the site's own links, and a form's submit, to the editor.
+ */
+const PREVIEW_SCRIPT = `<script>
+addEventListener('click', (event) => {
+  const link = event.target.closest?.('a[href]')
+  const href = link?.getAttribute('href')
+  if (!href || href.startsWith('#') || event.defaultPrevented) return
+  event.preventDefault()
+  if (/^\\/(?!\\/)/.test(href)) parent.postMessage({ lacunoPreview: href.split(/[?#]/)[0] }, '*')
+  else open(link.href, '_blank', 'noopener')
+})
+addEventListener('submit', (event) => {
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  parent.postMessage({ lacunoPreview: 'form' }, '*')
+}, true)
+</script>`
+
+/**
+ * Preview mode: a route of the draft, draft languages included, as it will publish, with the
+ * site's scripts, motion and code, and the editor's asset URLs. A route is asked for by its path,
+ * where a path the site lacks shows its 404 page, or by the page, entry and language being edited.
+ */
+export function renderSitePreview(
+  doc: Document,
+  siteId: string,
+  query: { path?: string; page?: string; entry?: string; locale?: string },
+):
+  | { status: 200; body: { html: string; path: string; revision: number } }
+  | { status: 404; body: { error: string } } {
+  const routes = enumerateRoutes(doc, { drafts: true })
+  const path = query.path?.replace(/(.)\/+$/, '$1')
+  const route =
+    path === undefined
+      ? routes.find(
+          (r) =>
+            r.page === query.page &&
+            r.entry === (query.entry || undefined) &&
+            r.locale === (query.locale || undefined) &&
+            !r.listPage,
+        )
+      : (routes.find((r) => r.path === path) ?? routes.find((r) => r.path === '/404'))
+  if (!route) return { status: 404, body: { error: 'Page not found' } }
+  const page = doc.pages[route.page]!
+  const entry = (doc.entries[page.collection ?? ''] ?? []).find((e) => e.id === route.entry)
+  const result = render(doc, page, entry, {
+    ...(route.listPage ? { listPage: route.listPage } : {}),
+    ...(route.locale ? { locale: route.locale } : {}),
+    ...editorAssets(siteId),
+  })
+  const { css } = generateStylesheet(doc, { assetUrl: (asset) => assetUrl(siteId, asset) })
+  result.head = `${result.head}\n${styleElement(css)}\n${PREVIEW_SCRIPT}`
+  return {
+    status: 200,
+    body: { html: assembleDocument(result), path: path ?? route.path, revision: doc.revision },
   }
 }

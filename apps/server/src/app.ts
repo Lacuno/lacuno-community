@@ -15,7 +15,7 @@ import {
   UploadInput,
 } from '@lacuno/document'
 import type { Screenshot } from '@lacuno/mcp/screenshot'
-import { renderPreview } from '@lacuno/renderer'
+import { renderPreview, renderSitePreview } from '@lacuno/renderer'
 import {
   AssetHash,
   AssetMime,
@@ -495,9 +495,10 @@ export async function createServer(options: ServerOptions) {
         c.json({ error: 'Authentication is managed by the gateway' }, 403),
       )
     app.use('/api/*', sameOriginJson)
-    // Spike: an embedded canvas's <img> can carry no bearer, so where an origin may embed the
-    // editor the content-addressed assets are served by their hash alone, as the published site
-    // serves the same bytes; a hash is only known from the document, which needs a session.
+    // An embedded canvas's <img> can carry no bearer, nor the site preview's frame, which has an
+    // origin of its own, a cookie, so content-addressed assets are served by their hash alone, as
+    // the published site serves the same bytes; a hash is only known from the document, which
+    // needs a session.
     const assetByHash = async (c: Context) => {
       const hash = c.req.param('hash') as string
       if (!/^[a-f0-9]{64}$/.test(hash)) return c.notFound()
@@ -524,6 +525,8 @@ export async function createServer(options: ServerOptions) {
               : 'application/octet-stream',
         )
         c.header('Cache-Control', 'private, max-age=31536000, immutable')
+        // The preview frame loads fonts as a cross-origin read.
+        c.header('Access-Control-Allow-Origin', '*')
         c.header('X-Content-Type-Options', 'nosniff')
         c.header('Content-Security-Policy', "sandbox; default-src 'none'")
         return rangedBody(c, new Uint8Array(bytes))
@@ -532,7 +535,8 @@ export async function createServer(options: ServerOptions) {
         throw error
       }
     }
-    if (allowedOrigins.size) app.get('/api/sites/:id/assets/:hash', assetByHash)
+    // The bytes, or with `w` a raster image resized to that width as WebP (images.ts).
+    app.get('/api/sites/:id/assets/:hash', assetByHash)
     app.post('/api/setup', async (c) => {
       if (!setup) return c.json({ error: 'Owner setup is unavailable in gateway mode' }, 403)
       if (!setup.required)
@@ -977,6 +981,11 @@ export async function createServer(options: ServerOptions) {
       const { status, body } = renderPreview(document, c.req.param('id'), c.req.query())
       return c.json(status === 200 && c.get('bearer') ? absolute(body) : body, status)
     })
+    app.get('/api/sites/:id/site-preview', async (c) => {
+      const { document } = (await store(c.req.param('id'))).read()
+      const { status, body } = renderSitePreview(document, c.req.param('id'), c.req.query())
+      return c.json(status === 200 && c.get('bearer') ? absolute(body) : body, status)
+    })
     app.post('/api/sites/:id/assets/upload', async (c) => {
       const input = UploadInput.safeParse(await c.req.json().catch(() => null))
       if (!input.success) return c.json({ error: 'Invalid upload' }, 400)
@@ -987,8 +996,6 @@ export async function createServer(options: ServerOptions) {
       )
       return c.json(body, status)
     })
-    // The bytes, or with `w` a raster image resized to that width as WebP (images.ts).
-    app.get('/api/sites/:id/assets/:hash', assetByHash)
     // The home page's first screen as an editor drew it (editor thumbnail.ts), newest revision kept.
     app.post('/api/sites/:id/thumbnail', async (c) => {
       const input = z

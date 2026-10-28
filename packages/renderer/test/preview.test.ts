@@ -1,6 +1,6 @@
-import { fixtureDocument } from '@lacuno/schema'
+import { fixtureDocument, fixtureTwoLanguageDocument } from '@lacuno/schema'
 import { expect, it } from 'vitest'
-import { renderPreview } from '../src/index.js'
+import { renderPreview, renderSitePreview } from '../src/index.js'
 
 it('previews a page, an entry and a component, and names what is missing', () => {
   const doc = fixtureDocument()
@@ -21,5 +21,30 @@ it('previews a page, an entry and a component, and names what is missing', () =>
   expect(renderPreview(doc, 's', { page: 'p-home', component: 'missing' })).toEqual({
     status: 404,
     body: { error: 'Component not found' },
+  })
+})
+
+it('previews the site by route, as it publishes, with links handed to the editor', () => {
+  const doc = fixtureTwoLanguageDocument()
+  const post = renderSitePreview(doc, 's', { page: 'p-post', entry: 'e-1', locale: '' })
+  expect(post).toMatchObject({ status: 200, body: { path: '/blog/hello-world' } })
+  const about = renderSitePreview(doc, 's', { path: '/de/ueber-uns/' })
+  if (about.status !== 200) throw new Error('About not rendered')
+  expect(about.body).toMatchObject({ path: '/de/ueber-uns', revision: doc.revision })
+  expect(about.body.html).toContain('<html lang="de">')
+  expect(about.body.html).toContain('Zur Startseite')
+  expect(about.body.html).not.toContain('data-lacuno-node=')
+  expect(about.body.html).toContain('lacunoPreview')
+  // A draft language previews, and a path the site lacks shows its 404 page.
+  expect(renderSitePreview(doc, 's', { page: 'p-about', locale: 'fr' }).status).toBe(200)
+  const notFound = renderSitePreview(doc, 's', { path: '/404' })
+  expect(renderSitePreview(doc, 's', { path: '/missing' })).toEqual({
+    ...notFound,
+    body: { ...notFound.body, path: '/missing' },
+  })
+  delete doc.pages['p-not-found']
+  expect(renderSitePreview(doc, 's', { path: '/missing' })).toEqual({
+    status: 404,
+    body: { error: 'Page not found' },
   })
 })
