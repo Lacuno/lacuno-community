@@ -138,8 +138,8 @@ export function Canvas({
   select: (id: string, inner?: InnerTag) => void
   onHistory: (direction: 'undo' | 'redo') => void
   onComputed: (value: { id: string; values: Record<string, string> }) => void
-  /** The Ask AI chip: open the editor's prompt dialog for the selection. */
-  onAsk: () => void
+  /** The Ask AI chip: open the editor's prompt dialog for the selection; none, no chip. */
+  onAsk: (() => void) | undefined
   /**
    * Spike: the runtime's origin when the editor lives on another one. The canvas is then a blob:
    * document based there, since a host's CSP may allow no srcdoc frame and the render's
@@ -470,6 +470,7 @@ export function Canvas({
     onHistory,
     onComputed,
     onAsk,
+    ask: !!onAsk,
     paint,
     reportStyles,
     selectionKey,
@@ -684,11 +685,12 @@ export function Canvas({
               inner: !!latest.current.inner,
               editable: !latest.current.restriction,
               restriction: latest.current.restriction,
+              ask: latest.current.ask,
               flash: Date.now() < flash.current.until ? flash.current.ids : [],
             }),
             (next) => latest.current.onState(next),
             canvasStyle,
-            () => latest.current.onAsk(),
+            () => latest.current.onAsk?.(),
           )
           dragCleanup.current?.()
           dragCleanup.current = bindDragSurface(doc)

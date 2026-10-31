@@ -5,7 +5,19 @@ import { z } from 'zod'
 import { OwnerSetup } from './owner-setup.js'
 
 /** `home` is the gateway's dashboard, where the editor's logo leads; the issuer when not given. */
-export type GatewayOptions = { issuer: string; secret: string; home?: string; analytics?: string }
+/** A brand the gateway sells sites under: the editor shows it instead of Lacuno, with no AI apps. */
+export const Brand = z.strictObject({
+  name: z.string().min(1).max(100),
+  logo: z.url({ protocol: /^https?$/ }),
+  icon: z.url({ protocol: /^https?$/ }),
+})
+export type GatewayOptions = {
+  issuer: string
+  secret: string
+  home?: string
+  analytics?: string
+  brand?: z.infer<typeof Brand>
+}
 
 /** A 30-second HS256 token, signed with the gateway secret, for one of Cloud's internal services. */
 export const signForCloud = (
@@ -35,6 +47,8 @@ const Claims = z.object({
   system: z.literal(true).optional(),
   /** The user's role in the workspace; without it, the owner's. */
   role: z.enum(['owner', 'editor', 'viewer']).optional(),
+  /** An editor the owner lets publish. */
+  publish: z.literal(true).optional(),
   /** The workspace's name, which the editor shows. */
   workspace: z.string().min(1).max(200).optional(),
 })
@@ -43,9 +57,9 @@ const EMPTY_BODY_HASH = createHash('sha256').digest('hex')
 
 /**
  * Why a role refuses a request, or undefined: viewers read and approve no AI app, editors neither
- * publish nor roll back.
+ * publish nor roll back unless `publish` lets them.
  */
-export function refusal(role: Role, method: string, path: string) {
+export function refusal(role: Role, method: string, path: string, publish = false) {
   const read = method === 'GET' || method === 'HEAD'
   // A viewer's embedded editor reports their selection too: it writes nothing to the site.
   const selection = method === 'PUT' && /^\/api\/sites\/[^/]+\/selection$/.test(path)
@@ -54,7 +68,7 @@ export function refusal(role: Role, method: string, path: string) {
     ((!read && !selection) || /^\/(consent|api\/auth\/oauth2)(\/|$)/.test(path))
   )
     return 'Viewers can look but not change anything'
-  if (role === 'editor' && !read && /^\/api\/sites\/[^/]+\/releases(\/|$)/.test(path))
+  if (role === 'editor' && !publish && !read && /^\/api\/sites\/[^/]+\/releases(\/|$)/.test(path))
     return 'Only the workspace owner can publish'
   if (role === 'editor' && method === 'DELETE' && /^\/api\/sites\/[^/]+$/.test(path))
     return 'Only the workspace owner can delete a site'
@@ -63,8 +77,8 @@ export function refusal(role: Role, method: string, path: string) {
 /** Generic opt-in authenticated reverse-proxy mode. No browser assertion or cookie is trusted. */
 export class GatewayAuth {
   readonly ownerId = 'lacuno-gateway-owner'
-  /** Each user's role as this process last wrote it, so an unchanged role costs no write. */
-  private roles = new Map<string, Role>()
+  /** Each user's role and publish permission as this process last wrote them, so an unchanged one costs no write. */
+  private roles = new Map<string, string>()
   private nonceSweep = 0
   constructor(
     private sqlite: Database.Database,
@@ -140,20 +154,22 @@ export class GatewayAuth {
       .prepare('INSERT INTO gateway_nonce(id,expires_at) VALUES(?,?)')
       .run(claims.jti, claims.exp)
     const role = claims.role ?? 'owner'
+    const publish = !!claims.publish
     // The role as last asserted: an MCP request carries a token, not an assertion.
-    if (!claims.system && this.roles.get(claims.sub) !== role) {
+    if (!claims.system && this.roles.get(claims.sub) !== `${role} ${publish}`) {
       this.sqlite
         .prepare(
-          'INSERT INTO gateway_role(user_id,role) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role',
+          'INSERT INTO gateway_role(user_id,role,publish) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET role=excluded.role,publish=excluded.publish',
         )
-        .run(claims.sub, role)
-      this.roles.set(claims.sub, role)
+        .run(claims.sub, role, publish ? 1 : 0)
+      this.roles.set(claims.sub, `${role} ${publish}`)
     }
     return {
       id: claims.sub,
       name: claims.name,
       email: claims.email,
       role,
+      publish,
       workspace: claims.workspace,
       system: claims.system,
     }
@@ -161,11 +177,10 @@ export class GatewayAuth {
 
   /** A user's role as their last assertion said, if the gateway has not revoked them since. */
   role(userId: string) {
-    return (
-      this.sqlite.prepare('SELECT role FROM gateway_role WHERE user_id=?').get(userId) as
-        | { role: Role }
-        | undefined
-    )?.role
+    const row = this.sqlite
+      .prepare('SELECT role,publish FROM gateway_role WHERE user_id=?')
+      .get(userId) as { role: Role; publish: number } | undefined
+    return row && { role: row.role, publish: !!row.publish }
   }
 
   forget(userId: string) {

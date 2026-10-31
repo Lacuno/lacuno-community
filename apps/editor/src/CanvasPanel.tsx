@@ -72,7 +72,7 @@ export function CanvasPanel({
   livePreview: LivePreview
   setComputed: (value: { id: string; values: Record<string, string> }) => void
   notify: (text: string) => void
-  ask: () => void
+  ask: (() => void) | undefined
 }) {
   const { doc, error, busy, frozen, leave } = session
   const [zoom, setZoom] = useState('fit')

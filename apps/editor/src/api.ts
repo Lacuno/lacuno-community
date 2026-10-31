@@ -14,7 +14,10 @@ export class ApiError extends Error {
 export const message = (error: unknown, fallback = 'Something went wrong') =>
   error instanceof Error ? error.message : fallback
 
-export const unreachable = 'Lacuno cannot be reached right now. Please try again in a moment.'
+/** The product's name in messages: Lacuno, or a gateway's brand once its config named one. */
+export let product = 'Lacuno'
+export const unreachable = () =>
+  `${product} cannot be reached right now. Please try again in a moment.`
 
 /** No answer, or a server or proxy error: worth asking again later. */
 export const transient = (error: unknown) => !(error instanceof ApiError) || error.status >= 500
@@ -81,7 +84,7 @@ export async function api<T>(
         failure?.message ??
         // A proxy's own answer while the server restarts, such as "Bad Gateway".
         ([502, 503, 504].includes(response.status)
-          ? unreachable
+          ? unreachable()
           : response.statusText || 'Request failed'),
       response.status,
     )
@@ -126,6 +129,8 @@ export type Config = {
   mcp?: string
   /** Behind a gateway that offers one, its analytics view, with `{site}` for the site id. */
   analytics?: string
+  /** Behind a gateway that sells sites under its own brand: shown instead of Lacuno, with no AI apps. */
+  brand?: { name: string; logo: string; icon: string }
   /** Whether published forms email their submissions; servers before forms leave it out. */
   forms?: boolean
   /**
@@ -142,12 +147,25 @@ export type Config = {
   autoTranslate?: string
 }
 
+/** Names the brand in messages and the tab's title, and gives the tab its icon. */
+function brandWith(brand: NonNullable<Config['brand']>) {
+  product = brand.name
+  document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.setAttribute('href', brand.icon)
+}
+
 /** The server's config, read when a component that needs it mounts. */
 export function useConfig() {
   const [config, setConfig] = useState<Config>()
   const [error, setError] = useState('')
   useEffect(() => {
-    api<Config>('/api/config').then(setConfig, (error) => setError(message(error)))
+    api<Config>('/api/config').then(
+      (config) => {
+        if (config.brand) brandWith(config.brand)
+        document.title = `${product} — Editor`
+        setConfig(config)
+      },
+      (error) => setError(message(error)),
+    )
   }, [])
   return { config, error }
 }

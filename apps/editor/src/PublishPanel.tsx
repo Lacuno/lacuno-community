@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { SignUpLink } from './App.js'
-import { api, message, transient, useConfig } from './api.js'
+import { api, message, product, transient, useConfig } from './api.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import './publishing.css'
 
@@ -456,7 +456,7 @@ export function PublishPanel({
         message={
           error ||
           (offline
-            ? 'Lacuno cannot be reached right now. A publish in progress carries on, and this list updates once Lacuno is back.'
+            ? `${product} cannot be reached right now. A publish in progress carries on, and this list updates once ${product} is back.`
             : '')
         }
       />

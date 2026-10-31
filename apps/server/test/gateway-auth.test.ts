@@ -170,6 +170,31 @@ describe('gateway mode', () => {
     expect((await as('admin', '/api/sites')).status).toBe(401)
   })
 
+  it('lets an editor the owner allows publish, but never a viewer, and neither deletes sites', async () => {
+    const as = async (sub: string, role: string, target: string, method = 'POST') =>
+      request(
+        target,
+        method,
+        method === 'POST' ? '{}' : '',
+        await assertion(target, method, method === 'POST' ? '{}' : '', {
+          sub,
+          role,
+          publish: true,
+        }),
+      )
+    // Past the role check, the site is looked up.
+    expect((await as('cloud-publisher', 'editor', '/api/sites/any/releases')).status).toBe(404)
+    expect(
+      (await as('cloud-publisher', 'editor', '/api/sites/any/releases/r/activate')).status,
+    ).toBe(404)
+    expect((await as('cloud-publisher', 'editor', '/api/sites/any', 'DELETE')).status).toBe(403)
+    expect((await as('cloud-viewer-p', 'viewer', '/api/sites/any/releases')).status).toBe(403)
+    const session = await (
+      await as('cloud-publisher', 'editor', '/api/auth/get-session', 'GET')
+    ).json()
+    expect(session.user).toMatchObject({ role: 'editor', publish: true })
+  })
+
   it('writes a role when it changes, again after a revoke, and refuses a replayed nonce', async () => {
     const sqlite = new Database(path.join(dir, 'lacuno.sqlite'), { readonly: true })
     const role = () =>
@@ -579,6 +604,9 @@ describe('connecting an AI app through the gateway', () => {
     }
     expect(await tools({ sub: 'cloud-owner-4', role: 'owner' })).toContain('site.publish')
     expect(await tools({ sub: 'cloud-editor-4', role: 'editor' })).not.toContain('site.publish')
+    expect(await tools({ sub: 'cloud-editor-p', role: 'editor', publish: true })).toContain(
+      'site.publish',
+    )
     const viewer = await call(authorizeURL(client_id, redirect, 'verifier'), {
       as: { sub: 'cloud-viewer-4', role: 'viewer' },
     })

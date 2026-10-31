@@ -198,4 +198,14 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM lacuno_migrations WHERE version = 9').get()) return
+      // An editor the gateway lets publish, as last asserted.
+      sqlite.exec(`
+      ALTER TABLE gateway_role ADD COLUMN publish INTEGER NOT NULL DEFAULT 0;
+      INSERT INTO lacuno_migrations (version) VALUES (9);
+    `)
+    })
+    .immediate()
 }

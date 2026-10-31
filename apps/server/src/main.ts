@@ -4,6 +4,7 @@ import { localScreenshot, serviceScreenshot } from '@lacuno/mcp/screenshot'
 import { viewDomain } from '@lacuno/mcp/view-domain'
 import { createServer } from './app.js'
 import { readPort, root } from './environment.js'
+import { Brand } from './gateway-auth.js'
 import { smtp } from './mail.js'
 
 const port = readPort(process.env.PORT, 3000)
@@ -42,6 +43,9 @@ const server = await createServer({
           ...(process.env.LACUNO_GATEWAY_HOME ? { home: process.env.LACUNO_GATEWAY_HOME } : {}),
           ...(process.env.LACUNO_GATEWAY_ANALYTICS
             ? { analytics: process.env.LACUNO_GATEWAY_ANALYTICS }
+            : {}),
+          ...(process.env.LACUNO_GATEWAY_BRAND
+            ? { brand: Brand.parse(JSON.parse(process.env.LACUNO_GATEWAY_BRAND)) }
             : {}),
         },
       }

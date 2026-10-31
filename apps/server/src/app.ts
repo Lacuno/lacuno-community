@@ -375,6 +375,7 @@ export async function createServer(options: ServerOptions) {
               home: options.gateway!.home ?? options.gateway!.issuer,
               mcp: options.mcp,
               analytics: options.gateway!.analytics,
+              brand: options.gateway!.brand,
             }
           : {}),
       }),
@@ -403,15 +404,15 @@ export async function createServer(options: ServerOptions) {
         // on the try host, since the canvas's images and the bundle carry no bearer.
         const bearer = c.get('bearer')
         if (bearer) {
-          const role = gateway.role(bearer.userId)
-          if (!role) return c.json({ error: 'Authenticated gateway required' }, 401)
-          const refused = refusal(role, c.req.method, c.req.path)
+          const held = gateway.role(bearer.userId)
+          if (!held) return c.json({ error: 'Authenticated gateway required' }, 401)
+          const refused = refusal(held.role, c.req.method, c.req.path, held.publish)
           if (refused) return c.json({ error: refused }, 403)
           c.set('gatewayUser', {
             id: bearer.userId,
             name: bearer.name ?? '',
             email: '',
-            role,
+            ...held,
             workspace: undefined,
             system: undefined,
           })
@@ -435,7 +436,7 @@ export async function createServer(options: ServerOptions) {
             !['/api/gateway/revoke-user', '/api/gateway/site-origin'].includes(c.req.path))
         )
           return c.json({ error: 'Authenticated gateway required' }, 401)
-        const refused = refusal(user.role, c.req.method, c.req.path)
+        const refused = refusal(user.role, c.req.method, c.req.path, user.publish)
         if (refused) return c.json({ error: refused }, 403)
         c.set('gatewayUser', user)
         await next()
@@ -812,7 +813,10 @@ export async function createServer(options: ServerOptions) {
         releases,
         origin,
         // Behind a gateway, only the owner's AI apps publish.
-        canPublish: (userId) => !gateway || gateway.role(userId) === 'owner',
+        canPublish: (userId) => {
+          const held = gateway?.role(userId)
+          return !gateway || held?.role === 'owner' || (held?.role === 'editor' && held.publish)
+        },
         stage,
         fetchUrl: download || undefined,
         screenshot: options.screenshot,

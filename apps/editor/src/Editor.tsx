@@ -51,11 +51,14 @@ function moveRefusal(doc: Document, id: string, direction: -1 | 1) {
 export function Editor({
   siteId,
   role,
+  publishes,
   back,
 }: {
   siteId: string
-  /** Viewers see the site read-only; only the owner publishes. */
+  /** Viewers see the site read-only. */
   role: Role
+  /** The owner publishes, and an editor the owner lets. */
+  publishes: boolean
   back: () => void
 }) {
   const [pageSettingsOpen, setPageSettingsOpen] = useState(false)
@@ -282,6 +285,7 @@ export function Editor({
         session={session}
         notice={notice}
         role={role}
+        publishes={publishes}
         page={page}
         back={back}
         uploadingImage={uploadingImage}
@@ -468,18 +472,22 @@ export function Editor({
           livePreview={draft}
           setComputed={setComputed}
           notify={notify}
-          ask={() => {
-            // Inside a host the brief goes straight into the conversation as the person's message.
-            if (embed && doc && node && page)
-              hostRequest('ui/message', {
-                role: 'user',
-                content: {
-                  type: 'text',
-                  text: prompt(siteId, page.id, selected),
-                },
-              })
-            else setAskOpen(true)
-          }}
+          ask={
+            config?.brand
+              ? undefined
+              : () => {
+                  // Inside a host the brief goes straight into the conversation as the person's message.
+                  if (embed && doc && node && page)
+                    hostRequest('ui/message', {
+                      role: 'user',
+                      content: {
+                        type: 'text',
+                        text: prompt(siteId, page.id, selected),
+                      },
+                    })
+                  else setAskOpen(true)
+                }
+          }
         />
         <InspectorColumn
           selectNode={(id) =>

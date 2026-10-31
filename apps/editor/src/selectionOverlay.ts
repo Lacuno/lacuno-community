@@ -48,6 +48,8 @@ export type Selection = {
   editable: boolean
   /** Why not, shown in the bar where the field chip goes: "Locked" or "View only". */
   restriction: string
+  /** Whether the Ask AI chip is offered: not under a brand, which has no AI apps. */
+  ask: boolean
 }
 
 const svg = (icon: string) =>
@@ -1177,7 +1179,7 @@ export function selectionOverlay(
       const still = editing || selection.inner || !selection.editable
       handlesLayer.hidden = still
       spacingChip.hidden = still
-      askChip.hidden = still
+      askChip.hidden = still || !selection.ask
       // Show open only where the closed panel is hidden, as a menu's is below Desktop.
       const popover = popoverOf(selected!)
       popoverChip.hidden = still || !popover || (!held && popover.checkVisibility())

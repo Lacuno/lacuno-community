@@ -8,9 +8,9 @@ const responds = (body: string, init?: ResponseInit) =>
 
 it('reports the status of a non-json failure and the message of a json one', async () => {
   responds('<html>Bad gateway</html>', { status: 502, statusText: 'Bad Gateway' })
-  await expect(api('/api/sites')).rejects.toMatchObject({ status: 502, message: unreachable })
+  await expect(api('/api/sites')).rejects.toMatchObject({ status: 502, message: unreachable() })
   responds('', { status: 504, statusText: 'Gateway Timeout' })
-  await expect(api('/api/sites')).rejects.toMatchObject({ status: 504, message: unreachable })
+  await expect(api('/api/sites')).rejects.toMatchObject({ status: 504, message: unreachable() })
   responds(JSON.stringify({ error: 'The file could not be stored.' }), { status: 502 })
   await expect(api('/api/sites')).rejects.toMatchObject({
     message: 'The file could not be stored.',

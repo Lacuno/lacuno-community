@@ -11,7 +11,7 @@ const opened = embed?.site || (new URLSearchParams(location.search).get('site') 
 /** Behind a gateway, the user's role in the workspace; elsewhere the user owns it. */
 export type Role = 'owner' | 'editor' | 'viewer'
 /** Behind a gateway, `workspace` is the name of the workspace the editor belongs to. */
-type User = { name: string; email: string; role?: Role; workspace?: string }
+type User = { name: string; email: string; role?: Role; publish?: boolean; workspace?: string }
 /** `thumbnail` is the revision the site's thumbnail shows, when an editor has drawn one. */
 type Site = { id: string; name: string; revision: number; thumbnail?: number | null }
 
@@ -25,8 +25,13 @@ export function SignUpLink() {
 }
 
 export function Brand() {
-  const home = useConfig().config?.home
-  const content = (
+  const { config } = useConfig()
+  // Nothing until the config says whose brand it is, so a branded editor never shows Lacuno.
+  if (!config) return <span className="brand" />
+  const { home, brand } = config
+  const content = brand ? (
+    <img className="brand-logo" src={brand.logo} height={30} alt={brand.name} />
+  ) : (
     <>
       <img className="brand-logo" src={logo} width={123} height={30} alt="Lacuno" />
       <span className="badge">EARLY ACCESS</span>
@@ -342,7 +347,15 @@ export function App() {
     )
   if (!user) return <Auth onLogin={setUser} />
   if (location.pathname === '/consent') return <Consent />
-  if (site) return <Editor siteId={site} role={user.role ?? 'owner'} back={() => open('')} />
+  if (site)
+    return (
+      <Editor
+        siteId={site}
+        role={user.role ?? 'owner'}
+        publishes={(user.role ?? 'owner') === 'owner' || (user.role === 'editor' && !!user.publish)}
+        back={() => open('')}
+      />
+    )
   // Without a site, go home; the config comes first, so the Sites page never flashes on the way.
   if (home) location.replace(home)
   if (home || (!config && !configError))

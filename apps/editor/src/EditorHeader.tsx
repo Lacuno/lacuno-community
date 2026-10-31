@@ -24,6 +24,7 @@ export function EditorHeader({
   session,
   notice,
   role,
+  publishes,
   page,
   back,
   uploadingImage,
@@ -38,6 +39,7 @@ export function EditorHeader({
   /** A refused shortcut's reason, on the status line for a moment while nothing is saving. */
   notice: string
   role: Role
+  publishes: boolean
   page: Page | undefined
   back: () => void
   uploadingImage: boolean
@@ -203,7 +205,7 @@ export function EditorHeader({
       >
         <EditorIcon name="reload" />
       </button>
-      {role !== 'viewer' && !embedded && (
+      {role !== 'viewer' && !embedded && !config?.brand && (
         <button
           type="button"
           className="connect-trigger"
@@ -214,7 +216,7 @@ export function EditorHeader({
           {connection.label}
         </button>
       )}
-      {role !== 'viewer' && !embedded && show && (
+      {role !== 'viewer' && !embedded && !config?.brand && show && (
         <a
           className="open-claude"
           href={`https://claude.ai/new?q=${encodeURIComponent(show)}`}
@@ -230,7 +232,7 @@ export function EditorHeader({
         </a>
       )}
       {config?.try && <SignUpLink />}
-      {role === 'owner' && !embedded && (
+      {publishes && !embedded && (
         <button
           type="button"
           className="publish-trigger publish-action"
