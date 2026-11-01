@@ -90,13 +90,18 @@ export type ServerOptions = {
 const SiteInput = z
   .strictObject({
     name: z.string().trim().min(1).max(200),
-    // A new site starts from the starter template or from one empty page; an import brings its own.
+    // A new site starts from the starter template or from one empty page, or copies a site of the
+    // workspace; an import brings its own.
     template: z.enum(['starter', 'blank']).optional(),
+    from: z.uuid().optional(),
     document: z.unknown().optional(),
     assets: z.record(AssetHash, z.base64()).optional(),
   })
   .refine((input) => (input.document === undefined) === (input.assets === undefined))
-  .refine((input) => input.document === undefined || input.template === undefined)
+  .refine(
+    (input) =>
+      [input.template, input.from, input.document].filter((each) => each !== undefined).length <= 1,
+  )
 /** An empty release name clears it. */
 const ReleaseName = z
   .string()
@@ -630,14 +635,29 @@ export async function createServer(options: ServerOptions) {
     app.post('/api/sites', async (c) => {
       const input = SiteInput.safeParse(await c.req.json().catch(() => null))
       if (!input.success) return c.json({ error: 'Invalid site' }, 400)
-      const { name, template, document: imported, assets } = input.data
+      const { name, template, from, document: imported, assets } = input.data
+      // A copy is the site's saved document with its asset files; it starts without releases.
+      if (
+        from &&
+        !db
+          .select({ id: sites.id })
+          .from(sites)
+          .where(and(eq(sites.id, from), eq(sites.workspaceId, c.get('workspaceId'))))
+          .get()
+      )
+        return c.json({ error: 'Site not found' }, 404)
       const source = parseDocument(
         assets
           ? imported
-          : template === 'blank'
-            ? createEmptyDocument(name)
-            : JSON.parse(await readFile(path.join(options.templateDir, 'lacuno.json'), 'utf8')),
+          : from
+            ? (await store(from)).read().document
+            : template === 'blank'
+              ? createEmptyDocument(name)
+              : JSON.parse(await readFile(path.join(options.templateDir, 'lacuno.json'), 'utf8')),
       )
+      const assetDir = from
+        ? path.join(options.dataDir, 'sites', from, 'assets')
+        : path.join(options.templateDir, 'assets')
       const document = parseDocument({
         ...source,
         revision: 0,
@@ -650,13 +670,13 @@ export async function createServer(options: ServerOptions) {
         for (const asset of Object.values(document.assets)) {
           const bytes = assets
             ? Buffer.from(assets[asset.hash] ?? '', 'base64')
-            : await readFile(path.join(options.templateDir, 'assets', asset.hash))
+            : await readFile(path.join(assetDir, asset.hash))
           if ((await hashAsset(bytes)) !== asset.hash)
             throw assets
               ? new HTTPException(400, {
                   message: `Asset ${asset.id} is missing or does not match its hash`,
                 })
-              : new Error(`Template asset checksum mismatch: ${asset.id}`)
+              : new Error(`Asset checksum mismatch: ${asset.id}`)
           if (assets && !AssetMime.safeParse(asset.mime).success)
             throw new HTTPException(400, { message: `Asset ${asset.id} has an unknown type` })
           await writeFile(path.join(dir, 'assets', asset.hash), bytes)

@@ -94,6 +94,49 @@ it('starts a site from the starter by default, or blank with one empty page', as
   expect(both.status).toBe(400)
 })
 
+it('copies a site of the workspace with its assets, as a new site without releases', async () => {
+  const owner = await register('owner@example.test')
+  const other = await register('other@example.test')
+  const source = await createSite(owner)
+  type Doc = { revision: number; site: { name: string }; assets: Record<string, { hash: string }> }
+  const read = async (id: string) =>
+    ((await (await request(`/api/sites/${id}/document`, owner)).json()) as { document: Doc })
+      .document
+  expect(
+    (await request(`/api/sites/${source}/name`, owner, 'PUT', { name: 'Source' })).status,
+  ).toBe(200)
+  const created = await request('/api/sites', owner, 'POST', { name: 'Variant B', from: source })
+  expect(created.status).toBe(201)
+  const copy = (await created.json()) as { id: string; name: string; revision: number }
+  expect(copy).toMatchObject({ name: 'Variant B', revision: 0 })
+  expect(copy.id).not.toBe(source)
+  const original = await read(source)
+  expect(original.revision).toBe(1)
+  expect(await read(copy.id)).toEqual({
+    ...original,
+    revision: 0,
+    site: { ...original.site, name: 'Variant B' },
+  })
+  const hashes = Object.values(original.assets).map((asset) => asset.hash)
+  expect(hashes.length).toBeGreaterThan(0)
+  for (const hash of hashes)
+    expect(existsSync(path.join(options.dataDir, 'sites', copy.id, 'assets', hash))).toBe(true)
+  const releases = (await (await request(`/api/sites/${copy.id}/releases`, owner)).json()) as {
+    releases: object[]
+  }
+  expect(releases.releases).toEqual([])
+
+  // Only a site of the same workspace, and only one source.
+  const foreign = await request('/api/sites', other, 'POST', { name: 'Mine', from: source })
+  expect(foreign.status).toBe(404)
+  const both = await request('/api/sites', owner, 'POST', {
+    name: 'X',
+    from: source,
+    template: 'blank',
+  })
+  expect(both.status).toBe(400)
+})
+
 it('renames a site through its document and tells its open editors', async () => {
   const owner = await register('owner@example.test')
   const id = await createSite(owner)
