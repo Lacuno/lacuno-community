@@ -141,7 +141,7 @@ describe('the remote MCP endpoint', () => {
     const unsubscribe = siteEvents.subscribe(siteId, (event) => events.push(event))
     const applied = await client.callTool({
       name: 'class.create',
-      arguments: { expectedRevision: revision, id: 'c-agent', name: 'agent' },
+      arguments: { expectedRevision: revision, changes: [{ id: 'c-agent', name: 'agent' }] },
     })
     unsubscribe()
     expect(applied.isError).not.toBe(true)
@@ -162,7 +162,7 @@ describe('the remote MCP endpoint', () => {
 
     const stale = await client.callTool({
       name: 'class.create',
-      arguments: { expectedRevision: revision, name: 'x' },
+      arguments: { expectedRevision: revision, changes: [{ name: 'x' }] },
     })
     expect(json(stale)).toMatchObject({ kind: 'stale', current: revision + 1 })
 

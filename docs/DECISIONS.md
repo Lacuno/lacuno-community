@@ -608,27 +608,36 @@ button hands the person's own AI a prompt, unless the server names an auto-trans
 (`LACUNO_AUTO_TRANSLATE_URL`), whose small contract, status and jobs, is in ARCHITECTURE; any
 such service writes through the document like every other client.
 
-## D036. Agents change a site through one MCP tool per operation
+## D036. Agents change a site through one MCP tool per operation, each taking a list
 
 **Decision.** Every document operation the MCP server offers is a tool of its own name
-(`node.create`, `style.set`, `page.update`, …), made from the operation registry: its input is the
-operation's own fields plus `expectedRevision`, its description comes from one typed
-record beside the server (`packages/mcp/src/operations.ts`, so an operation without one fails the
-typecheck), and its annotations follow from its verb. Each call is a batch of one through the same
-store, all or nothing, version-pinned as before. `document.apply` leaves the MCP surface; the HTTP
-route keeps batches for the editor and other clients. `guide` keeps its topics as notes and hands
-out no schemas, and `document.diff` only compares against a document file in the site folder. The
-schemas many tools share (`Binding`, `CssValue`, `RichText` and a few more) are named in Zod's
-registry, so each tool's JSON Schema lists them once under its definitions. The server lists its tools itself, from the same schemas, without the `$schema` line, Zod's safe-integer bounds, `additionalProperties: false` and the id pattern, which the instructions state once: about 66 KB (about 17,000 tokens), under a 73 KB budget test. `translation.set` and `translation.delete` are left to `translations.apply`.
+(`node.create`, `style.set`, `page.update`, …), made from the operation registry. Its input is
+`changes`, a list of one or more changes of its kind, each with the operation's own fields, and
+`expectedRevision`. A call is one batch through the same store: made in order, all or nothing,
+version-pinned as before; the answer names what each change created by its index. Descriptions
+come from one typed record beside the server (`packages/mcp/src/operations.ts`, so an operation
+without one fails the typecheck), annotations follow from the verb. `document.apply` leaves the
+MCP surface; the HTTP route keeps mixed batches for the editor and other clients. `guide` keeps
+its topics as notes and hands out no schemas, and `document.diff` only compares against a
+document file in the site folder. `page.create` and `component.create` take only their root
+element, which `node.create` fills, so the node tree's schema is declared once. The shared parts
+of the schemas (`Binding`, `CssValue`, `RichText` and a few more) are named in Zod's registry, and
+the server lists its tools itself without the `$schema` line, Zod's safe-integer bounds,
+`additionalProperties: false` and the id pattern, which the instructions state once: about 72 KB
+(about 18,500 tokens), under a 79 KB budget test. `translation.set` and `translation.delete` are
+left to `translations.apply`.
 
-**Alternatives.** Keeping the single batch tool with schemas from `guide` (D026); per-kind list
-tools (`designToken.createMany`); a second tool surface for hosts that require separate tools.
+**Alternatives.** Keeping the single batch tool with schemas from `guide` (D026); one change per
+call, which took a site's fixture 78 calls instead of 12; a second tool surface for hosts that
+require separate tools.
 
 **Why.** OpenAI's app review requires every model-callable operation to be exposed up front as a
-separate tool with a description, input schema and annotations, and refuses discovery or schema
-fetching in front of a generic executor; it rejected Lacuno for that on 2026-11-01. Separate tools
-also let a host show and approve a change by name. Batching is mostly kept where it matters:
-`node.create` takes a nested tree, so a section is one call; `page.create` and `component.create` take only their root element there, so the node tree's schema, the largest, is declared once. A multi-step change
-that is invalid in between, such as a new required field on a collection with entries, is done in
-valid steps (optional, filled, then required). The cost is a tool list of about 17,000 tokens instead of 2,000 plus the
-schemas `guide` handed out (about 10,000 for a page), which hosts with tool search load on demand.
+separate tool with a description, input schema and annotations, and refuses discovery, operation
+selection or schema fetching in front of a generic executor; it rejected Lacuno for that on
+2026-11-01. A list of changes of one kind selects nothing: `style.set` only sets styles. It keeps
+most of a batch's economy, since building a page is many changes of a few kinds: the tokens in one
+call, the classes in another, a section's styles in a third. What a batch did and a call no longer
+does is make changes of different kinds all or nothing together; each call leaves the document
+valid, so a multi-step change is done in valid steps (a new required field: optional, filled, then
+required). The cost is the tool list, about 18,500 tokens instead of 2,000 plus the schemas
+`guide` handed out (about 10,000 for a page), which hosts with tool search load on demand.

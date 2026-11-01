@@ -1,7 +1,7 @@
 import { DocumentStore } from '@lacuno/document'
 import { fixtureDocument, fixtureTwoLanguageDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
-import { applyEach, connect, jsonOf, textOf } from './helpers.js'
+import { applyChanges, connect, jsonOf, textOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -42,7 +42,7 @@ describe('page.preview', () => {
       textOf(await client.callTool({ name: 'guide', arguments: { topic: group } }))
     expect(await guide('text')).toContain('"tag":"a"')
     expect(await guide('settings')).toContain('titleTemplate')
-    const applied = await applyEach(client, 0, [
+    const applied = await applyChanges(client, 0, [
       {
         type: 'style.set',
         class: 'c-hero',
@@ -87,7 +87,7 @@ describe('page.preview', () => {
     const text = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'text' } }))
     expect(text).toContain('rotatingWords')
     expect(text).toContain('pen-tool')
-    const applied = await applyEach(client, 0, [
+    const applied = await applyChanges(client, 0, [
       {
         type: 'style.set',
         class: 'l-hero-title',
@@ -133,8 +133,9 @@ describe('page.preview', () => {
     )
     expect(html.match(/<svg /g)).toHaveLength(2)
     expect(html).toContain('<span data-lc-said>AI, designer, you</span>')
-    // Four changes made it revision 4; rotating words on an element are refused.
-    const bad = await applyEach(client, 4, [
+    // Two calls, the styles and the text, made it revision 2; rotating words on an element are
+    // refused.
+    const bad = await applyChanges(client, 2, [
       { type: 'node.update', id: 'n-hero', rotatingWords: { words: ['x'] } },
     ])
     expect(bad.isError).toBe(true)
@@ -146,7 +147,7 @@ describe('page.preview', () => {
     const guide = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'text' } }))
     const table = JSON.parse(guide.match(/`(\{"type":"table"[^`]+)`/)![1]!)
     const apply = (expectedRevision: number, content: object[]) =>
-      applyEach(client, expectedRevision, [
+      applyChanges(client, expectedRevision, [
         { type: 'node.update', id: 'n-hero-title', tag: 'div', text: { type: 'doc', content } },
       ])
     expect((await apply(0, [table])).isError).toBeFalsy()
@@ -168,7 +169,9 @@ describe('page.preview', () => {
     expect(textOf(bad)).toContain('every row of a table needs the same number of columns')
     // Rich-text fields take tables too, under the same rules.
     const entry = (fields: object) =>
-      applyEach(client, 1, [{ type: 'entry.update', collection: 'col-posts', id: 'e-1', fields }])
+      applyChanges(client, 1, [
+        { type: 'entry.update', collection: 'col-posts', id: 'e-1', fields },
+      ])
     const nested = structuredClone(table)
     nested.content[1].content[0].content = [table]
     expect(textOf(await entry({ 'f-body': { type: 'doc', content: [nested] } }))).toContain(
@@ -186,7 +189,7 @@ describe('page.preview', () => {
       { color: { type: 'color', value: '#ffffff' }, position: 75 },
     ]
     const apply = (expectedRevision: number, value: object) =>
-      applyEach(client, expectedRevision, [
+      applyChanges(client, expectedRevision, [
         {
           type: 'style.set',
           class: 'l-hero-title',

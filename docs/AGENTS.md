@@ -52,8 +52,8 @@ from a repository without a server, and for building templates.
   build, check and style; it hands out no schemas: each tool declares its own.
 - **Reading.** `document.read`, `page.outline`, `node.get`, `styles.get`, `entries.list`,
   `translations.list`, plus the document schema as a resource.
-- **Writing.** Each document operation is a tool of its own name (D036), one atomic change with
-  version pinning. Every write names the document version it read, and a stale write is rejected
+- **Writing.** Each document operation is a tool of its own name (D036), taking a list of changes
+  of its kind as one atomic batch with version pinning. Every write names the document version it read, and a stale write is rejected
   with the current version so the agent re-reads and retries instead of overwriting.
   `translations.apply` writes many `translation.set` operations as one batch through the same
   path; its dry run returns the patches without applying them.

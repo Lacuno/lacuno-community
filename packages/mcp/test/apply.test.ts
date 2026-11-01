@@ -2,7 +2,7 @@ import { DocumentStore, OPERATIONS } from '@lacuno/document'
 import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { WITHHELD_OPERATIONS } from '../src/operations.js'
-import { applyEach, connect, jsonOf, textOf } from './helpers.js'
+import { applyChanges, connect, jsonOf, textOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -45,49 +45,77 @@ describe('operation tools', () => {
       '"additionalProperties":false',
     ])
       expect(listed).not.toContain(noise)
+    // One or more changes of the tool's kind, each with the operation's own fields.
     expect(byName.get('node.move')?.inputSchema).toMatchObject({
-      required: ['expectedRevision', 'id', 'parent', 'index'],
-      properties: { expectedRevision: { type: 'integer', minimum: 0 }, id: { type: 'string' } },
+      required: ['expectedRevision', 'changes'],
+      properties: {
+        expectedRevision: { type: 'integer', minimum: 0 },
+        changes: {
+          type: 'array',
+          minItems: 1,
+          items: { required: ['id', 'parent', 'index'], properties: { id: { type: 'string' } } },
+        },
+      },
     })
   })
 
-  it('applies one change, reports created ids, and rejects a stale revision', async () => {
+  it('makes a list of changes in one call, says what each created, and refuses a stale revision', async () => {
     const store = DocumentStore.inMemory(fixtureDocument())
     const c = await connect(store)
     close = c.close
     const res = jsonOf<{ revision: number; created: Record<string, string[]>; patches?: unknown }>(
       await c.client.callTool({
         name: 'class.create',
-        arguments: { expectedRevision: 0, id: 'c-x', name: 'x' },
+        arguments: {
+          expectedRevision: 0,
+          changes: [
+            { id: 'c-x', name: 'x' },
+            { id: 'c-y', name: 'y' },
+          ],
+        },
       }),
     )
     expect(res.revision).toBe(1)
-    expect(res.created['0']).toEqual(['c-x'])
+    expect(res.created).toEqual({ '0': ['c-x'], '1': ['c-y'] })
     expect(res.patches).toBeUndefined()
-    expect(store.read().document.classes['c-x']).toBeDefined()
+    expect(Object.keys(store.read().document.classes)).toEqual(
+      expect.arrayContaining(['c-x', 'c-y']),
+    )
     const stale = await c.client.callTool({
       name: 'style.set',
       arguments: {
         expectedRevision: 0,
-        class: 'c-x',
-        property: 'color',
-        value: { type: 'color', value: 'red' },
+        changes: [{ class: 'c-x', property: 'color', value: { type: 'color', value: 'red' } }],
       },
     })
     expect(stale.isError).toBe(true)
     expect(jsonOf(stale)).toMatchObject({ kind: 'stale', expected: 0, current: 1 })
   })
 
-  it('returns structured operation errors', async () => {
+  it('makes a list all or nothing, naming the change it refused', async () => {
     const store = DocumentStore.inMemory(fixtureDocument())
     const c = await connect(store)
     close = c.close
     const err = await c.client.callTool({
-      name: 'class.delete',
-      arguments: { expectedRevision: 0, id: 'c-button' },
+      name: 'class.create',
+      arguments: {
+        expectedRevision: 0,
+        changes: [
+          { id: 'c-new', name: 'new' },
+          { id: 'c-button', name: 'again' },
+        ],
+      },
     })
-    expect(jsonOf(err)).toMatchObject({
+    expect(jsonOf(err)).toMatchObject({ kind: 'operation', index: 1, type: 'class.create' })
+    expect(store.read().document.classes['c-new']).toBeUndefined()
+    expect(store.read().revision).toBe(0)
+    const used = await c.client.callTool({
+      name: 'class.delete',
+      arguments: { expectedRevision: 0, changes: [{ id: 'c-button' }] },
+    })
+    expect(jsonOf(used)).toMatchObject({
       kind: 'operation',
+      index: 0,
       type: 'class.delete',
       referencedBy: ['classes.c-button-primary', 'nodes.n-hero-cta'],
     })
@@ -97,10 +125,36 @@ describe('operation tools', () => {
     const store = DocumentStore.inMemory(fixtureDocument())
     const c = await connect(store)
     close = c.close
-    const bad = await c.client.callTool({ name: 'node.create', arguments: { expectedRevision: 0 } })
-    expect(bad.isError).toBe(true)
-    expect(textOf(bad)).toContain('parent')
+    for (const changes of [[{}], []]) {
+      const bad = await c.client.callTool({
+        name: 'node.create',
+        arguments: { expectedRevision: 0, changes },
+      })
+      expect(bad.isError).toBe(true)
+      expect(textOf(bad)).toContain('changes')
+    }
     expect(store.read().revision).toBe(0)
+  })
+
+  it("clears a value with null, and reads '' as not given", async () => {
+    const store = DocumentStore.inMemory(fixtureDocument())
+    const c = await connect(store)
+    close = c.close
+    const words = await applyChanges(c.client, 0, [
+      { type: 'node.update', id: 'n-hero-title', rotatingWords: { words: ['you'] } },
+    ])
+    expect(words.isError, textOf(words)).toBeFalsy()
+    expect(store.read().document.nodes['n-hero-title']).toHaveProperty('rotatingWords')
+    // label applies to language switchers only: '' is no label, so this is no error.
+    const cleared = await c.client.callTool({
+      name: 'node.update',
+      arguments: {
+        expectedRevision: 1,
+        changes: [{ id: 'n-hero-title', rotatingWords: null, label: '' }],
+      },
+    })
+    expect(cleared.isError, textOf(cleared)).toBeFalsy()
+    expect(store.read().document.nodes['n-hero-title']).not.toHaveProperty('rotatingWords')
   })
 
   it('makes a page and a component with only their root element, which node.create fills', async () => {
@@ -108,9 +162,10 @@ describe('operation tools', () => {
     const c = await connect(store)
     close = c.close
     const { tools } = await c.client.listTools()
-    const root = tools.find((tool) => tool.name === 'page.create')?.inputSchema.properties?.root
-    expect(JSON.stringify(root)).not.toContain('"children"')
-    const res = await applyEach(c.client, 0, [
+    const changes = tools.find((tool) => tool.name === 'page.create')?.inputSchema.properties
+      ?.changes as { items: { properties: { root: object } } }
+    expect(JSON.stringify(changes.items.properties.root)).not.toContain('"children"')
+    const res = await applyChanges(c.client, 0, [
       { type: 'page.create', id: 'p-team', name: 'Team', path: '/team', root: { id: 'n-team' } },
       {
         type: 'node.create',
@@ -143,7 +198,7 @@ describe('operation tools', () => {
     close = c.close
     const raw = (value: string) => ({ type: 'raw', value })
     const res = jsonOf<{ warnings?: unknown[] }>(
-      await applyEach(c.client, 0, [
+      await applyChanges(c.client, 0, [
         {
           type: 'keyframes.create',
           id: 'drift',

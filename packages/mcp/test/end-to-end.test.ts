@@ -5,7 +5,7 @@ import { build, fixtureAssetBytes, writeFixtureSite } from '@lacuno/compiler/bui
 import { createFolder } from '@lacuno/document/folder'
 import { afterEach, describe, expect, it } from 'vitest'
 import { fixtureOperations } from '../../document/test/fixture-operations.js'
-import { applyEach, connect, jsonOf, textOf } from './helpers.js'
+import { applyChanges, connect, jsonOf, textOf } from './helpers.js'
 
 const dirs: string[] = []
 let close: (() => Promise<void>) | undefined
@@ -101,10 +101,11 @@ describe('building the fixture site through MCP', () => {
             .replaceAll('"a-sans-bold"', `"${sansBold.id}"`),
         ),
       )
-    // One tool call per operation, as an AI app sends them.
+    // As an AI app sends them: consecutive changes of one kind in one call, a revision each.
     const before = store.revision
-    const applied = jsonOf<{ revision: number }>(await applyEach(c.client, before, ops))
-    expect(applied.revision).toBe(before + ops.length)
+    const calls = ops.filter((op, index) => op.type !== ops[index - 1]?.type).length
+    const applied = jsonOf<{ revision: number }>(await applyChanges(c.client, before, ops))
+    expect(applied.revision).toBe(before + calls)
     const preview = textOf(
       await c.client.callTool({ name: 'page.preview', arguments: { page: '/' } }),
     )

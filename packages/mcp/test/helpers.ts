@@ -19,22 +19,24 @@ export async function connect(store: DocumentStore, options: ServerOptions = {})
 }
 
 /**
- * Applies operations as an AI app does, one tool call each from `revision` on, and returns the
- * last answer, or the first that is an error.
+ * Applies operations as an AI app does, from `revision` on: consecutive changes of one kind in one
+ * call of their tool. Returns the last answer, or the first that is an error.
  */
-export async function applyEach(
+export async function applyChanges(
   client: Client,
   revision: number,
   operations: ({ type: string } & Record<string, unknown>)[],
 ) {
   let answer: Record<string, unknown> = {}
-  for (const { type, ...values } of operations) {
-    answer = await client.callTool({
-      name: type,
-      arguments: { expectedRevision: revision, ...values },
-    })
+  for (let start = 0; start < operations.length; ) {
+    const name = operations[start]!.type
+    let end = start
+    while (operations[end]?.type === name) end++
+    const changes = operations.slice(start, end).map(({ type: _, ...change }) => change)
+    answer = await client.callTool({ name, arguments: { expectedRevision: revision, changes } })
     if (answer.isError) return answer
     revision = jsonOf<{ revision: number }>(answer).revision
+    start = end
   }
   return answer
 }

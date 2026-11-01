@@ -542,7 +542,7 @@ describe('connecting an AI app through the gateway', () => {
     const { revision } = JSON.parse((read.content as { text: string }[])[0]!.text)
     const applied = await client.callTool({
       name: 'class.create',
-      arguments: { expectedRevision: revision, id: 'c-cloud', name: 'cloud' },
+      arguments: { expectedRevision: revision, changes: [{ id: 'c-cloud', name: 'cloud' }] },
     })
     expect(applied.isError).not.toBe(true)
 

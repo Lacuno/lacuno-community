@@ -1,7 +1,7 @@
 import { DocumentStore, type Operation } from '@lacuno/document'
 import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
-import { applyEach, connect, jsonOf, textOf } from './helpers.js'
+import { applyChanges, connect, jsonOf, textOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -61,7 +61,7 @@ describe('read tools', () => {
     expect(assets['a-hero']!.usedBy).toEqual(['nodes.n-hero-image', 'nodes.n-product'])
     expect(assets['a-sans']!.usedBy).toEqual(['site.fonts.1'])
     expect(assets['a-spare']!.usedBy).toEqual([])
-    const apply = (id: string) => applyEach(client, revision, [{ type: 'asset.delete', id }])
+    const apply = (id: string) => applyChanges(client, revision, [{ type: 'asset.delete', id }])
     expect((await apply('a-hero')).isError).toBe(true)
     expect((await apply('a-spare')).isError).toBeFalsy()
     expect(Object.keys((await read()).assets)).not.toContain('a-spare')
@@ -213,7 +213,7 @@ describe('read tools', () => {
       'nodes.n-posts',
       'pages.p-post',
     ])
-    const applied = await applyEach(client, (await read()).revision, [
+    const applied = await applyChanges(client, (await read()).revision, [
       {
         type: 'node.create',
         parent: 'n-home',
@@ -235,7 +235,7 @@ describe('read tools', () => {
       await client.callTool({ name: 'page.preview', arguments: { page: '/', text: true } }),
     )
     expect(preview).toContain('n-legal\tThe first post.')
-    const refused = await applyEach(client, (await read()).revision, [
+    const refused = await applyChanges(client, (await read()).revision, [
       { type: 'entry.delete', collection: 'col-posts', id: 'e-1' },
     ])
     expect(refused.isError).toBe(true)

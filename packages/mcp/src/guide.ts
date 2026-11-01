@@ -9,7 +9,8 @@ import { WITHHELD_OPERATIONS } from './operations.js'
  * purpose: hosts that never load the plugin's skills read this, and the guide's topics.
  */
 export const INSTRUCTIONS = `Lacuno builds websites. A site is one JSON document. The person sees every change live in the editor.
-- Read once with document.read. Each change is its own tool, named like it: node.create, style.set, page.update… Pass the revision from the last answer as expectedRevision.
+- Read once with document.read. Each kind of change is its own tool, named like it: node.create, style.set, page.update… It takes changes, one or more of its kind, made in order, all or nothing. Pass the revision from the last answer as expectedRevision.
+- Few calls: all the tokens in one designToken.create, the classes in one class.create, a section's styles in one style.set, a section in one node.create with nested children.
 - Ids are 1 to 64 letters, digits, - and _. Give your own to use them in later calls.
 - Check with page.outline, page.preview (text: true) and page.screenshot at 1280 and 390 wide. Never rebuild the site on your machine.
 - The person says "this" or "here" and the editor is open in the chat: call editor.selection first.
@@ -28,7 +29,7 @@ A site is one JSON document: pages, a tree of nodes, classes with styles, design
 
 Work like this:
 1. document.read for the revision and an overview. page.outline for one page's tree.
-2. Change with the tool of each change (node.create, style.set, page.update…), the revision as expectedRevision. Each is all or nothing. The answer has the new revision, created ids and warnings. Stale revision: read again, send again.
+2. Change with the tool of each kind of change (node.create, style.set, page.update…): changes, a list of one or more, and the revision as expectedRevision. A call is all or nothing. The answer has the new revision, the ids each change created by its index, and warnings. Stale revision: read again, send again.
 3. Check the page with page.outline, page.preview and page.screenshot: topic check.
 
 Topics: build, check, looks, text, content, forms, menu, motion, settings, translate.
@@ -44,7 +45,7 @@ const presetNames = (scroll: boolean) =>
 export const TOPICS: Record<string, string> = {
   build: `## Build
 - Plan first: tokens, then classes, then nodes.
-- node.create takes nested children: one call makes a whole section. Build a section at a time, not an element at a time.
+- One call per kind of change, not per element: the tokens together, the classes together, a section's styles together. node.create takes nested children, so one change makes a whole section, and several changes several sections.
 - Give your own ids (letters, digits, - and _), so later calls can use them without reading again.
 - Use the revision from each answer. Do not read the whole document again after every change.
 - Link to pages with a page binding, \`{"type":"page","page":"<pageId>"}\`, not a path. It survives a rename.
@@ -93,7 +94,7 @@ Tables: table > tableRow > tableHeader or tableCell > blocks, usually one paragr
 \`{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"What"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"Why"}]}]}]},{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"Email"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"To sign in","marks":[{"type":"bold"}]}]}]}]}]}\`
 
 Style tags inside rich text per class, with style.set and a \`tag\`, compiled to \`.legal a\`:
-\`{"type":"style.set","class":"<classId>","tag":"a","breakpoint":"base","state":"hover","property":"text-decoration-line","value":{"type":"keyword","value":"underline"}}\`
+\`{"class":"<classId>","tag":"a","breakpoint":"base","state":"hover","property":"text-decoration-line","value":{"type":"keyword","value":"underline"}}\`
 Put the class on the text that holds the rich text. Tags: ${RichTag.options.join(', ')}. A table is \`table\`, \`th\` and \`td\`; \`min-width\` on \`td\` lets it fit a phone. styles.get lists these rules as "<class> <tag>".
 
 Rotating words: a text node's \`rotatingWords\` (\`null\` removes it):
@@ -107,7 +108,7 @@ A collection has fields; entries hold the content. People edit them in the edito
 - Field types: text, slug, richtext, number, boolean, date, image, file, color, link, option, reference, multi-reference. \`slugField\` gives each entry its address; slugs are unique.
 - Entry values are keyed by field id: text, slug, link and color a string; a number; true or false; a date \`2026-09-28\`; richtext a rich text document; image and file an asset id; option one of its values; reference an entry id; multi-reference a list of ids.
 - Reuse a collection before making a similar one. document.read lists them with \`usedBy\`; entries.list reads entries.
-- Make the collection with its fields, then its entries, with your own ids.
+- Make the collection with its fields, then its entries in one entry.create, with your own ids.
 - Images in entries: import them first, store the asset id.
 - field.update renames without breaking bindings. field.move reorders.
 - Refused: a change that breaks entries (a new required field with empty values, removing a used option). Add a field optional, fill the entries, then make it required.

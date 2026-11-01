@@ -70,7 +70,10 @@ describe('guide and resources', () => {
     const embed = (expectedRevision: number, id: string, html: string) =>
       c.client.callTool({
         name: 'node.create',
-        arguments: { expectedRevision, parent: 'n-home', node: { type: 'embed', id, html } },
+        arguments: {
+          expectedRevision,
+          changes: [{ parent: 'n-home', node: { type: 'embed', id, html } }],
+        },
       })
     const plain = jsonOf<{ revision: number; note?: string }>(await embed(0, 'n-quote', '<hr>'))
     expect(plain.note).toBeUndefined()
@@ -84,9 +87,10 @@ describe('guide and resources', () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const size = Buffer.byteLength(JSON.stringify(await c.client.listTools()), 'utf8')
-    // One tool per operation, about 66,000 bytes (17,000 tokens) when this was set, with lean
-    // schemas (leanSchema) whose shared parts are named once (@lacuno/schema).
-    expect(size).toBeLessThan(73_000)
+    // One tool per operation, each taking a list of changes: about 72,000 bytes (18,500 tokens)
+    // when this was set, with lean schemas (leanSchema) whose shared parts are named once
+    // (@lacuno/schema).
+    expect(size).toBeLessThan(79_000)
   })
 
   it('offers no asset.create: asset.import stores the bytes', async () => {

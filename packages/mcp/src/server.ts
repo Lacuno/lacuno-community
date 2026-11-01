@@ -117,11 +117,6 @@ async function insideSite(siteDir: string | undefined, file: string): Promise<st
   return target
 }
 
-/**
- * Models fill optional fields they do not need with '' or null; every tool reads those as not
- * given, so `page: ''` next to a component is no second target. The schemas they see stay as
- * written.
- */
 /** What each tool may do, for the apps that call it: reads change nothing; adds create without destroying. */
 const reads = {
   readOnlyHint: true,
@@ -178,8 +173,8 @@ const remaining = (d: Document, locale: string) =>
 
 /**
  * A tool's input as JSON Schema, without what every host pays for in tokens and a model learns
- * nothing from: the \`$schema\` line, the safe-integer bounds Zod gives every integer,
- * \`additionalProperties: false\`, and the id pattern, which the instructions state once and the
+ * nothing from: the `$schema` line, the safe-integer bounds Zod gives every integer,
+ * `additionalProperties: false`, and the id pattern, which the instructions state once and the
  * document checks. About a quarter of the operation tools' schemas.
  */
 export function leanSchema(shape: z.ZodRawShape | undefined): Tool['inputSchema'] {
@@ -201,14 +196,28 @@ export function leanSchema(shape: z.ZodRawShape | undefined): Tool['inputSchema'
   )
 }
 
+/**
+ * Models fill optional fields they do not need with '' or null. An optional field reads '' as not
+ * given, so `page: ''` next to a component is no second target, and null too unless the field
+ * takes null, which then clears a value. The same inside a list of objects, such as a change
+ * tool's changes. The schemas models see stay as written.
+ */
 function lenient(shape: z.ZodRawShape): z.ZodRawShape {
   return Object.fromEntries(
-    Object.entries(shape).map(([key, field]) => [
-      key,
-      z.safeParse(field, undefined).success
-        ? z.preprocess((value) => (value === '' || value === null ? undefined : value), field)
-        : field,
-    ]),
+    Object.entries(shape).map(([key, field]) => [key, loosen(field as z.ZodType)]),
+  )
+}
+
+function loosen(field: z.ZodType): z.ZodType {
+  if (field instanceof z.ZodArray && field.element instanceof z.ZodObject)
+    return z
+      .array(field.element.extend(lenient(field.element.shape)))
+      .check(...((field.def.checks ?? []) as never[]))
+  if (!z.safeParse(field, undefined).success) return field
+  const takesNull = z.safeParse(field, null).success
+  return z.preprocess(
+    (value) => (value === '' || (value === null && !takesNull) ? undefined : value),
+    field,
   )
 }
 
@@ -248,8 +257,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     async ({ topic }) => text(topic === undefined ? GUIDE_INTRO : (TOPICS[topic] as string)),
   )
 
-  // Every document operation is a tool of its own name, taking its own fields: one change, all or
-  // nothing, at the revision the caller last saw.
+  // Every document operation is a tool of its own name, taking one or more changes of its kind:
+  // made in order, all or nothing, at the revision the caller last saw.
   for (const operation of MCP_OPERATIONS) {
     const { type, ...fields } = (operation.schema as z.ZodObject).shape
     const rootTag = SHALLOW_ROOTS[operation.type]
@@ -260,29 +269,33 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         description: DESCRIPTIONS[operation.type as keyof typeof DESCRIPTIONS],
         inputSchema: {
           expectedRevision: z.number().int().nonnegative(),
-          ...fields,
-          ...(rootTag && { root: ShallowRoot }),
+          changes: z
+            .array(z.strictObject({ ...fields, ...(rootTag && { root: ShallowRoot }) }))
+            .min(1),
         },
       },
-      async ({ expectedRevision, ...values }) => {
+      async ({ expectedRevision, changes }) => {
         try {
           const batch = {
             expectedRevision,
-            operations: [
-              {
-                type: operation.type,
-                ...values,
-                ...(rootTag && { root: { type: 'element', tag: rootTag, ...values.root } }),
-              } as Operation,
-            ],
+            operations: changes.map(
+              (change) =>
+                ({
+                  type: operation.type,
+                  ...change,
+                  ...(rootTag && {
+                    root: { type: 'element', tag: rootTag, ...(change as { root?: object }).root },
+                  }),
+                }) as Operation,
+            ),
           }
           const result = await store.apply(batch)
           options.onApply?.(batch, result)
-          // The patches repeat everything the change created, several times its own size.
+          // The patches repeat everything the changes created, several times their own size.
           const { patches: _patches, ...applied } = result
           // Said where it is read: a script in the page is code the person cannot edit.
           return ok(
-            /<script/i.test(JSON.stringify(values))
+            /<script/i.test(JSON.stringify(changes))
               ? {
                   ...applied,
                   note: 'A script in an embed cannot be edited in the editor. Build it with nodes if you can: a mobile menu needs none (guide menu).',
