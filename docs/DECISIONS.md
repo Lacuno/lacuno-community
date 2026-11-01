@@ -620,11 +620,12 @@ without one fails the typecheck), annotations follow from the verb. `document.ap
 MCP surface; the HTTP route keeps mixed batches for the editor and other clients. `guide` keeps
 its topics as notes and hands out no schemas, and `document.diff` only compares against a
 document file in the site folder. `page.create` and `component.create` take only their root
-element, which `node.create` fills, so the node tree's schema is declared once. The shared parts
+element, which `node.create` fills, so the node tree's schema is declared once, and keyframes take
+their styles as CSS text, as the editor's keyframes dialog writes them. The shared parts
 of the schemas (`Binding`, `CssValue`, `RichText` and a few more) are named in Zod's registry, and
 the server lists its tools itself without the `$schema` line, Zod's safe-integer bounds,
-`additionalProperties: false` and the id pattern, which the instructions state once: about 72 KB
-(about 18,500 tokens), under a 79 KB budget test. `translation.set` and `translation.delete` are
+`additionalProperties: false` and the id pattern, which the instructions state once: about 67 KB
+(about 17,500 tokens), under a 74 KB budget test. `translation.set` and `translation.delete` are
 left to `translations.apply`.
 
 **Alternatives.** Keeping the single batch tool with schemas from `guide` (D026); one change per
@@ -639,5 +640,5 @@ most of a batch's economy, since building a page is many changes of a few kinds:
 call, the classes in another, a section's styles in a third. What a batch did and a call no longer
 does is make changes of different kinds all or nothing together; each call leaves the document
 valid, so a multi-step change is done in valid steps (a new required field: optional, filled, then
-required). The cost is the tool list, about 18,500 tokens instead of 2,000 plus the schemas
+required). The cost is the tool list, about 17,500 tokens instead of 2,000 plus the schemas
 `guide` handed out (about 10,000 for a page), which hosts with tool search load on demand.

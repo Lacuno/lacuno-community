@@ -196,20 +196,32 @@ describe('operation tools', () => {
     const store = DocumentStore.inMemory(fixtureDocument())
     const c = await connect(store)
     close = c.close
-    const raw = (value: string) => ({ type: 'raw', value })
+    // Keyframes take their styles as CSS text, and keep them as the editor's dialog does.
     const res = jsonOf<{ warnings?: unknown[] }>(
       await applyChanges(c.client, 0, [
         {
           type: 'keyframes.create',
           id: 'drift',
-          stops: [{ at: 0, styles: { opacity: raw('0'), translate: raw('0 40px') } }],
+          stops: [{ at: 0, styles: { opacity: '0', translate: '0 40px' } }],
         },
-        { type: 'style.set', class: 'c-step', property: '--lc-scroll', value: raw('drift') },
+        {
+          type: 'style.set',
+          class: 'c-step',
+          property: '--lc-scroll',
+          value: { type: 'raw', value: 'drift' },
+        },
       ]),
     )
     expect(res.warnings ?? []).toEqual([])
+    expect(store.read().document.keyframes.drift?.stops[0]?.styles).toEqual({
+      opacity: { type: 'raw', value: '0' },
+      translate: { type: 'raw', value: '0 40px' },
+    })
     const html = textOf(await c.client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
     expect(html).toContain('@keyframes drift {\n  0% { opacity: 0; translate: 0 40px; }\n}')
     expect(html).toMatch(/class="step[^"]*"[^>]*data-lacuno-motion="scroll" data-lc-step="1"/)
+    const { tools } = await c.client.listTools()
+    const keyframes = JSON.stringify(tools.find((tool) => tool.name === 'keyframes.create'))
+    expect(keyframes).not.toContain('CssValue')
   })
 })

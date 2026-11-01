@@ -87,10 +87,10 @@ describe('guide and resources', () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const size = Buffer.byteLength(JSON.stringify(await c.client.listTools()), 'utf8')
-    // One tool per operation, each taking a list of changes: about 72,000 bytes (18,500 tokens)
+    // One tool per operation, each taking a list of changes: about 67,000 bytes (17,500 tokens)
     // when this was set, with lean schemas (leanSchema) whose shared parts are named once
-    // (@lacuno/schema).
-    expect(size).toBeLessThan(79_000)
+    // (@lacuno/schema) and keyframes as CSS text.
+    expect(size).toBeLessThan(74_000)
   })
 
   it('offers no asset.create: asset.import stores the bytes', async () => {

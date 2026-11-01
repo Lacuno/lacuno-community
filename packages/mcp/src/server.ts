@@ -32,7 +32,7 @@ import { z } from 'zod'
 import { diffDocuments, formatDiff } from './diff.js'
 import { fail, InputError } from './errors.js'
 import { GUIDE_INTRO, INSTRUCTIONS, MCP_OPERATIONS, TOPICS } from './guide.js'
-import { annotationsOf, DESCRIPTIONS, SHALLOW_ROOTS, ShallowRoot } from './operations.js'
+import { ADAPTED, annotationsOf, DESCRIPTIONS } from './operations.js'
 import { outlineLines } from './outline.js'
 import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
@@ -261,7 +261,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   // made in order, all or nothing, at the revision the caller last saw.
   for (const operation of MCP_OPERATIONS) {
     const { type, ...fields } = (operation.schema as z.ZodObject).shape
-    const rootTag = SHALLOW_ROOTS[operation.type]
+    const adapted = ADAPTED[operation.type]
     server.registerTool(
       operation.type,
       {
@@ -269,9 +269,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         description: DESCRIPTIONS[operation.type as keyof typeof DESCRIPTIONS],
         inputSchema: {
           expectedRevision: z.number().int().nonnegative(),
-          changes: z
-            .array(z.strictObject({ ...fields, ...(rootTag && { root: ShallowRoot }) }))
-            .min(1),
+          changes: z.array(z.strictObject({ ...fields, ...adapted?.fields })).min(1),
         },
       },
       async ({ expectedRevision, changes }) => {
@@ -282,10 +280,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
               (change) =>
                 ({
                   type: operation.type,
-                  ...change,
-                  ...(rootTag && {
-                    root: { type: 'element', tag: rootTag, ...(change as { root?: object }).root },
-                  }),
+                  ...(adapted ? adapted.operation(change) : change),
                 }) as Operation,
             ),
           }

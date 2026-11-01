@@ -161,8 +161,8 @@ Scroll video: the pinned element is a video, \`src\` an asset binding, with attr
   ffmpeg -i in.mov -an -vf "scale=1280:-2,fps=24" -c:v libx264 -g 1 -crf 26 -pix_fmt yuv420p -movflags +faststart out.mp4
 - Uploads are at most 10 MB, about 15 to 20 s at 1280 px: shorter is better; raise -crf if it is too big.
 Reading progress bar: an empty span with --lc-scroll lc-progress, --lc-timeline scroll(), --lc-range normal, position fixed, inset 0 0 auto 0, height 3px, transform-origin left, a background.
-Custom keyframes: \`keyframes.create\` \`{"id":"rise","stops":[{"at":0,"styles":{"opacity":{"type":"raw","value":"0"},"translate":{"type":"raw","value":"0 40px"}}},{"at":60,"styles":{"translate":{"type":"raw","value":"0 -4px"}}}]}\`, before the style.set of --lc-entrance or --lc-scroll rise.
-- Styles are keyed by kebab-case property; token values work. Leave out a stop to mean "as styled", so the element as styled stays a frame.
+Custom keyframes: \`keyframes.create\` \`{"id":"rise","stops":[{"at":0,"styles":{"opacity":"0","translate":"0 40px"}},{"at":60,"styles":{"translate":"0 -4px"}}]}\`, before the style.set of --lc-entrance or --lc-scroll rise.
+- Styles are CSS text keyed by kebab-case property; a token is var(--color-brand). Leave out a stop to mean "as styled", so the element as styled stays a frame.
 - Ids are lower-case idents, not lc-* or none, fixed once created. keyframes.update replaces the stops; keyframes.delete is refused while a style names them.
 The editor's palette has Scroll story, Scroll video and Reading progress.`,
 

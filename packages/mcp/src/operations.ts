@@ -1,5 +1,5 @@
 import type { Operation } from '@lacuno/document'
-import { ClassId, NodeId, Tag } from '@lacuno/schema'
+import { ClassId, KeyframeStop, NodeId, StyleDecl, Tag } from '@lacuno/schema'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 
@@ -66,8 +66,8 @@ export const DESCRIPTIONS: Record<Offered, string> = {
     "Removes a design token's value in one mode. The default mode's value cannot be cleared.",
   'designToken.delete': 'Deletes a design token. Refused while a style uses it.',
   'keyframes.create':
-    'Adds custom keyframes for motion: an id (a lower-case ident, not lc-* or none) and stops, each at 0 to 100 with styles by kebab-case property. Leave out a stop to mean the element as styled.',
-  'keyframes.update': 'Replaces the stops of custom keyframes.',
+    'Adds custom keyframes for motion: an id (a lower-case ident, not lc-* or none) and stops, each at 0 to 100 with styles as CSS text by kebab-case property, such as {"opacity":"0","translate":"0 40px"}; a token is var(--color-brand). Leave out a stop to mean the element as styled.',
+  'keyframes.update': 'Replaces the stops of custom keyframes, as keyframes.create takes them.',
   'keyframes.delete': 'Deletes custom keyframes. Refused while a style names them.',
 
   'component.create':
@@ -110,16 +110,8 @@ export const DESCRIPTIONS: Record<Offered, string> = {
     'Replaces the glossary: terms with their translation per language, or none to keep a term as it is.',
 }
 
-/**
- * The tag of the root element page.create and component.create make. Their operations take a
- * whole node tree, which would repeat node.create's schema, the largest there is, in two more
- * tools; here they take only the root element, and node.create fills it.
- */
-export const SHALLOW_ROOTS: Record<string, string> = {
-  'page.create': 'main',
-  'component.create': 'div',
-}
-export const ShallowRoot = z
+type Change = Record<string, unknown>
+const ShallowRoot = z
   .strictObject({
     id: NodeId.optional(),
     tag: Tag.optional(),
@@ -127,6 +119,53 @@ export const ShallowRoot = z
   })
   .optional()
   .describe('The root element, without children.')
+/** Only the root element, a `tag` unless the change names another. */
+const rooted = (tag: string) => ({
+  fields: { root: ShallowRoot },
+  operation: (change: Change) => ({
+    ...change,
+    root: { type: 'element', tag, ...(change.root as object | undefined) },
+  }),
+})
+type CssTextStop = { at: number; styles: Record<string, string> }
+/** Stops whose styles are CSS text, made raw values. */
+const cssText = {
+  fields: {
+    stops: z
+      .array(
+        z.strictObject({
+          at: KeyframeStop.shape.at,
+          styles: z.record(StyleDecl.shape.property, z.string()),
+        }),
+      )
+      .min(1),
+  },
+  operation: (change: Change) => ({
+    ...change,
+    stops: (change.stops as CssTextStop[]).map(({ at, styles }) => ({
+      at,
+      styles: Object.fromEntries(
+        Object.entries(styles).map(([property, value]) => [property, { type: 'raw', value }]),
+      ),
+    })),
+  }),
+}
+/**
+ * Operations whose tool takes leaner fields than the operation, and how a change becomes the
+ * operation's own. page.create and component.create take only their root element, which
+ * node.create fills: their operations take a whole node tree, which would repeat node.create's
+ * schema, the largest there is. Keyframes take their styles as CSS text, as the editor's
+ * keyframes dialog writes them, not the typed values style.set takes.
+ */
+export const ADAPTED: Record<
+  string,
+  { fields: z.ZodRawShape; operation: (change: Change) => Change }
+> = {
+  'page.create': rooted('main'),
+  'component.create': rooted('div'),
+  'keyframes.create': cssText,
+  'keyframes.update': cssText,
+}
 
 /**
  * What an operation's tool may do, from its name: deleting and removing destroy, creating and
