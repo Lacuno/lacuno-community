@@ -30,7 +30,7 @@ import { z } from 'zod'
 import { diffDocuments, formatDiff } from './diff.js'
 import { fail, InputError } from './errors.js'
 import { GUIDE_INTRO, INSTRUCTIONS, MCP_OPERATIONS, TOPICS } from './guide.js'
-import { annotationsOf, DESCRIPTIONS } from './operations.js'
+import { annotationsOf, DESCRIPTIONS, SHALLOW_ROOTS, ShallowRoot } from './operations.js'
 import { outlineLines } from './outline.js'
 import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
@@ -215,6 +215,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   // nothing, at the revision the caller last saw.
   for (const operation of MCP_OPERATIONS) {
     const { type, ...fields } = (operation.schema as z.ZodObject).shape
+    const rootTag = SHALLOW_ROOTS[operation.type]
     server.registerTool(
       operation.type,
       {
@@ -228,13 +229,20 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
             .describe('The revision from document.read or the last change.'),
           dryRun: z.boolean().optional().describe('Answer the patches without changing anything.'),
           ...fields,
+          ...(rootTag && { root: ShallowRoot }),
         },
       },
       async ({ expectedRevision, dryRun, ...values }) => {
         try {
           const batch = {
             expectedRevision,
-            operations: [{ type: operation.type, ...values } as Operation],
+            operations: [
+              {
+                type: operation.type,
+                ...values,
+                ...(rootTag && { root: { type: 'element', tag: rootTag, ...values.root } }),
+              } as Operation,
+            ],
             ...(dryRun ? { dryRun } : {}),
           }
           const result = await store.apply(batch)

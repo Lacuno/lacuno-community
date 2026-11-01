@@ -619,7 +619,7 @@ store, all or nothing, version-pinned as before. `document.apply` leaves the MCP
 route keeps batches for the editor and other clients. `guide` keeps its topics as notes and hands
 out no schemas, and `document.diff` only compares against a document file in the site folder. The
 schemas many tools share (`Binding`, `CssValue`, `RichText` and a few more) are named in Zod's
-registry, so each tool's JSON Schema lists them once under its definitions.
+registry, so each tool's JSON Schema lists them once under its definitions. The tool list is about 91 KB (about 24,000 tokens), under a 100 KB budget test.
 
 **Alternatives.** Keeping the single batch tool with schemas from `guide` (D026); per-kind list
 tools (`designToken.createMany`); a second tool surface for hosts that require separate tools.
@@ -628,7 +628,7 @@ tools (`designToken.createMany`); a second tool surface for hosts that require s
 separate tool with a description, input schema and annotations, and refuses discovery or schema
 fetching in front of a generic executor; it rejected Lacuno for that on 2026-11-01. Separate tools
 also let a host show and approve a change by name. Batching is mostly kept where it matters:
-`node.create` and `page.create` take nested trees, so a section is one call. A multi-step change
+`node.create` takes a nested tree, so a section is one call; `page.create` and `component.create` take only their root element there, so the node tree's schema, the largest, is declared once. A multi-step change
 that is invalid in between, such as a new required field on a collection with entries, is done in
-valid steps (optional, filled, then required). The cost is a tool list of about 106 KB instead of
-7, which hosts with tool search load on demand.
+valid steps (optional, filled, then required). The cost is a tool list of about 24,000 tokens instead of 2,000 plus the
+schemas `guide` handed out (about 10,000 for a page), which hosts with tool search load on demand.

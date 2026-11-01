@@ -1,5 +1,7 @@
 import type { Operation } from '@lacuno/document'
+import { ClassId, NodeId, Tag } from '@lacuno/schema'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
+import { z } from 'zod'
 
 /** asset.create only records an asset; the bytes come with the asset.import tool. */
 export const WITHHELD_OPERATIONS = { 'asset.create': 'use the asset.import tool' } as const
@@ -30,7 +32,7 @@ export const DESCRIPTIONS: Record<Offered, string> = {
     'Deletes a node with its children. A page or component root cannot go; delete the page or component instead.',
 
   'page.create':
-    "Adds a page: name, path (/about, or /blog/[slug] with collection for one page per entry), optional folder, seo, lang, headCode and bodyCode, and root, the page's node tree (an empty main by default).",
+    'Adds a page: name, path (/about, or /blog/[slug] with collection for one page per entry), optional folder, seo, lang, headCode and bodyCode, and root, its root element (a main by default), without children: fill it with node.create.',
   'page.update':
     "Changes a page's name, path, folder, collection, seo (title, description, ogImage, noindex, titleTemplate, entry and fields), lang, headCode, bodyCode or order. Only the fields given change; null clears one.",
   'page.delete':
@@ -64,7 +66,7 @@ export const DESCRIPTIONS: Record<Offered, string> = {
   'keyframes.delete': 'Deletes custom keyframes. Refused while a style names them.',
 
   'component.create':
-    'Adds a reusable component: a name, props (text, image, link and others) instances fill in, a description, and root, its node tree. Instances are component nodes made with node.create.',
+    'Adds a reusable component: a name, props (text, image, link and others) instances fill in, a description, and root, its root element (a div by default), without children: fill it with node.create. To make one from nodes already on a page, use component.extract. Instances are component nodes made with node.create.',
   'component.update': "Changes a component's name, props or description.",
   'component.delete': 'Deletes a component. Refused while an instance of it is on a page.',
   'component.extract':
@@ -105,6 +107,24 @@ export const DESCRIPTIONS: Record<Offered, string> = {
   'glossary.set':
     'Replaces the glossary: terms with their translation per language, or none to keep a term as it is.',
 }
+
+/**
+ * The tag of the root element page.create and component.create make. Their operations take a
+ * whole node tree, which would repeat node.create's schema, the largest there is, in two more
+ * tools; here they take only the root element, and node.create fills it.
+ */
+export const SHALLOW_ROOTS: Record<string, string> = {
+  'page.create': 'main',
+  'component.create': 'div',
+}
+export const ShallowRoot = z
+  .strictObject({
+    id: NodeId.optional(),
+    tag: Tag.optional(),
+    classes: z.array(ClassId).optional(),
+  })
+  .optional()
+  .describe('The root element, without children.')
 
 /**
  * What an operation's tool may do, from its name: deleting and removing destroy, creating and

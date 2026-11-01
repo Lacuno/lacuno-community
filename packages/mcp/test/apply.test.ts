@@ -97,6 +97,40 @@ describe('operation tools', () => {
     expect(store.read().revision).toBe(0)
   })
 
+  it('makes a page and a component with only their root element, which node.create fills', async () => {
+    const store = DocumentStore.inMemory(fixtureDocument())
+    const c = await connect(store)
+    close = c.close
+    const { tools } = await c.client.listTools()
+    const root = tools.find((tool) => tool.name === 'page.create')?.inputSchema.properties?.root
+    expect(JSON.stringify(root)).not.toContain('"children"')
+    const res = await applyEach(c.client, 0, [
+      { type: 'page.create', id: 'p-team', name: 'Team', path: '/team', root: { id: 'n-team' } },
+      {
+        type: 'node.create',
+        parent: 'n-team',
+        node: { type: 'element', tag: 'section', id: 'n-team-intro' },
+      },
+      {
+        type: 'component.create',
+        id: 'cmp-tile',
+        name: 'Tile',
+        root: { id: 'n-tile', tag: 'article' },
+      },
+      { type: 'component.create', id: 'cmp-plain', name: 'Plain' },
+    ])
+    expect(res.isError, textOf(res)).toBeFalsy()
+    const { document } = store.read()
+    expect(document.pages['p-team']?.root).toBe('n-team')
+    expect(document.nodes['n-team']).toMatchObject({
+      type: 'element',
+      tag: 'main',
+      children: ['n-team-intro'],
+    })
+    expect(document.nodes['n-tile']).toMatchObject({ tag: 'article' })
+    expect(document.nodes[document.components['cmp-plain']!.root]).toMatchObject({ tag: 'div' })
+  })
+
   it('builds a step that rises on custom keyframes, as in an Apple-style story', async () => {
     const store = DocumentStore.inMemory(fixtureDocument())
     const c = await connect(store)

@@ -14,6 +14,34 @@ afterEach(async () => {
   for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true })
 })
 
+type Change = { type: string } & Record<string, unknown>
+type Tree = { id: string; tag: string; classes?: string[]; children?: object[] }
+
+/**
+ * The operations as an AI app sends them: page.create and component.create with their root element
+ * only, then the root's other fields with node.update and each child with node.create.
+ */
+function shallow(operations: Change[]): Change[] {
+  return operations.flatMap((op) => {
+    if (op.type !== 'page.create' && op.type !== 'component.create') return [op]
+    const {
+      type: _,
+      id,
+      tag,
+      classes,
+      children = [],
+      ...rest
+    } = op.root as Tree & {
+      type: string
+    }
+    return [
+      { ...op, root: { id, tag, classes } },
+      ...(Object.keys(rest).length ? [{ type: 'node.update', id, ...rest }] : []),
+      ...children.map((node, index) => ({ type: 'node.create', parent: id, index, node })),
+    ]
+  })
+}
+
 describe('building the fixture site through MCP', () => {
   it('matches the compiler building the fixture directly', async () => {
     const a = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-a-'))
@@ -62,7 +90,7 @@ describe('building the fixture site through MCP', () => {
     const sans = await font('FixtureSans-Regular.woff2', bytes['a-sans'])
     const sansBold = await font('FixtureSans-Bold.woff2', bytes['a-sans-bold'])
     // The fixture registers its assets itself; replace those operations with the imported asset ids.
-    const ops = fixtureOperations(initialPage)
+    const ops = shallow(fixtureOperations(initialPage))
       .filter((o) => o.type !== 'asset.create')
       .map((o) =>
         JSON.parse(

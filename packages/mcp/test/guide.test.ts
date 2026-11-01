@@ -84,9 +84,10 @@ describe('guide and resources', () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const size = Buffer.byteLength(JSON.stringify(await c.client.listTools()), 'utf8')
-    // One tool per operation, about 106,000 bytes when this was set: the three that take a node
-    // tree are about 9,000 each, with the shared parts of a schema named once (@lacuno/schema).
-    expect(size).toBeLessThan(117_000)
+    // One tool per operation, about 91,000 bytes (24,000 tokens) when this was set: node.create,
+    // the one tool that takes a node tree, about 9,000, with the shared parts of a schema named
+    // once (@lacuno/schema).
+    expect(size).toBeLessThan(100_000)
   })
 
   it('offers no asset.create: asset.import stores the bytes', async () => {
