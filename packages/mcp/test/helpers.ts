@@ -18,6 +18,27 @@ export async function connect(store: DocumentStore, options: ServerOptions = {})
   }
 }
 
+/**
+ * Applies operations as an AI app does, one tool call each from `revision` on, and returns the
+ * last answer, or the first that is an error.
+ */
+export async function applyEach(
+  client: Client,
+  revision: number,
+  operations: ({ type: string } & Record<string, unknown>)[],
+) {
+  let answer: Record<string, unknown> = {}
+  for (const { type, ...values } of operations) {
+    answer = await client.callTool({
+      name: type,
+      arguments: { expectedRevision: revision, ...values },
+    })
+    if (answer.isError) return answer
+    revision = jsonOf<{ revision: number }>(answer).revision
+  }
+  return answer
+}
+
 export function textOf(result: Record<string, unknown>): string {
   const first = (result.content as { type: string; text?: string }[] | undefined)?.[0]
   return first?.text ?? ''

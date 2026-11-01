@@ -397,7 +397,8 @@ validated as a whole and committed atomically, or rejected with nothing applied.
 commit path changes the revision, so no operation can forget it. Deleting a container removes what
 it owns (a page's tree, a node's descendants); deleting something another record points at is
 refused with the referencing paths. There is no force flag. Agents use the same catalog through a
-single MCP tool, `document.apply`, whose input is the operation union.
+single MCP tool, `document.apply`, whose input is the operation union (one tool per operation since
+D036).
 
 **Alternatives.** A Yjs document from the start (D006). JSON Patch or free-form writes. Cascading
 deletes that clean up references. One MCP tool per operation.
@@ -606,3 +607,28 @@ checked per item and shown live. Community calls no model (D016): the editor's A
 button hands the person's own AI a prompt, unless the server names an auto-translate service
 (`LACUNO_AUTO_TRANSLATE_URL`), whose small contract, status and jobs, is in ARCHITECTURE; any
 such service writes through the document like every other client.
+
+## D036. Agents change a site through one MCP tool per operation
+
+**Decision.** Every document operation the MCP server offers is a tool of its own name
+(`node.create`, `style.set`, `page.update`, …), made from the operation registry: its input is the
+operation's own fields plus `expectedRevision` and `dryRun`, its description comes from one typed
+record beside the server (`packages/mcp/src/operations.ts`, so an operation without one fails the
+typecheck), and its annotations follow from its verb. Each call is a batch of one through the same
+store, all or nothing, version-pinned as before. `document.apply` leaves the MCP surface; the HTTP
+route keeps batches for the editor and other clients. `guide` keeps its topics as notes and hands
+out no schemas, and `document.diff` only compares against a document file in the site folder. The
+schemas many tools share (`Binding`, `CssValue`, `RichText` and a few more) are named in Zod's
+registry, so each tool's JSON Schema lists them once under its definitions.
+
+**Alternatives.** Keeping the single batch tool with schemas from `guide` (D026); per-kind list
+tools (`designToken.createMany`); a second tool surface for hosts that require separate tools.
+
+**Why.** OpenAI's app review requires every model-callable operation to be exposed up front as a
+separate tool with a description, input schema and annotations, and refuses discovery or schema
+fetching in front of a generic executor; it rejected Lacuno for that on 2026-11-01. Separate tools
+also let a host show and approve a change by name. Batching is mostly kept where it matters:
+`node.create` and `page.create` take nested trees, so a section is one call. A multi-step change
+that is invalid in between, such as a new required field on a collection with entries, is done in
+valid steps (optional, filled, then required). The cost is a tool list of about 106 KB instead of
+7, which hosts with tool search load on demand.

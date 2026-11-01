@@ -132,3 +132,15 @@ export const list = (values: CssValue[], separator: ' ' | ', ' | ' / ' = ' '): C
   values,
 })
 export const fn = (name: string, args: CssValue[]): CssValue => ({ type: 'fn', name, args })
+
+// Named, so JSON Schema made from a schema that uses them, such as an MCP tool's input, lists each
+// once under its definitions instead of repeating it.
+for (const [id, schema] of Object.entries({
+  CssValue,
+  ScalarValue,
+  ColorValue,
+  DesignTokenRef,
+  GradientValue,
+  UnitValue,
+}))
+  z.globalRegistry.add(schema, { id })

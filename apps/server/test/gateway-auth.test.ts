@@ -537,15 +537,12 @@ describe('connecting an AI app through the gateway', () => {
       fetch: signed({ sub: 'cloud-owner-6', role: 'owner' }),
     })
     await client.connect(transport as Transport)
-    expect((await client.listTools()).tools.map((tool) => tool.name)).toContain('document.apply')
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toContain('class.create')
     const read = await client.callTool({ name: 'document.read', arguments: {} })
     const { revision } = JSON.parse((read.content as { text: string }[])[0]!.text)
     const applied = await client.callTool({
-      name: 'document.apply',
-      arguments: {
-        expectedRevision: revision,
-        operations: [{ type: 'class.create', id: 'c-cloud', name: 'cloud' }],
-      },
+      name: 'class.create',
+      arguments: { expectedRevision: revision, id: 'c-cloud', name: 'cloud' },
     })
     expect(applied.isError).not.toBe(true)
 

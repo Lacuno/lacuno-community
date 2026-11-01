@@ -10,36 +10,34 @@ afterEach(async () => {
 })
 
 describe('guide and resources', () => {
-  it('lists every tool and names every operation in the guide', async () => {
+  it('lists every tool, and the guide has notes only', async () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const tools = (await c.client.listTools()).tools.map((t) => t.name).sort()
-    expect(tools).toEqual([
-      'asset.import',
-      'document.apply',
-      'document.diff',
-      'document.read',
-      'entries.list',
-      'guide',
-      'node.get',
-      'page.outline',
-      'page.preview',
-      'site.build',
-      'styles.get',
-      'translations.apply',
-      'translations.list',
-    ])
+    expect(tools).toEqual(
+      [
+        'asset.import',
+        'document.read',
+        'entries.list',
+        'guide',
+        'node.get',
+        'page.outline',
+        'page.preview',
+        'site.build',
+        'styles.get',
+        'translations.apply',
+        'translations.list',
+        ...MCP_OPERATIONS.map((o) => o.type),
+      ].sort(),
+    )
     const guide = textOf(await c.client.callTool({ name: 'guide', arguments: {} }))
-    for (const op of MCP_OPERATIONS) expect(guide).toContain(op.type)
-    // asset.create registers bytes that may not exist; only asset.import is offered.
-    expect(guide).not.toContain('asset.create')
     expect(guide).toContain('expectedRevision')
     expect(guide).toContain('page.preview')
-    expect(guide).toContain('Call guide with a group to get the schemas.')
+    expect(guide).not.toContain('document.apply')
     // The basics stay short; the how-to lives in topics.
     expect(guide.split(/\s+/).length).toBeLessThan(450)
-    const topic = async (group: string) =>
-      textOf(await c.client.callTool({ name: 'guide', arguments: { group } }))
+    const topic = async (topic: string) =>
+      textOf(await c.client.callTool({ name: 'guide', arguments: { topic } }))
     expect(await topic('text')).toContain('bulletList')
     expect(await topic('text')).toContain('attrs.href')
     expect(await topic('menu')).toContain('popovertarget')
@@ -50,23 +48,20 @@ describe('guide and resources', () => {
     expect(await topic('motion')).toContain('keyframes.create')
     expect(await topic('translate')).toContain('translations.apply')
     expect(await topic('translate')).toContain('glossary')
-    expect(c.client.getInstructions()).toContain('translate')
-    expect(guide).toContain('keyframes: keyframes.create, keyframes.update, keyframes.delete')
-    expect(c.client.getInstructions()).toContain('motion')
     for (const name of ['build', 'check', 'looks', 'content', 'forms', 'settings'])
       expect(await topic(name)).toMatch(/^## /)
-    // Every host reads the instructions the connection opens with, skills or not.
-    expect(c.client.getInstructions()).toContain('guide is a reference')
-    const nodesOnly = textOf(
-      await c.client.callTool({ name: 'guide', arguments: { group: 'node' } }),
+    // No topic hands out schemas, and none names a batch tool.
+    for (const name of ['build', 'check', 'looks', 'text', 'content', 'forms', 'menu', 'motion'])
+      expect(await topic(name)).not.toMatch(/document\.apply|batch/)
+    expect((await c.client.callTool({ name: 'guide', arguments: { topic: 'node' } })).isError).toBe(
+      true,
     )
-    expect(nodesOnly).toContain('### node.create')
-    expect(nodesOnly).not.toContain('### style.set')
-    // Shared parts are written once: this group was about 75,000 characters.
-    expect(nodesOnly.length).toBeLessThan(15_000)
-    const bad = await c.client.callTool({ name: 'guide', arguments: { group: 'nope' } })
-    expect(bad.isError).toBe(true)
-    expect(JSON.parse(textOf(bad))).toMatchObject({ kind: 'input' })
+    // Every host reads the instructions the connection opens with, skills or not.
+    const instructions = c.client.getInstructions()
+    expect(instructions).toContain('translate')
+    expect(instructions).toContain('motion')
+    expect(instructions).toContain('node.create')
+    expect(instructions).not.toContain('document.apply')
   })
 
   it('says in the answer that a script in an embed is not editable', async () => {
@@ -74,13 +69,8 @@ describe('guide and resources', () => {
     close = c.close
     const embed = (expectedRevision: number, id: string, html: string) =>
       c.client.callTool({
-        name: 'document.apply',
-        arguments: {
-          expectedRevision,
-          operations: [
-            { type: 'node.create', parent: 'n-home', node: { type: 'embed', id, html } },
-          ],
-        },
+        name: 'node.create',
+        arguments: { expectedRevision, parent: 'n-home', node: { type: 'embed', id, html } },
       })
     const plain = jsonOf<{ revision: number; note?: string }>(await embed(0, 'n-quote', '<hr>'))
     expect(plain.note).toBeUndefined()
@@ -90,52 +80,27 @@ describe('guide and resources', () => {
     expect(scripted.note).toContain('guide menu')
   })
 
-  it('keeps the declared tool schemas small', async () => {
+  it('keeps the declared tool schemas within their budget', async () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const size = Buffer.byteLength(JSON.stringify(await c.client.listTools()), 'utf8')
-    // The annotations on every tool take about a kilobyte of it, the two translation tools 1.5.
-    expect(size).toBeLessThan(8500)
+    // One tool per operation, about 106,000 bytes when this was set: the three that take a node
+    // tree are about 9,000 each, with the shared parts of a schema named once (@lacuno/schema).
+    expect(size).toBeLessThan(117_000)
   })
 
-  it('refuses asset.create and points at asset.import', async () => {
+  it('offers no asset.create: asset.import stores the bytes', async () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
-    const result = await c.client.callTool({
-      name: 'document.apply',
-      arguments: {
-        expectedRevision: 0,
-        operations: [
-          {
-            type: 'asset.create',
-            id: 'a-x',
-            name: 'x.png',
-            kind: 'image',
-            hash: 'ff',
-            mime: 'image/png',
-            size: 1,
-          },
-        ],
-      },
-    })
-    expect(result.isError).toBe(true)
-    expect(jsonOf<{ kind: string; message: string }>(result)).toMatchObject({
-      kind: 'input',
-      message: expect.stringContaining('asset.import'),
-    })
+    const { tools } = await c.client.listTools()
+    expect(tools.some((tool) => tool.name === 'asset.create')).toBe(false)
+    expect(tools.find((tool) => tool.name === 'asset.update')?.description).toBeTruthy()
   })
 
-  it('serves the document and operation schemas as resources', async () => {
+  it('serves the document schema as a resource', async () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const uris = (await c.client.listResources()).resources.map((r) => r.uri).sort()
-    expect(uris).toEqual(['lacuno://schema/document', 'lacuno://schema/operations'])
-    const ops = await c.client.readResource({ uri: 'lacuno://schema/operations' })
-    const schema = JSON.parse((ops.contents[0] as { text: string }).text) as {
-      anyOf?: unknown[]
-      oneOf?: unknown[]
-    }
-    expect((schema.anyOf ?? schema.oneOf ?? []).length).toBe(MCP_OPERATIONS.length)
-    expect(JSON.stringify(schema)).not.toContain('asset.create')
+    expect(uris).toEqual(['lacuno://schema/document'])
   })
 })

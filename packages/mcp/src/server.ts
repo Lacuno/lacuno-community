@@ -29,16 +29,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { diffDocuments, formatDiff } from './diff.js'
 import { fail, InputError } from './errors.js'
-import {
-  catalog,
-  GUIDE_INTRO,
-  INSTRUCTIONS,
-  index,
-  MCP_OPERATIONS,
-  operationGroups,
-  TOPICS,
-  WITHHELD_OPERATIONS,
-} from './guide.js'
+import { GUIDE_INTRO, INSTRUCTIONS, MCP_OPERATIONS, TOPICS } from './guide.js'
+import { annotationsOf, DESCRIPTIONS } from './operations.js'
 import { outlineLines } from './outline.js'
 import { previewHtml, previewText, resolveRoute } from './preview.js'
 import { ok, text } from './result.js'
@@ -78,7 +70,7 @@ export type ServerOptions = {
   images?: (asset: AssetRef, width: number) => Promise<Buffer | undefined>
   /** Takes `page.screenshot`'s images; without it the tool is not offered. */
   screenshot?: Screenshot
-  /** Called after each committed `document.apply` batch. */
+  /** Called after each committed change. */
   onApply?: (batch: Batch, result: ApplyResult) => void
   /** Publishes the draft to the testing target; replaces `site.build` with `site.publish`. */
   publish?: (name: string | undefined) => Promise<{ url: string }>
@@ -213,71 +205,58 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'guide',
     {
       annotations: reads,
-      description: `Reference, changes nothing. No group: the basics. A topic (${Object.keys(TOPICS).join(', ')}): notes on it. An operation group (${operationGroups().join(', ')}): the exact schemas of the ${MCP_OPERATIONS.length} operations document.apply takes.`,
-      inputSchema: { group: z.string().optional() },
+      description: `Notes to read, changes nothing. No topic: the basics. A topic (${Object.keys(TOPICS).join(', ')}): how to do it well.`,
+      inputSchema: { topic: z.enum(Object.keys(TOPICS) as [string, ...string[]]).optional() },
     },
-    async ({ group }) => {
-      try {
-        return text(
-          group === undefined ? `${GUIDE_INTRO}${index()}` : (TOPICS[group] ?? catalog(group)),
-        )
-      } catch (e) {
-        return fail(e)
-      }
-    },
+    async ({ topic }) => text(topic === undefined ? GUIDE_INTRO : (TOPICS[topic] as string)),
   )
 
-  server.registerTool(
-    'document.apply',
-    {
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: false,
-        openWorldHint: false,
+  // Every document operation is a tool of its own name, taking its own fields: one change, all or
+  // nothing, at the revision the caller last saw.
+  for (const operation of MCP_OPERATIONS) {
+    const { type, ...fields } = (operation.schema as z.ZodObject).shape
+    server.registerTool(
+      operation.type,
+      {
+        annotations: annotationsOf(operation.type),
+        description: DESCRIPTIONS[operation.type as keyof typeof DESCRIPTIONS],
+        inputSchema: {
+          expectedRevision: z
+            .number()
+            .int()
+            .nonnegative()
+            .describe('The revision from document.read or the last change.'),
+          dryRun: z.boolean().optional().describe('Answer the patches without changing anything.'),
+          ...fields,
+        },
       },
-      description:
-        'The one tool that changes a site: applies a batch of operations from the catalog in guide to the site document, atomically, each validated against its own schema. Pass the revision you read; use dryRun to preview patches.',
-      inputSchema: {
-        expectedRevision: z.number().int().nonnegative(),
-        operations: z.array(z.looseObject({ type: z.string() })),
-        dryRun: z.boolean().optional(),
-      },
-    },
-    async ({ expectedRevision, operations, dryRun }) => {
-      try {
-        const withheld = operations.find((o) => o.type in WITHHELD_OPERATIONS)
-        if (withheld)
-          throw new InputError(
-            `${withheld.type} is not available here: ${WITHHELD_OPERATIONS[withheld.type]}`,
+      async ({ expectedRevision, dryRun, ...values }) => {
+        try {
+          const batch = {
+            expectedRevision,
+            operations: [{ type: operation.type, ...values } as Operation],
+            ...(dryRun ? { dryRun } : {}),
+          }
+          const result = await store.apply(batch)
+          if (dryRun) return ok(result)
+          options.onApply?.(batch, result)
+          // The patches repeat everything the change created, several times its own size.
+          const { patches: _patches, ...applied } = result
+          // Said where it is read: a script in the page is code the person cannot edit.
+          return ok(
+            /<script/i.test(JSON.stringify(values))
+              ? {
+                  ...applied,
+                  note: 'A script in an embed cannot be edited in the editor. Build it with nodes if you can: a mobile menu needs none (guide menu).',
+                }
+              : applied,
           )
-        // The engine parses each operation with its own schema and reports the failing index
-        // and path, so there is nothing to gain from parsing the batch again here.
-        const batch = {
-          expectedRevision,
-          operations: operations as Operation[],
-          ...(dryRun ? { dryRun } : {}),
+        } catch (e) {
+          return fail(e)
         }
-        const result = await store.apply(batch)
-        if (dryRun) return ok(result)
-        options.onApply?.(batch, result)
-        // The patches repeat everything the batch created, several times the batch's own size.
-        const { patches: _patches, ...applied } = result
-        // Said where it is read: a script in the page is code the person cannot edit.
-        const scripted = operations.some((o) => /<script/i.test(JSON.stringify(o)))
-        return ok(
-          scripted
-            ? {
-                ...applied,
-                note: 'A script in an embed cannot be edited in the editor. Build it with nodes if you can: a mobile menu needs none (guide menu).',
-              }
-            : applied,
-        )
-      } catch (e) {
-        return fail(e)
-      }
-    },
-  )
+      },
+    )
+  }
 
   server.registerTool(
     'translations.list',
@@ -382,43 +361,26 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
   )
 
-  server.registerTool(
-    'document.diff',
-    {
-      annotations: reads,
-      description:
-        'Read-only: what a batch of operations would change (a dry run), or what changed since the lacuno.json at path against, inside the site folder. json: structured output.',
-      inputSchema: {
-        operations: z.array(z.looseObject({ type: z.string() })).optional(),
-        against: z.string().optional(),
-        json: z.boolean().optional(),
+  if (options.siteDir)
+    server.registerTool(
+      'document.diff',
+      {
+        annotations: reads,
+        description:
+          'What changed in the site since the lacuno.json at path against, inside the site folder. json: structured output.',
+        inputSchema: { against: z.string(), json: z.boolean().optional() },
       },
-    },
-    async ({ operations, against, json }) => {
-      try {
-        if ((operations === undefined) === (against === undefined))
-          throw new InputError('pass exactly one of operations or against')
-        const { document, revision } = store.read()
-        let before = document
-        let after = document
-        if (operations) {
-          const { patches } = await store.apply({
-            expectedRevision: revision,
-            operations: operations as Operation[],
-            dryRun: true,
-          })
-          after = applyPatches(document, patches)
-        } else {
-          const file = await insideSite(options.siteDir, against as string)
-          before = parseDocument(JSON.parse(await readFile(file, 'utf8')))
+      async ({ against, json }) => {
+        try {
+          const file = await insideSite(options.siteDir, against)
+          const before = parseDocument(JSON.parse(await readFile(file, 'utf8')))
+          const diff = diffDocuments(before, store.read().document)
+          return json ? ok(diff) : text(formatDiff(diff))
+        } catch (e) {
+          return fail(e)
         }
-        const diff = diffDocuments(before, after)
-        return json ? ok(diff) : text(formatDiff(diff))
-      } catch (e) {
-        return fail(e)
-      }
-    },
-  )
+      },
+    )
 
   const details = {
     name: z.string().min(1),
@@ -921,30 +883,5 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       ],
     }),
   )
-  server.registerResource(
-    'operations-schema',
-    'lacuno://schema/operations',
-    { description: 'JSON Schema of document.apply operations', mimeType: 'application/json' },
-    async (uri) => ({
-      contents: [
-        {
-          uri: uri.href,
-          mimeType: 'application/json',
-          text: JSON.stringify(
-            z.toJSONSchema(
-              z.discriminatedUnion(
-                'type',
-                MCP_OPERATIONS.map((o) => o.schema) as unknown as [z.ZodObject, ...z.ZodObject[]],
-              ),
-              { unrepresentable: 'any' },
-            ),
-            null,
-            2,
-          ),
-        },
-      ],
-    }),
-  )
-
   return server
 }

@@ -48,20 +48,19 @@ from a repository without a server, and for building templates.
 
 ### MCP tools
 
-- **Progressive discovery.** Agents start with `guide` for the document model and workflow, then
-  call it again with a `group` argument for the operation schemas of one group at a time, instead
-  of loading every operation schema up front.
+- **Guide.** Agents read `guide` for the document model and workflow, and its topics for how to
+  build, check and style; it hands out no schemas: each tool declares its own.
 - **Reading.** `document.read`, `page.outline`, `node.get`, `styles.get`, `entries.list`,
-  `translations.list`, plus the document schema and operations schema as resources.
-- **Writing.** `document.apply` is the one writing tool: an atomic batch of operations (D026) with
+  `translations.list`, plus the document schema as a resource.
+- **Writing.** Each document operation is a tool of its own name (D036), one atomic change with
   version pinning. Every write names the document version it read, and a stale write is rejected
   with the current version so the agent re-reads and retries instead of overwriting. Dry run
-  returns the resulting patches without applying them. `translations.apply` is a shorthand for a
-  batch of `translation.set` operations through the same path.
+  returns the resulting patches without applying them. `translations.apply` writes many
+  `translation.set` operations as one batch through the same path.
 - **Looking.** `page.preview` returns a route's HTML as published, or its visible text with node
   ids; `page.screenshot` returns a JPEG of a route or a PNG of a node through an optional Playwright
-  Chromium; `page.view` shows the page to the person, see below; `document.diff` summarises a
-  dry-run batch or the changes since another document.
+  Chromium; `page.view` shows the page to the person, see below; `document.diff` summarises the
+  changes since another document in the site folder.
 - **Assets and publishing.** Files never have to pass through the model: `asset.import` takes a
   public https `url` the server downloads, a `path` in the site folder over stdio, or base64
   `data` for tiny files; over the connected endpoint, `asset.upload` returns a single-use address,

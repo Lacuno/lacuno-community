@@ -1,7 +1,7 @@
 import { DocumentStore, type Operation } from '@lacuno/document'
 import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
-import { connect, jsonOf, textOf } from './helpers.js'
+import { applyEach, connect, jsonOf, textOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -61,11 +61,7 @@ describe('read tools', () => {
     expect(assets['a-hero']!.usedBy).toEqual(['nodes.n-hero-image', 'nodes.n-product'])
     expect(assets['a-sans']!.usedBy).toEqual(['site.fonts.1'])
     expect(assets['a-spare']!.usedBy).toEqual([])
-    const apply = (id: string) =>
-      client.callTool({
-        name: 'document.apply',
-        arguments: { expectedRevision: revision, operations: [{ type: 'asset.delete', id }] },
-      })
+    const apply = (id: string) => applyEach(client, revision, [{ type: 'asset.delete', id }])
     expect((await apply('a-hero')).isError).toBe(true)
     expect((await apply('a-spare')).isError).toBeFalsy()
     expect(Object.keys((await read()).assets)).not.toContain('a-spare')
@@ -79,7 +75,7 @@ describe('read tools', () => {
     })
     expect(outline.isError).toBeFalsy()
     expect(textOf(outline).split('\n')[0]).toBe('n-home main .c-page')
-    const guide = await client.callTool({ name: 'guide', arguments: { group: '' } })
+    const guide = await client.callTool({ name: 'guide', arguments: { topic: '' } })
     expect(guide.isError).toBeFalsy()
     // The schemas the model sees keep their types.
     const { tools } = await client.listTools()
@@ -217,24 +213,18 @@ describe('read tools', () => {
       'nodes.n-posts',
       'pages.p-post',
     ])
-    const applied = await client.callTool({
-      name: 'document.apply',
-      arguments: {
-        expectedRevision: (await read()).revision,
-        operations: [
-          {
-            type: 'node.create',
-            parent: 'n-home',
-            node: {
-              type: 'text',
-              id: 'n-legal',
-              tag: 'div',
-              text: { type: 'field', entry: 'e-1', field: 'f-body' },
-            },
-          },
-        ],
+    const applied = await applyEach(client, (await read()).revision, [
+      {
+        type: 'node.create',
+        parent: 'n-home',
+        node: {
+          type: 'text',
+          id: 'n-legal',
+          tag: 'div',
+          text: { type: 'field', entry: 'e-1', field: 'f-body' },
+        },
       },
-    })
+    ])
     expect(applied.isError).toBeFalsy()
     expect((await read()).collections['col-posts']!.usedBy).toContain('nodes.n-legal')
     const entries = jsonOf<{ id: string; usedBy: string[] }[]>(
@@ -245,13 +235,9 @@ describe('read tools', () => {
       await client.callTool({ name: 'page.preview', arguments: { page: '/', text: true } }),
     )
     expect(preview).toContain('n-legal\tThe first post.')
-    const refused = await client.callTool({
-      name: 'document.apply',
-      arguments: {
-        expectedRevision: (await read()).revision,
-        operations: [{ type: 'entry.delete', collection: 'col-posts', id: 'e-1' }],
-      },
-    })
+    const refused = await applyEach(client, (await read()).revision, [
+      { type: 'entry.delete', collection: 'col-posts', id: 'e-1' },
+    ])
     expect(refused.isError).toBe(true)
     expect(textOf(refused)).toContain('nodes.n-legal')
   })

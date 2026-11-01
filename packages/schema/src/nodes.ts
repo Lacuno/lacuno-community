@@ -284,3 +284,15 @@ export function nodeBindings(node: Node): Binding[] {
       : []),
   ]
 }
+
+// Named, as in values.ts.
+for (const [id, schema] of Object.entries({
+  Binding,
+  FieldToken,
+  RichText,
+  Semantic,
+  NodeMeta,
+  RotatingWords,
+  Tag,
+}))
+  z.globalRegistry.add(schema, { id })

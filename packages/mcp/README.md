@@ -5,16 +5,16 @@ over a server site at `/mcp/<site id>` (Streamable HTTP, OAuth).
 
 | Tool | What it does |
 | --- | --- |
-| `guide` | Documentation only: the document model, the workflow and the catalog of operations `document.apply` accepts; pass `group` for its schemas. |
+| `guide` | Notes only: the document model and workflow, and with `topic` how to build, check, style, write text, model content, make forms, menus and motion, set up the site and translate. |
 | `document.read` | Revision and overview: site, pages, folders, classes, breakpoints, tokens, components, collections, assets. |
 | `page.outline` | Indented node tree of a page or component with ids, tags, classes and text snippets. |
 | `node.get` | One node and its subtree. |
 | `styles.get` | Style declarations by class, breakpoint and state. |
 | `entries.list` | A collection's entries in order. |
-| `document.apply` | An atomic batch of operations against the revision you read; answers with the revision, created ids and warnings, and `dryRun` returns the patches. |
+| `node.create`, `style.set`, … | One tool per document operation (D036), named like it, taking its fields, the revision you read as `expectedRevision`, and `dryRun` for the patches without a change; answers with the revision, created ids and warnings. `asset.create` is not offered: `asset.import` stores the bytes. |
 | `translations.list` | A language's values to translate, missing and outdated by default, with their context, the glossary terms that apply and the tone; `page` for one page, `cursor` for the next batch. |
 | `translations.apply` | Writes up to 500 translations into a language as one atomic batch against the revision you listed; answers how many remain. |
-| `document.diff` | Readable summary of what a batch would change (dry run) or of the changes since another `lacuno.json` in the site folder (`against`); `json: true` for structured output. |
+| `document.diff` | Site folders only: the changes since another `lacuno.json` in the folder (`against`); `json: true` for structured output. |
 | `asset.import` | Stores a file from the site folder (`path`), base64 bytes (`data`, small files only) or, on a server site, a public https `url` the server downloads, and registers the asset. |
 | `asset.upload` | Server only: a single-use address, valid 10 minutes, that an app with a shell PUTs a local file to (`curl -T`); the answer is the asset. |
 | `page.preview` | A route's full HTML as published, without a build; `text: true` gives `nodeId<TAB>text` per text node. |
@@ -22,12 +22,11 @@ over a server site at `/mcp/<site id>` (Streamable HTTP, OAuth).
 | `site.build` | Builds the site folder to static output. `siteUrl` applies only when the document has no `site.url` of its own. |
 | `site.publish` | Server only, in place of `site.build`: publishes the draft to the testing address and returns its URL. |
 
-Resources: `lacuno://schema/document` and `lacuno://schema/operations`, the JSON Schemas of the
-document and of `document.apply` operations.
+Resource: `lacuno://schema/document`, the JSON Schema of the document.
 
 A failed call is a tool error whose text is JSON, `{ kind, message, ... }`, so an agent can act on
 it. `kind` is `stale` (with `expected` and `current` revisions: read again and retry), `operation`
-(with the operation `index`, `type` and, for a refused delete, `referencedBy`), `document` (with
+(with the operation `type` and, for a refused delete, `referencedBy`), `document` (with
 `issues`), `patch`, `build`, `input` or `unexpected`.
 
 Over stdio the client and the server share one machine and one trust boundary: `path` must resolve

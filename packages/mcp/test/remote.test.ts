@@ -84,17 +84,14 @@ describe('tools for a server without a site folder', () => {
     expect(jsonOf(published)).toEqual({ url: 'http://testing.example.test/' })
     expect(names).toEqual(['Hero'])
 
-    const operations = [{ type: 'class.create', id: 'c-x', name: 'x' }]
+    const change = { id: 'c-x', name: 'x' }
     await c.client.callTool({
-      name: 'document.apply',
-      arguments: { expectedRevision: 0, operations, dryRun: true },
+      name: 'class.create',
+      arguments: { expectedRevision: 0, ...change, dryRun: true },
     })
-    await c.client.callTool({
-      name: 'document.apply',
-      arguments: { expectedRevision: 0, operations },
-    })
+    await c.client.callTool({ name: 'class.create', arguments: { expectedRevision: 0, ...change } })
     expect(applied).toHaveLength(1)
-    expect(applied[0]?.[0].operations).toEqual(operations)
+    expect(applied[0]?.[0].operations).toEqual([{ type: 'class.create', ...change }])
     expect(applied[0]?.[1].revision).toBe(1)
   })
 })

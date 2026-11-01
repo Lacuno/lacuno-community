@@ -1,7 +1,7 @@
 import { DocumentStore } from '@lacuno/document'
 import { fixtureDocument, fixtureTwoLanguageDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
-import { connect, jsonOf, textOf } from './helpers.js'
+import { applyEach, connect, jsonOf, textOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -36,46 +36,40 @@ describe('page.preview', () => {
     expect(html).not.toContain('data-lacuno-node')
   })
 
-  it('publishes tag rules, a field inside text and the title template set through document.apply', async () => {
+  it('publishes tag rules, a field inside text and the title template set through their tools', async () => {
     const client = await setup()
     const guide = async (group: string) =>
-      textOf(await client.callTool({ name: 'guide', arguments: { group } }))
+      textOf(await client.callTool({ name: 'guide', arguments: { topic: group } }))
     expect(await guide('text')).toContain('"tag":"a"')
     expect(await guide('settings')).toContain('titleTemplate')
-    const applied = await client.callTool({
-      name: 'document.apply',
-      arguments: {
-        expectedRevision: 0,
-        operations: [
-          {
-            type: 'style.set',
-            class: 'c-hero',
-            tag: 'h2',
-            breakpoint: 'base',
-            state: 'none',
-            property: 'font-size',
-            value: { type: 'unit', value: 1.35, unit: 'rem' },
-          },
-          { type: 'site.update', titleTemplate: '{page} — Fixture' },
-          {
-            type: 'node.update',
-            id: 'n-post-title',
-            text: {
-              type: 'doc',
+    const applied = await applyEach(client, 0, [
+      {
+        type: 'style.set',
+        class: 'c-hero',
+        tag: 'h2',
+        breakpoint: 'base',
+        state: 'none',
+        property: 'font-size',
+        value: { type: 'unit', value: 1.35, unit: 'rem' },
+      },
+      { type: 'site.update', titleTemplate: '{page} — Fixture' },
+      {
+        type: 'node.update',
+        id: 'n-post-title',
+        text: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
               content: [
-                {
-                  type: 'paragraph',
-                  content: [
-                    { type: 'text', text: 'Updated ' },
-                    { type: 'field', attrs: { field: 'f-date', format: 'numeric', locale: 'de' } },
-                  ],
-                },
+                { type: 'text', text: 'Updated ' },
+                { type: 'field', attrs: { field: 'f-date', format: 'numeric', locale: 'de' } },
               ],
             },
-          },
-        ],
+          ],
+        },
       },
-    })
+    ])
     expect(applied.isError).toBeFalsy()
     const home = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
     expect(home).toContain('<title>Fixture Co — Fixture</title>')
@@ -86,54 +80,48 @@ describe('page.preview', () => {
     expect(post).toContain('Updated 01.09.2026')
   })
 
-  it('publishes a gradient headline and rotating words set through document.apply', async () => {
+  it('publishes a gradient headline and rotating words set through their tools', async () => {
     const client = await setup()
-    const looks = textOf(await client.callTool({ name: 'guide', arguments: { group: 'looks' } }))
+    const looks = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'looks' } }))
     expect(looks).toContain('"type":"gradient"')
-    const text = textOf(await client.callTool({ name: 'guide', arguments: { group: 'text' } }))
+    const text = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'text' } }))
     expect(text).toContain('rotatingWords')
     expect(text).toContain('pen-tool')
-    const applied = await client.callTool({
-      name: 'document.apply',
-      arguments: {
-        expectedRevision: 0,
-        operations: [
-          {
-            type: 'style.set',
-            class: 'l-hero-title',
-            breakpoint: 'base',
-            state: 'none',
-            property: 'background-image',
-            value: {
-              type: 'gradient',
-              kind: 'linear',
-              angle: 90,
-              stops: [
-                { color: { type: 'designToken', ref: 't-brand' }, position: 0 },
-                { color: { type: 'color', value: '#e0529c' }, position: 100 },
-              ],
-            },
-          },
-          ...(['background-clip', 'color'] as const).map((property) => ({
-            type: 'style.set',
-            class: 'l-hero-title',
-            breakpoint: 'base',
-            state: 'none',
-            property,
-            value: { type: 'keyword', value: property === 'color' ? 'transparent' : 'text' },
-          })),
-          {
-            type: 'node.update',
-            id: 'n-hero-title',
-            text: { type: 'static', value: 'AI' },
-            rotatingWords: {
-              icon: 'sparkles',
-              words: [{ text: 'designer', icon: 'pen-tool' }, 'you'],
-            },
-          },
-        ],
+    const applied = await applyEach(client, 0, [
+      {
+        type: 'style.set',
+        class: 'l-hero-title',
+        breakpoint: 'base',
+        state: 'none',
+        property: 'background-image',
+        value: {
+          type: 'gradient',
+          kind: 'linear',
+          angle: 90,
+          stops: [
+            { color: { type: 'designToken', ref: 't-brand' }, position: 0 },
+            { color: { type: 'color', value: '#e0529c' }, position: 100 },
+          ],
+        },
       },
-    })
+      ...(['background-clip', 'color'] as const).map((property) => ({
+        type: 'style.set',
+        class: 'l-hero-title',
+        breakpoint: 'base',
+        state: 'none',
+        property,
+        value: { type: 'keyword', value: property === 'color' ? 'transparent' : 'text' },
+      })),
+      {
+        type: 'node.update',
+        id: 'n-hero-title',
+        text: { type: 'static', value: 'AI' },
+        rotatingWords: {
+          icon: 'sparkles',
+          words: [{ text: 'designer', icon: 'pen-tool' }, 'you'],
+        },
+      },
+    ])
     expect(applied.isError).toBeFalsy()
     const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
     expect(html).toContain(
@@ -145,30 +133,22 @@ describe('page.preview', () => {
     )
     expect(html.match(/<svg /g)).toHaveLength(2)
     expect(html).toContain('<span data-lc-said>AI, designer, you</span>')
-    const bad = await client.callTool({
-      name: 'document.apply',
-      arguments: {
-        expectedRevision: 1,
-        operations: [{ type: 'node.update', id: 'n-hero', rotatingWords: { words: ['x'] } }],
-      },
-    })
+    // Four changes made it revision 4; rotating words on an element are refused.
+    const bad = await applyEach(client, 4, [
+      { type: 'node.update', id: 'n-hero', rotatingWords: { words: ['x'] } },
+    ])
     expect(bad.isError).toBe(true)
+    expect(textOf(bad)).toContain('rotatingWords applies to text nodes only')
   })
 
   it("publishes the guide's table example and refuses a malformed table", async () => {
     const client = await setup()
-    const guide = textOf(await client.callTool({ name: 'guide', arguments: { group: 'text' } }))
+    const guide = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'text' } }))
     const table = JSON.parse(guide.match(/`(\{"type":"table"[^`]+)`/)![1]!)
     const apply = (expectedRevision: number, content: object[]) =>
-      client.callTool({
-        name: 'document.apply',
-        arguments: {
-          expectedRevision,
-          operations: [
-            { type: 'node.update', id: 'n-hero-title', tag: 'div', text: { type: 'doc', content } },
-          ],
-        },
-      })
+      applyEach(client, expectedRevision, [
+        { type: 'node.update', id: 'n-hero-title', tag: 'div', text: { type: 'doc', content } },
+      ])
     expect((await apply(0, [table])).isError).toBeFalsy()
     const node = jsonOf<{ text: object }>(
       await client.callTool({ name: 'node.get', arguments: { id: 'n-hero-title' } }),
@@ -188,13 +168,7 @@ describe('page.preview', () => {
     expect(textOf(bad)).toContain('every row of a table needs the same number of columns')
     // Rich-text fields take tables too, under the same rules.
     const entry = (fields: object) =>
-      client.callTool({
-        name: 'document.apply',
-        arguments: {
-          expectedRevision: 1,
-          operations: [{ type: 'entry.update', collection: 'col-posts', id: 'e-1', fields }],
-        },
-      })
+      applyEach(client, 1, [{ type: 'entry.update', collection: 'col-posts', id: 'e-1', fields }])
     const nested = structuredClone(table)
     nested.content[1].content[0].content = [table]
     expect(textOf(await entry({ 'f-body': { type: 'doc', content: [nested] } }))).toContain(
@@ -205,29 +179,23 @@ describe('page.preview', () => {
 
   it('publishes a radial glow from the top and refuses a centre on a linear gradient', async () => {
     const client = await setup()
-    const guide = textOf(await client.callTool({ name: 'guide', arguments: { group: 'looks' } }))
+    const guide = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'looks' } }))
     expect(guide).toContain('"kind":"radial","at":{"x":50,"y":0}')
     const stops = [
       { color: { type: 'color', value: '#ece4ff' }, position: 0 },
       { color: { type: 'color', value: '#ffffff' }, position: 75 },
     ]
     const apply = (expectedRevision: number, value: object) =>
-      client.callTool({
-        name: 'document.apply',
-        arguments: {
-          expectedRevision,
-          operations: [
-            {
-              type: 'style.set',
-              class: 'l-hero-title',
-              breakpoint: 'base',
-              state: 'none',
-              property: 'background-image',
-              value: { type: 'gradient', stops, ...value },
-            },
-          ],
+      applyEach(client, expectedRevision, [
+        {
+          type: 'style.set',
+          class: 'l-hero-title',
+          breakpoint: 'base',
+          state: 'none',
+          property: 'background-image',
+          value: { type: 'gradient', stops, ...value },
         },
-      })
+      ])
     expect((await apply(0, { kind: 'radial', at: { x: 50, y: 0 } })).isError).toBeFalsy()
     const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
     expect(html).toContain('background-image: radial-gradient(at 50% 0%, #ece4ff 0%, #ffffff 75%);')

@@ -1,7 +1,7 @@
 import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { DocumentStore } from '@lacuno/document'
+import { DocumentStore, type Operation } from '@lacuno/document'
 import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
 import { type DocumentDiff, diffDocuments } from '../src/diff.js'
@@ -19,6 +19,14 @@ const setup = async (siteDir?: string) => {
   const c = await connect(store, siteDir ? { siteDir } : {})
   close = c.close
   return { client: c.client, store }
+}
+
+/** A site folder holding the fixture as old.json, and a server on it. */
+const folder = async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-diff-'))
+  dirs.push(dir)
+  await writeFile(path.join(dir, 'old.json'), JSON.stringify(fixtureDocument()))
+  return setup(dir)
 }
 
 const batch = [
@@ -48,10 +56,11 @@ const batch = [
 ]
 
 describe('document.diff', () => {
-  it('summarises a dry-run batch without committing it', async () => {
-    const { client, store } = await setup()
+  it('summarises what changed since a document file', async () => {
+    const { client, store } = await folder()
+    await store.apply({ expectedRevision: 0, operations: batch as Operation[] })
     const out = textOf(
-      await client.callTool({ name: 'document.diff', arguments: { operations: batch } }),
+      await client.callTool({ name: 'document.diff', arguments: { against: 'old.json' } }),
     )
     expect(out).toBe(
       [
@@ -65,7 +74,6 @@ describe('document.diff', () => {
         '+ .c-heading base:hover color: var(--color-brand)',
       ].join('\n'),
     )
-    expect(store.revision).toBe(0)
   })
 
   it('compares against another document file and round-trips as JSON', async () => {
@@ -110,14 +118,13 @@ describe('document.diff', () => {
   })
 
   it('reports a move as a position change', async () => {
-    const { client } = await setup()
+    const { client, store } = await folder()
+    await store.apply({
+      expectedRevision: 0,
+      operations: [{ type: 'node.move', id: 'n-hero-cta', parent: 'n-hero-inner', index: 0 }],
+    })
     const out = textOf(
-      await client.callTool({
-        name: 'document.diff',
-        arguments: {
-          operations: [{ type: 'node.move', id: 'n-hero-cta', parent: 'n-hero-inner', index: 0 }],
-        },
-      }),
+      await client.callTool({ name: 'document.diff', arguments: { against: 'old.json' } }),
     )
     expect(out).toContain('~ n-hero-cta a on / position: 2 → 0')
     expect(out).not.toContain('n-hero-inner')
@@ -195,10 +202,9 @@ describe('document.diff', () => {
     }
   })
 
-  it('needs exactly one of operations or against', async () => {
+  it('is offered only with a site folder to compare against', async () => {
     const { client } = await setup()
-    const result = await client.callTool({ name: 'document.diff', arguments: {} })
-    expect(result.isError).toBe(true)
-    expect(jsonOf(result)).toMatchObject({ kind: 'input' })
+    const { tools } = await client.listTools()
+    expect(tools.some((tool) => tool.name === 'document.diff')).toBe(false)
   })
 })
