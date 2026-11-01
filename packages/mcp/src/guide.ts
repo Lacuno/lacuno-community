@@ -9,7 +9,8 @@ import { WITHHELD_OPERATIONS } from './operations.js'
  * purpose: hosts that never load the plugin's skills read this, and the guide's topics.
  */
 export const INSTRUCTIONS = `Lacuno builds websites. A site is one JSON document. The person sees every change live in the editor.
-- Read once with document.read. Each change is its own tool, named like it: node.create, style.set, page.update… Pass the revision from the last answer.
+- Read once with document.read. Each change is its own tool, named like it: node.create, style.set, page.update… Pass the revision from the last answer as expectedRevision.
+- Ids are 1 to 64 letters, digits, - and _. Give your own to use them in later calls.
 - Check with page.outline, page.preview (text: true) and page.screenshot at 1280 and 390 wide. Never rebuild the site on your machine.
 - The person says "this" or "here" and the editor is open in the chat: call editor.selection first.
 - Build with nodes, classes and breakpoints. No scripts. No embed for anything nodes can do.
@@ -46,7 +47,6 @@ export const TOPICS: Record<string, string> = {
 - node.create takes nested children: one call makes a whole section. Build a section at a time, not an element at a time.
 - Give your own ids (letters, digits, - and _), so later calls can use them without reading again.
 - Use the revision from each answer. Do not read the whole document again after every change.
-- Unsure what a change does: try it with dryRun: true first.
 - Link to pages with a page binding, \`{"type":"page","page":"<pageId>"}\`, not a path. It survives a rename.
 - Repeated things (cards, team, posts): a component or a collection list.
 - Images: asset.import with a public https \`url\`, or asset.upload for a file on your machine, then PUT it: \`curl -sS -T photo.jpg '<url>'\`. base64 \`data\` only for tiny files. Images PNG, JPEG, WebP, GIF; video MP4, WebM; fonts WOFF2, WOFF, TTF, OTF; up to 10 MB.

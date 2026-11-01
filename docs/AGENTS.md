@@ -54,9 +54,9 @@ from a repository without a server, and for building templates.
   `translations.list`, plus the document schema as a resource.
 - **Writing.** Each document operation is a tool of its own name (D036), one atomic change with
   version pinning. Every write names the document version it read, and a stale write is rejected
-  with the current version so the agent re-reads and retries instead of overwriting. Dry run
-  returns the resulting patches without applying them. `translations.apply` writes many
-  `translation.set` operations as one batch through the same path.
+  with the current version so the agent re-reads and retries instead of overwriting.
+  `translations.apply` writes many `translation.set` operations as one batch through the same
+  path; its dry run returns the patches without applying them.
 - **Looking.** `page.preview` returns a route's HTML as published, or its visible text with node
   ids; `page.screenshot` returns a JPEG of a route or a PNG of a node through an optional Playwright
   Chromium; `page.view` shows the page to the person, see below; `document.diff` summarises the

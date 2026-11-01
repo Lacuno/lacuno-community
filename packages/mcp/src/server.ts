@@ -16,6 +16,7 @@ import {
   AssetMime,
   type AssetRef,
   Document,
+  ID_PATTERN,
   type Node,
   onPage,
   parseDocument,
@@ -26,6 +27,7 @@ import {
   translationStatus,
 } from '@lacuno/schema'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import { diffDocuments, formatDiff } from './diff.js'
 import { fail, InputError } from './errors.js'
@@ -174,6 +176,31 @@ function translationContext(d: Document, { key, context }: TranslationItem): str
 const remaining = (d: Document, locale: string) =>
   translationKeys(d).filter((item) => translationStatus(d, locale, item.key) !== 'done').length
 
+/**
+ * A tool's input as JSON Schema, without what every host pays for in tokens and a model learns
+ * nothing from: the \`$schema\` line, the safe-integer bounds Zod gives every integer,
+ * \`additionalProperties: false\`, and the id pattern, which the instructions state once and the
+ * document checks. About a quarter of the operation tools' schemas.
+ */
+export function leanSchema(shape: z.ZodRawShape | undefined): Tool['inputSchema'] {
+  const json = z.toJSONSchema(z.object(shape ?? {}), {
+    io: 'input',
+    target: 'draft-7',
+    unrepresentable: 'any',
+  })
+  return JSON.parse(
+    JSON.stringify(json, (key, value) =>
+      key === '$schema' ||
+      (key === 'maximum' && value === Number.MAX_SAFE_INTEGER) ||
+      (key === 'minimum' && value === Number.MIN_SAFE_INTEGER) ||
+      (key === 'additionalProperties' && value === false) ||
+      (key === 'pattern' && value === ID_PATTERN.source)
+        ? undefined
+        : value,
+    ),
+  )
+}
+
 function lenient(shape: z.ZodRawShape): z.ZodRawShape {
   return Object.fromEntries(
     Object.entries(shape).map(([key, field]) => [
@@ -188,8 +215,17 @@ function lenient(shape: z.ZodRawShape): z.ZodRawShape {
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
   const server = new McpServer({ name: 'lacuno', version: '0.0.0' }, { instructions: INSTRUCTIONS })
   const register = server.registerTool.bind(server)
-  server.registerTool = ((name, config, callback) =>
-    register(
+  // The tools as hosts list them, in the order registered, with their schemas made here (leanSchema).
+  const listed: Tool[] = []
+  server.registerTool = ((name, config, callback) => {
+    listed.push({
+      name,
+      description: config.description,
+      inputSchema: leanSchema(config.inputSchema as z.ZodRawShape | undefined),
+      annotations: config.annotations,
+      ...(config._meta && { _meta: config._meta }),
+    })
+    return register(
       name,
       config.inputSchema
         ? {
@@ -198,7 +234,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
           }
         : config,
       callback,
-    )) as typeof server.registerTool
+    )
+  }) as typeof server.registerTool
   let buildQueue: Promise<unknown> = Promise.resolve()
 
   server.registerTool(
@@ -222,17 +259,12 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         annotations: annotationsOf(operation.type),
         description: DESCRIPTIONS[operation.type as keyof typeof DESCRIPTIONS],
         inputSchema: {
-          expectedRevision: z
-            .number()
-            .int()
-            .nonnegative()
-            .describe('The revision from document.read or the last change.'),
-          dryRun: z.boolean().optional().describe('Answer the patches without changing anything.'),
+          expectedRevision: z.number().int().nonnegative(),
           ...fields,
           ...(rootTag && { root: ShallowRoot }),
         },
       },
-      async ({ expectedRevision, dryRun, ...values }) => {
+      async ({ expectedRevision, ...values }) => {
         try {
           const batch = {
             expectedRevision,
@@ -243,10 +275,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
                 ...(rootTag && { root: { type: 'element', tag: rootTag, ...values.root } }),
               } as Operation,
             ],
-            ...(dryRun ? { dryRun } : {}),
           }
           const result = await store.apply(batch)
-          if (dryRun) return ok(result)
           options.onApply?.(batch, result)
           // The patches repeat everything the change created, several times its own size.
           const { patches: _patches, ...applied } = result
@@ -891,5 +921,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       ],
     }),
   )
+  // Replaces the SDK's own listing, whose schemas it makes without options; it still checks each
+  // call's input against the tool's schema.
+  server.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: listed }))
   return server
 }

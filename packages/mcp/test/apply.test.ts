@@ -1,6 +1,7 @@
 import { DocumentStore, OPERATIONS } from '@lacuno/document'
 import { fixtureDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
+import { WITHHELD_OPERATIONS } from '../src/operations.js'
 import { applyEach, connect, jsonOf, textOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
@@ -16,7 +17,7 @@ describe('operation tools', () => {
     const byName = new Map(tools.map((tool) => [tool.name, tool]))
     for (const { type } of OPERATIONS) {
       const tool = byName.get(type)
-      if (type === 'asset.create') {
+      if (type in WITHHELD_OPERATIONS) {
         expect(tool).toBeUndefined()
         continue
       }
@@ -34,6 +35,20 @@ describe('operation tools', () => {
       idempotentHint: true,
     })
     expect(byName.has('document.apply')).toBe(false)
+    // Lean schemas: no $schema line, safe-integer bounds, id patterns or dryRun.
+    const listed = JSON.stringify(tools.filter((tool) => tool.name !== 'translations.apply'))
+    for (const noise of [
+      '$schema',
+      '9007199254740991',
+      '{1,64}',
+      'dryRun',
+      '"additionalProperties":false',
+    ])
+      expect(listed).not.toContain(noise)
+    expect(byName.get('node.move')?.inputSchema).toMatchObject({
+      required: ['expectedRevision', 'id', 'parent', 'index'],
+      properties: { expectedRevision: { type: 'integer', minimum: 0 }, id: { type: 'string' } },
+    })
   })
 
   it('applies one change, reports created ids, and rejects a stale revision', async () => {
@@ -63,7 +78,7 @@ describe('operation tools', () => {
     expect(jsonOf(stale)).toMatchObject({ kind: 'stale', expected: 0, current: 1 })
   })
 
-  it('returns structured operation errors and supports dry runs', async () => {
+  it('returns structured operation errors', async () => {
     const store = DocumentStore.inMemory(fixtureDocument())
     const c = await connect(store)
     close = c.close
@@ -76,15 +91,6 @@ describe('operation tools', () => {
       type: 'class.delete',
       referencedBy: ['classes.c-button-primary', 'nodes.n-hero-cta'],
     })
-    const dry = jsonOf<{ revision: number; patches: unknown[] }>(
-      await c.client.callTool({
-        name: 'node.delete',
-        arguments: { expectedRevision: 0, dryRun: true, id: 'n-hero' },
-      }),
-    )
-    expect(dry.revision).toBe(0)
-    expect(dry.patches).toHaveLength(6)
-    expect(store.read().document.nodes['n-hero']).toBeDefined()
   })
 
   it('refuses input its schema does not allow, naming the field, before anything changes', async () => {

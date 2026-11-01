@@ -612,14 +612,14 @@ such service writes through the document like every other client.
 
 **Decision.** Every document operation the MCP server offers is a tool of its own name
 (`node.create`, `style.set`, `page.update`, …), made from the operation registry: its input is the
-operation's own fields plus `expectedRevision` and `dryRun`, its description comes from one typed
+operation's own fields plus `expectedRevision`, its description comes from one typed
 record beside the server (`packages/mcp/src/operations.ts`, so an operation without one fails the
 typecheck), and its annotations follow from its verb. Each call is a batch of one through the same
 store, all or nothing, version-pinned as before. `document.apply` leaves the MCP surface; the HTTP
 route keeps batches for the editor and other clients. `guide` keeps its topics as notes and hands
 out no schemas, and `document.diff` only compares against a document file in the site folder. The
 schemas many tools share (`Binding`, `CssValue`, `RichText` and a few more) are named in Zod's
-registry, so each tool's JSON Schema lists them once under its definitions. The tool list is about 91 KB (about 24,000 tokens), under a 100 KB budget test.
+registry, so each tool's JSON Schema lists them once under its definitions. The server lists its tools itself, from the same schemas, without the `$schema` line, Zod's safe-integer bounds, `additionalProperties: false` and the id pattern, which the instructions state once: about 66 KB (about 17,000 tokens), under a 73 KB budget test. `translation.set` and `translation.delete` are left to `translations.apply`.
 
 **Alternatives.** Keeping the single batch tool with schemas from `guide` (D026); per-kind list
 tools (`designToken.createMany`); a second tool surface for hosts that require separate tools.
@@ -630,5 +630,5 @@ fetching in front of a generic executor; it rejected Lacuno for that on 2026-11-
 also let a host show and approve a change by name. Batching is mostly kept where it matters:
 `node.create` takes a nested tree, so a section is one call; `page.create` and `component.create` take only their root element there, so the node tree's schema, the largest, is declared once. A multi-step change
 that is invalid in between, such as a new required field on a collection with entries, is done in
-valid steps (optional, filled, then required). The cost is a tool list of about 24,000 tokens instead of 2,000 plus the
+valid steps (optional, filled, then required). The cost is a tool list of about 17,000 tokens instead of 2,000 plus the
 schemas `guide` handed out (about 10,000 for a page), which hosts with tool search load on demand.

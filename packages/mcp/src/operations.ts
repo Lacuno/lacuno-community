@@ -3,8 +3,13 @@ import { ClassId, NodeId, Tag } from '@lacuno/schema'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 
-/** asset.create only records an asset; the bytes come with the asset.import tool. */
-export const WITHHELD_OPERATIONS = { 'asset.create': 'use the asset.import tool' } as const
+/** Operations offered through another tool: asset.import stores an asset's bytes too. */
+export const WITHHELD_OPERATIONS = {
+  'asset.create': 'use the asset.import tool',
+  // translations.apply writes one or many, against the revision translations.list gave.
+  'translation.set': 'use translations.apply',
+  'translation.delete': 'use translations.apply',
+} as const
 type Offered = Exclude<Operation['type'], keyof typeof WITHHELD_OPERATIONS>
 
 /**
@@ -101,9 +106,6 @@ export const DESCRIPTIONS: Record<Offered, string> = {
   'locale.remove': 'Removes a translated language with its translations.',
   'locale.reorder':
     "Puts the site's languages in this order of codes; the first is the primary language.",
-  'translation.set':
-    'Sets the translation of one value (its key from translations.list) in a language. For many values use translations.apply.',
-  'translation.delete': 'Removes the translation of one value in a language.',
   'glossary.set':
     'Replaces the glossary: terms with their translation per language, or none to keep a term as it is.',
 }

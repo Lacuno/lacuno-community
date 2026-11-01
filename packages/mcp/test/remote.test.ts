@@ -85,10 +85,6 @@ describe('tools for a server without a site folder', () => {
     expect(names).toEqual(['Hero'])
 
     const change = { id: 'c-x', name: 'x' }
-    await c.client.callTool({
-      name: 'class.create',
-      arguments: { expectedRevision: 0, ...change, dryRun: true },
-    })
     await c.client.callTool({ name: 'class.create', arguments: { expectedRevision: 0, ...change } })
     expect(applied).toHaveLength(1)
     expect(applied[0]?.[0].operations).toEqual([{ type: 'class.create', ...change }])

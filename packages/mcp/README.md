@@ -11,7 +11,7 @@ over a server site at `/mcp/<site id>` (Streamable HTTP, OAuth).
 | `node.get` | One node and its subtree. |
 | `styles.get` | Style declarations by class, breakpoint and state. |
 | `entries.list` | A collection's entries in order. |
-| `node.create`, `style.set`, … | One tool per document operation (D036), named like it, taking its fields, the revision you read as `expectedRevision`, and `dryRun` for the patches without a change; answers with the revision, created ids and warnings. `asset.create` is not offered: `asset.import` stores the bytes. |
+| `node.create`, `style.set`, … | One tool per document operation (D036), named like it, taking its fields and the revision you read as `expectedRevision`; answers with the revision, created ids and warnings. `asset.create` is not offered (`asset.import` stores the bytes), nor `translation.set` and `translation.delete` (`translations.apply`). |
 | `translations.list` | A language's values to translate, missing and outdated by default, with their context, the glossary terms that apply and the tone; `page` for one page, `cursor` for the next batch. |
 | `translations.apply` | Writes up to 500 translations into a language as one atomic batch against the revision you listed; answers how many remain. |
 | `document.diff` | Site folders only: the changes since another `lacuno.json` in the folder (`against`); `json: true` for structured output. |
