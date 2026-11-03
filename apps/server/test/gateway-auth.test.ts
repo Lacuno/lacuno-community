@@ -537,12 +537,15 @@ describe('connecting an AI app through the gateway', () => {
       fetch: signed({ sub: 'cloud-owner-6', role: 'owner' }),
     })
     await client.connect(transport as Transport)
-    expect((await client.listTools()).tools.map((tool) => tool.name)).toContain('class.create')
+    expect((await client.listTools()).tools.map((tool) => tool.name)).toContain('document.apply')
     const read = await client.callTool({ name: 'document.read', arguments: {} })
     const { revision } = JSON.parse((read.content as { text: string }[])[0]!.text)
     const applied = await client.callTool({
-      name: 'class.create',
-      arguments: { expectedRevision: revision, changes: [{ id: 'c-cloud', name: 'cloud' }] },
+      name: 'document.apply',
+      arguments: {
+        expectedRevision: revision,
+        operations: [{ type: 'class.create', id: 'c-cloud', name: 'cloud' }],
+      },
     })
     expect(applied.isError).not.toBe(true)
 
@@ -556,6 +559,23 @@ describe('connecting an AI app through the gateway', () => {
     const session = { ...headers, 'mcp-session-id': transport.sessionId! }
     expect((await call(target, { method: 'POST', body: list, headers: session })).status).toBe(401)
     await client.close()
+
+    // v2's address the same way: a tool per operation.
+    const v2 = new Client({ name: 'Lacuno Cloud', version: '2.0.0' })
+    await v2.connect(
+      new StreamableHTTPClientTransport(new URL(`${origin}/v2/mcp/${siteId}`), {
+        fetch: signed({ sub: 'cloud-owner-6', role: 'owner' }),
+      }) as Transport,
+    )
+    const created = await v2.callTool({
+      name: 'class.create',
+      arguments: {
+        expectedRevision: revision + 1,
+        changes: [{ id: 'c-cloud-2', name: 'cloud-2' }],
+      },
+    })
+    expect(created.isError).not.toBe(true)
+    await v2.close()
 
     // Cloud itself, a viewer, another workspace's runtime, an expired assertion or another site.
     const initialize = JSON.stringify({
@@ -580,6 +600,7 @@ describe('connecting an AI app through the gateway', () => {
     ])
       expect((await start(as)).status).toBe(401)
     expect((await start({}, '/mcp/another-site')).status).toBe(401)
+    expect((await start({}, '/v2/mcp/another-site')).status).toBe(401)
   })
 
   it('offers publishing only to AI apps the owner approved, and viewers approve none', async () => {

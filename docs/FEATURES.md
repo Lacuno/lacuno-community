@@ -105,7 +105,7 @@ See [AGENTS.md](AGENTS.md). Summary of what ships when:
 
 | Feature | When |
 | --- | --- |
-| MCP server over the document with progressive tool discovery | MVP |
+| MCP server over the document: v2 one tool per operation (D036), v1 one batch tool with progressive schema discovery, kept at its addresses | MVP |
 | Preview, screenshot and document diff tools | MVP |
 | Page view in the chat: the page as a picture with its sections outlined in apps that render MCP Apps, a clicked section asked to be fixed or asked about in one line, the person's own AI doing the work | Phase 2 (in) |
 | Connect your AI: a remote MCP endpoint per site with OAuth, registration in Claude, ChatGPT, Cursor, VS Code and command-line apps (claude.ai and Claude Desktop through one Add to Claude link that prefills the connector), a connection badge, a live view of the agent's edits on the canvas and an Open in Claude link in the header for a chat about the open page; on Lacuno Cloud one line to paste or one address for all sites per app, the per-site address for anything else | Phase 2 (in) |

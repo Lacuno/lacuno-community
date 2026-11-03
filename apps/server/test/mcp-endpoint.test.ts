@@ -56,10 +56,11 @@ const request = (route: string, init: RequestInit = {}) =>
     headers: { cookie, origin, 'content-type': 'application/json', ...init.headers },
   })
 
-async function connect() {
+/** A session at the site's v1 address, or with `/v2/mcp` at v2's. */
+async function connect(address = '/mcp') {
   const client = new Client({ name: 'Test Agent', version: '1.2.3' })
   await client.connect(
-    new StreamableHTTPClientTransport(new URL(`${origin}/mcp/${siteId}`), {
+    new StreamableHTTPClientTransport(new URL(`${origin}${address}/${siteId}`), {
       requestInit: { headers: { authorization: token } },
       fetch: async (url, init) => server.app.request(url, init),
     }) as Transport,
@@ -129,6 +130,37 @@ describe('the remote MCP endpoint', () => {
     expect(config).toMatchObject({ origin, local: true })
   })
 
+  it('serves v2, a tool per operation, at /v2/mcp beside v1', async () => {
+    const refused = await server.app.request(`${origin}/v2/mcp/${siteId}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    })
+    expect(refused.headers.get('www-authenticate')).toBe(
+      `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/v2/mcp/${siteId}"`,
+    )
+    const names = async (client: Client) => (await client.listTools()).tools.map((t) => t.name)
+    const v1 = await connect()
+    expect(await names(v1)).toContain('document.apply')
+    expect(await names(v1)).not.toContain('class.create')
+    const v2 = await connect('/v2/mcp')
+    expect(await names(v2)).toContain('class.create')
+    expect(await names(v2)).not.toContain('document.apply')
+    const read = await v2.callTool({ name: 'document.read', arguments: {} })
+    const { revision } = json<{ revision: number }>(read)
+    const applied = await v2.callTool({
+      name: 'class.create',
+      arguments: { expectedRevision: revision, changes: [{ id: 'c-v2', name: 'v2' }] },
+    })
+    expect(applied.isError).not.toBe(true)
+    const document = json<{ classes: Record<string, unknown> }>(
+      await v1.callTool({ name: 'document.read', arguments: {} }),
+    )
+    expect(Object.keys(document.classes)).toContain('c-v2')
+    await v1.close()
+    await v2.close()
+  })
+
   it('reads and applies the document the editor reads, and reports each batch', async () => {
     const client = await connect()
     const tools = (await client.listTools()).tools.map((tool) => tool.name)
@@ -139,9 +171,10 @@ describe('the remote MCP endpoint', () => {
     )
     const events: SiteEvent[] = []
     const unsubscribe = siteEvents.subscribe(siteId, (event) => events.push(event))
+    const operations = [{ type: 'class.create', id: 'c-agent', name: 'agent' }]
     const applied = await client.callTool({
-      name: 'class.create',
-      arguments: { expectedRevision: revision, changes: [{ id: 'c-agent', name: 'agent' }] },
+      name: 'document.apply',
+      arguments: { expectedRevision: revision, operations },
     })
     unsubscribe()
     expect(applied.isError).not.toBe(true)
@@ -161,8 +194,8 @@ describe('the remote MCP endpoint', () => {
     expect(touched).toContain('conn-1')
 
     const stale = await client.callTool({
-      name: 'class.create',
-      arguments: { expectedRevision: revision, changes: [{ name: 'x' }] },
+      name: 'document.apply',
+      arguments: { expectedRevision: revision, operations: [{ type: 'class.create', name: 'x' }] },
     })
     expect(json(stale)).toMatchObject({ kind: 'stale', current: revision + 1 })
 

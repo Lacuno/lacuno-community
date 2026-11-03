@@ -33,7 +33,7 @@ it('connects an AI app from the header panel and disconnects it', async () => {
   await trigger.click()
   const panel = page.getByRole('dialog', { name: 'Connect your AI' })
   // Nothing is chosen yet: the address is there for any other client, and no instructions show.
-  await panel.getByText(`http://localhost:3000/mcp/${siteId}`, { exact: true }).waitFor()
+  await panel.getByText(`http://localhost:3000/v2/mcp/${siteId}`, { exact: true }).waitFor()
   const apps = panel.locator('.connect-app')
   expect(await apps.count()).toBe(8)
   const card = panel.locator('.connect-card')
@@ -46,7 +46,7 @@ it('connects an AI app from the header panel and disconnects it', async () => {
   const add = card.getByRole('link', { name: 'Add to Claude' })
   await choose('claude.ai')
   expect(decodeURIComponent((await add.getAttribute('href'))!)).toBe(
-    prefill(`http://localhost:3000/mcp/${siteId}`),
+    prefill(`http://localhost:3000/v2/mcp/${siteId}`),
   )
   expect(await add.getAttribute('aria-disabled')).toBe('true')
   await card.getByText('Needs a public address. Works on Lacuno Cloud.').waitFor()

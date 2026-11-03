@@ -466,9 +466,9 @@ describe('export to the edge', () => {
             .text,
         )
       const { revision } = await tool('document.read')
-      const changes = [{ name: 'agent' }]
-      await tool('class.create', { expectedRevision: revision, changes })
-      await tool('class.create', { expectedRevision: revision + 1, changes })
+      const operations = [{ type: 'class.create', name: 'agent' }]
+      await tool('document.apply', { expectedRevision: revision, operations })
+      await tool('document.apply', { expectedRevision: revision + 1, operations })
       // Edits count once an hour per session; a publish each time.
       await expect(tool('site.publish')).resolves.toHaveProperty('url')
       const by = { user: 'cloud-user-1', app: 'Claude Code' }

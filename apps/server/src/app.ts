@@ -144,7 +144,7 @@ function thumbnailType(image: Buffer) {
 const anonymous = (method: string, path: string) =>
   (method === 'GET' && path.startsWith('/.well-known/')) ||
   (method === 'POST' && /^\/api\/auth\/oauth2\/(register|token|revoke)$/.test(path)) ||
-  (['GET', 'POST', 'DELETE'].includes(method) && /^\/mcp\/[^/]+$/.test(path)) ||
+  (['GET', 'POST', 'DELETE'].includes(method) && /^(\/v2)?\/mcp\/[^/]+$/.test(path)) ||
   (method === 'PUT' && /^\/mcp\/[^/]+\/upload\/[^/]+$/.test(path))
 
 /**
@@ -810,7 +810,7 @@ export async function createServer(options: ServerOptions) {
       (!options.gateway || relay) &&
       (async (url: string) => (await import('./fetch-file.js')).fetchFile(url, relay || undefined))
     app.route(
-      '/mcp',
+      '/',
       mcpRoutes({
         store,
         dataDir: options.dataDir,

@@ -48,19 +48,26 @@ from a repository without a server, and for building templates.
 
 ### MCP tools
 
+Two versions of the tools that change a site, the rest the same: v2 at `/v2/mcp/<site>` (and
+`/v2/mcp` on Lacuno Cloud) offers one tool per operation (D036), the address the Connect panel
+hands out; v1 at `/mcp/<site>` and over stdio offers `document.apply` (D026), as apps connected
+before v2 expect.
+
 - **Guide.** Agents read `guide` for the document model and workflow, and its topics for how to
-  build, check and style; it hands out no schemas: each tool declares its own.
+  build, check and style. In v1 it hands out an operation group's schemas too; in v2 each tool
+  declares its own.
 - **Reading.** `document.read`, `page.outline`, `node.get`, `styles.get`, `entries.list`,
-  `translations.list`, plus the document schema as a resource.
-- **Writing.** Each document operation is a tool of its own name (D036), taking a list of changes
-  of its kind as one atomic batch with version pinning. Every write names the document version it read, and a stale write is rejected
-  with the current version so the agent re-reads and retries instead of overwriting.
-  `translations.apply` writes many `translation.set` operations as one batch through the same
-  path; its dry run returns the patches without applying them.
+  `translations.list`, plus the document schema as a resource, and in v1 the operations schema.
+- **Writing.** In v2 each document operation is a tool of its own name, taking a list of changes
+  of its kind as one atomic batch; in v1 `document.apply` takes a batch of any operations, with a
+  dry run. Every write names the document version it read, and a stale write is rejected with the
+  current version so the agent re-reads and retries instead of overwriting. `translations.apply`
+  writes many `translation.set` operations as one batch through the same path; its dry run
+  returns the patches without applying them.
 - **Looking.** `page.preview` returns a route's HTML as published, or its visible text with node
   ids; `page.screenshot` returns a JPEG of a route or a PNG of a node through an optional Playwright
-  Chromium; `page.view` shows the page to the person, see below; `document.diff` summarises the
-  changes since another document in the site folder.
+  Chromium; `page.view` shows the page to the person, see below; in v1, `document.diff`
+  summarises a dry-run batch or the changes since another document in the site folder.
 - **Assets and publishing.** Files never have to pass through the model: `asset.import` takes a
   public https `url` the server downloads, a `path` in the site folder over stdio, or base64
   `data` for tiny files; over the connected endpoint, `asset.upload` returns a single-use address,

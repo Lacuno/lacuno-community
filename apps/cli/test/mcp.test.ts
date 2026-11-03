@@ -52,7 +52,7 @@ describe('lacuno mcp', () => {
     const client = new Client({ name: 'test', version: '0' })
     await client.connect(transport)
     const tools = (await client.listTools()).tools.map((t) => t.name)
-    expect(tools).toContain('node.create')
+    expect(tools).toContain('document.apply')
     const read = await client.callTool({ name: 'document.read', arguments: {} })
     expect(JSON.parse((read.content as { text: string }[])[0]!.text).site.name).toBe('Site')
     await client.close()

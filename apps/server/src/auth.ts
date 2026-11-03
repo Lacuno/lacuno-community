@@ -75,9 +75,9 @@ export async function validateAccessToken(auth: Auth, token: string) {
   return getOAuthProviderApi(ctx as never, options).validateAccessToken(token)
 }
 
-/** The site in a `/mcp/<site>` resource indicator. */
+/** The site in a `/mcp/<site>` or `/v2/mcp/<site>` resource indicator. */
 const siteOf = (resource: string | null) =>
-  resource ? /^\/mcp\/([^/]+)$/.exec(new URL(resource).pathname)?.[1] : undefined
+  resource ? /^(?:\/v2)?\/mcp\/([^/]+)$/.exec(new URL(resource).pathname)?.[1] : undefined
 
 /** Marks the one session row per user that holds its connections; no browser ever holds it. */
 const ANCHOR = 'lacuno-connections'

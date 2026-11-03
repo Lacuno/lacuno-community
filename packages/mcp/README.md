@@ -1,20 +1,24 @@
 # @lacuno/mcp
 
 MCP tools and resources over a Lacuno site folder, served on stdio by `lacuno mcp [dir]`, and
-over a server site at `/mcp/<site id>` (Streamable HTTP, OAuth).
+over a server site (Streamable HTTP, OAuth). Two versions differ in the tools that change the
+site: v2, one tool per operation (D036), at `/v2/mcp/<site id>`; v1, `document.apply` with the
+schemas from `guide` (D026), at `/mcp/<site id>` and over stdio, for the apps connected before
+v2. `createServer` takes `version`, 2 by default.
 
 | Tool | What it does |
 | --- | --- |
-| `guide` | Notes only: the document model and workflow, and with `topic` how to build, check, style, write text, model content, make forms, menus and motion, set up the site and translate. |
+| `guide` | Notes only: the document model and workflow, and with `topic` how to build, check, style, write text, model content, make forms, menus and motion, set up the site and translate. In v1 it takes `group`: a topic, or an operation group, whose schemas it answers. |
 | `document.read` | Revision and overview: site, pages, folders, classes, breakpoints, tokens, components, collections, assets. |
 | `page.outline` | Indented node tree of a page or component with ids, tags, classes and text snippets. |
 | `node.get` | One node and its subtree. |
 | `styles.get` | Style declarations by class, breakpoint and state. |
 | `entries.list` | A collection's entries in order. |
-| `node.create`, `style.set`, … | One tool per document operation (D036), named like it, taking `changes`, one or more of its kind made in order and all or nothing, and the revision you read as `expectedRevision`; answers with the revision, the ids each change created by its index, and warnings. `asset.create` is not offered (`asset.import` stores the bytes), nor `translation.set` and `translation.delete` (`translations.apply`). |
+| `document.apply` | v1: an atomic batch of any operations against the revision you read; answers with the revision, created ids and warnings, and `dryRun` returns the patches. |
+| `node.create`, `style.set`, … | v2: one tool per document operation, named like it, taking `changes`, one or more of its kind made in order and all or nothing, and the revision you read as `expectedRevision`; answers with the revision, the ids each change created by its index, and warnings. `asset.create` is not offered (`asset.import` stores the bytes), nor `translation.set` and `translation.delete` (`translations.apply`). |
 | `translations.list` | A language's values to translate, missing and outdated by default, with their context, the glossary terms that apply and the tone; `page` for one page, `cursor` for the next batch. |
 | `translations.apply` | Writes up to 500 translations into a language as one atomic batch against the revision you listed; answers how many remain. |
-| `document.diff` | Site folders only: the changes since another `lacuno.json` in the folder (`against`); `json: true` for structured output. |
+| `document.diff` | v1: readable summary of what a batch would change (dry run) or of the changes since another `lacuno.json` in the site folder (`against`); `json: true` for structured output. |
 | `asset.import` | Stores a file from the site folder (`path`), base64 bytes (`data`, small files only) or, on a server site, a public https `url` the server downloads, and registers the asset. |
 | `asset.upload` | Server only: a single-use address, valid 10 minutes, that an app with a shell PUTs a local file to (`curl -T`); the answer is the asset. |
 | `page.preview` | A route's full HTML as published, without a build; `text: true` gives `nodeId<TAB>text` per text node. |
@@ -22,7 +26,8 @@ over a server site at `/mcp/<site id>` (Streamable HTTP, OAuth).
 | `site.build` | Builds the site folder to static output. `siteUrl` applies only when the document has no `site.url` of its own. |
 | `site.publish` | Server only, in place of `site.build`: publishes the draft to the testing address and returns its URL. |
 
-Resource: `lacuno://schema/document`, the JSON Schema of the document.
+Resources: `lacuno://schema/document`, the JSON Schema of the document, and in v1
+`lacuno://schema/operations`, that of `document.apply` operations.
 
 A failed call is a tool error whose text is JSON, `{ kind, message, ... }`, so an agent can act on
 it. `kind` is `stale` (with `expected` and `current` revisions: read again and retry), `operation`

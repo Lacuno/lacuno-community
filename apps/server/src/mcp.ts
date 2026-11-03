@@ -8,7 +8,7 @@ import type { AssetDetails } from '@lacuno/mcp'
 import type { Screenshot } from '@lacuno/mcp/screenshot'
 import type { AssetRef } from '@lacuno/schema'
 import type { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
-import { Hono } from 'hono'
+import { type Context, Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { HTTPException } from 'hono/http-exception'
 import { type siteEvents, summarize } from './events.js'
@@ -23,8 +23,8 @@ export type McpDeps = {
   /**
    * Behind a gateway, the grant behind an `x-lacuno-assertion` instead of a bearer, for Cloud's
    * own client acting as the signed-in user. Like REST, each assertion binds one request: its
-   * method, its target (`/mcp/<site>` plus any query) and the sha256 hex of its body, empty for
-   * GET and DELETE.
+   * method, its target (`/mcp/<site>` or `/v2/mcp/<site>`, plus any query) and the sha256 hex of
+   * its body, empty for GET and DELETE.
    */
   assertion: ((request: Request, siteId: string) => Promise<Grant | undefined>) | undefined
   events: typeof siteEvents
@@ -161,18 +161,27 @@ async function importFile(
   return store.read().document.assets[asset.id] as AssetRef
 }
 
-/** MCP Streamable HTTP at `/:id`, one transport and server per session, behind OAuth. */
+/**
+ * MCP Streamable HTTP for each site, one transport and server per session, behind OAuth: v1 at
+ * `/mcp/<site>`, which the apps connected before v2 keep, and v2, a tool per operation, at
+ * `/v2/mcp/<site>`.
+ */
 export function mcpRoutes(deps: McpDeps): Hono {
   const app = new Hono()
   // Inline asset data is base64: 20 MB of bytes is about 27 MB of text.
-  app.use(bodyLimit({ maxSize: 30 * 1024 * 1024 }))
-  app.on(['GET', 'POST', 'DELETE'], '/:id', async (c) => {
-    const siteId = c.req.param('id')
+  for (const path of ['/mcp/*', '/v2/mcp/*'])
+    app.use(path, bodyLimit({ maxSize: 30 * 1024 * 1024 }))
+  for (const version of [1, 2] as const) {
+    const base = version === 2 ? '/v2/mcp' : '/mcp'
+    app.on(['GET', 'POST', 'DELETE'], `${base}/:id`, (c) => serve(c, version, base))
+  }
+  async function serve(c: Context, version: 1 | 2, base: string) {
+    const siteId = c.req.param('id') as string
     const grant =
       (await deps.oauth.verify(c.req.header('authorization'), siteId)) ??
       (await deps.assertion?.(c.req.raw, siteId))
     if (!grant) {
-      const metadata = `${deps.origin}/.well-known/oauth-protected-resource/mcp/${siteId}`
+      const metadata = `${deps.origin}/.well-known/oauth-protected-resource${base}/${siteId}`
       c.header('WWW-Authenticate', `Bearer resource_metadata="${metadata}"`)
       return c.json({ error: 'Authentication required' }, 401)
     }
@@ -224,6 +233,7 @@ export function mcpRoutes(deps: McpDeps): Hono {
         },
       })
       const server = createServer(live, {
+        version,
         assets: (hash) =>
           readFile(path.join(deps.dataDir, 'sites', siteId, 'assets', hash)).catch(() => undefined),
         // The narrowest editor variant that is not narrower than the viewport, so the cache holds
@@ -283,9 +293,10 @@ export function mcpRoutes(deps: McpDeps): Hono {
     if ((body as { method?: unknown } | undefined)?.method === 'tools/call')
       deps.oauth.touch(current.connectionId)
     return current.transport.handleRequest(c.req.raw, { parsedBody: body })
-  })
-  // An address from asset.upload takes one file, while the session that asked for it is open.
-  app.put('/:id/upload/:token', async (c) => {
+  }
+  // An address from asset.upload takes one file, while the session that asked for it is open;
+  // both versions hand out this one.
+  app.put('/mcp/:id/upload/:token', async (c) => {
     const upload = uploads.get(c.req.param('token'))
     uploads.delete(c.req.param('token'))
     const session = upload?.session

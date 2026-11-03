@@ -14,7 +14,8 @@ export async function serveStdio(siteDir: string, transport?: Transport): Promis
   const connection = transport ?? new StdioServerTransport()
   const store = await openFolder(siteDir)
   const screenshot = localScreenshot()
-  const server = createServer(store, { siteDir, ...(screenshot && { screenshot }) })
+  // v1, as every app configured with `lacuno mcp` expects: a command has no address to move.
+  const server = createServer(store, { version: 1, siteDir, ...(screenshot && { screenshot }) })
   await server.connect(connection)
   const prevClose = connection.onclose
   const prevError = connection.onerror

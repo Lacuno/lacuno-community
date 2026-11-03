@@ -19,7 +19,7 @@ it('prefills a prompt about the selection, follows edits into the links, copies 
   expect(await open.getAttribute('target')).toBe('_blank')
   expect(await open.getAttribute('rel')).toContain('noopener')
   expect(new URL((await open.getAttribute('href'))!).searchParams.get('q')).toBe(
-    `Open the Lacuno editor on page p-home of site ${siteId} (${origin}/mcp/${siteId}).`,
+    `Open the Lacuno editor on page p-home of site ${siteId} (${origin}/v2/mcp/${siteId}).`,
   )
   const cta = canvas.locator('[data-lacuno-node="n-home-cta"]')
   await cta.waitFor()

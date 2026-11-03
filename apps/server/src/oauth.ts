@@ -43,7 +43,8 @@ export type OAuth = {
 
 /**
  * The scope every token carries. Better Auth only accepts scopes from a fixed list, so the site a
- * token grants is its audience instead: the RFC 8707 resource `<origin>/mcp/<site>`.
+ * token grants is its audience instead: the RFC 8707 resource `<origin>/mcp/<site>`, or v2's
+ * `<origin>/v2/mcp/<site>`.
  */
 export const SCOPE = 'site'
 
@@ -91,7 +92,11 @@ export function createOAuth(
 } {
   const context = async () => (await (await auth()).$context) as AuthContext
   const issuer = `${origin}/api/auth`
-  const resourceOf = (siteId: string) => `${origin}/mcp/${siteId}`
+  // A site's two addresses, v1's and v2's: one server and one grant, so a token for either serves
+  // both.
+  const addresses = ['/mcp', '/v2/mcp']
+  const resourcesOf = (siteId: string) =>
+    addresses.map((address) => `${origin}${address}/${siteId}`)
   const lastActive = new Map<string, number>()
   const site = sqlite.prepare<[string], { name: string; ownerId: string }>(
     'SELECT s.name, w.owner_id AS ownerId FROM sites s JOIN workspaces w ON w.id = s.workspace_id WHERE s.id = ?',
@@ -124,25 +129,26 @@ export function createOAuth(
         new Request(`${origin}/.well-known/oauth-authorization-server/api/auth`),
       ),
     )
-  routes.get('/oauth-protected-resource/mcp/:id', async (c) => {
-    const found = site.get(c.req.param('id'))
-    if (!found) return c.json({ error: 'Site not found' }, 404)
-    const resource = resourceOf(c.req.param('id'))
-    // Better Auth issues tokens only for resources it knows, so each site's is created on discovery.
-    const { adapter } = await context()
-    const where = [{ field: 'identifier', value: resource }]
-    if (!(await adapter.findOne({ model: 'oauthResource', where })))
-      await adapter.create({
-        model: 'oauthResource',
-        data: { identifier: resource, name: found.name },
+  for (const address of addresses)
+    routes.get(`/oauth-protected-resource${address}/:id`, async (c) => {
+      const found = site.get(c.req.param('id'))
+      if (!found) return c.json({ error: 'Site not found' }, 404)
+      const resource = `${origin}${address}/${c.req.param('id')}`
+      // Better Auth issues tokens only for resources it knows, so each site's is created on discovery.
+      const { adapter } = await context()
+      const where = [{ field: 'identifier', value: resource }]
+      if (!(await adapter.findOne({ model: 'oauthResource', where })))
+        await adapter.create({
+          model: 'oauthResource',
+          data: { identifier: resource, name: found.name },
+        })
+      return c.json({
+        resource,
+        authorization_servers: [issuer],
+        scopes_supported: [SCOPE],
+        bearer_methods_supported: ['header'],
       })
-    return c.json({
-      resource,
-      authorization_servers: [issuer],
-      scopes_supported: [SCOPE],
-      bearer_methods_supported: ['header'],
     })
-  })
 
   return {
     routes,
@@ -154,7 +160,7 @@ export function createOAuth(
       const found = site.get(siteId)
       if (
         !payload?.active ||
-        payload.aud !== resourceOf(siteId) ||
+        !resourcesOf(siteId).includes(payload.aud as string) ||
         !String(payload.scope).split(' ').includes(SCOPE) ||
         // A sub means the token's user row exists. Every gateway user edits every site.
         !payload.sub ||

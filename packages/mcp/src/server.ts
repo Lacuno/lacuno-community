@@ -31,7 +31,18 @@ import { ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/typ
 import { z } from 'zod'
 import { diffDocuments, formatDiff } from './diff.js'
 import { fail, InputError } from './errors.js'
-import { GUIDE_INTRO, INSTRUCTIONS, MCP_OPERATIONS, TOPICS } from './guide.js'
+import {
+  catalog,
+  GUIDE_INTRO,
+  INSTRUCTIONS,
+  index,
+  MCP_OPERATIONS,
+  operationGroups,
+  TOPICS,
+  V1_OPERATIONS,
+  V1_TOPICS,
+  type Version,
+} from './guide.js'
 import { ADAPTED, annotationsOf, DESCRIPTIONS } from './operations.js'
 import { outlineLines } from './outline.js'
 import { previewHtml, previewText, resolveRoute } from './preview.js'
@@ -62,6 +73,11 @@ export type AssetDetails = {
 }
 
 export type ServerOptions = {
+  /**
+   * The tools that change the site, 2 by default: one per operation. 1 is document.apply with a
+   * batch of operations, which the apps and scripts connected before v2 keep using.
+   */
+  version?: Version
   siteDir?: string
   /** Reads an asset's bytes for screenshots when they are not in `siteDir`. */
   assets?: ReadAsset
@@ -221,8 +237,21 @@ function loosen(field: z.ZodType): z.ZodType {
   )
 }
 
+/** Said where it is read: a script in the page is code the person cannot edit. */
+const withScriptNote = (input: unknown, applied: object) =>
+  /<script/i.test(JSON.stringify(input))
+    ? {
+        ...applied,
+        note: 'A script in an embed cannot be edited in the editor. Build it with nodes if you can: a mobile menu needs none (guide menu).',
+      }
+    : applied
+
 export function createServer(store: DocumentStore, options: ServerOptions = {}): McpServer {
-  const server = new McpServer({ name: 'lacuno', version: '0.0.0' }, { instructions: INSTRUCTIONS })
+  const version = options.version ?? 2
+  const server = new McpServer(
+    { name: 'lacuno', version: '0.0.0' },
+    { instructions: INSTRUCTIONS[version] },
+  )
   const register = server.registerTool.bind(server)
   // The tools as hosts list them, in the order registered, with their schemas made here (leanSchema).
   const listed: Tool[] = []
@@ -247,61 +276,117 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
   }) as typeof server.registerTool
   let buildQueue: Promise<unknown> = Promise.resolve()
 
-  server.registerTool(
-    'guide',
-    {
-      annotations: reads,
-      description: `Notes to read, changes nothing. No topic: the basics. A topic (${Object.keys(TOPICS).join(', ')}): how to do it well.`,
-      inputSchema: { topic: z.enum(Object.keys(TOPICS) as [string, ...string[]]).optional() },
-    },
-    async ({ topic }) => text(topic === undefined ? GUIDE_INTRO : (TOPICS[topic] as string)),
-  )
-
-  // Every document operation is a tool of its own name, taking one or more changes of its kind:
-  // made in order, all or nothing, at the revision the caller last saw.
-  for (const operation of MCP_OPERATIONS) {
-    const { type, ...fields } = (operation.schema as z.ZodObject).shape
-    const adapted = ADAPTED[operation.type]
+  if (version === 1) {
     server.registerTool(
-      operation.type,
+      'guide',
       {
-        annotations: annotationsOf(operation.type),
-        description: DESCRIPTIONS[operation.type as keyof typeof DESCRIPTIONS],
-        inputSchema: {
-          expectedRevision: z.number().int().nonnegative(),
-          changes: z.array(z.strictObject({ ...fields, ...adapted?.fields })).min(1),
-        },
+        annotations: reads,
+        description: `Reference, changes nothing. No group: the basics. A topic (${Object.keys(V1_TOPICS).join(', ')}): notes on it. An operation group (${operationGroups().join(', ')}): the exact schemas of the ${V1_OPERATIONS.length} operations document.apply takes.`,
+        inputSchema: { group: z.string().optional() },
       },
-      async ({ expectedRevision, changes }) => {
+      async ({ group }) => {
         try {
-          const batch = {
-            expectedRevision,
-            operations: changes.map(
-              (change) =>
-                ({
-                  type: operation.type,
-                  ...(adapted ? adapted.operation(change) : change),
-                }) as Operation,
-            ),
-          }
-          const result = await store.apply(batch)
-          options.onApply?.(batch, result)
-          // The patches repeat everything the changes created, several times their own size.
-          const { patches: _patches, ...applied } = result
-          // Said where it is read: a script in the page is code the person cannot edit.
-          return ok(
-            /<script/i.test(JSON.stringify(changes))
-              ? {
-                  ...applied,
-                  note: 'A script in an embed cannot be edited in the editor. Build it with nodes if you can: a mobile menu needs none (guide menu).',
-                }
-              : applied,
+          return text(
+            group === undefined
+              ? `${GUIDE_INTRO[1]}${index()}`
+              : (V1_TOPICS[group] ?? catalog(group)),
           )
         } catch (e) {
           return fail(e)
         }
       },
     )
+
+    server.registerTool(
+      'document.apply',
+      {
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          idempotentHint: false,
+          openWorldHint: false,
+        },
+        description:
+          'The one tool that changes a site: applies a batch of operations from the catalog in guide to the site document, atomically, each validated against its own schema. Pass the revision you read; use dryRun to preview patches.',
+        inputSchema: {
+          expectedRevision: z.number().int().nonnegative(),
+          operations: z.array(z.looseObject({ type: z.string() })),
+          dryRun: z.boolean().optional(),
+        },
+      },
+      async ({ expectedRevision, operations, dryRun }) => {
+        try {
+          if (operations.some((o) => o.type === 'asset.create'))
+            throw new InputError(
+              'asset.create is not available here: use the asset.import tool, which stores the bytes',
+            )
+          // The engine parses each operation with its own schema and reports the failing index
+          // and path, so there is nothing to gain from parsing the batch again here.
+          const batch = {
+            expectedRevision,
+            operations: operations as Operation[],
+            ...(dryRun ? { dryRun } : {}),
+          }
+          const result = await store.apply(batch)
+          if (dryRun) return ok(result)
+          options.onApply?.(batch, result)
+          // The patches repeat everything the batch created, several times the batch's own size.
+          const { patches: _patches, ...applied } = result
+          return ok(withScriptNote(operations, applied))
+        } catch (e) {
+          return fail(e)
+        }
+      },
+    )
+  } else {
+    server.registerTool(
+      'guide',
+      {
+        annotations: reads,
+        description: `Notes to read, changes nothing. No topic: the basics. A topic (${Object.keys(TOPICS).join(', ')}): how to do it well.`,
+        inputSchema: { topic: z.enum(Object.keys(TOPICS) as [string, ...string[]]).optional() },
+      },
+      async ({ topic }) => text(topic === undefined ? GUIDE_INTRO[2] : (TOPICS[topic] as string)),
+    )
+
+    // Every document operation is a tool of its own name, taking one or more changes of its kind:
+    // made in order, all or nothing, at the revision the caller last saw.
+    for (const operation of MCP_OPERATIONS) {
+      const { type, ...fields } = (operation.schema as z.ZodObject).shape
+      const adapted = ADAPTED[operation.type]
+      server.registerTool(
+        operation.type,
+        {
+          annotations: annotationsOf(operation.type),
+          description: DESCRIPTIONS[operation.type as keyof typeof DESCRIPTIONS],
+          inputSchema: {
+            expectedRevision: z.number().int().nonnegative(),
+            changes: z.array(z.strictObject({ ...fields, ...adapted?.fields })).min(1),
+          },
+        },
+        async ({ expectedRevision, changes }) => {
+          try {
+            const batch = {
+              expectedRevision,
+              operations: changes.map(
+                (change) =>
+                  ({
+                    type: operation.type,
+                    ...(adapted ? adapted.operation(change) : change),
+                  }) as Operation,
+              ),
+            }
+            const result = await store.apply(batch)
+            options.onApply?.(batch, result)
+            // The patches repeat everything the changes created, several times their own size.
+            const { patches: _patches, ...applied } = result
+            return ok(withScriptNote(changes, applied))
+          } catch (e) {
+            return fail(e)
+          }
+        },
+      )
+    }
   }
 
   server.registerTool(
@@ -407,20 +492,38 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
   )
 
-  if (options.siteDir)
+  if (version === 1)
     server.registerTool(
       'document.diff',
       {
         annotations: reads,
         description:
-          'What changed in the site since the lacuno.json at path against, inside the site folder. json: structured output.',
-        inputSchema: { against: z.string(), json: z.boolean().optional() },
+          'Read-only: what a batch of operations would change (a dry run), or what changed since the lacuno.json at path against, inside the site folder. json: structured output.',
+        inputSchema: {
+          operations: z.array(z.looseObject({ type: z.string() })).optional(),
+          against: z.string().optional(),
+          json: z.boolean().optional(),
+        },
       },
-      async ({ against, json }) => {
+      async ({ operations, against, json }) => {
         try {
-          const file = await insideSite(options.siteDir, against)
-          const before = parseDocument(JSON.parse(await readFile(file, 'utf8')))
-          const diff = diffDocuments(before, store.read().document)
+          if ((operations === undefined) === (against === undefined))
+            throw new InputError('pass exactly one of operations or against')
+          const { document, revision } = store.read()
+          let before = document
+          let after = document
+          if (operations) {
+            const { patches } = await store.apply({
+              expectedRevision: revision,
+              operations: operations as Operation[],
+              dryRun: true,
+            })
+            after = applyPatches(document, patches)
+          } else {
+            const file = await insideSite(options.siteDir, against as string)
+            before = parseDocument(JSON.parse(await readFile(file, 'utf8')))
+          }
+          const diff = diffDocuments(before, after)
           return json ? ok(diff) : text(formatDiff(diff))
         } catch (e) {
           return fail(e)
@@ -929,6 +1032,31 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       ],
     }),
   )
+  if (version === 1)
+    server.registerResource(
+      'operations-schema',
+      'lacuno://schema/operations',
+      { description: 'JSON Schema of document.apply operations', mimeType: 'application/json' },
+      async (uri) => ({
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: 'application/json',
+            text: JSON.stringify(
+              z.toJSONSchema(
+                z.discriminatedUnion(
+                  'type',
+                  V1_OPERATIONS.map((o) => o.schema) as unknown as [z.ZodObject, ...z.ZodObject[]],
+                ),
+                { unrepresentable: 'any' },
+              ),
+              null,
+              2,
+            ),
+          },
+        ],
+      }),
+    )
   // Replaces the SDK's own listing, whose schemas it makes without options; it still checks each
   // call's input against the tool's schema.
   server.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: listed }))

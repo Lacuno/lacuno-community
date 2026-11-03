@@ -7,19 +7,27 @@ import { editor } from './harness.js'
 it('connects an app to one site through registration, consent and a PKCE token exchange', async () => {
   const { server, origin, siteId, page, context, dir, api } = await editor()
   const request = (route: string, init?: RequestInit) => server.app.request(origin + route, init)
-  const resource = `${origin}/mcp/${siteId}`
+  // The address the editor hands out, v2's; a token for v1's /mcp/<site> (gateway-auth.test.ts)
+  // serves both.
+  const resource = `${origin}/v2/mcp/${siteId}`
   const issuer = `${origin}/api/auth`
 
   // Discovery: the site's protected resource names this server's issuer.
   expect(
-    await (await request(`/.well-known/oauth-protected-resource/mcp/${siteId}`)).json(),
+    await (await request(`/.well-known/oauth-protected-resource/v2/mcp/${siteId}`)).json(),
   ).toEqual({
     resource,
     authorization_servers: [issuer],
     scopes_supported: ['site'],
     bearer_methods_supported: ['header'],
   })
-  expect((await request('/.well-known/oauth-protected-resource/mcp/missing')).status).toBe(404)
+  expect(
+    await (await request(`/.well-known/oauth-protected-resource/mcp/${siteId}`)).json(),
+  ).toMatchObject({ resource: `${origin}/mcp/${siteId}` })
+  for (const address of ['mcp', 'v2/mcp'])
+    expect((await request(`/.well-known/oauth-protected-resource/${address}/missing`)).status).toBe(
+      404,
+    )
   for (const route of ['', '/api/auth']) {
     const metadata = await (await request(`/.well-known/oauth-authorization-server${route}`)).json()
     expect(metadata).toMatchObject({

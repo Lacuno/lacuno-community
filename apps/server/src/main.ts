@@ -22,8 +22,9 @@ const publishBaseURL =
 if (publishBaseURL && publishPort === port)
   throw new Error('Publishing requires a separate LACUNO_PUBLISH_PORT')
 const mail = smtp()
-// Spike: the connector URL claude.ai is given names the view's origin the runtime must allow.
-const connectorUrl = process.env.LACUNO_CONNECTOR_URL
+// Spike: the connector URLs claude.ai is given, separated by spaces (Cloud's v1 and v2 addresses),
+// name the views' origins the runtime must allow; the first names it in the runtime's own answers.
+const connectorUrls = process.env.LACUNO_CONNECTOR_URL?.split(' ').filter(Boolean) ?? []
 const autoTranslate = process.env.LACUNO_AUTO_TRANSLATE_URL
 if (autoTranslate && !autoTranslate.startsWith('/') && !URL.canParse(autoTranslate))
   throw new Error('LACUNO_AUTO_TRANSLATE_URL must be a path such as /translate or a URL')
@@ -54,8 +55,11 @@ const server = await createServer({
   ...(process.env.LACUNO_CIMD_RELAY_URL ? { cimdRelay: process.env.LACUNO_CIMD_RELAY_URL } : {}),
   ...(process.env.LACUNO_EXPORT_URL ? { export: process.env.LACUNO_EXPORT_URL } : {}),
   ...(process.env.LACUNO_GATEWAY_MCP_URL ? { mcp: process.env.LACUNO_GATEWAY_MCP_URL } : {}),
-  ...(connectorUrl
-    ? { connectorUrl, allowedOrigins: [`https://${viewDomain(connectorUrl)}`] }
+  ...(connectorUrls[0]
+    ? {
+        connectorUrl: connectorUrls[0],
+        allowedOrigins: connectorUrls.map((url) => `https://${viewDomain(url)}`),
+      }
     : {}),
   secret,
   editorDir: path.join(root, 'apps/editor/dist'),

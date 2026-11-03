@@ -397,8 +397,8 @@ validated as a whole and committed atomically, or rejected with nothing applied.
 commit path changes the revision, so no operation can forget it. Deleting a container removes what
 it owns (a page's tree, a node's descendants); deleting something another record points at is
 refused with the referencing paths. There is no force flag. Agents use the same catalog through a
-single MCP tool, `document.apply`, whose input is the operation union (one tool per operation since
-D036).
+single MCP tool, `document.apply`, whose input is the operation union (MCP v1; v2 offers one tool
+per operation, D036).
 
 **Alternatives.** A Yjs document from the start (D006). JSON Patch or free-form writes. Cascading
 deletes that clean up references. One MCP tool per operation.
@@ -608,18 +608,21 @@ button hands the person's own AI a prompt, unless the server names an auto-trans
 (`LACUNO_AUTO_TRANSLATE_URL`), whose small contract, status and jobs, is in ARCHITECTURE; any
 such service writes through the document like every other client.
 
-## D036. Agents change a site through one MCP tool per operation, each taking a list
+## D036. MCP v2: one tool per operation, each taking a list, beside v1
 
-**Decision.** Every document operation the MCP server offers is a tool of its own name
-(`node.create`, `style.set`, `page.update`, …), made from the operation registry. Its input is
+**Decision.** MCP v2 offers every document operation as a tool of its own name (`node.create`,
+`style.set`, `page.update`, …), made from the operation registry, at the same addresses as v1 with
+`/v2` in front: `/v2/mcp/<site>` on a server, `/v2/mcp` on Lacuno Cloud. v1 (D026: `document.apply`
+with the schemas from `guide`, `document.diff` and the operations resource) stays as it was at
+`/mcp/<site>` and over stdio, for the apps, skills and scripts connected to it; the editor's Connect
+panel hands out v2's address. In v2, each operation tool's input is
 `changes`, a list of one or more changes of its kind, each with the operation's own fields, and
 `expectedRevision`. A call is one batch through the same store: made in order, all or nothing,
 version-pinned as before; the answer names what each change created by its index. Descriptions
 come from one typed record beside the server (`packages/mcp/src/operations.ts`, so an operation
-without one fails the typecheck), annotations follow from the verb. `document.apply` leaves the
-MCP surface; the HTTP route keeps mixed batches for the editor and other clients. `guide` keeps
-its topics as notes and hands out no schemas, and `document.diff` only compares against a
-document file in the site folder. `page.create` and `component.create` take only their root
+without one fails the typecheck), annotations follow from the verb. v2 has no `document.apply`
+or `document.diff`, and its `guide` hands out no schemas, only the topics both versions share as
+notes; the HTTP route keeps mixed batches for the editor and other clients. `page.create` and `component.create` take only their root
 element, which `node.create` fills, so the node tree's schema is declared once, and keyframes take
 their styles as CSS text, as the editor's keyframes dialog writes them. The shared parts
 of the schemas (`Binding`, `CssValue`, `RichText` and a few more) are named in Zod's registry, and
@@ -628,9 +631,10 @@ the server lists its tools itself without the `$schema` line, Zod's safe-integer
 (about 17,500 tokens), under a 74 KB budget test. `translation.set` and `translation.delete` are
 left to `translations.apply`.
 
-**Alternatives.** Keeping the single batch tool with schemas from `guide` (D026); one change per
-call, which took a site's fixture 78 calls instead of 12; a second tool surface for hosts that
-require separate tools.
+**Alternatives.** Keeping the single batch tool with schemas from `guide` (D026) only; one change
+per call, which took a site's fixture 78 calls instead of 12; v2 in place of v1 at the same
+addresses, which breaks what was written against v1; choosing the version in the MCP handshake,
+which has no place for it.
 
 **Why.** OpenAI's app review requires every model-callable operation to be exposed up front as a
 separate tool with a description, input schema and annotations, and refuses discovery, operation
@@ -642,3 +646,8 @@ does is make changes of different kinds all or nothing together; each call leave
 valid, so a multi-step change is done in valid steps (a new required field: optional, filled, then
 required). The cost is the tool list, about 17,500 tokens instead of 2,000 plus the schemas
 `guide` handed out (about 10,000 for a page), which hosts with tool search load on demand.
+v1 stays because an app lists the tools afresh but what was written against them does not change:
+plugin skills, saved tool sets and scripts name `document.apply` and the guide's schema groups,
+and hosts without tool search pay far less for v1. The version is in the address because OAuth
+binds a token to its address, so each version is a resource of its own, and a token for either
+serves both of a site's.

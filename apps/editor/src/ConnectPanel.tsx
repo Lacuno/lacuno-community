@@ -28,9 +28,9 @@ const time = (at: number) => new Date(at).toLocaleString()
 /** The one line to paste into an AI app with a terminal: its agent installs the plugin or MCP server for its host and signs the person in. */
 const guidePrompt = 'Set up Lacuno by following the guide at https://lacuno.io/install.md'
 
-/** The site's own MCP address. */
+/** The site's own MCP address, v2's: /mcp/<site> serves v1 to the apps connected before. */
 export const siteMcpUrl = (config: Config, siteId: string) =>
-  `${config.origin || window.location.origin}/mcp/${siteId}`
+  `${config.origin || window.location.origin}/v2/mcp/${siteId}`
 
 /** The site's AI connections, undefined until first read, polled every 10s, or every 2s while the panel is open. */
 export function useConnections(siteId: string, open: boolean) {
