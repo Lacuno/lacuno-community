@@ -22,9 +22,11 @@ const publishBaseURL =
 if (publishBaseURL && publishPort === port)
   throw new Error('Publishing requires a separate LACUNO_PUBLISH_PORT')
 const mail = smtp()
-// Spike: the connector URLs claude.ai is given, separated by spaces (Cloud's v1 and v2 addresses),
-// name the views' origins the runtime must allow; the first names it in the runtime's own answers.
-const connectorUrls = process.env.LACUNO_CONNECTOR_URL?.split(' ').filter(Boolean) ?? []
+// Spike: the connector URL claude.ai is given names the view's origin the runtime must allow.
+const connectorUrl = process.env.LACUNO_CONNECTOR_URL
+// A gateway names its v1 addresses, which an image from before v2 reads too, and serves v2 beside
+// them, with /v2 before /mcp as here (D036).
+const v2 = (address: string) => address.replace(/\/mcp$/, '/v2/mcp')
 const autoTranslate = process.env.LACUNO_AUTO_TRANSLATE_URL
 if (autoTranslate && !autoTranslate.startsWith('/') && !URL.canParse(autoTranslate))
   throw new Error('LACUNO_AUTO_TRANSLATE_URL must be a path such as /translate or a URL')
@@ -54,11 +56,11 @@ const server = await createServer({
   ...(publishBaseURL ? { publishBaseURL } : {}),
   ...(process.env.LACUNO_CIMD_RELAY_URL ? { cimdRelay: process.env.LACUNO_CIMD_RELAY_URL } : {}),
   ...(process.env.LACUNO_EXPORT_URL ? { export: process.env.LACUNO_EXPORT_URL } : {}),
-  ...(process.env.LACUNO_GATEWAY_MCP_URL ? { mcp: process.env.LACUNO_GATEWAY_MCP_URL } : {}),
-  ...(connectorUrls[0]
+  ...(process.env.LACUNO_GATEWAY_MCP_URL ? { mcp: v2(process.env.LACUNO_GATEWAY_MCP_URL) } : {}),
+  ...(connectorUrl
     ? {
-        connectorUrl: connectorUrls[0],
-        allowedOrigins: connectorUrls.map((url) => `https://${viewDomain(url)}`),
+        connectorUrl,
+        allowedOrigins: [connectorUrl, v2(connectorUrl)].map((url) => `https://${viewDomain(url)}`),
       }
     : {}),
   secret,

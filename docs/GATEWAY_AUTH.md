@@ -55,14 +55,18 @@ a role revokes the user (below), which also forgets the role, and asserts the ne
 
 ## Connect your AI
 
-AI apps connect to one site at `<editor origin>/mcp/<site>` with OAuth issued by the runtime, whose
-issuer is `<editor origin>/api/auth`. The protocol stays version 1: these are added routes, and an
-older runtime answers them with 401 or 404.
+AI apps connect to one site at `<editor origin>/v2/mcp/<site>` (MCP v2, a tool per operation, D036)
+or `<editor origin>/mcp/<site>` (v1, as the apps connected before v2 expect) with OAuth issued by
+the runtime, whose issuer is `<editor origin>/api/auth`. The protocol stays version 1: these are
+added routes, and an older runtime answers them with 401 or 404.
 
 **One address for all sites.** A gateway such as Lacuno Cloud may offer AI apps one MCP address of
-its own for every site a user may edit, and call `/mcp/<site>` for them as that user, with an
-assertion instead of a token (an `owner` or `editor`). Set that address in `LACUNO_GATEWAY_MCP_URL`:
-`/api/config` then reports it as `mcp`, and the editor's Connect your AI panel offers it first.
+its own for every site a user may edit, and call `/mcp/<site>` or `/v2/mcp/<site>` for them as that
+user, with an assertion instead of a token (an `owner` or `editor`). Set its v1 address, ending in
+`/mcp`, in `LACUNO_GATEWAY_MCP_URL` and serve v2 beside it with `/v2` before `/mcp`: `/api/config`
+then reports v2's as `mcp`, and the editor's Connect your AI panel offers it first. The embedded
+editor's `LACUNO_CONNECTOR_URL` names v1's address the same way, and the runtime allows the views
+of both. A runtime from before v2 reads these settings as v1's alone.
 
 **Anonymous routes.** They authenticate themselves, so the gateway forwards them without a user and
 the runtime ignores any assertion on them. Forward only `content-type`, `accept`, `authorization`,
@@ -75,7 +79,7 @@ only `content-type`, `cache-control`, `location`, `www-authenticate`, `mcp-sessi
 | `GET` | `/.well-known/*` | Public metadata |
 | `POST` | `/api/auth/oauth2/register` | Open dynamic registration, rate-limited per client IP |
 | `POST` | `/api/auth/oauth2/token`, `/api/auth/oauth2/revoke` | PKCE verifier, refresh token or the token itself |
-| `GET`, `POST`, `DELETE` | `/mcp/<site>` | Bearer token whose audience is that site |
+| `GET`, `POST`, `DELETE` | `/mcp/<site>`, `/v2/mcp/<site>` | Bearer token whose audience is that site |
 | `PUT` | `/mcp/<site>/upload/<token>` | A single-use address from the `asset.upload` tool, valid 10 minutes while its MCP session is open; the body is one file (at most 10 MB), the answer `201` with the asset, or `404`, `413`, `415` or `507` |
 
 **Browser routes.** The consent flow runs with an assertion like every other request, as the
