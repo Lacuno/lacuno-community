@@ -189,6 +189,10 @@ describe('generateStylesheet', () => {
     expect(hover).toBeGreaterThan(css.indexOf('.x:visited {'))
     expect(hover).toBeGreaterThan(css.indexOf('.x:nth-child(odd) {'))
     expect(hover).toBeGreaterThan(css.indexOf('.x:nth-child(even) {'))
+    // A tap leaves :hover on a touch screen, so hover rules are for a pointer that hovers; the
+    // canvas's forced states need none.
+    expect(css).toContain('@media (hover: hover) {\n  .x:hover {\n    color: #000;\n  }\n}')
+    expect(generateStylesheet(doc, { previewStates: true }).css).not.toContain('(hover: hover)')
   })
 
   it('emits the motion rules for a Motion field or an interactive state, never over an authored transition', () => {

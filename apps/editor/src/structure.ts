@@ -346,6 +346,10 @@ export function presetNode(
       attrs: {
         'data-lacuno-form': { type: 'static', value: 'Contact form' },
         'data-success': { type: 'static', value: 'Thanks! Your message was sent.' },
+        'data-error': {
+          type: 'static',
+          value: "Your message couldn't be sent. Please try again later.",
+        },
       },
       meta: { label: 'Form' },
       children: [

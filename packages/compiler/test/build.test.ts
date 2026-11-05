@@ -68,6 +68,19 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
     expect(await readFile(path.join(dir, 'dist/robots.txt'), 'utf8')).toContain(
       'Sitemap: https://example.com/sitemap-index.xml',
     )
+    expect(await readFile(path.join(dir, 'dist/sitemap.xml'), 'utf8')).toBe(
+      await readFile(path.join(dir, 'dist/sitemap-index.xml'), 'utf8'),
+    )
+    // The hero's WebP variants are published, not its original with the photo's metadata.
+    const astro = await readdir(path.join(dir, 'dist/_astro'))
+    expect(astro.filter((file) => file.endsWith('.png'))).toEqual([])
+    expect(astro.some((file) => file.endsWith('.webp'))).toBe(true)
+    // Safari before 16.4 skips `width <=`, so breakpoints stay max-width.
+    let styles = home
+    for (const file of astro.filter((file) => file.endsWith('.css')))
+      styles += await readFile(path.join(dir, 'dist/_astro', file), 'utf8')
+    expect(styles).toContain('@media (max-width:991px)')
+    expect(styles).not.toContain('width<=')
 
     const again = await build(dir, { siteUrl: 'https://example.com', quiet: true })
     expect(again.pages).toBe(5)

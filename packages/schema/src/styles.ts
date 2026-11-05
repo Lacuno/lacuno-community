@@ -103,7 +103,16 @@ export const StyleDecl = z.object({
   tag: RichTag.optional(),
   breakpoint: BreakpointId,
   state: State,
-  property: z.string().regex(/^(-{2})?[a-z][a-z0-9-]*$/, 'property must be kebab-case'),
+  /**
+   * A kebab-case property, a custom `--` one, or a `-webkit-` or `-moz-` one the published CSS
+   * cannot add itself, such as `-webkit-font-smoothing` or `-webkit-line-clamp`.
+   */
+  property: z
+    .string()
+    .regex(
+      /^(--|-webkit-|-moz-)?[a-z][a-z0-9-]*$/,
+      'property must be kebab-case: a --custom one, or -webkit- or -moz- before a vendor one',
+    ),
   value: CssValue,
   important: z.boolean().optional(),
 })

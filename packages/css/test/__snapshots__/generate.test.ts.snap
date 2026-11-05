@@ -5,6 +5,7 @@ exports[`generateStylesheet > matches the snapshot for the fixture 1`] = `
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; min-height: 100dvh; }
 img, video, svg { display: block; max-width: 100%; height: auto; }
+[hidden]:not([hidden="until-found"]) { display: none !important; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; }
 
@@ -45,8 +46,10 @@ a { color: inherit; }
   border-radius: var(--radius-md);
   transition: background-color 150ms;
 }
-.button:hover {
-  background-color: var(--color-surface-muted);
+@media (hover: hover) {
+  .button:hover {
+    background-color: var(--color-surface-muted);
+  }
 }
 .button:focus-visible {
   outline: 2px solid var(--color-brand);
@@ -101,8 +104,10 @@ a { color: inherit; }
   color: #fff;
   background-color: var(--color-brand);
 }
-.button.primary:hover {
-  background-color: var(--color-brand-hover);
+@media (hover: hover) {
+  .button.primary:hover {
+    background-color: var(--color-brand-hover);
+  }
 }
 .lc-l-hero-title.lc-l-hero-title.lc-l-hero-title.lc-l-hero-title {
   letter-spacing: -0.02em;
@@ -135,7 +140,7 @@ a { color: inherit; }
 @keyframes lc-progress { from { scale: 0 1; } }
 @media (prefers-reduced-motion: no-preference) {
   :where([data-lacuno-motion]) {
-    transition-property: opacity, scale, rotate, translate, transform, box-shadow, background-color, color, border-color, outline-color;
+    transition-property: opacity, scale, rotate, translate, transform, box-shadow, background-color, color, border-color;
     transition-duration: var(--lc-duration, 400ms);
     transition-delay: var(--lc-delay, 0ms);
     transition-timing-function: var(--lc-easing, ease-out);
@@ -144,7 +149,10 @@ a { color: inherit; }
     animation: var(--lc-entrance, none) var(--lc-duration, 400ms) var(--lc-easing, ease-out) var(--lc-delay, 0ms) both;
   }
 }
-@media (prefers-reduced-motion: reduce) {
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  :where([data-lacuno-motion][data-lc-enter="wait"]) { animation-play-state: paused; }
+}
+@media print, (prefers-reduced-motion: reduce) {
   [data-lacuno-motion] { animation: none !important; transition: none !important; }
 }
 

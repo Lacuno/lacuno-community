@@ -158,8 +158,11 @@ function resolveAttrs(
   const node = state.doc.nodes[nodeId]
   const marks = node?.classes.flatMap((c) => state.motion.get(c) ?? []) ?? []
   if (marks.length) out['data-lacuno-motion'] = marks.includes('scroll') ? 'scroll' : ''
-  if (!state.annotateNodes && node?.classes.some((c) => state.entrances.has(c)))
+  if (!state.annotateNodes && node?.classes.some((c) => state.entrances.has(c))) {
     state.entrance = true
+    // The entrance waits at its first frame from the first paint, until MOTION_SCRIPT plays it.
+    out['data-lc-enter'] = 'wait'
+  }
   // A story's step count, and each step's place in it, for the turns `storyCss` hands out.
   if (node && isStory(node)) out['data-lc-steps'] = String(storySteps(state.doc, node).length)
   const stage = state.doc.nodes[node?.parent ?? '']

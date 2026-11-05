@@ -22,8 +22,15 @@ export type TranslationTarget =
   | { type: 'entry'; id: string; field: string }
   | { type: 'site' }
 
-/** The attributes whose text is translated; a form's `data-success` is its message after sending. */
-export const TRANSLATABLE_ATTRS = ['alt', 'title', 'placeholder', 'aria-label', 'data-success']
+/** The attributes whose text is translated; a form's `data-success` and `data-error` among them. */
+export const TRANSLATABLE_ATTRS = [
+  'alt',
+  'title',
+  'placeholder',
+  'aria-label',
+  'data-success',
+  'data-error',
+]
 
 /** How an entry field's value is translated, for the field types that can be. */
 const FIELD_KINDS: Partial<Record<FieldDef['type'], TranslationKind>> = {

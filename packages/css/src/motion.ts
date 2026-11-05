@@ -90,7 +90,7 @@ export const MOTION_CSS = `
 ${MOTION_PRESETS.map(({ name, keyframes }) => `@keyframes ${name} { ${keyframes} }`).join('\n')}
 @media (prefers-reduced-motion: no-preference) {
   :where([data-lacuno-motion]) {
-    transition-property: opacity, scale, rotate, translate, transform, box-shadow, background-color, color, border-color, outline-color;
+    transition-property: opacity, scale, rotate, translate, transform, box-shadow, background-color, color, border-color;
     transition-duration: var(--lc-duration, 400ms);
     transition-delay: var(--lc-delay, 0ms);
     transition-timing-function: var(--lc-easing, ease-out);
@@ -99,7 +99,10 @@ ${MOTION_PRESETS.map(({ name, keyframes }) => `@keyframes ${name} { ${keyframes}
     animation: var(--lc-entrance, none) var(--lc-duration, 400ms) var(--lc-easing, ease-out) var(--lc-delay, 0ms) both;
   }
 }
-@media (prefers-reduced-motion: reduce) {
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  :where([data-lacuno-motion][data-lc-enter="wait"]) { animation-play-state: paused; }
+}
+@media print, (prefers-reduced-motion: reduce) {
   [data-lacuno-motion] { animation: none !important; transition: none !important; }
 }
 `
@@ -203,6 +206,7 @@ export function keyframesCss(doc: Document, ctx: ValueContext): string {
 
 /** What `enterOnView` touches of a page, so this package needs no DOM types. */
 type Entering = {
+  getAttribute(name: string): string | null
   setAttribute(name: string, value: string): void
   removeAttribute(name: string): void
 }
@@ -228,9 +232,12 @@ declare const IntersectionObserver: new (
 
 /**
  * Plays each element's entrance once it comes into view, unless motion is reduced, and returns
- * what stops it and puts every element back at rest. It reads `page` only and watches the page's
- * own viewport (`root: page`): published pages run it inline on `document`, and the editor's
- * Preview runs it from its window against the canvas, whose sandbox allows no scripts of its own.
+ * what stops it and puts every element back at rest. Published HTML marks an element with an
+ * entrance `data-lc-enter="wait"`, which holds it at its first frame from the first paint; the
+ * canvas has no marks, so there the computed `--lc-entrance` picks the elements. It reads `page`
+ * only and watches the page's own viewport (`root: page`): published pages run it inline on
+ * `document`, and the editor's Preview runs it from its window against the canvas, whose sandbox
+ * allows no scripts of its own.
  * An entrance is over when the animation that ends is the element's own `--lc-entrance`, preset
  * or not. It declares no inner functions, since a bundler may wrap those in helpers the page lacks.
  */
@@ -251,6 +258,7 @@ export function enterOnView(page: MotionPage) {
     )
     for (const element of page.querySelectorAll('[data-lacuno-motion]'))
       if (
+        element.getAttribute('data-lc-enter') === 'wait' ||
         !['', 'none'].includes(
           view.getComputedStyle(element).getPropertyValue('--lc-entrance').trim(),
         )
@@ -275,6 +283,10 @@ export function enterOnView(page: MotionPage) {
       for (const element of page.querySelectorAll('[data-lc-enter]'))
         element.removeAttribute('data-lc-enter')
     })
+  } else {
+    // Nothing plays them, so none may wait should motion stop being reduced.
+    for (const element of page.querySelectorAll('[data-lc-enter]'))
+      element.removeAttribute('data-lc-enter')
   }
   return () => running.abort()
 }

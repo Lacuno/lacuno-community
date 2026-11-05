@@ -105,6 +105,14 @@ describe('keyframes', () => {
     expect(token.referencedBy).toContain('keyframes.tint')
   })
 
+  it("refuses deleting keyframes a class's own animation names", () => {
+    const { document } = run([pop, entrance('fade 1s, pop 2s ease both', 'animation')])
+    const error = failing([{ type: 'keyframes.delete', id: 'pop' }], /pop is referenced/, document)
+    expect(error.referencedBy).toEqual(['styles.c-heading|base|none|animation'])
+    const named = run([pop, entrance('pop', 'animation-name')]).document
+    failing([{ type: 'keyframes.delete', id: 'pop' }], /pop is referenced/, named)
+  })
+
   it('warns when an entrance or scroll animation names neither a preset nor keyframes', () => {
     expect(run([entrance('lc-fade'), entrance('none')]).warnings).toEqual([])
     expect(run([pop, entrance('pop')]).warnings).toEqual([])

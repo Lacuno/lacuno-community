@@ -146,14 +146,21 @@ export function referencesToDesignToken(doc: Document, id: string): string[] {
   return referencesTo(doc, 'designTokens', id)
 }
 
-/** The styles that name keyframes as an element's entrance or scroll animation. */
+/** The properties whose value may name keyframes. */
+const NAMES_KEYFRAMES = new Set(['--lc-entrance', '--lc-scroll', 'animation', 'animation-name'])
+
+/** The words of a value, `rise 1s ease, fade 2s` as rise, 1s, ease, fade and 2s. */
+function words(value: CssValue): string[] {
+  if (value.type === 'keyword') return [value.value]
+  if (value.type === 'raw') return value.value.split(/[\s,]+/)
+  if (value.type === 'list') return value.values.flatMap(words)
+  return []
+}
+
+/** The styles that name keyframes: an entrance, a scroll animation or a class's own animation. */
 export function referencesToKeyframes(doc: Document, id: string): string[] {
   return Object.entries(doc.styles)
-    .filter(
-      ([, d]) =>
-        (d.property === '--lc-entrance' || d.property === '--lc-scroll') &&
-        (d.value as { value?: unknown }).value === id,
-    )
+    .filter(([, d]) => NAMES_KEYFRAMES.has(d.property) && words(d.value).includes(id))
     .map(([key]) => `styles.${key}`)
     .sort()
 }

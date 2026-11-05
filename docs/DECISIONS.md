@@ -505,7 +505,8 @@ animation's CSS name, chosen by the author and fixed once created: a lower-case 
 preset's `lc-` name, `none` or a CSS-wide keyword. A class names it in `--lc-entrance` or
 `--lc-scroll` like a preset, and the generator emits it as `@keyframes <id>` with the stops'
 values serialized as every style value is, tokens included. `keyframes.create`, `update` and
-`delete` change them; delete is refused while a style names them, and `style.set` warns when an
+`delete` change them; delete is refused while a style names them, in `--lc-entrance`,
+`--lc-scroll`, `animation` or `animation-name`, and `style.set` warns when an
 animation names neither a preset nor keyframes of the document. The editor edits them in a small
 dialog with one line of CSS per stop, opened from the Motion section's Animation list.
 

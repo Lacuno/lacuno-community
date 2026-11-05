@@ -6,7 +6,9 @@ export const formFields = (name: string) =>
 
 /**
  * Sends Lacuno forms without leaving the page, with how long the visitor took: the server takes a
- * post without it, or within three seconds of loading, for a bot's.
+ * post without it, or within three seconds of loading, for a bot's. The form's `data-success` and
+ * `data-error`, in the page's language, replace the English messages; the success message takes
+ * the focus the replaced button had.
  */
 export const FORM_SCRIPT = `(() => {
   const loaded = Date.now();
@@ -23,11 +25,15 @@ export const FORM_SCRIPT = `(() => {
         const response = await fetch(form.action, { method: 'POST', body });
         if (response.ok) {
           message.textContent = form.dataset.success || 'Thanks! Your message was sent.';
-          return form.replaceChildren(message);
+          message.setAttribute('role', 'status');
+          message.tabIndex = -1;
+          form.replaceChildren(message);
+          return message.focus();
         }
-        message.textContent = (await response.json()).error;
+        message.textContent = form.dataset.error || (await response.json()).error;
       } catch {}
-      message.textContent ||= "Your message couldn't be sent. Please try again later.";
+      message.textContent ||=
+        form.dataset.error || "Your message couldn't be sent. Please try again later.";
       message.setAttribute('role', 'alert');
       message.setAttribute('data-lc-alert', '');
       if (button) button.disabled = false;

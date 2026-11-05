@@ -53,6 +53,7 @@ const RESET = `*, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; min-height: 100dvh; }
 img, video, svg { display: block; max-width: 100%; height: auto; }
+[hidden]:not([hidden="until-found"]) { display: none !important; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; }`
 
@@ -170,7 +171,13 @@ function generateRules(
               `${indent}  ${d.property}: ${serializeValue(d.value, ctx)}${d.important ? ' !important' : ''};`,
           )
         const selector = selectorFor(doc, names, classId, state, previewStates, tag || undefined)
-        rules.push(`${indent}${selector} {\n${lines.join('\n')}\n${indent}}`)
+        const rule = `${indent}${selector} {\n${lines.join('\n')}\n${indent}}`
+        // A touch screen keeps :hover after a tap, so a hover is for a pointer that can hover.
+        rules.push(
+          state === 'hover' && !previewStates
+            ? `${indent}@media (hover: hover) {\n${rule.replace(/^/gm, '  ')}\n${indent}}`
+            : rule,
+        )
       }
     }
   }

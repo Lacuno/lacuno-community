@@ -136,6 +136,8 @@ After each section or page:
 - Reuse classes and tokens before making new ones.
 - document.read lists the breakpoints. The base is desktop; smaller ones override it.
 - States include hover, focus, focus-visible, focus-within, active, checked, disabled, first-child, last-child, before, after, placeholder.
+- Hover styles apply where a pointer can hover, never on a touch screen.
+- Published CSS gets the vendor prefixes it needs. Set a -webkit- property only where no standard one exists, such as -webkit-font-smoothing or -webkit-line-clamp.
 - Tokens have a value per mode (light, dark) and become CSS variables. Use them for colours, spacing, radii and fonts.
 - styles.get reads several classes, or every class in a node's subtree, in one call.
 - A gradient is a value for \`background-image\`, not a CSS string:
@@ -188,7 +190,7 @@ Show entries:
   forms: `## Forms
 A form is plain nodes. Published, each message is emailed to the workspace owner, replying to the first email the visitor typed. Nothing is stored.
 One node.create with children:
-- A \`form\` element, no \`action\`. \`data-lacuno-form\`: its name in the email ("Contact form" by default). \`data-success\`: the text shown after sending.
+- A \`form\` element, no \`action\`. \`data-lacuno-form\`: its name in the email ("Contact form" by default). \`data-success\` and \`data-error\`: the texts shown after sending and when sending fails, in the page's language.
 - Each field: a \`label\` element holding a text (the label) and the control: \`input\` (\`name\`, \`type\` text, email, tel, number, url, date or checkbox, \`placeholder\`, \`required\`), \`textarea\`, or \`select\` with text children tagged \`option\`.
 - Every control needs a \`name\`. Add an email field so the owner can reply.
 - Last: a text node tagged \`button\` with \`type\` submit.

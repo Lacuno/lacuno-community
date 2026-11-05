@@ -69,11 +69,13 @@ it('runs entrances once on viewport entry and honors reduced motion in published
     const page = await browser.newPage({ viewport: { width: 1000, height: 600 } })
     await page.setContent(html)
     const target = page.locator(`.${classNames(doc).get(id)}`)
-    expect(await target.getAttribute('data-lc-enter')).toBeNull()
+    expect(await target.getAttribute('data-lc-enter')).toBe('wait')
+    // Waiting, the entrance is held at its first frame.
+    expect(
+      await target.evaluate((element) => element.getAnimations().map((a) => a.playState)),
+    ).toEqual(['paused'])
     await target.scrollIntoViewIfNeeded()
-    await expect
-      .poll(() => target.evaluate((element) => element.getAnimations().length))
-      .toBeGreaterThan(0)
+    await expect.poll(() => target.getAttribute('data-lc-enter')).toBe('')
     await target.evaluate((element) => {
       for (const animation of element.getAnimations()) animation.finish()
     })
@@ -101,6 +103,58 @@ it('runs entrances once on viewport entry and honors reduced motion in published
     const noScript = await browser.newPage({ javaScriptEnabled: false })
     await noScript.setContent(html)
     expect(await noScript.locator(`.${classNames(doc).get(id)}`).isVisible()).toBe(true)
+  } finally {
+    await browser.close()
+  }
+}, 20000)
+
+it('shows an entrance in the first screen at its first frame from the first paint', async () => {
+  const doc = fixtureDocument()
+  const id = 'l-hero-title'
+  for (const [property, value] of [
+    ['--lc-entrance', 'lc-fade'],
+    ['--lc-duration', '1000ms'],
+  ] as const) {
+    const style = {
+      class: id,
+      breakpoint: 'base',
+      state: 'none' as const,
+      property,
+      value: { type: 'raw' as const, value },
+    }
+    doc.styles[styleKey(style)] = style
+  }
+  const result = render(
+    doc,
+    Object.values(doc.pages).find((page) => page.path === '/')!,
+    undefined,
+    { resolveImage: plainImageResolver },
+  )
+  result.head += `<style>${generateStylesheet(doc).css}</style>`
+  const html = assembleDocument(result)
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage({ viewport: { width: 1000, height: 600 } })
+    // The title's opacity in each frame before it is painted, from the first frame it is in.
+    await page.addInitScript((name) => {
+      const frames: string[] = []
+      Object.assign(window, { lcFrames: frames })
+      const sample = () => {
+        const title = document.querySelector(`.${name}`)
+        if (title) frames.push(getComputedStyle(title).opacity)
+        if (frames.length < 30) requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    }, classNames(doc).get(id)!)
+    await page.route('http://site.test/', (route) =>
+      route.fulfill({ contentType: 'text/html', body: html }),
+    )
+    await page.goto('http://site.test/')
+    const frames = () => page.evaluate(() => (window as unknown as { lcFrames: string[] }).lcFrames)
+    await expect.poll(async () => (await frames()).length).toBe(30)
+    const seen = await frames()
+    expect(seen[0]).toBe('0')
+    expect(Number(seen.at(-1))).toBeGreaterThan(0)
   } finally {
     await browser.close()
   }
@@ -135,14 +189,12 @@ it('plays custom keyframes as an entrance and ends it like a preset', async () =
     await page.setContent(assembleDocument(result))
     const target = page.locator(`.${classNames(doc).get(id)}`)
     await target.scrollIntoViewIfNeeded()
-    await expect
-      .poll(() =>
-        target.evaluate((element) =>
-          element.getAnimations().map((animation) => (animation as CSSAnimation).animationName),
-        ),
-      )
-      .toEqual(['drift'])
-    expect(await target.getAttribute('data-lc-enter')).toBe('')
+    await expect.poll(() => target.getAttribute('data-lc-enter')).toBe('')
+    expect(
+      await target.evaluate((element) =>
+        element.getAnimations().map((animation) => (animation as CSSAnimation).animationName),
+      ),
+    ).toEqual(['drift'])
     await target.evaluate((element) => {
       for (const animation of element.getAnimations()) animation.finish()
     })

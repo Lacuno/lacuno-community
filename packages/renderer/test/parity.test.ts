@@ -83,7 +83,12 @@ it.each([
           )
           .replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\n/, '')
           .replace(' data-lacuno-still=""', '')
-        expect(normalized).toBe(assembleDocument(compiled))
+        // Published hover rules sit in @media (hover: hover); the canvas forces states instead.
+        const published = assembleDocument(compiled).replace(
+          /^( *)@media \(hover: hover\) \{\n([\s\S]*?)\n\1\}$/gm,
+          (_whole, _indent, rule: string) => rule.replace(/^ {2}/gm, ''),
+        )
+        expect(normalized).toBe(published)
         expect(canvas.html).toContain('data-lacuno-node=')
       }
     }

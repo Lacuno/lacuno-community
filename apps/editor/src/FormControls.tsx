@@ -28,7 +28,7 @@ const enter = (event: KeyboardEvent<HTMLInputElement>) => {
   if (event.key === 'Enter') event.currentTarget.blur()
 }
 
-/** A form's name and success message, or a field's name, type, placeholder, options and flag. */
+/** A form's name and its messages, or a field's name, type, placeholder, options and flag. */
 export function FormControls({
   doc,
   node,
@@ -70,6 +70,7 @@ export function FormControls({
       <div className="form-controls">
         {text('Form name', 'data-lacuno-form')}
         {text('Success message', 'data-success')}
+        {text('Error message', 'data-error')}
         <p className="hint">
           {config?.forms === false
             ? 'Submissions are off on this server: set LACUNO_SMTP_URL.'

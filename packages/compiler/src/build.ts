@@ -5,13 +5,20 @@ import sitemap, { type SitemapItem } from '@astrojs/sitemap'
 import { generateStylesheet } from '@lacuno/css'
 import { type Document, DocumentError, parseDocument, publishedLocales } from '@lacuno/schema'
 import { build as astroBuild } from 'astro'
-import { publicAssetPath } from './assets.js'
+import { isImage, publicAssetPath } from './assets.js'
 import { BuildError, RenderError } from './errors.js'
 import { plainImageResolver } from './images.js'
 import type { Warning } from './nodes.js'
 import { render } from './render.js'
 import { alternates, enumerateRoutes } from './routes.js'
 import { link, writeScaffold } from './scaffold.js'
+
+/**
+ * The browsers the published CSS is written for. Lightning CSS minifies it, adds the vendor
+ * prefixes these need (`-webkit-backdrop-filter`, `-webkit-hyphens`) and keeps breakpoints as
+ * `max-width`, which Safari before 16.4 reads where it skips `width <=`.
+ */
+const CSS_TARGET = ['chrome100', 'edge100', 'firefox100', 'safari15', 'ios15']
 
 export type BuildOptions = {
   /** Defaults to `<siteDir>/dist`. */
@@ -140,6 +147,23 @@ async function keepImages(cache: string, built: string, output: string): Promise
   await rename(next, cache).catch((e) => {
     if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
   })
+}
+
+/**
+ * Astro writes each image's original into `_astro` beside its WebP variants, as
+ * `<hash>.<8 characters>.<ext>`. Nothing links it, and a photo's still carries its EXIF (camera,
+ * serial number, time and place), which the variants drop, so it goes.
+ */
+async function dropOriginals(doc: Document, output: string): Promise<void> {
+  const images = new Set(
+    Object.values(doc.assets)
+      .filter(isImage)
+      .map((asset) => asset.hash),
+  )
+  for (const file of await readdir(output).catch(() => [])) {
+    const original = /^([0-9a-f]{64})\.[\w-]{8}\.\w+$/.exec(file)
+    if (original && images.has(original[1]!)) await rm(path.join(output, file))
+  }
 }
 
 /**
@@ -293,6 +317,7 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
       output: 'static',
       compressHTML: true,
       build: { inlineStylesheets: 'auto' },
+      vite: { build: { cssTarget: CSS_TARGET } },
       ...(doc.site.url
         ? { site: doc.site.url, integrations: [sitemap({ filter: indexed, serialize: canonical })] }
         : {}),
@@ -305,6 +330,15 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
   } finally {
     process.chdir(previousCwd)
   }
+  await dropOriginals(doc, path.join(outDir, '_astro'))
+  // Crawlers and site checkers look for /sitemap.xml; the sitemap integration writes an index,
+  // or nothing when no page is indexed.
+  if (doc.site.url)
+    await cp(path.join(outDir, 'sitemap-index.xml'), path.join(outDir, 'sitemap.xml')).catch(
+      (e) => {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e
+      },
+    )
   if (options.imageCache) await keepImages(options.imageCache, images, path.join(outDir, '_astro'))
 
   return {

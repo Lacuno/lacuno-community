@@ -11,6 +11,7 @@ import {
   hashAsset,
   newId,
   parseDocument,
+  StyleDecl,
   styleKey,
 } from '../src/index.js'
 
@@ -91,6 +92,18 @@ describe('document schema', () => {
     doc.styles[`${key}x`] = decl
     const msgs = checkReferences(doc).map((i) => i.message)
     expect(msgs.some((m) => m.startsWith('key does not match'))).toBe(true)
+  })
+
+  it('takes custom and -webkit- or -moz- properties and container units, no other prefix', () => {
+    const decl = { class: 'c-page', breakpoint: 'base', state: 'none' as const }
+    const ok = (property: string, value: unknown = { type: 'raw', value: '1' }) =>
+      StyleDecl.safeParse({ ...decl, property, value }).success
+    for (const property of ['line-height', '--brand', '-webkit-font-smoothing', '-moz-osx-x'])
+      expect(ok(property), property).toBe(true)
+    for (const property of ['-ms-filter', '-webkit', 'Color', '-x-y'])
+      expect(ok(property)).toBe(false)
+    for (const unit of ['cqi', 'cqw', 'cqh', 'cqb', 'cqmin', 'cqmax'])
+      expect(ok('width', { type: 'unit', value: 50, unit }), unit).toBe(true)
   })
 
   it('rejects duplicate page paths, unknown folders and collections, and collection pages without a param', () => {

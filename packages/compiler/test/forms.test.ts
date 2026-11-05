@@ -86,6 +86,32 @@ it('posts the form with the time on the page and shows the answer', async () => 
     answer = { status: 200, body: '{"ok":true}' }
     await tab.click('button')
     await expect.poll(() => tab.textContent('form')).toBe('Got it.')
+    // The message takes the focus the button had, so a screen reader reads it.
+    expect(await tab.evaluate(() => document.activeElement?.getAttribute('role'))).toBe('status')
+  } finally {
+    await browser.close()
+  }
+}, 20000)
+
+it("shows the form's own error message, in the page's language, over the server's", async () => {
+  const html = assembleDocument(page({ 'data-error': 'Leider nicht gesendet.' })())
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const tab = await browser.newPage()
+    let fails = false
+    await tab.route('http://site.test/**', (route) => {
+      if (route.request().method() !== 'POST')
+        return route.fulfill({ contentType: 'text/html', body: html })
+      if (fails) return route.abort()
+      fails = true
+      return route.fulfill({ status: 429, body: '{"error":"Too many messages."}' })
+    })
+    await tab.goto('http://site.test/')
+    for (const _ of [1, 2]) {
+      await tab.click('button')
+      await expect.poll(() => tab.textContent('[role=alert]')).toBe('Leider nicht gesendet.')
+      await expect.poll(() => tab.isEnabled('button')).toBe(true)
+    }
   } finally {
     await browser.close()
   }
