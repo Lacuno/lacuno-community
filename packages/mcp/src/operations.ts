@@ -51,8 +51,8 @@ export const DESCRIPTIONS: Record<Offered, string> = {
   'class.update': 'Renames a class or changes its combo parents or whether it is locked.',
   'class.delete': 'Deletes a class with its styles. Refused while a node uses it.',
   'style.set':
-    "Sets one CSS property of a class, as a typed value (color, length, keyword, designToken, gradient, raw and others), at a breakpoint (base by default) and state (none by default: hover, focus, before…). tag styles that tag inside the class's rich text.",
-  'style.clear': 'Removes one CSS property of a class at a breakpoint, state and tag.',
+    "Sets one CSS property of a class, as a typed value (color, length, keyword, designToken, gradient, raw and others), at a breakpoint (base by default) and state (none by default: hover, focus, open, target, before…). of names a parent's class whose state it follows (hover, focus-within, open, target), as in .card:hover .photo. tag styles that tag inside the class's rich text.",
+  'style.clear': 'Removes one CSS property of a class at a breakpoint, state, of and tag.',
   'breakpoint.create':
     'Adds a breakpoint, a width where styles change: a label and a maxWidth (smaller screens) or minWidth.',
   'breakpoint.update': "Changes a breakpoint's label or widths.",

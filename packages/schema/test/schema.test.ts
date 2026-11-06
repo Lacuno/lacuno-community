@@ -12,6 +12,8 @@ import {
   newId,
   parseDocument,
   StyleDecl,
+  stateCoordinates,
+  stateKey,
   styleKey,
 } from '../src/index.js'
 
@@ -84,6 +86,32 @@ describe('document schema', () => {
     expect(checkReferences(doc)).toEqual([
       { path: 'nodes.n-hero-cta', message: 'page p-post is a collection page' },
     ])
+  })
+
+  it("keys a parent's state with its class and checks it", () => {
+    const doc = fixtureDocument()
+    const decl = {
+      class: 'c-heading',
+      breakpoint: 'base',
+      state: 'open' as const,
+      of: 'c-hero',
+      property: 'rotate',
+      value: { type: 'raw' as const, value: '45deg' },
+    }
+    const key = styleKey(decl)
+    expect(key).toBe('c-heading|base|open@c-hero|rotate')
+    expect(stateCoordinates(stateKey(decl))).toEqual({ state: 'open', of: 'c-hero' })
+    expect(stateCoordinates('target')).toEqual({ state: 'target' })
+    doc.styles[key] = decl
+    expect(checkReferences(doc)).toEqual([])
+    const messages = (bad: StyleDecl) =>
+      checkReferences({ ...fixtureDocument(), styles: { [styleKey(bad)]: bad } }).map(
+        (issue) => issue.message,
+      )
+    expect(messages({ ...decl, of: 'c-nope' })).toContain('unknown class c-nope')
+    expect(messages({ ...decl, state: 'before' })).toContain(
+      "of follows a parent's hover, focus-within, open, target, not before",
+    )
   })
 
   it('rejects a style whose key does not match its coordinates', () => {

@@ -3,7 +3,7 @@ import type {
   Breakpoint,
   DesignTokenGroup,
   Document,
-  State,
+  StateKey,
   StyleDecl,
 } from '@lacuno/schema'
 import {
@@ -11,6 +11,8 @@ import {
   designTokenCssName,
   RichTag,
   State as StateSchema,
+  stateCoordinates,
+  stateKey,
 } from '@lacuno/schema'
 import { isMotionStyle, isStory, keyframesCss, MOTION_CSS, SCROLL_CSS, storyCss } from './motion.js'
 import { compareProperties } from './order.js'
@@ -43,7 +45,15 @@ export type Stylesheet = {
   tokens: CompiledToken[]
 }
 
-const STATE_ORDER: readonly State[] = StateSchema.options
+const STATE_ORDER = StateSchema.options
+
+/** A class's own states in cascade order, then each parent's, after its own. */
+function compareStateKeys(a: StateKey, b: StateKey): number {
+  const left = stateCoordinates(a)
+  const right = stateCoordinates(b)
+  const of = (left.of ?? '').localeCompare(right.of ?? '')
+  return of || STATE_ORDER.indexOf(left.state) - STATE_ORDER.indexOf(right.state)
+}
 
 /**
  * A minimal, opinionated reset. Enough that the box model behaves and no more, so the site's
@@ -134,7 +144,7 @@ function generateRules(
 ): string {
   // Class emission order: sorted by output selector so combos come after their parents
   // (".a.b" > ".a") and the cascade is predictable.
-  const byClass = new Map<string, Map<RichTag | '', Map<State, StyleDecl[]>>>()
+  const byClass = new Map<string, Map<RichTag | '', Map<StateKey, StyleDecl[]>>>()
   for (const d of decls) {
     let tags = byClass.get(d.class)
     if (!tags) {
@@ -146,10 +156,10 @@ function generateRules(
       states = new Map()
       tags.set(d.tag ?? '', states)
     }
-    let list = states.get(d.state)
+    let list = states.get(stateKey(d))
     if (!list) {
       list = []
-      states.set(d.state, list)
+      states.set(stateKey(d), list)
     }
     list.push(d)
   }
@@ -157,13 +167,12 @@ function generateRules(
 
   const rules: string[] = []
   for (const classId of classIds) {
-    const tags = byClass.get(classId) as Map<RichTag | '', Map<State, StyleDecl[]>>
+    const tags = byClass.get(classId) as Map<RichTag | '', Map<StateKey, StyleDecl[]>>
     for (const tag of ['', ...RichTag.options] as const) {
       const states = tags.get(tag)
       if (!states) continue
-      for (const state of STATE_ORDER) {
-        const list = states.get(state)
-        if (!list) continue
+      for (const state of [...states.keys()].sort(compareStateKeys)) {
+        const list = states.get(state)!
         const lines = [...list]
           .sort((a, b) => compareProperties(a.property, b.property))
           .map(
@@ -174,7 +183,7 @@ function generateRules(
         const rule = `${indent}${selector} {\n${lines.join('\n')}\n${indent}}`
         // A touch screen keeps :hover after a tap, so a hover is for a pointer that can hover.
         rules.push(
-          state === 'hover' && !previewStates
+          stateCoordinates(state).state === 'hover' && !previewStates
             ? `${indent}@media (hover: hover) {\n${rule.replace(/^/gm, '  ')}\n${indent}}`
             : rule,
         )

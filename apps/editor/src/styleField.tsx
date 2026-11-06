@@ -1,11 +1,11 @@
 import { contextFromDocument, serializeValue } from '@lacuno/css'
-import type { CssValue, Document, Node, State } from '@lacuno/schema'
+import type { CssValue, Document, Node, StateKey } from '@lacuno/schema'
 import { localValue } from './formatting.js'
 import { presetValues } from './presets.js'
 
 export type StyleControls = {
   breakpoint?: string
-  state?: State
+  state?: StateKey
   doc: Document
   node: Node
   computed: Record<string, string>

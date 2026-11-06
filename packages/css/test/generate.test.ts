@@ -195,6 +195,58 @@ describe('generateStylesheet', () => {
     expect(generateStylesheet(doc, { previewStates: true }).css).not.toContain('(hover: hover)')
   })
 
+  it("styles open and jumped-to elements and follows a parent's state", () => {
+    const doc = createEmptyDocument()
+    for (const name of ['item', 'icon', 'card', 'photo', 'section'])
+      doc.classes[name] = { id: name, kind: 'class', name }
+    const add = (cls: string, state: 'none' | 'open' | 'target' | 'hover', of?: string) => {
+      const d = {
+        class: cls,
+        breakpoint: 'base',
+        state,
+        ...(of ? { of } : {}),
+        property: 'color',
+        value: color('#000'),
+      }
+      doc.styles[styleKey(d)] = d
+    }
+    add('icon', 'open', 'item')
+    add('icon', 'hover')
+    add('icon', 'none')
+    add('item', 'open')
+    add('section', 'target')
+    add('photo', 'hover', 'card')
+    const open = ':is([open], :popover-open, :has(> :popover-open))'
+    const { css } = generateStylesheet(doc, { reset: false })
+    expect(css).toContain(`.item${open} {`)
+    expect(css).toContain(`.item${open} .icon {`)
+    expect(css).toContain('.section:target {')
+    expect(css).toContain('@media (hover: hover) {\n  .card:hover .photo {')
+    // A class's own rules come first, then those that follow a parent.
+    expect(css.indexOf('.icon {')).toBeLessThan(css.indexOf('.icon:hover {'))
+    expect(css.indexOf('.icon:hover {')).toBeLessThan(css.indexOf(`.item${open} .icon {`))
+    // The canvas forces a parent's state on the parent; hover never comes from the pointer there.
+    const canvas = generateStylesheet(doc, { reset: false, previewStates: true }).css
+    expect(canvas).toContain(`.item${open} .icon, .item[data-lc-state="open"] .icon {`)
+    expect(canvas).toContain('.card[data-lc-state="hover"] .photo {')
+    expect(canvas).not.toContain('.card:hover')
+    expect(canvas).toContain('.section:target, .section[data-lc-state="target"] {')
+  })
+
+  it('eases an opening or a jump like a hover', () => {
+    const doc = createEmptyDocument()
+    doc.classes.x = { id: 'x', kind: 'class', name: 'x' }
+    const d = {
+      class: 'x',
+      breakpoint: 'base',
+      state: 'open' as const,
+      property: 'color',
+      value: color('#000'),
+    }
+    doc.styles[styleKey(d)] = d
+    expect(generateStylesheet(doc).css).toContain(':where([data-lacuno-motion]) {')
+  })
+
   it('emits the motion rules for a Motion field or an interactive state, never over an authored transition', () => {
     const doc = createEmptyDocument()
     doc.classes.x = { id: 'x', kind: 'class', name: 'x' }

@@ -1,5 +1,5 @@
 import type { Operation } from '@lacuno/document'
-import type { Binding, Component, ComponentInstanceNode, Document, State } from '@lacuno/schema'
+import type { Binding, Component, ComponentInstanceNode, Document, StateKey } from '@lacuno/schema'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { StyleEdit } from './colorWheel.js'
 import {
@@ -436,7 +436,7 @@ export function ComponentInstancePanel({
   doc: Document
   node: ComponentInstanceNode
   breakpoint: string
-  state: State
+  state: StateKey
   busy: boolean
   conflict: boolean
   save: Save

@@ -76,13 +76,13 @@
 .video-flags input {
   width: auto;
 }
-.form-required {
+.inspector-check {
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 8px 0;
 }
-.form-required input {
+.inspector-check input {
   width: auto;
 }
 .embed-section {

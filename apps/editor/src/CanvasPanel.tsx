@@ -1,4 +1,4 @@
-import type { Entry, Page, State } from '@lacuno/schema'
+import type { Entry, Page, StateKey } from '@lacuno/schema'
 import { useState } from 'react'
 import { embed } from './api.js'
 import { boundFieldLabel } from './binding.js'
@@ -12,6 +12,7 @@ import { EditorIcon } from './EditorIcon.js'
 import type { InlineTarget } from './InlineTextEditor.js'
 import { type InnerTag, RICH_TAG_NAMES, richClassName } from './richTags.js'
 import type { DocumentSession } from './session.js'
+import type { StateOption } from './states.js'
 import { isLocked, type NodeAction, nodeLabel } from './structure.js'
 import { tokensOfGroup, tokenValue } from './tokens.js'
 import { layoutLocked } from './translating.js'
@@ -31,6 +32,7 @@ export function CanvasPanel({
   setWidth,
   state,
   states,
+  trigger,
   setState,
   selected,
   inner,
@@ -56,9 +58,11 @@ export function CanvasPanel({
   preview: Preview | undefined
   width: number
   setWidth: (width: number) => void
-  state: State
-  states: State[]
-  setState: (state: State) => void
+  state: StateKey
+  states: StateOption[]
+  /** The parent whose state is picked, if it is a parent's. */
+  trigger: string | undefined
+  setState: (state: StateKey) => void
   selected: string
   inner: InnerTag | undefined
   setSelected: (id: string, inner?: InnerTag) => void
@@ -245,6 +249,7 @@ export function CanvasPanel({
             scale={zoom === 'fit' ? undefined : Number(zoom) / 100}
             state={state}
             states={states}
+            trigger={trigger}
             onState={(next) => void leave(() => setState(next))}
             scope={doc ? (doc.breakpoints[editingBreakpoint(doc, width)]?.label ?? '') : ''}
             textColor={doc?.nodes[selected]?.type === 'text'}

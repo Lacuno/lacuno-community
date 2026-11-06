@@ -27,7 +27,7 @@ export function pageTree(doc: Document, id: string): PageTree {
 
 export const structures = ['section', 'container', 'stack', 'row', 'grid'] as const
 export type Structure = (typeof structures)[number]
-export const actions = ['link', 'button', 'menu'] as const
+export const actions = ['link', 'button', 'menu', 'accordion'] as const
 export type Action = (typeof actions)[number]
 /** Form parts that only go inside a form. */
 export const formFields = [
@@ -76,6 +76,8 @@ const containers = new Set([
   'figcaption',
   'form',
   'label',
+  'details',
+  'summary',
 ])
 
 /** The id and each ancestor's id, up to the root. */
@@ -453,6 +455,25 @@ export function presetNode(
       classes,
     }
   }
+  if (preset === 'accordion') {
+    // Questions that open on a click, the browser's own details and summary, so no script.
+    const item = (question: string) =>
+      element('details', 'Accordion item', [
+        element('summary', 'Question', [
+          text('span', 'Question text', question),
+          text('span', 'Icon', '+'),
+        ]),
+        text('p', 'Answer', 'Write the answer here.'),
+      ])
+    return {
+      ...element('div', 'Accordion', [
+        item('What does it cost?'),
+        item('How long does it take?'),
+        item('Can I change it later?'),
+      ]),
+      classes,
+    }
+  }
   if (preset === 'link-wrapper')
     return {
       id: makeId(),
@@ -490,6 +511,11 @@ const defaults: Record<
   | 'menu-panel'
   | 'menu-list'
   | 'menu-link'
+  | 'accordion'
+  | 'accordion-item'
+  | 'accordion-question'
+  | 'accordion-icon'
+  | 'accordion-answer'
   | 'link-wrapper'
   | 'form'
   | 'field'
@@ -574,6 +600,21 @@ const defaults: Record<
     'list-style': 'none',
   },
   'menu-link': { color: 'inherit', 'text-decoration': 'none' },
+  accordion: { display: 'flex', 'flex-direction': 'column', 'border-top': '1px solid #e4e4e7' },
+  'accordion-item': { 'border-bottom': '1px solid #e4e4e7' },
+  // No browser marker: the icon shows it is open.
+  'accordion-question': {
+    display: 'flex',
+    'justify-content': 'space-between',
+    'align-items': 'center',
+    gap: '16px',
+    padding: '16px 0',
+    cursor: 'pointer',
+    'list-style': 'none',
+    'font-weight': '600',
+  },
+  'accordion-icon': { 'flex-shrink': '0', 'font-size': '24px', 'line-height': '1' },
+  'accordion-answer': { margin: '0 0 16px' },
   form: { display: 'flex', 'flex-direction': 'column', gap: '16px' },
   // A control fills the line below its text; a checkbox sits beside it.
   field: { display: 'flex', 'flex-wrap': 'wrap', 'align-items': 'center', gap: '6px 8px' },
@@ -674,6 +715,19 @@ const menuParts: Record<string, keyof typeof defaults> = {
   a: 'menu-link',
 }
 
+/** An accordion's parts, by the labels the preset gives them. */
+const accordionParts: Record<string, keyof typeof defaults> = {
+  'Accordion item': 'accordion-item',
+  Question: 'accordion-question',
+  Icon: 'accordion-icon',
+  Answer: 'accordion-answer',
+}
+
+/** What changes while the accordion item a part is in is open: the plus turns into a cross. */
+const opened: Partial<Record<keyof typeof defaults, Record<string, string>>> = {
+  'accordion-icon': { rotate: '45deg' },
+}
+
 /** A story's parts, by the labels the preset gives them. */
 const storyParts: Record<string, keyof typeof defaults> = {
   Stage: 'story-stage',
@@ -712,12 +766,16 @@ export function structureInsertion(
   const part =
     preset === 'menu'
       ? (each: InsertNode) => menuParts['tag' in each ? each.tag : '']
-      : preset === 'story' || preset === 'scroll-video'
-        ? (each: InsertNode) => storyParts[each.meta?.label ?? '']
-        : formPart
-  const style = (each: InsertNode, key = part(each)) => {
+      : preset === 'accordion'
+        ? (each: InsertNode) => accordionParts[each.meta?.label ?? '']
+        : preset === 'story' || preset === 'scroll-video'
+          ? (each: InsertNode) => storyParts[each.meta?.label ?? '']
+          : formPart
+  // `item` is the class of the accordion item a part is in.
+  const style = (each: InsertNode, key = part(each), item?: string) => {
+    let id: string | undefined
     if (key) {
-      const id = `c-${crypto.randomUUID()}`
+      id = `c-${crypto.randomUUID()}`
       each.classes.push(id)
       operations.push({ type: 'class.create', id, local: true })
       for (const [breakpoint, styles] of [
@@ -733,8 +791,19 @@ export function structureInsertion(
             property,
             value: { type: 'raw', value },
           })
+      for (const [property, value] of Object.entries((item && opened[key]) || {}))
+        operations.push({
+          type: 'style.set',
+          class: id,
+          breakpoint: 'base',
+          state: 'open',
+          of: item,
+          property,
+          value: { type: 'raw', value },
+        })
     }
-    for (const child of each.children ?? []) style(child)
+    for (const child of each.children ?? [])
+      style(child, undefined, key === 'accordion-item' ? id : item)
   }
   style(node, preset in defaults ? (preset as keyof typeof defaults) : undefined)
   operations.push({ type: 'node.create', ...target, node })

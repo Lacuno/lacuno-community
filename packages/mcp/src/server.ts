@@ -22,6 +22,7 @@ import {
   parseDocument,
   primaryLocale,
   siteLocales,
+  stateKey,
   type TranslationItem,
   translationKeys,
   translationStatus,
@@ -983,11 +984,11 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         const group = decl.tag ? `${decl.class} ${decl.tag}` : decl.class
         const byClass = out[group] ?? {}
         const byBreakpoint = byClass[decl.breakpoint] ?? {}
-        const byState = byBreakpoint[decl.state] ?? {}
+        const byState = byBreakpoint[stateKey(decl)] ?? {}
         byState[decl.property] = decl.important
           ? { value: decl.value, important: true }
           : decl.value
-        byBreakpoint[decl.state] = byState
+        byBreakpoint[stateKey(decl)] = byState
         byClass[decl.breakpoint] = byBreakpoint
         out[group] = byClass
       }

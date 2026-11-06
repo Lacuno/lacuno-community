@@ -1,4 +1,4 @@
-import type { Document, State } from '@lacuno/schema'
+import type { Document, StateKey } from '@lacuno/schema'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { Role } from './App.js'
 import { AskAi, prompt } from './AskAi.js'
@@ -20,7 +20,7 @@ import { type InnerTag, tagStates } from './richTags.js'
 import { type Panel, Sidebar } from './Sidebar.js'
 import { SitePreview } from './SitePreview.js'
 import { useDocumentSession } from './session.js'
-import { applicableStates } from './states.js'
+import { ownState, type PickedState, pickedOption, stateOptions } from './states.js'
 import {
   duplicateSelection,
   type NodeAction,
@@ -95,7 +95,7 @@ export function Editor({
   }, [])
   const [revealSelection, setRevealSelection] = useState(0)
   const [width, setWidth] = useState(1100)
-  const [picked, setState] = useState<State>('none')
+  const [picked, setPicked] = useState<PickedState>({ key: 'none', on: '' })
   const [colorsOpen, setColorsOpen] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -137,11 +137,18 @@ export function Editor({
     if (session.snapshot && chosenLocale && chosenLocale !== session.locale) setLocale('')
   }, [session.snapshot, session.locale, chosenLocale, setLocale])
   const page = doc?.pages[pageId]
-  // A picked state only stays active while the selection can be in it.
+  // A picked state stays with its element and goes on for what is selected inside it; otherwise
+  // it only stays active while the selection can be in it.
   const node = doc?.nodes[selected]
   const states =
-    doc && node ? (inner ? tagStates(inner.tag) : applicableStates(doc, node)) : ['none' as const]
-  const state = states.includes(picked) ? picked : 'none'
+    doc && node
+      ? inner
+        ? tagStates(inner.tag).map(ownState)
+        : stateOptions(doc, node, picked)
+      : [ownState('none')]
+  const option = node ? pickedOption(node, states, picked) : states[0]!
+  const state = option.key
+  const setState = (key: StateKey) => setPicked({ key, on: selected })
   const editing = useComponentEditing({
     session,
     pageRoot: page?.root,
@@ -457,6 +464,7 @@ export function Editor({
           setWidth={setWidth}
           state={state}
           states={states}
+          trigger={option.trigger}
           setState={setState}
           selected={selected}
           inner={inner}
@@ -504,6 +512,7 @@ export function Editor({
           selectTag={(tag) => void leave(() => setSelected(selected, tag && { tag, index: 0 }))}
           width={width}
           state={state}
+          states={states}
           setWidth={setWidth}
           setState={setState}
           inlineTarget={inlineTarget}

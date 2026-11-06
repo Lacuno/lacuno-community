@@ -1,8 +1,8 @@
 import { classNames, compareSelectors, contextFromDocument, serializeValue } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
 import { nodesUsingClass } from '@lacuno/document/references'
-import type { CssValue, Document, Node, State, StyleDecl } from '@lacuno/schema'
-import { styleKey } from '@lacuno/schema'
+import type { CssValue, Document, Node, StateKey, StyleDecl } from '@lacuno/schema'
+import { stateCoordinates, stateKey, styleKey } from '@lacuno/schema'
 import { FONT_STACKS } from './fonts.js'
 
 export const formattingGroups = [
@@ -157,10 +157,12 @@ export function localValue(
   node: Node,
   property: string,
   breakpoint = 'base',
-  state: State = 'none',
+  state: StateKey = 'none',
 ): CssValue | undefined {
   const id = localClass(doc, node)
-  return id ? doc.styles[styleKey({ class: id, breakpoint, state, property })]?.value : undefined
+  return id
+    ? doc.styles[styleKey({ class: id, breakpoint, ...stateCoordinates(state), property })]?.value
+    : undefined
 }
 export function formattingOperations(
   doc: Document,
@@ -168,7 +170,7 @@ export function formattingOperations(
   changes: Record<string, CssValue | null>,
   makeId = () => `c-${crypto.randomUUID()}`,
   breakpoint = 'base',
-  state: State = 'none',
+  state: StateKey = 'none',
 ): Operation[] {
   const operations: Operation[] = []
   let id = localClass(doc, node)
@@ -180,7 +182,7 @@ export function formattingOperations(
           node.classes.includes(style.class) &&
           doc.classes[style.class]?.kind === 'local' &&
           style.breakpoint === breakpoint &&
-          style.state === state &&
+          stateKey(style) === state &&
           style.property in changes,
       ))
   ) {
@@ -211,14 +213,14 @@ export function formattingOperations(
       }
     }
     for (const style of inherited.values()) {
-      if (style.breakpoint === breakpoint && style.state === state && style.property in changes)
+      if (style.breakpoint === breakpoint && stateKey(style) === state && style.property in changes)
         continue
       operations.push({ type: 'style.set', ...style })
     }
   }
   if (!id) return operations
   for (const [property, value] of Object.entries(changes)) {
-    const coordinates = { class: id, breakpoint, state, property }
+    const coordinates = { class: id, breakpoint, ...stateCoordinates(state), property }
     if (value) {
       operations.push({
         type: 'style.set',
@@ -248,7 +250,7 @@ export const clearStyles = (
   node: Node,
   styles: StyleDecl[],
   breakpoint = 'base',
-  state: State = 'none',
+  state: StateKey = 'none',
 ) =>
   formattingOperations(
     doc,

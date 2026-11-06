@@ -52,6 +52,41 @@ describe('classes', () => {
 })
 
 describe('styles', () => {
+  it("sets and clears a style that follows a parent's state, which a deleted parent class takes along", () => {
+    const coords = {
+      class: 'c-heading',
+      breakpoint: 'base',
+      state: 'open' as const,
+      of: 'c-hero',
+      property: 'rotate',
+    }
+    const set = {
+      type: 'style.set' as const,
+      ...coords,
+      value: { type: 'raw' as const, value: '45deg' },
+    }
+    const { document } = run([set])
+    expect(document.styles['c-heading|base|open@c-hero|rotate']).toEqual({
+      ...coords,
+      value: { type: 'raw', value: '45deg' },
+    })
+    expect(run([{ type: 'style.clear', ...coords }], document).document.styles).not.toHaveProperty(
+      'c-heading|base|open@c-hero|rotate',
+    )
+    failing([{ ...set, of: 'c-nope' }], /unknown class c-nope/)
+    failing(
+      [{ ...set, state: 'first-child' }],
+      /of follows a parent's hover, focus-within, open, target/,
+    )
+    failing([{ ...set, tag: 'a' }], /of cannot go with tag/)
+    const parent = run([
+      { type: 'class.create', id: 'c-item', name: 'item' },
+      { ...set, of: 'c-item' },
+      { type: 'class.delete', id: 'c-item' },
+    ]).document
+    expect(Object.keys(parent.styles).some((key) => key.includes('@c-item'))).toBe(false)
+  })
+
   it('sets and clears a rich-text tag inside a class, and refuses tags off the list', () => {
     const coords = {
       class: 'c-hero',

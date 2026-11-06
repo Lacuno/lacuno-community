@@ -21,6 +21,8 @@ export const State = z.enum([
   'disabled',
   'checked',
   'visited',
+  'open',
+  'target',
   'hover',
   'focus-within',
   'focus',
@@ -97,12 +99,17 @@ export const RichTag = z.enum([
 export type RichTag = z.infer<typeof RichTag>
 
 /** One declaration. The map key is derived from its coordinates, see styleKey(). */
+/** The states a parent can be in for a style that follows it. */
+export const PARENT_STATES: readonly State[] = ['hover', 'focus-within', 'open', 'target']
+
 export const StyleDecl = z.object({
   class: ClassId,
   /** A rich-text tag inside the elements carrying the class, instead of those elements. */
   tag: RichTag.optional(),
   breakpoint: BreakpointId,
   state: State,
+  /** A parent's class: the state is that parent's, as in `.card:hover .photo`. */
+  of: ClassId.optional(),
   /**
    * A kebab-case property, a custom `--` one, or a `-webkit-` or `-moz-` one the published CSS
    * cannot add itself, such as `-webkit-font-smoothing` or `-webkit-line-clamp`.
@@ -118,13 +125,37 @@ export const StyleDecl = z.object({
 })
 export type StyleDecl = z.infer<typeof StyleDecl>
 
+/** Why a style's `of` cannot be, or nothing. */
+export function parentStateError(d: Pick<StyleDecl, 'state' | 'of' | 'tag'>): string | undefined {
+  if (!d.of) return undefined
+  if (d.tag) return 'of cannot go with tag'
+  if (!PARENT_STATES.includes(d.state))
+    return `of follows a parent's ${PARENT_STATES.join(', ')}, not ${d.state}`
+  return undefined
+}
+
+/** A style's state as one value: its own, or `hover@c-card` for a parent's. Ids hold no `@`. */
+export type StateKey = State | `${State}@${string}`
+
+export const stateKey = (d: Pick<StyleDecl, 'state' | 'of'>): StateKey =>
+  d.of ? `${d.state}@${d.of}` : d.state
+
+/** A state key as the coordinates a style takes. */
+export function stateCoordinates(key: StateKey): { state: State; of?: string } {
+  const [state, of] = key.split('@') as [State, string?]
+  return of ? { state, of } : { state }
+}
+
 export const STYLE_KEY_SEPARATOR = '|'
 
-/** `class|breakpoint|state|property`, with the tag after the class when there is one. */
+/**
+ * `class|breakpoint|state|property`, with the tag after the class when there is one and a
+ * parent's state as `hover@c-card`.
+ */
 export function styleKey(
-  d: Pick<StyleDecl, 'class' | 'tag' | 'breakpoint' | 'state' | 'property'>,
+  d: Pick<StyleDecl, 'class' | 'tag' | 'breakpoint' | 'state' | 'of' | 'property'>,
 ): string {
-  return [d.class, ...(d.tag ? [d.tag] : []), d.breakpoint, d.state, d.property].join(
+  return [d.class, ...(d.tag ? [d.tag] : []), d.breakpoint, stateKey(d), d.property].join(
     STYLE_KEY_SEPARATOR,
   )
 }

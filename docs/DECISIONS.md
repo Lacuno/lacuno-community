@@ -652,3 +652,32 @@ plugin skills, saved tool sets and scripts name `document.apply` and the guide's
 and hosts without tool search pay far less for v1. The version is in the address because OAuth
 binds a token to its address, so each version is a resource of its own, and a token for either
 serves both of a site's.
+
+## D037. Open, target and a parent's state
+
+**Decision.** Two states join the list: `open`, published as
+`:is([open], :popover-open, :has(> :popover-open))`, so an open accordion item (`details`), dialog
+or popover, and an element holding an open popover as a Menu holds its panel; and `target`, the
+element a `#link` jumped to. A style may also follow a parent's state: `of` names the class of a
+parent and the state is that parent's (`hover`, `focus-within`, `open` or `target`, no `tag`), as in
+`.card:hover .photo`; its key holds the state as `hover@c-card`. The class's own state rules come
+first, then those that follow a parent; the canvas forces a parent's state on the parent with
+`data-lc-state`. `class.delete` takes the styles that follow the class along, and a copied card's
+parts follow the copy. In the editor the state menu lists the element's own states where they can
+happen, Open and Jumped to among them, then a group "While a parent is": the nearest parent that
+opens, the nearest link or button or parent with hover styles of its own, and any parent the
+element already follows. A state stays with the element it was picked on: pick Hover on a card and
+click its image, and the image is edited while the card is hovered. An Anchor field (Advanced)
+sets an element's id, an Accordion inserts three items whose icons turn while open, Show open opens
+a closed item on the canvas, and an item can be open when the page loads.
+
+**Alternatives.** A `<style>` block in head code, which targets published class names and is
+invisible to the editor and to checks; modes with `:has()` selectors, made for themes; sibling and
+arbitrary `:has()` triggers, which no menu can offer simply; a parent by node id, which a list of
+cards rendered from one node cannot share.
+
+**Why.** An accordion's icon, a link card's image and a menu button's bars change with an element
+around them, and a state that only styles its own element cannot express it; builders worked
+around it in head code. The parent is named by class so that every card of a list, every instance
+and every copy follows its own parent.
+

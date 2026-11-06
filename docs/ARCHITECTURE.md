@@ -94,6 +94,7 @@ type StyleDecl = {
   class: ClassId
   breakpoint: BreakpointId              // 'base' is desktop-first
   state: State                          // 'none' | 'hover' | 'focus' | ... | '::before'
+  of?: ClassId                          // a parent's class whose state this follows (D037)
   property: string                      // real CSS property
   value: CssValue                       // typed: length, color, design token ref, keyword, gradient, raw
 }
@@ -167,7 +168,9 @@ One package turns the document into a stylesheet. It is the only place CSS is pr
 - Breakpoints become media queries in cascade order. Base styles first, then narrower widths.
 - States map to pseudo-classes and pseudo-elements. The canvas stylesheet, and only that one,
   also emits each state rule as `<selector>[data-lc-state~="<state>"]`, so the editor can force the
-  picked state on the selected element.
+  picked state on the selected element. A style that follows a parent's state (`of`) puts the
+  parent's class and state before its own, `.card:hover .photo`, and the canvas forces the state on
+  that parent.
 - Motion is custom properties on classes (`--lc-entrance`, `--lc-scroll`, `--lc-range`, …) that
   shared rules turn into animations (D030). `MOTION_CSS` comes with the first such property,
   `SCROLL_CSS` (behind `@supports (animation-timeline: view())` and reduced motion off) with the

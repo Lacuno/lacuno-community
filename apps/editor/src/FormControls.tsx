@@ -131,7 +131,7 @@ export function FormControls({
           />
         </label>
       )}
-      <label className="form-required">
+      <label className="inspector-check">
         <input
           type="checkbox"
           disabled={disabled}

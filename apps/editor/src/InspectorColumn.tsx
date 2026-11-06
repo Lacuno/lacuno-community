@@ -1,4 +1,4 @@
-import type { Page, RichTag, State } from '@lacuno/schema'
+import { type Page, type RichTag, type StateKey, stateCoordinates } from '@lacuno/schema'
 import { lazy, Suspense, useState } from 'react'
 import { breakpointWidth, editingBreakpoint } from './breakpoints.js'
 import type { LivePreview } from './Canvas.js'
@@ -10,6 +10,7 @@ import type { InspectorTab } from './InspectorTabs.js'
 import { RichTagInspector } from './RichTagInspector.js'
 import type { InnerTag } from './richTags.js'
 import type { DocumentSession } from './session.js'
+import type { StateOption } from './states.js'
 import { layoutLocked } from './translating.js'
 import type { ComponentEditing } from './useComponentEditing.js'
 
@@ -27,6 +28,7 @@ export function InspectorColumn({
   selectNode,
   width,
   state,
+  states,
   setWidth,
   setState,
   inlineTarget,
@@ -45,9 +47,10 @@ export function InspectorColumn({
   selectTag: (tag?: RichTag) => void
   selectNode: (id: string) => void
   width: number
-  state: State
+  state: StateKey
+  states: StateOption[]
   setWidth: (width: number) => void
-  setState: (state: State) => void
+  setState: (state: StateKey) => void
   inlineTarget: InlineTarget | undefined
   setInlineTarget: (target: InlineTarget | undefined) => void
   page: Page | undefined
@@ -112,7 +115,7 @@ export function InspectorColumn({
         node={doc.nodes[selected]}
         tag={inner.tag}
         breakpoint={editingBreakpoint(doc, width)}
-        state={state}
+        state={stateCoordinates(state).state}
         computed={computed.id === `${selected}|${inner.tag}` ? computed.values : {}}
         busy={busy}
         conflict={conflict}
@@ -139,6 +142,7 @@ export function InspectorColumn({
         key={`${selected}-${generation}-${editingBreakpoint(doc, width)}-${state}`}
         breakpoint={editingBreakpoint(doc, width)}
         state={state}
+        states={states}
         clearSelection={clearSelection}
         doc={doc}
         node={doc.nodes[selected]}

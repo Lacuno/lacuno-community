@@ -1,7 +1,15 @@
 import { classNames, contextFromDocument, selectorFor, serializeValue } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
+import { subtreeIds } from '@lacuno/document/references'
 import { assetUrl, canvasImage } from '@lacuno/renderer'
-import type { CssValue, Document, Node, RichTag, State } from '@lacuno/schema'
+import {
+  type CssValue,
+  type Document,
+  type Node,
+  type RichTag,
+  type StateKey,
+  stateKey,
+} from '@lacuno/schema'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { BindingControls, ListSettings } from './BindingControls.js'
 import { boundFieldLabel } from './binding.js'
@@ -33,13 +41,17 @@ import { winningStyles } from './presets.js'
 import { TagPicker } from './RichTagInspector.js'
 import { RotatingWordsControls } from './RotatingWordsControls.js'
 import { isRichBlock } from './richTags.js'
-import { applicableStates, stateInfo } from './states.js'
-import { hasAnchorParent, isLocked, isShared, nodeLabel } from './structure.js'
+import type { StateOption } from './states.js'
+import { hasAnchorParent, isLocked, isShared, nodeLabel, pageOf, toggleAttr } from './structure.js'
 import { useStyleField } from './styleField.js'
 import { TextToolbar } from './TextToolbar.js'
 import { textLink, textProperties, wholeText } from './textFormatting.js'
 import { useAutosave } from './useAutosave.js'
 import './inspector.css'
+
+/** The element's anchor: its id, which a link reaches by #id. */
+const anchorOf = (node: Node) =>
+  'attrs' in node && node.attrs?.id?.type === 'static' ? String(node.attrs.id.value) : ''
 
 function editableText(node: Node): string | undefined {
   if (node.type !== 'text') return undefined
@@ -64,6 +76,7 @@ export function Inspector({
   siteId,
   breakpoint,
   state,
+  states,
   doc,
   node,
   busy,
@@ -88,10 +101,12 @@ export function Inspector({
   setTab: (tab: InspectorTab) => void
   pageName: string
   changeBreakpoint: (id: string) => void
-  changeState: (state: State) => void
+  changeState: (state: StateKey) => void
   siteId: string
   breakpoint: string
-  state: State
+  state: StateKey
+  /** The state menu's entries: the element's own states, then its parents'. */
+  states: StateOption[]
   clearSelection: () => void
   selectTag: (tag: RichTag) => void
   selectNode: (id: string) => void
@@ -162,7 +177,8 @@ export function Inspector({
   const settled = !busy && !conflict && !locked && !edits
   const local = localClass(doc, node)
   const overrides = Object.values(doc.styles).filter(
-    (style) => style.class === local && style.breakpoint === breakpoint && style.state === state,
+    (style) =>
+      style.class === local && style.breakpoint === breakpoint && stateKey(style) === state,
   )
   const operations: Operation[] = []
   if (imageDirty)
@@ -200,6 +216,24 @@ export function Inspector({
   }
   const [dragging, setDragging] = useState(false)
   const [tokenError, setTokenError] = useState('')
+  const [anchorError, setAnchorError] = useState('')
+  // An anchor is the element's id, which a link reaches by #id; one per page.
+  const changeAnchor = (value: string) => {
+    const next = value.trim().replace(/^#/, '')
+    if (next === anchorOf(node)) return setAnchorError('')
+    if (next && !/^[A-Za-z][\w-]*$/.test(next))
+      return setAnchorError('An anchor starts with a letter and holds letters, digits, - and _.')
+    const page = doc.pages[pageOf(doc, node.id)]
+    const taken =
+      page &&
+      subtreeIds(doc, page.root).some((id) => id !== node.id && anchorOf(doc.nodes[id]!) === next)
+    if (next && taken) return setAnchorError(`#${next} is already on this page.`)
+    setAnchorError('')
+    const attrs = { ...node.attrs }
+    if (next) attrs.id = { type: 'static', value: next }
+    else delete attrs.id
+    void save([{ type: 'node.update', id: node.id, attrs }])
+  }
   const autosave = useAutosave(operations, !disabled && !invalid && !dragging, busy, autoSave, {
     dirty,
     dirtyChanged,
@@ -404,6 +438,17 @@ export function Inspector({
         className="inspector-fields"
         onKeyDown={flushOnEnter}
       >
+        {'tag' in node && node.tag === 'details' && (
+          <label className="inspector-check">
+            <input
+              type="checkbox"
+              disabled={disabled}
+              checked={'open' in (node.attrs ?? {})}
+              onChange={(event) => void autoSave([toggleAttr(node, 'open', event.target.checked)])}
+            />
+            Open when the page loads
+          </label>
+        )}
         {'tag' in node && (node.tag === 'ul' || node.tag === 'ol') && (
           <label>
             List type
@@ -587,6 +632,22 @@ export function Inspector({
   )
   const advanced = (
     <>
+      {/* A menu panel keeps the id its button opens it by. */}
+      {(node.type === 'element' || node.type === 'text') && !('popover' in (node.attrs ?? {})) && (
+        <label className="inspector-anchor">
+          Anchor
+          <input
+            aria-label="Anchor"
+            key={anchorOf(node)}
+            defaultValue={anchorOf(node)}
+            placeholder="services"
+            disabled={disabled || !settled}
+            onBlur={(event) => changeAnchor(event.target.value)}
+            onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
+          />
+          <ErrorNote message={anchorError} />
+        </label>
+      )}
       <section className="inspector-shared-classes" aria-label="Shared classes">
         <h3>Shared classes</h3>
         <p className="hint">
@@ -708,13 +769,26 @@ export function Inspector({
           aria-label="Editing state"
           value={state}
           disabled={busy || conflict}
-          onChange={(event) => changeState(event.target.value as State)}
+          onChange={(event) => changeState(event.target.value as StateKey)}
         >
-          {applicableStates(doc, node).map((item) => (
-            <option key={item} value={item}>
-              {stateInfo(item).label}
-            </option>
-          ))}
+          {states
+            .filter((option) => !option.trigger)
+            .map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
+          {states.some((option) => option.trigger) && (
+            <optgroup label="While a parent is">
+              {states
+                .filter((option) => option.trigger)
+                .map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+            </optgroup>
+          )}
         </select>
         <InfoButton label="About responsive editing">
           {breakpoint === 'base' && state === 'none'

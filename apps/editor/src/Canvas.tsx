@@ -1,5 +1,5 @@
 import { enterOnView, MOTION_CSS, scrubVideos, sizeWords, TABLE_CSS } from '@lacuno/css'
-import { kw, px, RichTag, type State } from '@lacuno/schema'
+import { kw, px, RichTag, type StateKey, stateCoordinates } from '@lacuno/schema'
 import { Idiomorph } from 'idiomorph'
 import { useEffect, useRef, useState } from 'react'
 import type { StyleEdit, Swatch } from './colorWheel.js'
@@ -7,6 +7,7 @@ import { formattingGroups } from './formatting.js'
 import { historyShortcut } from './history.js'
 import { type InnerTag, richTagAt, tagElements } from './richTags.js'
 import { type Selection, selectionOverlay } from './selectionOverlay.js'
+import type { StateOption } from './states.js'
 import { moveShortcut, type NodeAction } from './structure.js'
 
 /** The unsaved edit a panel paints into the canvas before it is committed. */
@@ -31,22 +32,33 @@ function nodeElement(doc: Document | null | undefined, id: string) {
 
 /**
  * The selection marker, and the state the picker forces on the selected element: a tag inside a
- * rich-text block when one is picked, else the block while its content holds none of that tag.
+ * rich-text block when one is picked, else the block while its content holds none of that tag;
+ * a parent's state on the parent (`trigger`) around the selection. Open opens an accordion item
+ * on the canvas too, so it looks as it does open; nothing of it is saved.
  */
 function highlight(
   frame: HTMLIFrameElement | null,
   selected: string,
-  state: State,
+  state: StateKey,
   inner: InnerTag | undefined,
+  trigger: string | undefined,
 ) {
   const doc = frame?.contentDocument
   if (!doc) return
   doc.querySelector('[data-lacuno-selected]')?.removeAttribute('data-lacuno-selected')
   doc.querySelector('[data-lc-state]')?.removeAttribute('data-lc-state')
+  const opened = doc.querySelector('[data-lc-opened]')
+  opened?.removeAttribute('open')
+  opened?.removeAttribute('data-lc-opened')
   const block = nodeElement(doc, selected)
   const element = (block && inner && tagElements(block, inner.tag)[inner.index]) || block
   element?.setAttribute('data-lacuno-selected', '')
-  if (state !== 'none') element?.setAttribute('data-lc-state', state)
+  const own = stateCoordinates(state).state
+  const forced = trigger ? element?.closest(`[data-lacuno-node="${CSS.escape(trigger)}"]`) : element
+  if (own === 'none' || !forced) return
+  forced.setAttribute('data-lc-state', own)
+  if (own === 'open' && forced.localName === 'details' && !forced.hasAttribute('open'))
+    for (const name of ['open', 'data-lc-opened']) forced.setAttribute(name, '')
 }
 
 /** The text of every style in a rendered head, in order. */
@@ -90,6 +102,7 @@ export function Canvas({
   scale,
   state,
   states,
+  trigger,
   onState,
   scope,
   textColor,
@@ -121,9 +134,11 @@ export function Canvas({
   html: string
   width: number
   scale?: number | undefined
-  state: State
-  states: State[]
-  onState: (state: State) => void
+  state: StateKey
+  states: StateOption[]
+  /** The parent whose state is picked, if it is a parent's: the state is forced there. */
+  trigger: string | undefined
+  onState: (state: StateKey) => void
   scope: string
   textColor: boolean
   swatches: Swatch[]
@@ -461,6 +476,7 @@ export function Canvas({
     inner,
     state,
     states,
+    trigger,
     onState,
     scope,
     textColor,
@@ -501,7 +517,13 @@ export function Canvas({
     }
     for (const element of doc.querySelectorAll<HTMLElement>('[data-lacuno-node]'))
       element.draggable = !moving
-    highlight(frame.current, latest.current.selected, latest.current.state, latest.current.inner)
+    highlight(
+      frame.current,
+      latest.current.selected,
+      latest.current.state,
+      latest.current.inner,
+      latest.current.trigger,
+    )
     latest.current.paint()
     latest.current.reportStyles()
   }
@@ -543,9 +565,9 @@ export function Canvas({
   }, [livePreview])
   // biome-ignore lint/correctness/useExhaustiveDependencies: width and state change the element's computed styles.
   useEffect(() => {
-    highlight(frame.current, selected, state, inner)
+    highlight(frame.current, selected, state, inner, trigger)
     latest.current.reportStyles()
-  }, [selected, inner?.tag, inner?.index, width, state])
+  }, [selected, inner?.tag, inner?.index, width, state, trigger])
   useEffect(() => {
     const workspace = shell.current?.parentElement
     if (!workspace) return
@@ -678,6 +700,7 @@ export function Canvas({
               scope: latest.current.scope,
               state: latest.current.state,
               states: latest.current.states,
+              trigger: latest.current.trigger,
               textColor: latest.current.textColor,
               swatches: latest.current.swatches,
               tokens: latest.current.tokens,

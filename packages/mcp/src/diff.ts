@@ -1,6 +1,6 @@
 import { publicAssetPath } from '@lacuno/compiler'
 import { contextFromDocument, serializeValue } from '@lacuno/css'
-import { type Document, type NodeId, plainText, type RichText } from '@lacuno/schema'
+import { type Document, type NodeId, plainText, type RichText, stateKey } from '@lacuno/schema'
 
 /** One line of a diff. A change names the field that changed, with its value before and after. */
 export type Change = {
@@ -87,7 +87,7 @@ const SECTIONS: [string, string, (d: Document, other: Document) => Record<string
       const ctx = contextFromDocument(d, publicAssetPath)
       return Object.fromEntries(
         Object.values(d.styles).map((s) => {
-          const state = s.state === 'none' ? '' : `:${s.state}`
+          const state = s.state === 'none' ? '' : `:${stateKey(s)}`
           const value = serializeValue(s.value, ctx)
           const fields: Fields = s.important ? { value, important: 'true' } : { value }
           return [

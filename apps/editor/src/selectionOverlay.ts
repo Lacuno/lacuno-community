@@ -1,4 +1,4 @@
-import { type CssValue, kw, num, px, type State } from '@lacuno/schema'
+import { type CssValue, kw, num, px, type StateKey } from '@lacuno/schema'
 import type { TiptapEditorHTMLElement } from '@tiptap/core'
 import {
   type Hsl,
@@ -19,7 +19,7 @@ import {
   childAxisAlignment,
   type Position,
 } from './layout.js'
-import { STATES, stateInfo } from './states.js'
+import type { StateOption } from './states.js'
 import { type Snap, snapTo, tokenPx } from './tokens.js'
 
 type Side = 'top' | 'right' | 'bottom' | 'left'
@@ -31,8 +31,11 @@ export type Selection = {
   field: string
   /** The breakpoint being edited, as shown to the designer. */
   scope: string
-  state: State
-  states: State[]
+  state: StateKey
+  /** The state menu's entries: the element's own states, then its parents'. */
+  states: StateOption[]
+  /** The parent whose state is picked, if it is a parent's, outlined while it is. */
+  trigger: string | undefined
   /** Whether this element takes a text colour, so the text swatch is offered. */
   textColor: boolean
   swatches: Swatch[]
@@ -82,14 +85,20 @@ const alignmentIcon = (axis: AlignmentAxis, position: Position) => {
   )
 }
 
-/** The popover the element belongs to: one it is inside, or the one its button opens. */
-function popoverOf(element: Element) {
+/**
+ * The panel the element belongs to, which Show open holds open: a popover it is inside or its
+ * button opens, or an accordion item it is in.
+ */
+function panelOf(element: Element) {
   const button = element.closest('[popovertarget]')
-  const popover =
-    element.closest('[popover]') ??
+  const panel =
+    element.closest('[popover], details') ??
     (button && element.ownerDocument.getElementById(button.getAttribute('popovertarget')!))
-  return popover?.hasAttribute('data-lacuno-node') ? (popover as HTMLElement) : undefined
+  return panel?.hasAttribute('data-lacuno-node') ? (panel as HTMLElement) : undefined
 }
+
+const isOpen = (panel: HTMLElement) =>
+  panel.localName === 'details' ? panel.hasAttribute('open') : panel.matches(':popover-open')
 
 const SIDES = ['top', 'right', 'bottom', 'left']
 const POSITIONS: Position[] = ['start', 'center', 'end']
@@ -106,7 +115,7 @@ let spacingMode = false
 export function selectionOverlay(
   doc: Document,
   latest: () => Selection,
-  setState: (state: State) => void,
+  setState: (state: StateKey) => void,
   onStyle: (edit: StyleEdit) => void,
   onAsk: () => void,
 ): () => void {
@@ -149,6 +158,8 @@ export function selectionOverlay(
     .state-menu button[aria-checked="true"] small { color:#ffffffcc; }
     .state-menu strong { display:block;font-weight:600; }
     .state-menu small { display:block;color:#655484;font-size:10px; }
+    .state-menu p { margin:4px 0 0;padding:6px 8px 2px;border-top:1px solid #e5e1ed;color:#655484;font-size:10px;font-weight:600; }
+    .trigger rect { stroke:#8775ed;stroke-width:1;stroke-dasharray:4 3; }
     .align-menu { width:252px;max-width:calc(100vw - 8px);padding:12px;border:1px solid #e5e1ed;color:#292432;box-shadow:0 6px 24px #29203324; }
     .align-heading { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:12px; }
     .align-heading span { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
@@ -208,22 +219,15 @@ export function selectionOverlay(
     .hover .parent { stroke-dasharray:4 3; }
     .hover .sibling { stroke-opacity:.35; }
     .hover .arrow { fill:#8775ed; }
-    :host([data-idle]) > :not(.flash, svg.frame), :host([data-idle]) svg.frame > rect { display:none !important; }
+    :host([data-idle]) > :not(.flash, svg.frame), :host([data-idle]) svg.frame > :is(rect, .trigger) { display:none !important; }
     .flash > div { position:absolute;box-sizing:border-box;border:2px solid #12a150;border-radius:2px;animation:flash-fade 1s ease-in forwards; }
     @keyframes flash-fade { from { opacity:1; } to { opacity:0; } }
     @keyframes selection-march { to { stroke-dashoffset:-10; } }
     @media(prefers-reduced-motion:reduce) { .selection-dashes { animation:none; } }
-  </style><svg class="frame"><g class="hover"></g><rect class="selection-base"/><rect class="selection-dashes"/></svg>
+  </style><svg class="frame"><g class="hover"></g><g class="trigger"><rect/></g><rect class="selection-base"/><rect class="selection-dashes"/></svg>
   <div class="bar bar-top selection-label"><span class="name"></span><span class="field"></span><span class="scope"></span><button class="state" type="button" aria-haspopup="menu" aria-expanded="false"></button><button class="popover-toggle" type="button">${svg(PANEL_ICON)}<span>Show open</span></button><button class="spacing" type="button" aria-pressed="${spacingMode}">${svg(SPACING_ICON)}Spacing</button><button class="align" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(ALIGN_ICON)}Align</button><button class="ask" type="button">${svg(ASK_ICON)}Ask AI</button></div>
   <div class="bar bar-bottom"><button class="swatch text" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(TEXT_ICON)}<i></i></button><button class="swatch background" type="button" aria-haspopup="dialog" aria-expanded="false">${svg(BACKGROUND_ICON)}<i></i></button></div>
-  <div class="menu state-menu" role="menu" aria-label="Element state" hidden>${Object.entries(
-    STATES,
-  )
-    .map(
-      ([value, info]) =>
-        `<button type="button" role="menuitemradio" aria-checked="false" data-state="${value}">${svg(info.icon)}<span><strong>${info.label}</strong><small>${info.hint}</small></span></button>`,
-    )
-    .join('')}</div>
+  <div class="menu state-menu" role="menu" aria-label="Element state" hidden></div>
   <div class="menu align-menu" role="dialog" aria-label="Align within parent" hidden>
     <div class="align-heading"><span>Align within <strong></strong></span><button class="align-close" type="button" aria-label="Close alignment controls">${svg('<path d="m4 4 8 8M12 4l-8 8"/>')}</button></div>
     ${(['horizontal', 'vertical'] as const).map((axis) => `<div class="align-axis" data-axis="${axis}" role="group" aria-label="${axis === 'horizontal' ? 'Horizontal' : 'Vertical'} alignment"><span class="align-axis-label">${axis === 'horizontal' ? 'Horizontal' : 'Vertical'}</span><div class="align-options">${POSITIONS.map((position) => `<button type="button" data-axis="${axis}" data-position="${position}" aria-pressed="false"><span class="align-icon"></span><span class="align-option-label"></span></button>`).join('')}</div></div>`).join('')}
@@ -254,6 +258,8 @@ export function selectionOverlay(
   doc.body.append(host)
   const rects = shadow.querySelectorAll('svg.frame > rect')
   const hoverLayer = shadow.querySelector<SVGGElement>('.hover')!
+  const triggerLayer = shadow.querySelector<SVGGElement>('.trigger')!
+  const triggerRect = triggerLayer.querySelector<SVGRectElement>('rect')!
   const topBar = shadow.querySelector<HTMLElement>('.bar-top')!
   const bottomBar = shadow.querySelector<HTMLElement>('.bar-bottom')!
   const name = shadow.querySelector<HTMLElement>('.name')!
@@ -543,6 +549,11 @@ export function selectionOverlay(
   // The panel Show open holds open, by node id, and the breakpoint it was opened at.
   let held: { id: string; scope: string } | undefined
   const hold = (popover: HTMLElement) => {
+    // An accordion item opens on the canvas only; nothing of it is saved.
+    if (popover.localName === 'details') {
+      for (const name of ['open', 'data-lc-held']) popover.setAttribute(name, '')
+      return
+    }
     // Manual, so a click on the overlay or Escape cannot light-dismiss it as it would an auto one.
     popover.popover = 'manual'
     popover.showPopover()
@@ -552,7 +563,9 @@ export function selectionOverlay(
     host.showPopover()
   }
   const unhold = (popover: HTMLElement | null) => {
-    if (popover?.matches(':popover-open')) popover.hidePopover()
+    if (popover?.hasAttribute('data-lc-held'))
+      for (const name of ['open', 'data-lc-held']) popover.removeAttribute(name)
+    else if (popover?.matches(':popover-open')) popover.hidePopover()
     held = undefined
     if (host.matches(':popover-open')) host.hidePopover()
     host.removeAttribute('popover')
@@ -560,7 +573,7 @@ export function selectionOverlay(
   popoverChip.addEventListener('click', (event) => {
     event.stopPropagation()
     closeMenus()
-    const popover = element && popoverOf(element)
+    const popover = element && panelOf(element)
     if (!popover) return
     if (held) unhold(popover)
     else {
@@ -630,7 +643,7 @@ export function selectionOverlay(
     if (!item) return
     event.stopPropagation()
     closeMenus()
-    setState(item.dataset.state as State)
+    setState(item.dataset.state as StateKey)
   })
 
   // Words selected in the text being edited start the text wheel from their own colour. The
@@ -1083,10 +1096,10 @@ export function selectionOverlay(
         !popover ||
         !selection.name ||
         selection.scope !== held.scope ||
-        (selected && popoverOf(selected) !== popover)
+        (selected && panelOf(selected) !== popover)
       )
         unhold(popover)
-      else if (!popover.matches(':popover-open')) hold(popover)
+      else if (!isOpen(popover)) hold(popover)
     }
     paintFlash(selection.flash)
     const editing = !!doc.querySelector('[data-lacuno-editing]')
@@ -1097,20 +1110,41 @@ export function selectionOverlay(
     host.style.display = visible || flashing || hovering ? 'block' : 'none'
     host.toggleAttribute('data-idle', !visible)
     if (visible) {
-      const info = stateInfo(selection.state)
-      const key = `${selection.name}|${selection.field}|${selection.restriction}|${selection.scope}|${selection.state}|${selection.states.join()}`
+      const info =
+        selection.states.find((option) => option.key === selection.state) ?? selection.states[0]!
+      const key = `${selection.name}|${selection.field}|${selection.restriction}|${selection.scope}|${selection.state}|${selection.states.map((option) => option.key + option.label).join()}`
       if (key !== shown) {
         shown = key
         name.textContent = selection.name || selected!.tagName.toLowerCase()
         field.textContent = selection.restriction || selection.field
         scope.textContent = selection.scope
-        chip.innerHTML = `${svg(info.icon)}${info.label}`
+        // A parent's name is the document's text, so it only ever goes in as text.
+        chip.innerHTML = svg(info.icon)
+        chip.append(info.label)
         chip.setAttribute('aria-label', `State: ${info.label}`)
         chip.classList.toggle('active', selection.state !== 'none')
-        for (const item of stateMenu.querySelectorAll<HTMLElement>('[data-state]')) {
-          item.setAttribute('aria-checked', String(item.dataset.state === selection.state))
-          item.hidden = !selection.states.includes(item.dataset.state as State)
+        // The element's own states, then a group of its parents'.
+        const item = (option: StateOption) => {
+          const button = doc.createElement('button')
+          button.type = 'button'
+          button.setAttribute('role', 'menuitemradio')
+          button.setAttribute('aria-checked', String(option.key === selection.state))
+          button.dataset.state = option.key
+          button.innerHTML = `${svg(option.icon)}<span><strong></strong><small></small></span>`
+          button.querySelector('strong')!.textContent = option.label
+          button.querySelector('small')!.textContent = option.hint
+          return button
         }
+        const parents = selection.states.filter((option) => option.trigger).map(item)
+        const group = doc.createElement('div')
+        group.setAttribute('role', 'group')
+        group.setAttribute('aria-label', 'While a parent is')
+        group.innerHTML = '<p>While a parent is</p>'
+        group.append(...parents)
+        stateMenu.replaceChildren(
+          ...selection.states.filter((option) => !option.trigger).map(item),
+          ...(parents.length ? [group] : []),
+        )
       }
       if (!dragging) {
         textSwatch.hidden = !selection.textColor
@@ -1121,6 +1155,17 @@ export function selectionOverlay(
         textSwatch.setAttribute('aria-label', `Text color: ${textValue}`)
         bgDot.style.background = bgValue
         bgSwatch.setAttribute('aria-label', `Background color: ${bgValue}`)
+      }
+      const trigger = selection.trigger
+        ? selected!.closest(`[data-lacuno-node="${CSS.escape(selection.trigger)}"]`)
+        : null
+      triggerLayer.style.display = trigger ? '' : 'none'
+      if (trigger) {
+        const box = trigger.getBoundingClientRect()
+        triggerRect.setAttribute('x', String(box.left))
+        triggerRect.setAttribute('y', String(box.top))
+        triggerRect.setAttribute('width', String(box.width))
+        triggerRect.setAttribute('height', String(box.height))
       }
       for (const rect of rects) {
         rect.setAttribute('x', String(bounds.left))
@@ -1181,8 +1226,11 @@ export function selectionOverlay(
       spacingChip.hidden = still
       askChip.hidden = still || !selection.ask
       // Show open only where the closed panel is hidden, as a menu's is below Desktop.
-      const popover = popoverOf(selected!)
-      popoverChip.hidden = still || !popover || (!held && popover.checkVisibility())
+      const popover = panelOf(selected!)
+      popoverChip.hidden =
+        still ||
+        !popover ||
+        (!held && (popover.localName === 'details' ? isOpen(popover) : popover.checkVisibility()))
       popoverLabel.textContent = held ? 'Hide' : 'Show open'
       alignChip.hidden = still || !selected!.parentElement?.hasAttribute('data-lacuno-node')
       bottomBar.hidden = selection.inner || !selection.editable

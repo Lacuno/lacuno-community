@@ -352,6 +352,37 @@ it('builds a menu whose button opens its panel, folding at Tablet, and keeps a c
   expect(copy.children[1]!.attrs!.id).not.toEqual(nav!.attrs!.id)
 })
 
+it('builds an accordion whose icon turns while its item is open, and keeps a copy turning', async () => {
+  const doc = fixtureDocument()
+  const root = doc.nodes['n-hero-inner']!.parent!
+  const accordion = dropEdit(doc, root, { preset: 'accordion' }, 'n-hero-inner', 0)
+  const store = DocumentStore.inMemory(doc)
+  await commit(store, accordion.operations)
+  // The style that turns the icon of an item, which follows that item's class.
+  const turn = (item: string) => {
+    const now = store.read().document
+    const question = now.nodes[now.nodes[item]!.children[0]!]!
+    const icon = now.nodes[question.children[1]!]!
+    const style = Object.values(now.styles).find(
+      (style) => style.class === icon.classes[0] && style.state === 'open',
+    )
+    return { style, item: now.nodes[item]!.classes[0] }
+  }
+  const first = (accordion.node as InsertNode).children![0]!
+  expect(first).toMatchObject({ tag: 'details', meta: { label: 'Accordion item' } })
+  const original = turn(first.id)
+  expect(original.style).toMatchObject({
+    of: original.item,
+    property: 'rotate',
+    value: { type: 'raw', value: '45deg' },
+  })
+  const copy = duplicateSelection(store.read().document, first.id)
+  await commit(store, copy.operations)
+  const copied = turn(copy.node.id)
+  expect(copied.style?.of).toBe(copied.item)
+  expect(copied.item).not.toBe(original.item)
+})
+
 it('renames an element and restores absent metadata exactly', async () => {
   const doc = fixtureDocument()
   const id = 'n-hero-title'

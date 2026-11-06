@@ -135,7 +135,8 @@ After each section or page:
 - style.set: class, property, value. Leave out breakpoint and state for base and none. style.clear the same way.
 - Reuse classes and tokens before making new ones.
 - document.read lists the breakpoints. The base is desktop; smaller ones override it.
-- States include hover, focus, focus-visible, focus-within, active, checked, disabled, first-child, last-child, before, after, placeholder.
+- States include hover, focus, focus-visible, focus-within, active, checked, disabled, first-child, last-child, before, after, placeholder, open (an open details, dialog or popover, or an element holding an open popover) and target (the element a #link jumped to, by its id).
+- A style can follow a parent's state: \`of\` is the parent's class, \`state\` its hover, focus-within, open or target. An accordion icon that turns: the icon's class, state open, of the details' class, rotate 45deg. A menu button's bars: of the element holding the button and the popover nav.
 - Hover styles apply where a pointer can hover, never on a touch screen.
 - Published CSS gets the vendor prefixes it needs. Set a -webkit- property only where no standard one exists, such as -webkit-font-smoothing or -webkit-line-clamp.
 - Tokens have a value per mode (light, dark) and become CSS variables. Use them for colours, spacing, radii and fonts.

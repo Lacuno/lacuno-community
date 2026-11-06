@@ -1,6 +1,6 @@
 import { Document, findEntry } from './document.js'
 import { nodeBindings } from './nodes.js'
-import { BASE_BREAKPOINT_ID, styleKey } from './styles.js'
+import { BASE_BREAKPOINT_ID, parentStateError, styleKey } from './styles.js'
 import { checkTranslations } from './translations.js'
 
 export type Issue = { path: string; message: string }
@@ -28,6 +28,9 @@ export function checkReferences(doc: Document): Issue[] {
     if (!doc.classes[decl.class]) add(`styles.${key}`, `unknown class ${decl.class}`)
     if (!doc.breakpoints[decl.breakpoint])
       add(`styles.${key}`, `unknown breakpoint ${decl.breakpoint}`)
+    if (decl.of && !doc.classes[decl.of]) add(`styles.${key}`, `unknown class ${decl.of}`)
+    const parent = parentStateError(decl)
+    if (parent) add(`styles.${key}`, parent)
   }
 
   for (const [id, cls] of Object.entries(doc.classes)) {

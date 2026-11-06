@@ -1,7 +1,10 @@
 import type { Operation } from '@lacuno/document'
 import type { Document } from '@lacuno/schema'
 
-/** Copy editable local styles once per duplicated subtree; shared/locked/combo classes retain identity. */
+/**
+ * Copy editable local styles once per duplicated subtree; shared/locked/combo classes retain
+ * identity. A style that follows a parent copied before it follows the parent's copy.
+ */
 export function localClassCopier(doc: Document, operations: Operation[]) {
   const copies = new Map<string, string>()
   const comboParents = new Set(Object.values(doc.classes).flatMap((cls) => cls.combo ?? []))
@@ -15,8 +18,15 @@ export function localClassCopier(doc: Document, operations: Operation[]) {
         copy = `c-${crypto.randomUUID()}`
         copies.set(id, copy)
         operations.push({ type: 'class.create', id: copy, local: true })
-        for (const style of Object.values(doc.styles).filter((style) => style.class === id))
-          operations.push({ type: 'style.set', ...structuredClone(style), class: copy })
+        for (const style of Object.values(doc.styles).filter((style) => style.class === id)) {
+          const of = style.of && copies.get(style.of)
+          operations.push({
+            type: 'style.set',
+            ...structuredClone(style),
+            class: copy,
+            ...(of ? { of } : {}),
+          })
+        }
       }
       return copy
     })

@@ -15,6 +15,7 @@ const paths = {
   row: 'M3 4h18v16H3zM9 4v16M15 4v16',
   stack: 'M4 3h16v18H4zM4 9h16M4 15h16',
   menu: 'M4 6h16M4 12h16M4 18h16',
+  accordion: 'M4 4h16v6H4zM16 6l1.5 1.5L19 6M4 14h16M4 19h10',
   back: 'm14 6-6 6 6 6M8 12h12',
   // The large four-point star sits exactly in the middle; small ones accent two corners.
   sparkle:

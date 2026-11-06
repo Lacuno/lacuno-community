@@ -270,3 +270,7 @@
 .layout-lock {
   display: contents;
 }
+.editor .focused-inspector .inspector-anchor {
+  display: block;
+  margin-bottom: 18px;
+}

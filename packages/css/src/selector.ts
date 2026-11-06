@@ -1,4 +1,5 @@
-import type { Class, Document, RichTag, State } from '@lacuno/schema'
+import type { Class, Document, RichTag, State, StateKey } from '@lacuno/schema'
+import { stateCoordinates } from '@lacuno/schema'
 
 /**
  * Class names as they appear in the output. Named classes keep their user-facing name, made
@@ -65,6 +66,9 @@ const STATE_SELECTOR: Record<State, string> = {
   'focus-within': ':focus-within',
   active: ':active',
   visited: ':visited',
+  // Open itself, or holding an open popover, as a menu holds its panel.
+  open: ':is([open], :popover-open, :has(> :popover-open))',
+  target: ':target',
   disabled: ':disabled',
   checked: ':checked',
   empty: ':empty',
@@ -104,28 +108,36 @@ function paddingFor(doc: Document, names: ClassNames): { shared: number; presets
   return pad
 }
 
+/** `.button.primary`: a class after the classes it combines with. */
+function chainOf(doc: Document, names: ClassNames, classId: string): string[] {
+  const cls = doc.classes[classId]
+  if (!cls) throw new Error(`unknown class ${classId}`)
+  return [...(cls.combo ?? []), classId].map((id) => {
+    const n = names.get(id)
+    if (!n) throw new Error(`no class name for ${id}`)
+    return `.${n}`
+  })
+}
+
 /**
  * `.button.primary:hover` for a combo class with a state, `.legal a:hover` for links inside the
- * elements carrying `legal`. In the canvas (`forced`) the state
- * picker drives styles through `.button.primary[data-lc-state="hover"]`: interaction states
- * emit only that form so the live pointer can't trigger them, structural states emit both, and
- * pseudo-elements, which the picker cannot force onto the element itself, emit only their own.
+ * elements carrying `legal`, `.card:hover .photo` for a parent's state (`hover@card`). In the
+ * canvas (`forced`) the state picker drives styles through `.button.primary[data-lc-state="hover"]`,
+ * on the parent for a parent's state: interaction states emit only that form so the live pointer
+ * can't trigger them, structural states emit both, and pseudo-elements, which the picker cannot
+ * force onto the element itself, emit only their own.
  */
 export function selectorFor(
   doc: Document,
   names: ClassNames,
   classId: string,
-  state: State,
+  key: StateKey,
   forced = false,
   tag?: RichTag,
 ): string {
-  const cls = doc.classes[classId]
-  if (!cls) throw new Error(`unknown class ${classId}`)
-  const chain = [...(cls.combo ?? []), classId].map((id) => {
-    const n = names.get(id)
-    if (!n) throw new Error(`no class name for ${id}`)
-    return `.${n}`
-  })
+  const { state, of } = stateCoordinates(key)
+  const cls = doc.classes[classId]!
+  const chain = chainOf(doc, names, classId)
   // Presets override ordinary shared styles; direct formatting overrides presets.
   // Use the same specificity in the canvas and published output.
   if (cls.preset || cls.kind === 'local') {
@@ -134,9 +146,11 @@ export function selectorFor(
     while (chain.length < specificity) chain.push(`.${names.get(classId)}`)
   }
   const base = chain.join('') + (tag ? ` ${tag}` : '')
-  const real = `${base}${STATE_SELECTOR[state]}`
+  const parent = of ? chainOf(doc, names, of).join('') : ''
+  const at = (suffix: string) => (of ? `${parent}${suffix} ${base}` : `${base}${suffix}`)
+  const real = at(STATE_SELECTOR[state])
   if (!forced || state === 'none' || STATE_SELECTOR[state].startsWith('::')) return real
-  const picked = `${base}[data-lc-state="${state}"]`
+  const picked = at(`[data-lc-state="${state}"]`)
   return LIVE_STATES.has(state) ? picked : `${real}, ${picked}`
 }
 

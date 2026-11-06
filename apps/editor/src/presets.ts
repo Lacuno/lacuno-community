@@ -4,8 +4,9 @@ import {
   type CssValue,
   type Document,
   type Node,
-  type State,
+  type StateKey,
   type StyleDecl,
+  stateKey,
   styleKey,
 } from '@lacuno/schema'
 import { inheritedBreakpoints } from './breakpoints.js'
@@ -38,25 +39,25 @@ export function winningStyles(
   doc: Document,
   node: Node,
   breakpoint = 'base',
-  state: State = 'none',
+  state: StateKey = 'none',
 ) {
   const names = classNames(doc)
   const classes = node.classes
     .filter((id) => (doc.classes[id]?.combo ?? []).every((parent) => node.classes.includes(parent)))
     .sort(compareSelectors(doc, names))
   const scopes = inheritedBreakpoints(doc, breakpoint)
-  const states: State[] = state === 'none' ? ['none'] : ['none', state]
+  const states: StateKey[] = state === 'none' ? ['none'] : ['none', state]
   const styles = Object.values(doc.styles)
     .filter(
       (style) =>
         classes.includes(style.class) &&
         !style.tag &&
         scopes.includes(style.breakpoint) &&
-        states.includes(style.state),
+        states.includes(stateKey(style)),
     )
     .sort(
       (a, b) =>
-        states.indexOf(a.state) - states.indexOf(b.state) ||
+        states.indexOf(stateKey(a)) - states.indexOf(stateKey(b)) ||
         scopes.indexOf(a.breakpoint) - scopes.indexOf(b.breakpoint) ||
         classes.indexOf(a.class) - classes.indexOf(b.class),
     )
@@ -77,7 +78,7 @@ export function presetValues(
   node: Node,
   computed: Record<string, string>,
   breakpoint = 'base',
-  state: State = 'none',
+  state: StateKey = 'none',
 ) {
   const winners = winningStyles(doc, node, breakpoint, state)
   const values: Record<string, CssValue> = {}

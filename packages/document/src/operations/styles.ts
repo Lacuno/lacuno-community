@@ -5,6 +5,7 @@ import {
   BreakpointId,
   ClassId,
   CssValue as CssValueSchema,
+  parentStateError,
   RichTag,
   State,
   StyleDecl,
@@ -98,8 +99,9 @@ const classDelete = defineOperation(
       ...nodesUsingClass(ctx.doc, op.id).map((n) => `nodes.${n}`),
     ].sort()
     if (referencedBy.length) ctx.fail(`class ${op.id} is referenced`, { id: op.id, referencedBy })
+    // Its own styles go with it, and those that follow its state, which nothing can match now.
     const own = Object.entries(ctx.doc.styles)
-      .filter(([, d]) => d.class === op.id)
+      .filter(([, d]) => d.class === op.id || d.of === op.id)
       .map(([key]): Patch => ({ op: 'delete', path: ['styles', key] }))
     return [...own, { op: 'delete', path: ['classes', op.id] }]
   },
@@ -111,16 +113,23 @@ const coordinates = {
   tag: RichTag.optional(),
   breakpoint: BreakpointId.default(BASE_BREAKPOINT_ID),
   state: State.default('none'),
+  of: ClassId.optional(),
   property: StyleDecl.shape.property,
 }
 
-function checkCoordinates(ctx: PlanContext, op: { class: string; breakpoint: string }): void {
+function checkCoordinates(
+  ctx: PlanContext,
+  op: Pick<StyleDecl, 'class' | 'breakpoint' | 'state' | 'of' | 'tag'>,
+): void {
   ctx.require(ctx.doc.classes[op.class], `unknown class ${op.class}`, op.class)
   ctx.require(
     ctx.doc.breakpoints[op.breakpoint],
     `unknown breakpoint ${op.breakpoint}`,
     op.breakpoint,
   )
+  if (op.of) ctx.require(ctx.doc.classes[op.of], `unknown class ${op.of}`, op.of)
+  const parent = parentStateError(op)
+  if (parent) ctx.fail(parent)
 }
 
 /** What `--lc-entrance` and `--lc-scroll` may name besides the document's keyframes. */
@@ -144,8 +153,13 @@ const styleSet = defineOperation(
       !ctx.doc.keyframes[name]
     )
       ctx.warn(`${op.property} ${name} is neither a preset nor keyframes of the document`)
-    const { type: _type, important, tag, ...coords } = op
-    const decl = { ...coords, ...(tag ? { tag } : {}), ...(important ? { important: true } : {}) }
+    const { type: _type, important, tag, of, ...coords } = op
+    const decl = {
+      ...coords,
+      ...(tag ? { tag } : {}),
+      ...(of ? { of } : {}),
+      ...(important ? { important: true } : {}),
+    }
     return [{ op: 'set', path: ['styles', styleKey(decl)], value: decl }]
   },
 )
