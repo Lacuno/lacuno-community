@@ -30,10 +30,14 @@ describe('operation tools', () => {
       destructiveHint: false,
       idempotentHint: false,
     })
-    expect(byName.get('style.set')?.annotations).toMatchObject({
-      destructiveHint: false,
-      idempotentHint: true,
-    })
+    // A tool that replaces what was there destroys it, as OpenAI's tool scan holds; a move loses
+    // nothing.
+    for (const name of ['style.set', 'node.update', 'designToken.setValue', 'translations.apply'])
+      expect(byName.get(name)?.annotations, name).toMatchObject({
+        destructiveHint: true,
+        idempotentHint: true,
+      })
+    expect(byName.get('node.move')?.annotations).toMatchObject({ destructiveHint: false })
     expect(byName.has('document.apply')).toBe(false)
     // Lean schemas: no $schema line, safe-integer bounds, id patterns or dryRun.
     const listed = JSON.stringify(tools.filter((tool) => tool.name !== 'translations.apply'))

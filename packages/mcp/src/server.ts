@@ -451,7 +451,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     {
       annotations: {
         readOnlyHint: false,
-        destructiveHint: false,
+        destructiveHint: true,
         idempotentHint: true,
         openWorldHint: false,
       },

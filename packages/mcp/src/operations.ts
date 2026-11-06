@@ -168,14 +168,16 @@ export const ADAPTED: Record<
 }
 
 /**
- * What an operation's tool may do, from its name: deleting and removing destroy, creating and
- * adding make something new each call, the rest set a state again to the same result.
+ * What an operation's tool may do, from its name: deleting and removing destroy, and so do
+ * updating and setting, which replace what was there; creating, adding, moving and extracting
+ * lose nothing. Creating and adding make something new each call, the rest set a state again to
+ * the same result.
  */
 export function annotationsOf(type: string): ToolAnnotations {
   const verb = type.slice(type.indexOf('.') + 1)
   return {
     readOnlyHint: false,
-    destructiveHint: /^(delete|remove|clear)/.test(verb) || verb === 'unextract',
+    destructiveHint: /^(delete|remove|clear|update|set)/.test(verb) || verb === 'unextract',
     idempotentHint: !/^(create|add|extract)$/.test(verb),
     openWorldHint: false,
   }
