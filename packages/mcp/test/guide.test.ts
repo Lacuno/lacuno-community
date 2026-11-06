@@ -1,5 +1,6 @@
 import { DocumentStore } from '@lacuno/document'
 import { fixtureDocument } from '@lacuno/schema'
+import { Ajv2020 } from 'ajv/dist/2020.js'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MCP_OPERATIONS } from '../src/guide.js'
 import { connect, jsonOf, textOf } from './helpers.js'
@@ -91,6 +92,16 @@ describe('guide and resources', () => {
     // when this was set, with lean schemas (leanSchema) whose shared parts are named once
     // (@lacuno/schema) and keyframes as CSS text.
     expect(size).toBeLessThan(74_000)
+  })
+
+  it('lists every input as JSON Schema 2020-12, which a schema without $schema is', async () => {
+    const c = await connect(DocumentStore.inMemory(fixtureDocument()))
+    close = c.close
+    const { tools } = await c.client.listTools()
+    // A draft-7 tuple, items as a list, made OpenAI's tool scan refuse site.update.
+    const ajv = new Ajv2020()
+    for (const tool of tools) expect(ajv.validateSchema(tool.inputSchema), tool.name).toBe(true)
+    expect(JSON.stringify(tools)).not.toContain('"format":"includes"')
   })
 
   it('offers no asset.create: asset.import stores the bytes', async () => {

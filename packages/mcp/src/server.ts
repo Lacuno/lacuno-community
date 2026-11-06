@@ -191,21 +191,20 @@ const remaining = (d: Document, locale: string) =>
  * A tool's input as JSON Schema, without what every host pays for in tokens and a model learns
  * nothing from: the `$schema` line, the safe-integer bounds Zod gives every integer,
  * `additionalProperties: false`, and the id pattern, which the instructions state once and the
- * document checks. About a quarter of the operation tools' schemas.
+ * document checks. About a quarter of the operation tools' schemas. Without `$schema` a host reads
+ * it as JSON Schema 2020-12, so it is made as one, and without the `includes` format Zod names
+ * beside the pattern that says it, which JSON Schema does not define.
  */
 export function leanSchema(shape: z.ZodRawShape | undefined): Tool['inputSchema'] {
-  const json = z.toJSONSchema(z.object(shape ?? {}), {
-    io: 'input',
-    target: 'draft-7',
-    unrepresentable: 'any',
-  })
+  const json = z.toJSONSchema(z.object(shape ?? {}), { io: 'input', unrepresentable: 'any' })
   return JSON.parse(
     JSON.stringify(json, (key, value) =>
       key === '$schema' ||
       (key === 'maximum' && value === Number.MAX_SAFE_INTEGER) ||
       (key === 'minimum' && value === Number.MIN_SAFE_INTEGER) ||
       (key === 'additionalProperties' && value === false) ||
-      (key === 'pattern' && value === ID_PATTERN.source)
+      (key === 'pattern' && value === ID_PATTERN.source) ||
+      (key === 'format' && value === 'includes')
         ? undefined
         : value,
     ),
