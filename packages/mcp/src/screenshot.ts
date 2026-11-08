@@ -21,6 +21,14 @@ export type Box = {
   w: number
   h: number
 }
+/**
+ * How many px the page is wider than the screen, and the deepest elements that reach past it with
+ * nothing around them clipping, the ones to fix, at most five: tag, classes, node id where the
+ * markup is annotated, and the start of their text, as `h2.card-title "Vorsorgeuntersuchung"`.
+ */
+export type Overflow = { by: number; elements: string[] }
+/** A picture, the boxes when they were asked for, and the overflow when the page has any. */
+export type Shot = { image: Buffer; boxes?: Box[] | undefined; overflow?: Overflow | undefined }
 /** The bytes of the asset stored under `hash`, or nothing when it is missing. */
 export type ReadAsset = (hash: string) => Promise<Buffer | undefined>
 /** A site asset's type and bytes by its public path, or nothing when there is none. */
@@ -33,9 +41,14 @@ export type Screenshot = (
   html: string,
   assetAt: AssetAt,
   options: ScreenshotOptions,
-) => Promise<Buffer | { image: Buffer; boxes: Box[] }>
+) => Promise<Shot>
 
 const ORIGIN = 'http://preview.lacuno'
+/**
+ * The screenshot service's answer header with the overflow, next to an image body: its JSON
+ * URI-encoded, since a header only carries Latin-1 and the elements' text can be anything.
+ */
+export const OVERFLOW_HEADER = 'x-lacuno-overflow'
 
 /**
  * A screenshot of `html` in a fresh context of `browser`. The page and its `/assets/*` requests
@@ -43,8 +56,9 @@ const ORIGIN = 'http://preview.lacuno'
  * every other request is aborted, so embeds and custom code reach no third party. Without a
  * height the whole page is captured, up to `maxHeight`; with `node`, only that element, which
  * needs annotated HTML. A page is a JPEG, a fraction of the PNG's bytes, which an AI reads as
- * well; a node is a PNG, crisp for reading one section's text. With `boxes`, every annotated
- * node with an area is measured too, in document order.
+ * well; a node is a PNG, crisp for reading one section's text, without the fixed and sticky
+ * elements around it, such as a header that would cover it. With `boxes`, every annotated node
+ * with an area is measured too, in document order. A page wider than the screen says so.
  */
 export async function render(
   browser: Browser,
@@ -52,7 +66,7 @@ export async function render(
   assetAt: AssetAt,
   options: ScreenshotOptions,
   deadline = 30_000,
-): Promise<Buffer | { image: Buffer; boxes: Box[] }> {
+): Promise<Shot> {
   const context = await browser.newContext({
     viewport: { width: options.width, height: options.height ?? 800 },
     reducedMotion: 'reduce',
@@ -85,7 +99,7 @@ async function capture(
   html: string,
   assetAt: AssetAt,
   { width, height, node, maxHeight = 4000, boxes }: ScreenshotOptions,
-): Promise<Buffer | { image: Buffer; boxes: Box[] }> {
+): Promise<Shot> {
   const page = await context.newPage()
   page.setDefaultTimeout(15_000)
   // The later route wins, so only the preview origin is served.
@@ -108,6 +122,34 @@ async function capture(
       return img.decode().catch(() => {})
     }))),
   ]).then(() => {})`)
+  // A clipped element widens nothing, and a page whose root or body clips does not scroll sideways.
+  const overflow = await page.evaluate<Overflow | undefined>(`(() => {
+    const root = document.documentElement
+    const by = root.scrollWidth - root.clientWidth
+    const clips = (el) => getComputedStyle(el).overflowX !== 'visible'
+    if (by < 1 || clips(root) || clips(document.body)) return undefined
+    const wide = [...document.body.querySelectorAll('*')].filter((el) => {
+      const r = el.getBoundingClientRect()
+      const reach = clips(el) ? r.width : Math.max(r.width, el.scrollWidth)
+      if (r.left + scrollX + reach <= root.clientWidth + 1) return false
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement)
+        if (clips(p)) return false
+      return true
+    })
+    const elements = wide
+      .filter((el) => !wide.some((other) => other !== el && el.contains(other)))
+      .slice(0, 5)
+      .map((el) => {
+        const id = el.getAttribute('data-lacuno-node')
+        const text = el.textContent.replace(/\\s+/g, ' ').trim()
+        return [
+          el.localName + [...el.classList].map((name) => '.' + name).join(''),
+          id,
+          text && JSON.stringify(text.length > 40 ? text.slice(0, 40) + '…' : text),
+        ].filter(Boolean).join(' ')
+      })
+    return { by, elements }
+  })()`)
   let image: Buffer
   if (node === undefined) {
     const fullPage = height === undefined
@@ -122,13 +164,23 @@ async function capture(
   } else {
     const element = page.locator(`[data-lacuno-node="${node}"]`).first()
     if (!(await element.count())) throw new InputError(`node ${node} is not rendered on this page`)
+    // Hidden, not removed, so the layout stays as it is.
+    await page.evaluate(`(() => {
+      const target = document.querySelector('[data-lacuno-node=${JSON.stringify(node)}]')
+      for (const el of document.body.querySelectorAll('*')) {
+        const { position } = getComputedStyle(el)
+        if ((position === 'fixed' || position === 'sticky') && !el.contains(target) && !target.contains(el))
+          el.style.setProperty('visibility', 'hidden', 'important')
+      }
+    })()`)
     image = await element.screenshot()
   }
-  if (!boxes) return image
+  if (!boxes) return { image, overflow }
   // Measured after the capture, which may have scrolled the page; a node without an area is
   // nothing to point at.
   return {
     image,
+    overflow,
     boxes: await page.evaluate<Box[]>(`[...document.querySelectorAll('[data-lacuno-node]')]
       .map((el) => {
         const r = el.getBoundingClientRect()
@@ -195,9 +247,18 @@ export function serviceScreenshot(url: string, secret: string | undefined): Scre
     if (response.status === 400)
       throw new InputError(((await response.json()) as { error: string }).error)
     if (!response.ok) throw new Error(`The screenshot service answered ${response.status}.`)
-    if (!options.boxes) return Buffer.from(await response.arrayBuffer())
-    const { image, boxes } = (await response.json()) as { image: string; boxes: Box[] }
-    return { image: Buffer.from(image, 'base64'), boxes }
+    // A service from before overflow was measured sends none.
+    if (!options.boxes) {
+      const overflow = response.headers.get(OVERFLOW_HEADER)
+      return {
+        image: Buffer.from(await response.arrayBuffer()),
+        overflow: overflow ? (JSON.parse(decodeURIComponent(overflow)) as Overflow) : undefined,
+      }
+    }
+    const { image, boxes, overflow } = (await response.json()) as Omit<Shot, 'image'> & {
+      image: string
+    }
+    return { image: Buffer.from(image, 'base64'), boxes, overflow }
   }
 }
 

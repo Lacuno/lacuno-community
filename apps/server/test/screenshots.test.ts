@@ -95,6 +95,27 @@ describe.skipIf(!chromium)('screenshot service', () => {
     expect(await unknown.json()).toEqual({ error: 'node n-missing is not rendered on this page' })
   })
 
+  it('says in a header how far the page is wider than the screen, and from what', async () => {
+    // The strip inside a clipping box widens nothing; the long word does.
+    const html =
+      '<meta charset="utf-8"><body style="margin:0"><div style="overflow:hidden"><div style="width:2000px;height:10px"></div></div><h2 data-lacuno-node="n-word" class="title" style="font-size:64px;margin:0">Früherkennungsuntersuchungsterminvereinbarung</h2>'
+    const response = await shoot(html, { width: 390, height: 300 })
+    expect(response.headers.get('content-type')).toBe('image/jpeg')
+    const overflow = JSON.parse(decodeURIComponent(response.headers.get('x-lacuno-overflow') ?? ''))
+    expect(overflow.by).toBeGreaterThan(0)
+    // Cut at 40 characters, with text a header could not carry as it is.
+    expect(overflow.elements).toEqual([
+      'h2.title n-word "Früherkennungsuntersuchungsterminvereinb…"',
+    ])
+    const through = await serviceScreenshot(url, secret)(html, async () => undefined, {
+      width: 390,
+      height: 300,
+    })
+    expect(through.overflow).toEqual(overflow)
+    const fits = await shoot('<p>Fits</p>', { width: 390, height: 300 })
+    expect(fits.headers.get('x-lacuno-overflow')).toBeNull()
+  })
+
   it('measures the boxes of annotated nodes and answers them as JSON', async () => {
     const html =
       '<body style="margin:0"><main data-lacuno-node="n-home"><section data-lacuno-node="n-hero" style="height:200px">Hero</section><p data-lacuno-node="n-hidden" style="display:none"></p></main>'

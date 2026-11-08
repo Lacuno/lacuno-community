@@ -48,7 +48,7 @@ A site is one JSON document: pages, a tree of nodes, classes with styles, design
 - Attributes, bound text and props hold a binding: \`static\`, \`field\`, \`designToken\`, \`asset\`, \`prop\` or \`page\`.
 
 Work like this:
-1. document.read for the revision and an overview. page.outline for one page's tree.
+1. document.read for the revision and an overview; \`parts\` for only some, such as ["pages"]. page.outline for one page's tree.
 ${change}
 3. Check the page with page.outline, page.preview and page.screenshot: topic check.
 
@@ -122,8 +122,8 @@ export const TOPICS: Record<string, string> = {
   check: `## Check
 After each section or page:
 1. page.outline (a page or component, \`depth\` keeps it short): sections in place, nothing doubled or empty.
-2. page.preview with text: true: one line per text, \`nodeId<TAB>text\`. Find typos, wrong order, placeholder text. Without text: the page's HTML as the compiler writes it, for attributes and links. Publishing then minifies the CSS, adds the vendor prefixes browsers need and gives images a srcset.
-3. page.screenshot: a JPEG of the first screen, width 1280 by default. Check 390 too. Below the first screen: pass \`node\` for a PNG of that section. fullPage cuts at 4000 px and shrinks the text unreadable.
+2. page.preview with text: true: one line per text, \`nodeId<TAB>text\`. Find typos, wrong order, placeholder text. Without text: the page's HTML as the compiler writes it, for attributes and links, without the site's CSS unless css: true. Publishing then minifies the CSS, adds the vendor prefixes browsers need and gives images a srcset.
+3. page.screenshot: a JPEG of the first screen, width 1280 by default. Check 390 too. Below the first screen: pass \`node\` for a PNG of that section, without fixed and sticky elements over it. fullPage cuts at 4000 px and shrinks the text unreadable. When the page is wider than the screen, the answer says by how much and which elements reach past it: fix those, as with a long word (topic looks).
 4. styles.get with a class, classes or a \`node\`: why something looks wrong.
 5. Fix everything you found. Check again.
 - Collection pages: pass \`entry\` (id or slug).

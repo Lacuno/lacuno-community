@@ -298,6 +298,10 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
   than its original (a 9 MB hero photo goes as 580 KB); the browser serves those from memory and
   aborts every other request, and answers a JPEG at quality 80 of the first screen or of the full
   page cut at 4000 px (`maxHeight`), a PNG of a node, since a photo page's PNG ran to several MB.
+  A node's PNG hides the fixed and sticky elements outside it, so a header does not cover it. A
+  page wider than the screen comes back with by how much and the deepest elements that reach past
+  it unclipped, which the service sends URI-encoded in an `x-lacuno-overflow` header beside the
+  image, so a runtime and a service of different versions still work together.
 - **Auto-translate.** A server may name an auto-translate service in `LACUNO_AUTO_TRANSLATE_URL`, a
   path on its own origin or a URL, which `/api/config` passes on as `autoTranslate`. The server
   itself never calls it and no model is called here: the editor asks the service directly, with

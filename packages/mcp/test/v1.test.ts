@@ -116,7 +116,9 @@ describe('v1: document.apply', () => {
       }),
     )
     expect(res.warnings ?? []).toEqual([])
-    const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    const html = textOf(
+      await client.callTool({ name: 'page.preview', arguments: { page: '/', css: true } }),
+    )
     expect(html).toContain('@keyframes drift {\n  0% { opacity: 0; translate: 0 40px; }\n}')
     const motion = textOf(await client.callTool({ name: 'guide', arguments: { group: 'motion' } }))
     expect(motion).toContain('"opacity":{"type":"raw","value":"0"}')

@@ -183,6 +183,77 @@ describe('page.screenshot', () => {
     for (const [i, value] of [59, 91, 219].entries()) expect(pixel[i]).toBeCloseTo(value, -1)
   })
 
+  it.skipIf(!chromium)(
+    'says what makes the page wider than the screen, and keeps fixed elements off a node',
+    async () => {
+      const dir = await mkdtemp(path.join(os.tmpdir(), 'lacuno-mcp-shot-'))
+      dirs.push(dir)
+      const doc = await writeFixtureSite(dir)
+      const element = (id: string, value: string, children: string[] = []) => ({
+        id,
+        type: 'element' as const,
+        tag: 'div',
+        parent: 'n-wide',
+        children,
+        classes: [],
+        attrs: { style: { type: 'static' as const, value } },
+      })
+      doc.pages['p-wide'] = { id: 'p-wide', name: 'Wide', path: '/wide', root: 'n-wide' }
+      doc.nodes['n-wide'] = {
+        ...element('n-wide', 'margin: 0', ['n-bar', 'n-box', 'n-word']),
+        tag: 'main',
+        parent: null,
+      }
+      // The fixed bar covers the top of the box, which starts the page.
+      doc.nodes['n-bar'] = element(
+        'n-bar',
+        'position: fixed; top: 0; left: 0; right: 0; height: 100px; background: rgb(255, 0, 0)',
+      )
+      doc.nodes['n-box'] = element('n-box', 'height: 300px; background: rgb(0, 0, 255)')
+      doc.nodes['n-word'] = {
+        id: 'n-word',
+        type: 'text',
+        tag: 'h2',
+        parent: 'n-wide',
+        children: [],
+        classes: ['c-heading'],
+        attrs: { style: { type: 'static', value: 'font-size: 64px; margin: 0' } },
+        text: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Vorsorgeuntersuchungsterminvereinbarung' }],
+            },
+          ],
+        },
+      }
+      await writeFile(path.join(dir, 'lacuno.json'), JSON.stringify(doc))
+      const c = await connect(await openFolder(dir), { siteDir: dir, screenshot })
+      close = c.close
+      const wide = await c.client.callTool({
+        name: 'page.screenshot',
+        arguments: { page: '/wide', width: 390 },
+      })
+      const [, size] = wide.content as Content[]
+      expect(size?.text).toMatch(
+        /^390×800\nThe page is \d+px wider than the screen, from h2\.heading "Vorsorgeuntersuchungsterminvereinbarung"\.$/,
+      )
+      const { bytes } = shot(
+        await c.client.callTool({
+          name: 'page.screenshot',
+          arguments: { page: '/wide', width: 1600, node: 'n-box' },
+        }),
+        'image/png',
+      )
+      const pixel = await sharp(bytes)
+        .extract({ left: 10, top: 10, width: 1, height: 1 })
+        .raw()
+        .toBuffer()
+      expect([...pixel.subarray(0, 3)]).toEqual([0, 0, 255])
+    },
+  )
+
   it.skipIf(!chromium)('sends no request beyond the preview origin', async () => {
     let requests = 0
     // Never answers, so a request that got through would also stall the capture.

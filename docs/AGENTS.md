@@ -56,7 +56,7 @@ before v2 expect.
 - **Guide.** Agents read `guide` for the document model and workflow, and its topics for how to
   build, check and style. In v1 it hands out an operation group's schemas too; in v2 each tool
   declares its own.
-- **Reading.** `document.read`, `page.outline`, `node.get`, `styles.get`, `entries.list`,
+- **Reading.** `document.read`, whole or by part, `page.outline`, `node.get`, `styles.get`, `entries.list`,
   `translations.list`, plus the document schema as a resource, and in v1 the operations schema.
 - **Writing.** In v2 each document operation is a tool of its own name, taking a list of changes
   of its kind as one atomic batch; in v1 `document.apply` takes a batch of any operations, with a
@@ -64,9 +64,11 @@ before v2 expect.
   current version so the agent re-reads and retries instead of overwriting. `translations.apply`
   writes many `translation.set` operations as one batch through the same path; its dry run
   returns the patches without applying them.
-- **Looking.** `page.preview` returns a route's HTML as published, or its visible text with node
-  ids; `page.screenshot` returns a JPEG of a route or a PNG of a node through an optional Playwright
-  Chromium; `page.view` shows the page to the person, see below; in v1, `document.diff`
+- **Looking.** `page.preview` returns a route's HTML as published, without the site's CSS unless
+  asked for it, or its visible text with node ids; `page.screenshot` returns a JPEG of a route or a
+  PNG of a node through an optional Playwright Chromium, and says when the page is wider than the
+  screen and which elements reach past it; `page.view` shows the page to the person, see below;
+  in v1, `document.diff`
   summarises a dry-run batch or the changes since another document in the site folder.
 - **Assets and publishing.** Files never have to pass through the model: `asset.import` takes a
   public https `url` the server downloads, a `path` in the site folder over stdio, or base64

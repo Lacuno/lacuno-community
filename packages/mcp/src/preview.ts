@@ -47,18 +47,26 @@ export function resolveRoute(doc: Document, page: string, entry?: string): Previ
 }
 
 /**
- * The route's full HTML with the site stylesheet inlined and assets at their public paths,
- * unoptimised. `annotateNodes` adds the canvas's node ids, and is otherwise the published markup.
+ * The route's full HTML with assets at their public paths, unoptimised, and the site's CSS
+ * unless `stylesheet` is false: its stylesheet inlined, and the font faces the compiler writes in
+ * a style of their own. `annotateNodes` adds the canvas's node ids, and is otherwise the
+ * published markup.
  */
-export function previewHtml(doc: Document, route: PreviewRoute, annotateNodes = false): string {
+export function previewHtml(
+  doc: Document,
+  route: PreviewRoute,
+  { annotateNodes = false, stylesheet = true } = {},
+): string {
   const result = render(doc, route.page, route.entry, {
     resolveImage: plainImageResolver,
     ...(annotateNodes ? { annotateNodes } : {}),
     ...(route.listPage ? { listPage: route.listPage } : {}),
     ...(route.locale ? { locale: route.locale } : {}),
   })
-  const { css } = generateStylesheet(doc, { assetUrl: publicAssetPath })
-  result.head += `\n${styleElement(css)}`
+  if (stylesheet) {
+    const { css } = generateStylesheet(doc, { assetUrl: publicAssetPath })
+    result.head += `\n${styleElement(css)}`
+  } else result.head = result.head.replace(/<style>@font-face\{[^<]*<\/style>/, '')
   return assembleDocument(result)
 }
 

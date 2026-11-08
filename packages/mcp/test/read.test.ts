@@ -37,6 +37,20 @@ describe('read tools', () => {
     ])
   })
 
+  it('document.read gives only the parts asked for, and the revision', async () => {
+    const { client } = await setup()
+    const doc = jsonOf<{ assets: Record<string, { usedBy: string[] }> }>(
+      await client.callTool({ name: 'document.read', arguments: { parts: ['pages', 'assets'] } }),
+    )
+    expect(Object.keys(doc)).toEqual(['revision', 'pages', 'assets'])
+    expect(Object.values(doc.assets).every((asset) => Array.isArray(asset.usedBy))).toBe(true)
+    const refused = await client.callTool({
+      name: 'document.read',
+      arguments: { parts: ['nodes'] },
+    })
+    expect(refused.isError).toBe(true)
+  })
+
   it('document.read lists where each asset is used, so an unused one can be deleted', async () => {
     const { client, store } = await setup()
     await store.apply({

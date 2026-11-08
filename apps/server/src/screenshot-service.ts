@@ -1,5 +1,5 @@
 import { InputError } from '@lacuno/mcp/errors'
-import { imageInfo, render } from '@lacuno/mcp/screenshot'
+import { imageInfo, OVERFLOW_HEADER, render } from '@lacuno/mcp/screenshot'
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { type Browser, chromium } from 'playwright'
@@ -22,10 +22,11 @@ type Launched = { browser: Promise<Browser>; shots: number; open: number }
  * page.screenshot for runtimes without Chromium. `POST /screenshot` takes multipart `request`
  * (`{ width, height?, node?, maxHeight?, boxes? }`), `html` and an `asset:<path>` part per asset
  * the page uses, and answers a JPEG of the page or a PNG of the node, rendered in a fresh context
- * of one shared Chromium; with `boxes`, JSON `{ image, mime, boxes }` with the image in base64. At
- * most `slots` render at once; a request that waits longer than `wait` ms for one is answered 503.
- * A render is cut off after `deadline` ms; `/health` fails while a slot is held longer than
- * `stuck` ms, which only a Chromium that will not close leads to.
+ * of one shared Chromium, with the page's overflow as URI-encoded JSON in `x-lacuno-overflow`
+ * when it is wider than the screen; with `boxes`, JSON `{ image, mime, boxes, overflow? }` with
+ * the image in base64. At most `slots` render at once; a request that waits longer than `wait` ms
+ * for one is answered 503. A render is cut off after `deadline` ms; `/health` fails while a slot
+ * is held longer than `stuck` ms, which only a Chromium that will not close leads to.
  */
 export function screenshotService({
   slots,
@@ -124,12 +125,17 @@ export function screenshotService({
           options,
           deadline,
         )
-        if (Buffer.isBuffer(shot))
-          return c.body(new Uint8Array(shot), 200, { 'content-type': imageInfo(shot).mime })
+        const { image, boxes, overflow } = shot
+        if (!boxes)
+          return c.body(new Uint8Array(image), 200, {
+            'content-type': imageInfo(image).mime,
+            ...(overflow && { [OVERFLOW_HEADER]: encodeURIComponent(JSON.stringify(overflow)) }),
+          })
         return c.json({
-          image: shot.image.toString('base64'),
-          mime: imageInfo(shot.image).mime,
-          boxes: shot.boxes,
+          image: image.toString('base64'),
+          mime: imageInfo(image).mime,
+          boxes,
+          overflow,
         })
       } catch (e) {
         if (e instanceof InputError) return c.json({ error: e.message }, 400)

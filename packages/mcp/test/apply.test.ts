@@ -249,7 +249,9 @@ describe('operation tools', () => {
       opacity: { type: 'raw', value: '0' },
       translate: { type: 'raw', value: '0 40px' },
     })
-    const html = textOf(await c.client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    const html = textOf(
+      await c.client.callTool({ name: 'page.preview', arguments: { page: '/', css: true } }),
+    )
     expect(html).toContain('@keyframes drift {\n  0% { opacity: 0; translate: 0 40px; }\n}')
     expect(html).toMatch(/class="step[^"]*"[^>]*data-lacuno-motion="scroll" data-lc-step="1"/)
     const { tools } = await c.client.listTools()

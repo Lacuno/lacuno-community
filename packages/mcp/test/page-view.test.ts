@@ -31,7 +31,7 @@ function fake(boxes: Box[]) {
   const screenshot: Screenshot = async (html, _assetAt, options) => {
     calls.push({ html, options })
     const image = await jpeg(options.width)
-    return options.boxes ? { image, boxes } : image
+    return options.boxes ? { image, boxes } : { image }
   }
   return { screenshot, calls }
 }

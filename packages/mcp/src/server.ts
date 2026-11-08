@@ -51,6 +51,22 @@ import { ok, text } from './result.js'
 import { imageInfo, type ReadAsset, type Screenshot, type ScreenshotOptions } from './screenshot.js'
 import { viewDomain } from './view-domain.js'
 
+/** What document.read can give, in document order. */
+const PARTS = [
+  'site',
+  'pages',
+  'folders',
+  'classes',
+  'breakpoints',
+  'designTokens',
+  'keyframes',
+  'components',
+  'collections',
+  'assets',
+  'redirects',
+] as const
+type Part = (typeof PARTS)[number]
+
 const PAGE_VIEW_URI = 'ui://lacuno/page-view'
 /** The MCP Apps profile: a host that renders views shows the resource in an iframe. */
 const PAGE_VIEW_MIME = 'text/html;profile=mcp-app'
@@ -665,30 +681,24 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     {
       annotations: reads,
       description:
-        'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, keyframes, components, collections, assets. No nodes, styles, entries or translations. Each asset and collection lists `usedBy`, the places that reference it (empty when unused, so asset.delete can remove it).',
+        'Overview of the document: revision, site, pages, folders, classes, breakpoints, design tokens, keyframes, components, collections, assets, redirects. No nodes, styles, entries or translations. Each asset and collection lists `usedBy`, the places that reference it (empty when unused, so asset.delete can remove it). parts: only these, such as ["pages"]; the revision always comes.',
+      inputSchema: { parts: z.array(z.enum(PARTS)).optional() },
     },
-    async () => {
+    async ({ parts }) => {
       const { document, revision } = store.read()
-      const {
-        version: _v,
-        revision: _r,
-        nodes: _n,
-        styles: _s,
-        entries: _e,
-        translations: _t,
-        assets,
-        collections,
-        ...overview
-      } = document
       const withUses = <T>(map: Record<string, T>, uses: Map<string, string[]>) =>
         Object.fromEntries(
           Object.entries(map).map(([id, item]) => [id, { ...item, usedBy: uses.get(id) ?? [] }]),
         )
+      const part = (name: Part) =>
+        name === 'collections'
+          ? withUses(document.collections, referencesToCollections(document))
+          : name === 'assets'
+            ? withUses(document.assets, referencesToAssets(document))
+            : document[name]
       return ok({
         revision,
-        ...overview,
-        collections: withUses(collections, referencesToCollections(document)),
-        assets: withUses(assets, referencesToAssets(document)),
+        ...Object.fromEntries((parts ?? PARTS).map((name) => [name, part(name)])),
       })
     },
   )
@@ -730,18 +740,23 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     {
       annotations: reads,
       description:
-        "A route's HTML as published, without a build. page: id or path; entry: id or slug on a collection page; text: one line per text node, `nodeId<TAB>text`.",
+        "A route's HTML as published, without a build, and without the site's stylesheet unless css is true: styles.get gives a class's rules. page: id or path; entry: id or slug on a collection page; text: one line per text node, `nodeId<TAB>text`.",
       inputSchema: {
         page: z.string(),
         entry: z.string().optional(),
         text: z.boolean().optional(),
+        css: z.boolean().optional(),
       },
     },
-    async ({ page, entry, text: asText }) => {
+    async ({ page, entry, text: asText, css }) => {
       try {
         const d = store.read().document
         const route = resolveRoute(d, page, entry)
-        return text(asText ? previewText(d, route).join('\n') : previewHtml(d, route))
+        return text(
+          asText
+            ? previewText(d, route).join('\n')
+            : previewHtml(d, route, { stylesheet: css === true }),
+        )
       } catch (e) {
         return fail(e)
       }
@@ -776,7 +791,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       {
         annotations: reads,
         description:
-          'JPEG of a route in Chromium: the first screen (height, 800 by default) or the whole page with fullPage, cut at maxHeight (4000 by default); or a PNG of one element with node. A long full page reaches you shrunk until its text is unreadable, so check sections with node instead.',
+          'JPEG of a route in Chromium: the first screen (height, 800 by default) or the whole page with fullPage, cut at maxHeight (4000 by default); or a PNG of one element with node, without the fixed and sticky elements around it. A long full page reaches you shrunk until its text is unreadable, so check sections with node instead. The answer says when the page is wider than the screen, and which elements reach past it.',
         inputSchema: {
           page: z.string(),
           entry: z.string().optional(),
@@ -791,18 +806,22 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         try {
           const d = store.read().document
           if (node !== undefined && !d.nodes[node]) throw new InputError(`unknown node ${node}`)
-          const html = previewHtml(d, resolveRoute(d, page, entry), node !== undefined)
-          const shot = await capture(d, html, {
+          const html = previewHtml(d, resolveRoute(d, page, entry), {
+            annotateNodes: node !== undefined,
+          })
+          const { image, overflow } = await capture(d, html, {
             width,
             ...(fullPage ? { maxHeight } : { height }),
             node,
           })
-          const image = Buffer.isBuffer(shot) ? shot : shot.image
           const { mime, ...size } = imageInfo(image)
+          const wider = overflow
+            ? `\nThe page is ${overflow.by}px wider than the screen${overflow.elements.length ? `, from ${overflow.elements.join(', ')}` : ''}.`
+            : ''
           return {
             content: [
               { type: 'image', data: image.toString('base64'), mimeType: mime },
-              { type: 'text', text: `${size.width}×${size.height}` },
+              { type: 'text', text: `${size.width}×${size.height}${wider}` },
             ],
           }
         } catch (e) {
@@ -828,8 +847,11 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         try {
           const d = store.read().document
           const route = resolveRoute(d, page, entry)
-          const shot = await capture(d, previewHtml(d, route, true), { width, boxes: true })
-          if (Buffer.isBuffer(shot)) throw new Error('The screenshot came without boxes.')
+          const shot = await capture(d, previewHtml(d, route, { annotateNodes: true }), {
+            width,
+            boxes: true,
+          })
+          if (!shot.boxes) throw new Error('The screenshot came without boxes.')
           // The view outlines at most 400; the shallowest are the sections a person points at.
           const shallowest = new Set(
             [...shot.boxes].sort((a, b) => a.depth - b.depth).slice(0, 400),

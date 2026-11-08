@@ -32,8 +32,16 @@ describe('page.preview', () => {
     expect(html).toContain('<title>Fixture Co</title>')
     expect(html).toContain('Design it. Publish it. Own it.')
     expect(html).toMatch(/<img[^>]+src="\/assets\/[a-f0-9]{64}\.png"/)
-    expect(html).toContain('<style>')
     expect(html).not.toContain('data-lacuno-node')
+    // The site's CSS, its stylesheet and font faces, only when asked for: styles.get answers for
+    // one class. The fonts' preloads stay.
+    expect(html).not.toContain('<style>')
+    expect(html).toContain('<link rel="preload" as="font"')
+    const styled = textOf(
+      await client.callTool({ name: 'page.preview', arguments: { page: '/', css: true } }),
+    )
+    expect(styled).toContain('@font-face{font-family:"Fixture Sans"')
+    expect(styled).toContain('.hero {')
   })
 
   it('publishes tag rules, a field inside text and the title template set through their tools', async () => {
@@ -71,7 +79,9 @@ describe('page.preview', () => {
       },
     ])
     expect(applied.isError).toBeFalsy()
-    const home = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    const home = textOf(
+      await client.callTool({ name: 'page.preview', arguments: { page: '/', css: true } }),
+    )
     expect(home).toContain('<title>Fixture Co — Fixture</title>')
     expect(home).toMatch(/\.hero h2 \{\s*font-size: 1\.35rem;/)
     const post = textOf(
@@ -123,7 +133,9 @@ describe('page.preview', () => {
       },
     ])
     expect(applied.isError).toBeFalsy()
-    const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    const html = textOf(
+      await client.callTool({ name: 'page.preview', arguments: { page: '/', css: true } }),
+    )
     expect(html).toContain(
       'background-image: linear-gradient(90deg, var(--color-brand) 0%, #e0529c 100%);',
     )
@@ -155,7 +167,9 @@ describe('page.preview', () => {
       await client.callTool({ name: 'node.get', arguments: { id: 'n-hero-title' } }),
     )
     expect(JSON.stringify(node)).toContain('"tableHeader"')
-    const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    const html = textOf(
+      await client.callTool({ name: 'page.preview', arguments: { page: '/', css: true } }),
+    )
     expect(html).toContain(
       '<div class="lc-table" role="region" aria-label="Table" tabindex="0"><table><thead><tr><th scope="col">What</th>',
     )
@@ -200,7 +214,9 @@ describe('page.preview', () => {
         },
       ])
     expect((await apply(0, { kind: 'radial', at: { x: 50, y: 0 } })).isError).toBeFalsy()
-    const html = textOf(await client.callTool({ name: 'page.preview', arguments: { page: '/' } }))
+    const html = textOf(
+      await client.callTool({ name: 'page.preview', arguments: { page: '/', css: true } }),
+    )
     expect(html).toContain('background-image: radial-gradient(at 50% 0%, #ece4ff 0%, #ffffff 75%);')
     expect((await apply(1, { kind: 'linear', at: { x: 50, y: 0 } })).isError).toBe(true)
   })
