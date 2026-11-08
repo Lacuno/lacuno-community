@@ -96,6 +96,34 @@ describe('operation tools', () => {
     expect(jsonOf(stale)).toMatchObject({ kind: 'stale', expected: 0, current: 1 })
   })
 
+  it("notes a script in an embed, which the editor cannot change, but not one in a head's code", async () => {
+    const store = DocumentStore.inMemory(fixtureDocument())
+    const c = await connect(store)
+    close = c.close
+    const embed = jsonOf<{ revision: number; note?: string }>(
+      await c.client.callTool({
+        name: 'node.create',
+        arguments: {
+          expectedRevision: 0,
+          changes: [
+            { parent: 'n-home', node: { type: 'embed', html: '<script src="/w.js"></script>' } },
+          ],
+        },
+      }),
+    )
+    expect(embed.note).toMatch(/A script in an embed cannot be edited/)
+    const head = jsonOf<{ note?: string }>(
+      await c.client.callTool({
+        name: 'site.update',
+        arguments: {
+          expectedRevision: embed.revision,
+          changes: [{ headCode: '<script type="application/ld+json">{}</script>' }],
+        },
+      }),
+    )
+    expect(head.note).toBeUndefined()
+  })
+
   it('makes a list all or nothing, naming the change it refused', async () => {
     const store = DocumentStore.inMemory(fixtureDocument())
     const c = await connect(store)

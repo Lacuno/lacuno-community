@@ -11,13 +11,16 @@ import { serializeValue, type ValueContext } from './value.js'
 import { percent } from './words.js'
 
 /**
- * A Motion field (`--lc-duration`, `--lc-entrance`, …) or a state a visitor triggers, its own or a
- * parent's: hover, focus, an accordion opening, a link jumping to it. Either turns on the shared
- * motion rules, so the change eases instead of snapping, and the compiler marks exactly the classes
- * that carry one. The rules sit in `:where()`, so an authored `transition` still wins.
+ * A Motion field (`--lc-duration`, `--lc-entrance`, …), a state a visitor triggers, its own or a
+ * parent's (hover, focus, an accordion opening, a link jumping to it), or a class's own animation.
+ * Each turns on the shared motion rules, so the change eases instead of snapping and reduced motion
+ * stops it, and the compiler marks exactly the classes that carry one. The rules sit in `:where()`,
+ * so an authored `transition` still wins.
  */
 export const isMotionStyle = (style: StyleDecl): boolean =>
   style.property.startsWith('--lc-') ||
+  style.property === 'animation' ||
+  style.property === 'animation-name' ||
   LIVE_STATES.has(style.state) ||
   style.state === 'open' ||
   style.state === 'target'

@@ -51,7 +51,25 @@ describe('design tokens', () => {
     )
     failing(
       [{ type: 'designToken.create', name: 'color.fg', group: 'color', values: { light: px(1) } }],
-      /name color.fg is already used by t-fg/,
+      /variable --color-fg is already used by t-fg/,
+    )
+    // Both names become --color-fg, so they would be one CSS variable.
+    failing(
+      [{ type: 'designToken.create', name: 'color-fg', group: 'color', values: { light: px(1) } }],
+      /variable --color-fg is already used by t-fg/,
+    )
+    failing(
+      [
+        {
+          type: 'designToken.create',
+          id: 't-x',
+          name: 'x',
+          group: 'other',
+          values: { light: px(1) },
+        },
+        { type: 'designToken.update', id: 't-x', name: 'color-fg' },
+      ],
+      /variable --color-fg is already used by t-fg/,
     )
     failing(
       [{ type: 'designToken.create', name: 'Bad Name', group: 'other', values: { light: px(1) } }],

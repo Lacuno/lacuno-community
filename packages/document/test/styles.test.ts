@@ -1,4 +1,4 @@
-import { color, designToken, fixtureDocument, px, styleKey } from '@lacuno/schema'
+import { color, designToken, fixtureDocument, num, px, raw, styleKey } from '@lacuno/schema'
 import { describe, expect, it } from 'vitest'
 import { planBatch } from '../src/engine.js'
 import { OperationError } from '../src/errors.js'
@@ -175,6 +175,30 @@ describe('styles', () => {
       /invalid input: property/,
     )
     failing([{ type: 'style.clear', ...base, property: 'nothing-set' }], /no declaration/)
+    // A value that fails names what is wrong in the shape it came closest to, the allowed units.
+    const unit = { type: 'unit', value: 1, unit: 'qq' } as never
+    failing([{ type: 'style.set', ...base, value: unit }], /invalid input: value\.unit: .*"cqi"/)
+    failing(
+      [{ type: 'style.set', ...base, value: { type: 'list', separator: ' ', values: [unit] } }],
+      /invalid input: value\.values\.0\.unit: .*"px"/,
+    )
+  })
+  it('takes --lc-length as a number of screens and refuses a unit, which collapses the story', () => {
+    const base = {
+      class: 'c-hero',
+      breakpoint: 'base',
+      state: 'none' as const,
+      property: '--lc-length',
+    }
+    run([
+      { type: 'style.set', ...base, value: raw('2.5') },
+      { type: 'style.set', ...base, value: num(4) },
+    ])
+    failing(
+      [{ type: 'style.set', ...base, value: raw('280svh') }],
+      /--lc-length is a number of screens/,
+    )
+    failing([{ type: 'style.set', ...base, value: px(3) }], /without a unit/)
   })
   it('checks the design tokens a gradient stop uses and keeps them from deletion', () => {
     const gradient = (ref: string) => ({

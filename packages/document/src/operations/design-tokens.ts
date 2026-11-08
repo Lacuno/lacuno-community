@@ -1,4 +1,11 @@
-import { CssValue, DesignToken, DesignTokenGroup, DesignTokenId, ModeId } from '@lacuno/schema'
+import {
+  CssValue,
+  DesignToken,
+  DesignTokenGroup,
+  DesignTokenId,
+  designTokenCssName,
+  ModeId,
+} from '@lacuno/schema'
 import { z } from 'zod'
 import type { PlanContext } from '../context.js'
 import { defineOperation } from '../define.js'
@@ -9,6 +16,17 @@ import { checkCssValue } from './styles.js'
 function defaultMode(ctx: PlanContext): string {
   const def = ctx.doc.site.modes.find((m) => m.default) ?? ctx.doc.site.modes[0]
   return def?.id ?? 'light'
+}
+
+/** Names are unique by the CSS variable they become: color.brand and color-brand are both --color-brand. */
+function checkName(ctx: PlanContext, name: string, self?: string): void {
+  ctx.unique(
+    Object.values(ctx.doc.designTokens),
+    'design token variable',
+    designTokenCssName(name),
+    (t) => designTokenCssName(t.name),
+    self,
+  )
 }
 
 function checkMode(ctx: PlanContext, mode: string): void {
@@ -25,7 +43,7 @@ const tokenCreate = defineOperation(
     description: z.string().optional(),
   }),
   (op, ctx) => {
-    ctx.unique(Object.values(ctx.doc.designTokens), 'design token name', op.name, (t) => t.name)
+    checkName(ctx, op.name)
     // The value check runs before the id is minted, so a value referencing the id being created
     // reads as an unknown token rather than a self-reference.
     for (const [mode, value] of Object.entries(op.values)) {
@@ -56,14 +74,7 @@ const tokenUpdate = defineOperation(
   }),
   (op, ctx) => {
     const token = ctx.require(ctx.doc.designTokens[op.id], `unknown design token ${op.id}`, op.id)
-    if (op.name !== undefined)
-      ctx.unique(
-        Object.values(ctx.doc.designTokens),
-        'design token name',
-        op.name,
-        (t) => t.name,
-        op.id,
-      )
+    if (op.name !== undefined) checkName(ctx, op.name, op.id)
     return partialPatches(
       ['designTokens', op.id],
       { name: op.name, group: op.group, description: op.description },

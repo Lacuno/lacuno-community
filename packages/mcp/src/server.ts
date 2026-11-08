@@ -96,8 +96,11 @@ export type ServerOptions = {
   /**
    * The connected endpoint's import, which checks a file like an editor upload. Without it,
    * asset.import stores the bytes as the declared `mime`, as a site folder's author means them.
+   * Either answers with the revision the import made, to send the next change with.
    */
-  importAsset?: (asset: AssetDetails & { bytes: Uint8Array }) => Promise<AssetRef>
+  importAsset?: (
+    asset: AssetDetails & { bytes: Uint8Array },
+  ) => Promise<AssetRef & { revision: number }>
   /** Downloads a public https address; asset.import then takes `url`. */
   fetchUrl?: (url: string) => Promise<Uint8Array>
   /** A single-use address the client can PUT one file to; offers asset.upload. */
@@ -237,9 +240,18 @@ function loosen(field: z.ZodType): z.ZodType {
   )
 }
 
-/** Said where it is read: a script in the page is code the person cannot edit. */
+/** Whether changes put a script in an embed's html; a head's code is edited in the settings. */
+const embedsScript = (value: unknown): boolean =>
+  typeof value === 'object' &&
+  value !== null &&
+  Object.entries(value).some(
+    ([key, v]) =>
+      (key === 'html' && typeof v === 'string' && /<script/i.test(v)) || embedsScript(v),
+  )
+
+/** Said where it is read: a script in an embed is code the person cannot edit. */
 const withScriptNote = (input: unknown, applied: object) =>
-  /<script/i.test(JSON.stringify(input))
+  embedsScript(input)
     ? {
         ...applied,
         note: 'A script in an embed cannot be edited in the editor. Build it with nodes if you can: a mobile menu needs none (guide menu).',
@@ -542,10 +554,11 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     {
       annotations: { ...adds, openWorldHint: true },
       description:
-        'Import a file and return the asset reference. Pass one of: url, a public https address the server downloads; path, relative to the site folder and inside it; data, base64 (small files only: every byte costs tokens). For a local file on a connected site, use asset.upload instead.',
+        'Import a file and return the asset reference with the revision it made. Pass one of: url, a public https address the server downloads; path, relative to the site folder and inside it; data, base64 (small files only: every byte costs tokens). For a local file on a connected site, use asset.upload instead.',
       inputSchema: {
         ...details,
-        mime: AssetMime.optional(),
+        // A server types what it imports by its bytes; only a site folder takes a mime.
+        ...(options.importAsset ? {} : { mime: AssetMime.optional() }),
         url: z.string().optional(),
         path: z.string().optional(),
         data: z.string().optional(),
@@ -567,7 +580,10 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         if (options.importAsset) return ok(await options.importAsset({ ...asset, bytes }))
         if (mime === undefined) throw new InputError("pass the file's mime type")
         if (bytes.byteLength > 20 * 1024 * 1024) throw new InputError('asset larger than 20 MB')
-        return ok(await store.importAsset({ ...asset, mime, bytes }))
+        return ok({
+          ...(await store.importAsset({ ...asset, mime, bytes })),
+          revision: store.revision,
+        })
       } catch (e) {
         return fail(e)
       }
@@ -581,7 +597,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       {
         annotations: adds,
         description:
-          "For a file on your machine: returns a single-use https address, valid 10 minutes. PUT the file to it, for example `curl -sS -T photo.jpg '<url>'`; the answer is the asset reference.",
+          "For a file on your machine: returns a single-use https address, valid 10 minutes. PUT the file to it, for example `curl -sS -T photo.jpg '<url>'`; the answer is the asset reference with the revision it made.",
         inputSchema: details,
       },
       async (asset) => {

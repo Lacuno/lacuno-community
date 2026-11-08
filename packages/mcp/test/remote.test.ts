@@ -39,7 +39,15 @@ describe('tools for a server without a site folder', () => {
       fetchUrl: async (url) => new TextEncoder().encode(url),
       importAsset: async (asset) => {
         imported.push({ ...asset, bytes: Buffer.from(asset.bytes).toString() })
-        return { id: 'a-1', name: asset.name, kind: 'image', hash: 'h', mime: 'image/png', size: 1 }
+        return {
+          id: 'a-1',
+          name: asset.name,
+          kind: 'image',
+          hash: 'h',
+          mime: 'image/png',
+          size: 1,
+          revision: 1,
+        }
       },
       uploadUrl: (asset) => ({
         url: `https://editor.test/upload/${asset.name}`,

@@ -8,6 +8,15 @@ import { deleteTranslationsPatches, referencesToPage, subtreeIds } from '../refe
 import { deleteSubtreePatches, materialize, NodeLiteral } from './nodes.js'
 
 const PagePath = Page.shape.path
+/** As the editor asks: a canonical link is a full address, never a path. */
+const PageSeo = Seo.extend({
+  canonical: z
+    .url({
+      protocol: /^https?$/,
+      error: 'seo.canonical is a full address, such as https://example.com/about',
+    })
+    .optional(),
+})
 const PageLang = Page.shape.lang.unwrap()
 
 const pageCreate = defineOperation(
@@ -18,7 +27,7 @@ const pageCreate = defineOperation(
     path: PagePath,
     folder: FolderId.optional(),
     collection: CollectionId.optional(),
-    seo: Seo.optional(),
+    seo: PageSeo.optional(),
     lang: PageLang.optional(),
     headCode: z.string().optional(),
     bodyCode: z.string().optional(),
@@ -42,7 +51,7 @@ const pageUpdate = defineOperation(
     path: PagePath.optional(),
     folder: FolderId.nullable().optional(),
     collection: CollectionId.nullable().optional(),
-    seo: Seo.nullable().optional(),
+    seo: PageSeo.nullable().optional(),
     lang: PageLang.nullable().optional(),
     headCode: z.string().nullable().optional(),
     bodyCode: z.string().nullable().optional(),

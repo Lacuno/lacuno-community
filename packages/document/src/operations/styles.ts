@@ -153,6 +153,13 @@ const styleSet = defineOperation(
       !ctx.doc.keyframes[name]
     )
       ctx.warn(`${op.property} ${name} is neither a preset nor keyframes of the document`)
+    // The story's height is --lc-length times 100svh, so a length with a unit makes it 0 px tall.
+    if (
+      op.property === '--lc-length' &&
+      !(op.value.type === 'unit' && op.value.unit === 'number') &&
+      !(op.value.type === 'raw' && /^\d*\.?\d+$/.test(op.value.value.trim()))
+    )
+      ctx.fail('--lc-length is a number of screens without a unit, such as 3')
     const { type: _type, important, tag, of, ...coords } = op
     const decl = {
       ...coords,

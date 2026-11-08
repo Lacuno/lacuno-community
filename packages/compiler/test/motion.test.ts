@@ -23,6 +23,16 @@ it('marks elements for motion exactly when the motion rules are emitted', () => 
   delete doc.nodes['n-story']!.attrs
   expect(output().body).not.toContain('data-lacuno-motion')
   expect(output().css).not.toContain('data-lacuno-motion')
+  // A class's own animation is marked too, so reduced motion stops it.
+  const spin = {
+    class: 'c-button',
+    breakpoint: 'base',
+    state: 'none' as const,
+    property: 'animation',
+  }
+  doc.styles[styleKey(spin)] = { ...spin, value: { type: 'raw', value: 'spin 2s infinite' } }
+  expect(output().body).toContain('<a class="button primary" data-lacuno-motion=""')
+  expect(output().css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\[data-lacuno-motion\]/)
 })
 
 it('runs entrances once on viewport entry and honors reduced motion in published HTML', async () => {

@@ -218,7 +218,8 @@ describe('the remote MCP endpoint', () => {
         arguments: { name: 'dot.png', data: png.toString('base64') },
       }),
     )
-    expect(asset).toMatchObject({ size: png.length, mime: 'image/png' })
+    // With the revision it made, so the next change goes through without reading again.
+    expect(asset).toMatchObject({ size: png.length, mime: 'image/png', revision: revision + 3 })
     expect(existsSync(path.join(dataDir, 'sites', siteId, 'assets', asset.hash))).toBe(true)
     await client.close()
   })
@@ -227,6 +228,11 @@ describe('the remote MCP endpoint', () => {
     const client = await connect()
     const tool = async (name: string, args: Record<string, unknown>) =>
       json<Record<string, unknown>>(await client.callTool({ name, arguments: args }))
+    // No type to declare, so no SVG or PDF on offer that the server turns away.
+    const { tools } = await client.listTools()
+    expect(tools.find((t) => t.name === 'asset.import')?.inputSchema.properties).not.toHaveProperty(
+      'mime',
+    )
     // A declared type does not count: the bytes are checked like an upload in the editor.
     expect(
       await tool('asset.import', {
@@ -257,12 +263,14 @@ describe('the remote MCP endpoint', () => {
       server.app.request(url, { method: 'PUT', body: new Uint8Array(body) })
     const answer = await put(upload.url as string)
     expect(answer.status).toBe(201)
-    const asset = (await answer.json()) as { id: string; hash: string }
+    const { revision, ...asset } = (await answer.json()) as { id: string; revision: number }
     expect(asset).toMatchObject({ name: 'photo.png', alt: 'A photo', mime: 'image/png' })
-    const { document } = (await (await request(`/api/sites/${siteId}/document`)).json()) as {
+    const stored = (await (await request(`/api/sites/${siteId}/document`)).json()) as {
+      revision: number
       document: { assets: Record<string, unknown> }
     }
-    expect(document.assets[asset.id]).toEqual(asset)
+    expect(stored.document.assets[asset.id]).toEqual(asset)
+    expect(revision).toBe(stored.revision)
     unsubscribe()
     expect(events).toEqual([
       expect.objectContaining({ actor: { kind: 'agent', app: 'Test Agent' } }),

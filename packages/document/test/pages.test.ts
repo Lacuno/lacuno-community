@@ -50,6 +50,19 @@ describe('pages', () => {
   it('refuses a malformed path', () => {
     failing([{ type: 'page.create', name: 'X', path: 'no-slash' }], /invalid input: path/)
   })
+  it('takes a canonical link only as a full address, as the editor asks', () => {
+    const seo = (canonical: string) => ({ canonical })
+    run([{ type: 'page.update', id: 'p-home', seo: seo('https://example.com/') }])
+    for (const canonical of ['/about', 'example.com/about', 'ftp://example.com/'])
+      failing(
+        [{ type: 'page.update', id: 'p-home', seo: seo(canonical) }],
+        /seo.canonical is a full address/,
+      )
+    failing(
+      [{ type: 'page.create', name: 'X', path: '/x', seo: seo('/x') }],
+      /seo.canonical is a full address/,
+    )
+  })
   it('updates fields, clears optional ones, and deletes with the subtree', () => {
     const { document } = run([
       { type: 'page.update', id: 'p-home', name: 'Start', seo: null, headCode: '<meta>' },

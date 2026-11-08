@@ -1,4 +1,5 @@
 import type { Document } from '@lacuno/schema'
+import type { z } from 'zod'
 import { createContext, type Warning } from './context.js'
 import type { OperationDef } from './define.js'
 import { OperationError } from './errors.js'
@@ -34,7 +35,7 @@ export function planBatch(
       throw new OperationError(index, String(raw.type), `unknown operation ${String(raw.type)}`)
     const parsed = def.schema.safeParse(raw)
     if (!parsed.success) {
-      const issue = parsed.error.issues[0]
+      const issue = closest(parsed.error.issues[0])
       const where = issue?.path.length ? `${issue.path.join('.')}: ` : ''
       throw new OperationError(
         index,
@@ -50,4 +51,19 @@ export function planBatch(
     if (mine.length) created[index] = mine
   })
   return { document: draft, patches, created, warnings }
+}
+
+/**
+ * The issue worth reporting: inside a union of shapes, that of the shape that came closest, the
+ * one with the fewest issues, then the one that got deepest, so a bad unit reads "value.unit:
+ * Invalid option: expected one of px|rem…" and not "value: Invalid input".
+ */
+function closest(issue: z.core.$ZodIssue | undefined): z.core.$ZodIssue | undefined {
+  if (issue?.code !== 'invalid_union' || !issue.errors.length) return issue
+  const depth = (issues: z.core.$ZodIssue[]) => issues[0]?.path.length ?? 0
+  const best = issue.errors.reduce((a, b) =>
+    b.length < a.length || (b.length === a.length && depth(b) > depth(a)) ? b : a,
+  )
+  const inner = closest(best[0])
+  return inner ? { ...inner, path: [...issue.path, ...inner.path] } : issue
 }

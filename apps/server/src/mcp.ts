@@ -146,19 +146,19 @@ async function importFile(
   session: Session,
   store: DocumentStore,
   { bytes, ...details }: AssetDetails & { bytes: Uint8Array },
-): Promise<AssetRef> {
+): Promise<AssetRef & { revision: number }> {
   const { status, body } = await deps.stage(session.siteId, details.name, bytes)
   if (status !== 200)
     throw new HTTPException(status, { message: (body as { error: string }).error })
   const asset = body as AssetRef
   // A file the site has already comes back as it is.
-  if (store.read().document.assets[asset.id]) return asset
+  if (store.read().document.assets[asset.id]) return { ...asset, revision: store.revision }
   const operation = { type: 'asset.create', ...asset } as Operation
   for (const [key, value] of Object.entries(details))
     if (value !== undefined) Object.assign(operation, { [key]: value })
   const batch = { expectedRevision: store.revision, operations: [operation] }
   applied(deps, session, batch, await store.apply(batch))
-  return store.read().document.assets[asset.id] as AssetRef
+  return { ...(store.read().document.assets[asset.id] as AssetRef), revision: store.revision }
 }
 
 /**

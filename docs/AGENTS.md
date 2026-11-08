@@ -138,7 +138,9 @@ contrast, a `pricing` section that breaks at tablet width. An agent runs it befo
 - Every batch an app applies names the app and the person who connected it, and shows up in the
   editor's History with a summary of what changed.
 - Connections are per site and revocable from the editor: by whoever connected the app, or by the
-  workspace owner. A token only ever grants one site.
+  workspace owner. A token from a site's own server only ever grants that site. Lacuno Cloud's one
+  address, mcp.lacuno.io, connects a person instead: it reaches every site of every workspace they
+  belong to, as their role there allows.
 - Agents cannot change permissions, invite users, delete sites or publish to production. Those
   are human-only actions and are not exposed as tools.
 - OAuth registration, token and authorization requests are rate limited per client address. Rate

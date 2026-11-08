@@ -242,8 +242,9 @@ generates is meant to be read, edited or kept.
 - A component instance's children are its slot content; a child names its slot with a static
   `slot` attribute, which is not emitted, and falls into `default` otherwise. An embed publishes
   its HTML verbatim, inside a `div` only when the embed has classes or attributes.
-- Motion: the compiler marks elements whose classes carry Motion fields with
-  `data-lacuno-motion` (`"scroll"` for those that follow the scroll) and numbers a story's steps
+- Motion: the compiler marks elements whose classes carry Motion fields, a visitor's state or
+  their own `animation` with `data-lacuno-motion` (`"scroll"` for those that follow the scroll),
+  which reduced motion stops, and numbers a story's steps
   (`data-lc-step`, `data-lc-steps`). An element with an entrance is published
   `data-lc-enter="wait"`, which holds it at its first frame from the first paint until the
   observer sees it, so it never shows at rest first; without scripts it stays at rest. Hover rules
