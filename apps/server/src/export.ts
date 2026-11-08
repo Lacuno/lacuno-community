@@ -183,7 +183,8 @@ export function assetList(document: { assets?: Record<string, { hash: string }> 
 /**
  * Copies published releases to Cloud's edge. Files go up before a release becomes ready; pointers
  * go through an outbox written with the publication, so a sink outage delays them, never loses them.
- * A site's asset list goes through an outbox too, written when a save changes it.
+ * A site's asset list goes through an outbox too, written when a save changes it, and so does the
+ * deletion of a release this runtime no longer keeps.
  */
 export class Exporter {
   private stopped = false
@@ -214,6 +215,22 @@ export class Exporter {
         'INSERT INTO export_pointer(site_id,target,release_id) VALUES(?,?,?) ON CONFLICT(site_id,target) DO UPDATE SET release_id=excluded.release_id,attempts=0,next_attempt_at=0',
       )
       .run(siteId, target, releaseId)
+    queueMicrotask(() => {
+      void this.drain()
+    })
+  }
+
+  /**
+   * Call inside the transaction that removes a release, before its row goes: the sink deletes its
+   * copy, if it has one (`DELETE <export>/sites/<site>/releases/<release>/`), from an outbox like
+   * the pointers.
+   */
+  forget(releaseId: string, siteId: string) {
+    this.sqlite
+      .prepare(
+        'INSERT OR IGNORE INTO export_deletion(release_id,site_id) SELECT release_id,? FROM exported_release WHERE release_id=?',
+      )
+      .run(siteId, releaseId)
     queueMicrotask(() => {
       void this.drain()
     })
@@ -345,6 +362,41 @@ export class Exporter {
               'UPDATE export_pointer SET attempts=attempts+1,next_attempt_at=? WHERE site_id=? AND target=? AND release_id=?',
             )
             .run(Date.now() + Math.min(1000 * 2 ** row.attempts, 300_000), ...where)
+      }
+      const deletions = this.sqlite
+        .prepare(
+          'SELECT release_id,site_id,attempts FROM export_deletion WHERE next_attempt_at <= ?',
+        )
+        .all(now) as { release_id: string; site_id: string; attempts: number }[]
+      for (const { release_id, site_id, attempts } of deletions) {
+        // Claimed like a pointer. A 404 is done too: a sink without deletions, or a copy gone.
+        if (
+          this.stopped ||
+          !this.sqlite
+            .prepare(
+              'UPDATE export_deletion SET next_attempt_at=? WHERE release_id=? AND next_attempt_at <= ?',
+            )
+            .run(now + 60_000, release_id, now).changes
+        )
+          continue
+        const response = await send(
+          this.options,
+          'DELETE',
+          site_id,
+          `releases/${release_id}/`,
+        ).catch(() => undefined)
+        await response?.body?.cancel()
+        if (this.stopped) return
+        if (response?.status === 204 || response?.status === 404)
+          this.sqlite.prepare('DELETE FROM export_deletion WHERE release_id=?').run(release_id)
+        else {
+          console.error(`Export sink answered ${response?.status ?? 'nothing'} for a deletion`)
+          this.sqlite
+            .prepare(
+              'UPDATE export_deletion SET attempts=attempts+1,next_attempt_at=? WHERE release_id=?',
+            )
+            .run(Date.now() + Math.min(1000 * 2 ** attempts, 300_000), release_id)
+        }
       }
       const lists = this.sqlite
         .prepare('SELECT site_id,attempts FROM export_assets WHERE next_attempt_at <= ?')

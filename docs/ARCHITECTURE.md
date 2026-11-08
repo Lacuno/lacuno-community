@@ -275,7 +275,9 @@ The compiler has no knowledge of the server. The CLI exposes it as `lacuno build
   document again.
 - **Build queue.** A small in-process queue runs each build in a child process, one at a time,
   because the build changes its working directory for Astro. Output goes to
-  `builds/<site>/<release>/`. A successful build atomically updates the SQLite publication pointer
+  `builds/<site>/<release>/`. Each site keeps its published releases and its newest ten other
+  ready ones; after a build or a rollback an older release leaves the history with its output.
+  A successful build atomically updates the SQLite publication pointer
   for its target (production or testing, D027); the separate static listener resolves that pointer
   per request. Rollback switches the pointer without changing the draft. Managed domain and TLS
   provisioning belongs to Cloud.

@@ -76,7 +76,9 @@ describe('export to the edge', () => {
     else if (key === 'activity') activity.push(JSON.parse(body.toString()))
     else if (key === 'meta' && request.method === 'DELETE') names.delete(siteId!)
     else if (key === 'meta') names.set(siteId!, JSON.parse(body.toString()).name)
-    else files.set(key!, body)
+    else if (request.method === 'DELETE') {
+      for (const name of files.keys()) if (name.startsWith(key!)) files.delete(name)
+    } else files.set(key!, body)
     response.writeHead(204).end()
   })
 
@@ -525,6 +527,67 @@ describe('export to the edge', () => {
     await new Promise((resolve) => setTimeout(resolve, 1500))
     expect(log).toEqual(['PUT meta'])
     expect(names.get(created.id)).toBe('Renamed')
+  })
+
+  it('asks the sink to delete its copy of a release the runtime no longer keeps', async () => {
+    const { id: pruned } = await call('/api/sites', { name: 'Pruned' })
+    const { sqlite } = openDatabase(dir)
+    const versions: string[] = []
+    const add = (exported = true) => {
+      const id = randomUUID()
+      sqlite
+        .prepare(
+          "INSERT INTO releases(id,site_id,revision,version,document,status,created_at) VALUES(?,?,1,?,'{}','ready',?)",
+        )
+        .run(id, pruned, versions.length + 1, Date.now())
+      if (exported) sqlite.prepare('INSERT INTO exported_release(release_id) VALUES(?)').run(id)
+      versions.push(id)
+      return id
+    }
+    let testing: string | null = null
+    const send = async (id: string) => {
+      await call(`/api/sites/${pruned}/releases/${id}/activate`, {
+        expectedId: testing,
+        target: 'testing',
+      })
+      testing = id
+    }
+    const deletes = () => log.filter((line) => line.startsWith('DELETE releases/'))
+    const deletion = (index: number) => `DELETE releases/${versions[index]}/`
+    const settled = async () => {
+      await expect.poll(() => table('export_deletion'), { timeout: 5000 }).toEqual([])
+      const exported = table('exported_release') as { release_id: string }[]
+      return exported.map((row) => row.release_id)
+    }
+    try {
+      // v1 and v2 are past the newest ten; only v1 had been exported.
+      for (let version = 1; version <= 12; version++) add(version !== 2)
+      log.length = 0
+      await send(add())
+      await expect.poll(deletes).toEqual([deletion(0)])
+      expect(await settled()).not.toContain(versions[0])
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      expect(deletes()).toEqual([deletion(0)])
+
+      // A sink without deletions, or without the copy, answers 404: done.
+      add()
+      log.length = 0
+      failures = { match: new RegExp(`^${deletion(2)}$`), status: 404, times: 1 }
+      await send(add())
+      await expect.poll(() => deletes().sort()).toEqual([deletion(2), deletion(3)].sort())
+      const left = await settled()
+      expect(left).not.toContain(versions[2])
+      expect(left).not.toContain(versions[3])
+
+      // A failure is asked again.
+      log.length = 0
+      failures = { match: /^DELETE releases\//, status: 500, times: 1 }
+      await send(add())
+      await expect.poll(deletes, { timeout: 5000 }).toEqual([deletion(4), deletion(4)])
+      expect(await settled()).not.toContain(versions[4])
+    } finally {
+      sqlite.close()
+    }
   })
 
   it('sends a site’s new name and its deletion', async () => {

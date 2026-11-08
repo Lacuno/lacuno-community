@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { linkFile } from '@lacuno/compiler'
@@ -30,6 +30,9 @@ type ReleaseRow = {
 }
 const conflict = (message: string) => new HTTPException(409, { message })
 const leaseMs = 30_000
+/** Ready releases a site keeps built besides the ones it publishes. */
+const kept = 10
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /** Durable release queue. SQLite claims serialize each site even with multiple API instances. */
 export class Releases extends PublicationReader {
@@ -213,6 +216,57 @@ export class Releases extends PublicationReader {
         this.activate(siteId, id, target)
       })
       .immediate()
+    void this.prune(siteId)
+  }
+
+  /**
+   * Keeps a site's published releases and its newest `kept` other ready ones. An older release
+   * leaves the history with its built files, and the export sink is told to delete its copy;
+   * folders of releases that are not ready, left by a crash, go too.
+   * Releases stay while a build is queued or running, which may copy a ready one; that build
+   * prunes when it is done.
+   */
+  async prune(siteId: string) {
+    try {
+      const older = this.sqlite
+        .prepare(
+          "SELECT id FROM releases WHERE site_id=? AND status='ready' AND id NOT IN (SELECT release_id FROM publications WHERE site_id=?) ORDER BY version DESC",
+        )
+        .pluck()
+        .all(siteId, siteId)
+        .slice(kept) as string[]
+      for (const id of older)
+        this.sqlite
+          .transaction(() => {
+            if (this.busy(siteId)) return
+            // Not one a publication or a pointer on its way to the sink still names.
+            const removable = this.sqlite
+              .prepare(
+                "SELECT 1 FROM releases WHERE id=? AND status='ready' AND id NOT IN (SELECT release_id FROM publications) AND id NOT IN (SELECT release_id FROM export_pointer)",
+              )
+              .get(id)
+            if (!removable) return
+            this.exporter?.forget(id, siteId)
+            this.sqlite.prepare('DELETE FROM releases WHERE id=?').run(id)
+          })
+          .immediate()
+      // Listed before the releases that keep theirs, so a folder made since is never one to remove.
+      const builds = path.join(this.dataDir, 'builds', siteId)
+      const folders = await readdir(builds).catch(() => [])
+      const keep = new Set(
+        this.sqlite
+          .prepare(
+            "SELECT id FROM releases WHERE site_id=? AND status IN ('queued','building','ready')",
+          )
+          .pluck()
+          .all(siteId),
+      )
+      for (const name of folders)
+        if (uuid.test(name) && !keep.has(name))
+          await rm(path.join(builds, name), { recursive: true, force: true })
+    } catch (error) {
+      if (!this.stopped) console.error('Removing old releases failed', error)
+    }
   }
 
   private activate(siteId: string, id: string, target: Target) {
@@ -288,6 +342,7 @@ export class Releases extends PublicationReader {
           if (result.changes) this.activate(job!.site_id, id, job!.target)
         })
         .immediate()
+      await this.prune(job.site_id)
     } catch (error) {
       if (!this.stopped && job)
         this.sqlite

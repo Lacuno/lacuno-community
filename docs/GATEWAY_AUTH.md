@@ -145,7 +145,11 @@ times 15 seconds, so a sink that restarts within about a minute delays the relea
 an outage beyond that, fails it and nothing goes live. Each time a release is published, restored, promoted or sent to
 testing, `PUT <export>/sites/<site>/pointer/<production|testing>` with the release id as its body
 follows from an outbox, retried with backoff until the sink answers 204. At start the runtime queues
-the current releases it has not exported yet. Every asset written to a site (an upload, an
+the current releases it has not exported yet. A runtime keeps the files of each site's published
+releases and its newest ten other ready ones; when it removes an older release it had exported,
+`DELETE <export>/sites/<site>/releases/<release>/` follows from an outbox too, retried with backoff
+until the sink answers 204, or 404 for a sink without the release or without deletions; a sink may
+refuse while it still serves that release. Every asset written to a site (an upload, an
 imported file or a new site's own) also goes up as `PUT <export>/sites/<site>/asset/<hash>` before
 the request that wrote it answers, and a failure fails that request, so a document never refers to
 an asset the sink does not keep. When a save changes the assets a site's document lists (and once

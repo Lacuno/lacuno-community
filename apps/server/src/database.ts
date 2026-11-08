@@ -208,4 +208,20 @@ export function migrateApplication(sqlite: Database.Database) {
     `)
     })
     .immediate()
+  sqlite
+    .transaction(() => {
+      if (sqlite.prepare('SELECT version FROM lacuno_migrations WHERE version = 10').get()) return
+      // Exported releases this runtime removed, for the sink to delete its copy (export.ts). They
+      // outlive the release's row, which goes with them.
+      sqlite.exec(`
+      CREATE TABLE export_deletion (
+        release_id TEXT PRIMARY KEY NOT NULL,
+        site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO lacuno_migrations (version) VALUES (10);
+    `)
+    })
+    .immediate()
 }
