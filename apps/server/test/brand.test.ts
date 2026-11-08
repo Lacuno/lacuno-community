@@ -114,7 +114,9 @@ it('shows the brand instead of Lacuno, with no AI apps, to an editor who may pub
   expect(await page.getByRole('button', { name: 'Publish', exact: true }).isVisible()).toBe(true)
   for (const control of [page.locator('.connect-trigger'), page.locator('.open-claude')])
     expect(await control.count()).toBe(0)
-  // Selecting an element offers the canvas chips, but no Ask AI.
+  // Selecting an element offers the canvas chips, but no Ask AI. The canvas takes clicks once its
+  // load, after its images, installed the selection overlay.
+  await canvas.locator('#lacuno-selection-overlay').waitFor({ state: 'attached' })
   await heading.click()
   await canvas.getByRole('button', { name: 'Spacing', exact: true }).waitFor()
   expect(await canvas.getByRole('button', { name: 'Ask AI', exact: true }).isVisible()).toBe(false)
