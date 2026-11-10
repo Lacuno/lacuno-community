@@ -53,9 +53,10 @@ Two versions of the tools that change a site, the rest the same: v2 at `/v2/mcp/
 hands out; v1 at `/mcp/<site>` and over stdio offers `document.apply` (D026), as apps connected
 before v2 expect.
 
-- **Guide.** Agents read `guide` for the document model and workflow, and its topics for how to
-  build, check and style. In v1 it hands out an operation group's schemas too; in v2 each tool
-  declares its own.
+- **Guide.** v1 only: agents read `guide` for the document model and workflow, its topics for how
+  to build, check and style, and an operation group's schemas. v2 has no guide: each tool declares
+  its own fields and says in its description what nobody could guess about it, the instructions a
+  connection opens with say how to work, and the plugin's skills hold the how-to.
 - **Reading.** `document.read`, whole or by part, `page.outline`, `node.get`, `styles.get`, `entries.list`,
   `translations.list`, plus the document schema as a resource, and in v1 the operations schema.
 - **Writing.** In v2 each document operation is a tool of its own name, taking a list of changes

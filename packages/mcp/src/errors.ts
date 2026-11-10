@@ -44,16 +44,15 @@ export function describeError(e: unknown): ToolError {
       message: e.message,
       ...(e.issues !== undefined ? { issues: e.issues } : {}),
     }
-  return {
-    kind: 'unexpected',
-    message: e instanceof Error ? e.message : String(e),
-    ...(e instanceof Error && e.stack !== undefined ? { stack: e.stack } : {}),
-  }
+  return { kind: 'unexpected', message: e instanceof Error ? e.message : String(e) }
 }
 
+/**
+ * The answer to a call that failed. An error no tool throws on purpose is logged where the server
+ * runs: its stack names the server's files, which the app that called has no use for.
+ */
 export function fail(e: unknown): CallToolResult {
-  return {
-    isError: true,
-    content: [{ type: 'text', text: JSON.stringify(describeError(e)) }],
-  }
+  const error = describeError(e)
+  if (error.kind === 'unexpected') console.error(e)
+  return { isError: true, content: [{ type: 'text', text: JSON.stringify(error) }] }
 }

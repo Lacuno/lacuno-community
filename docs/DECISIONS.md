@@ -543,9 +543,9 @@ An image sequence needs hundreds of assets, a preloader and a bigger script.
 ## D034. Analytics are the provider the owner chooses, in head code; a gateway may link its own
 
 **Decision.** Community has no analytics of its own and no editor control for them. A provider's
-snippet goes in the site's head code, whose info text names analytics; the MCP guide's `settings`
-topic tells AI apps to put the snippet of the provider the person names there, exactly as the
-provider gives it, after what is there. Behind a gateway, `LACUNO_GATEWAY_ANALYTICS` is a URL with
+snippet goes in the site's head code, whose info text names analytics; the plugin's site settings
+skill, and the `settings` topic of v1's MCP guide, tell AI apps to put the snippet of the provider
+the person names there, exactly as the provider gives it, after what is there. Behind a gateway, `LACUNO_GATEWAY_ANALYTICS` is a URL with
 one `{site}` placeholder; `/api/config` reports it as `analytics`, and the pages toolbar then shows
 an Analytics button that opens it for the site in a new tab.
 
@@ -556,7 +556,7 @@ numbers shown inside the editor.
 **Why.** Every provider's own instruction is to paste its snippet into the head, which head code
 already does, and with an AI app connected the owner need not even paste. A snippet table would
 need keeping current with other products' formats, and a field would persist what one text field
-holds. The guide names no provider and judges none: whether a configuration needs consent is the
+holds. Neither names a provider or judges one: whether a configuration needs consent is the
 owner's call. A gateway that counts visits elsewhere links to its own view the way `home` links to
 its dashboard, so the editor never learns its routes.
 
@@ -621,16 +621,21 @@ panel hands out v2's address. In v2, each operation tool's input is
 `expectedRevision`. A call is one batch through the same store: made in order, all or nothing,
 version-pinned as before; the answer names what each change created by its index. Descriptions
 come from one typed record beside the server (`packages/mcp/src/operations.ts`, so an operation
-without one fails the typecheck), annotations follow from the verb. v2 has no `document.apply`
-or `document.diff`, and its `guide` hands out no schemas, only the topics both versions share as
-notes; the HTTP route keeps mixed batches for the editor and other clients. `page.create` and `component.create` take only their root
+without one fails the typecheck), annotations follow from the verb. v2 has no `document.apply`,
+`document.diff` or `guide`: a tool's description says what nobody could guess about it (the
+motion properties on `style.set`, bindings on `node.create`), the instructions a connection opens
+with say how to work, and the how-to that v1's guide holds as topics is in the plugin's skills.
+The HTTP route keeps mixed batches for the editor and other clients. `page.create` and
+`component.create` take only their root
 element, which `node.create` fills, so the node tree's schema is declared once, and keyframes take
 their styles as CSS text, as the editor's keyframes dialog writes them. The shared parts
 of the schemas (`Binding`, `CssValue`, `RichText` and a few more) are named in Zod's registry, and
 the server lists its tools itself without the `$schema` line, Zod's safe-integer bounds,
-`additionalProperties: false` and the id pattern, which the instructions state once: about 67 KB
-(about 17,500 tokens), under a 74 KB budget test. `translation.set` and `translation.delete` are
-left to `translations.apply`.
+`additionalProperties: false` and the id pattern, which the instructions state once: about 71 KB
+under a 74 KB budget test, of which a model reads the names, descriptions and schemas, about 61 KB
+(about 16,000 tokens); the rest is each tool's title and annotations, for the app.
+`translation.set` is left to `translations.apply`, which writes many against the revision
+`translations.list` gave; `translation.delete` is a tool like the others.
 
 **Alternatives.** Keeping the single batch tool with schemas from `guide` (D026) only; one change
 per call, which took a site's fixture 78 calls instead of 12; v2 in place of v1 at the same
@@ -647,6 +652,10 @@ does is make changes of different kinds all or nothing together; each call leave
 valid, so a multi-step change is done in valid steps (a new required field: optional, filled, then
 required). The cost is the tool list, about 17,500 tokens instead of 2,000 plus the schemas
 `guide` handed out (about 10,000 for a page), which hosts with tool search load on demand.
+v2 has no guide because whatever a tool answers is text no review has read: Anthropic's directory
+refuses software that has Claude pull behavioural instructions at run time, and rejected the
+plugin on 2026-10-18 while its skills sent Claude to the guide. Descriptions, instructions and
+skills are what a review reads, so the how-to lives there.
 v1 stays because an app lists the tools afresh but what was written against them does not change:
 plugin skills, saved tool sets and scripts name `document.apply` and the guide's schema groups,
 and hosts without tool search pay far less for v1. The version is in the address because OAuth

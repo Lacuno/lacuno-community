@@ -6,6 +6,7 @@ describe('describeError', () => {
     const described = describeError(new TypeError('x'))
     expect(described.kind).toBe('unexpected')
     expect(described.message).toBe('x')
-    expect(typeof described.stack).toBe('string')
+    // The stack names the server's files: it is logged there, not sent to the app.
+    expect(described.stack).toBeUndefined()
   })
 })

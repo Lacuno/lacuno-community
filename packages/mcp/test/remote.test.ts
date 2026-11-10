@@ -31,6 +31,15 @@ describe('tools for a server without a site folder', () => {
       arguments: { name: 'x', mime: 'application/pdf', path: 'x.txt' },
     })
     expect(jsonOf(byPath)).toMatchObject({ kind: 'input' })
+    // A source is offered only where it works: no path without a site folder, no url on a
+    // server that downloads nothing.
+    const { tools } = await c.client.listTools()
+    const tool = tools.find((t) => t.name === 'asset.import')
+    expect(Object.keys(tool?.inputSchema.properties ?? {})).toEqual(
+      expect.not.arrayContaining(['path', 'url']),
+    )
+    expect(tool?.description).toContain('Pass data, base64')
+    expect(tool?.annotations?.openWorldHint).toBe(false)
   })
 
   it("hands files to the endpoint's own import: downloaded, inline or by upload address", async () => {
@@ -55,6 +64,19 @@ describe('tools for a server without a site folder', () => {
       }),
     })
     close = c.close
+    const { tools } = await c.client.listTools()
+    const tool = tools.find((t) => t.name === 'asset.import')
+    expect(Object.keys(tool?.inputSchema.properties ?? {})).toEqual([
+      'name',
+      'alt',
+      'width',
+      'height',
+      'url',
+      'data',
+    ])
+    expect(tool?.description).toContain('Pass one of: url, a public https address')
+    expect(tool?.description).not.toContain('path')
+    expect(tool?.annotations?.openWorldHint).toBe(true)
     const url = 'https://images.test/a.png'
     await c.client.callTool({ name: 'asset.import', arguments: { name: 'a.png', url, alt: 'A' } })
     await c.client.callTool({

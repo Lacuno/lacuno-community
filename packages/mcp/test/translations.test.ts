@@ -6,7 +6,7 @@ import {
   translationProgress,
 } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
-import { connect, jsonOf } from './helpers.js'
+import { connect, jsonOf, textOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -149,6 +149,14 @@ describe('translations.apply', () => {
     expect(translationProgress(doc, 'de', 'p-home')).toMatchObject({ missing: 0, outdated: 0 })
     const hero = doc.translations.de!['node:n-hero-title.text']!.value
     expect(plainText(hero)).toBe('Gestalten. Veröffentlichen. Besitzen.')
+    // translation.delete takes one back: the value is missing again.
+    const deleted = await call('translation.delete', {
+      expectedRevision: result.revision,
+      changes: [{ locale: 'de', key: 'node:n-hero-title.text' }],
+    })
+    expect(deleted.isError, textOf(deleted)).toBeFalsy()
+    expect(store.read().document.translations.de).not.toHaveProperty('node:n-hero-title.text')
+    expect(translationProgress(store.read().document, 'de', 'p-home').missing).toBe(1)
   })
 
   it('reports a stale revision and an invalid value by item index, writing nothing', async () => {

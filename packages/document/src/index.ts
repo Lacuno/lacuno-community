@@ -1,6 +1,6 @@
 export { createContext, type PlanContext, type Warning } from './context.js'
 export { defineOperation, type OperationDef } from './define.js'
-export { type PlanResult, planBatch } from './engine.js'
+export { closestIssue, type PlanResult, planBatch } from './engine.js'
 export {
   documentErrorResponse,
   OperationError,

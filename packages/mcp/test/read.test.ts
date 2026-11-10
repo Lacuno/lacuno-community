@@ -89,8 +89,8 @@ describe('read tools', () => {
     })
     expect(outline.isError).toBeFalsy()
     expect(textOf(outline).split('\n')[0]).toBe('n-home main .c-page')
-    const guide = await client.callTool({ name: 'guide', arguments: { topic: '' } })
-    expect(guide.isError).toBeFalsy()
+    const read = await client.callTool({ name: 'document.read', arguments: { parts: '' } })
+    expect(read.isError).toBeFalsy()
     // The schemas the model sees keep their types.
     const { tools } = await client.listTools()
     expect(
@@ -130,12 +130,23 @@ describe('read tools', () => {
 
   it('node.get returns a nested subtree', async () => {
     const { client } = await setup()
-    const tree = jsonOf<{ id: string; children: { id: string; children: unknown[] }[] }>(
+    const tree = jsonOf<{ id: string; children: { id: string; children: { id: string }[] }[] }>(
       await client.callTool({ name: 'node.get', arguments: { id: 'n-hero' } }),
     )
     expect(tree.id).toBe('n-hero')
     expect(tree.children[0]!.id).toBe('n-hero-inner')
     expect(tree.children[0]!.children).toHaveLength(3)
+    // depth: that many levels nested, the children below by id, as the document keeps them.
+    const shallow = jsonOf<{ children: { id: string; children: unknown[] }[] }>(
+      await client.callTool({ name: 'node.get', arguments: { id: 'n-hero', depth: 1 } }),
+    )
+    expect(shallow.children[0]!.id).toBe('n-hero-inner')
+    expect(shallow.children[0]!.children).toEqual(tree.children[0]!.children.map((c) => c.id))
+    expect(
+      jsonOf<{ children: unknown[] }>(
+        await client.callTool({ name: 'node.get', arguments: { id: 'n-hero', depth: 0 } }),
+      ).children,
+    ).toEqual(['n-hero-inner'])
     expect((await client.callTool({ name: 'node.get', arguments: { id: 'nope' } })).isError).toBe(
       true,
     )
@@ -212,6 +223,14 @@ describe('read tools', () => {
       }),
     )
     expect(entries.map((e) => e.id)).toEqual(['e-1', 'e-2'])
+    // offset: the next ones; fewer than limit is the end.
+    const rest = jsonOf<{ id: string }[]>(
+      await client.callTool({
+        name: 'entries.list',
+        arguments: { collection: 'col-posts', limit: 2, offset: 2 },
+      }),
+    )
+    expect(rest.map((e) => e.id)).toEqual(['e-3'])
     expect(
       (await client.callTool({ name: 'entries.list', arguments: { collection: 'nope' } })).isError,
     ).toBe(true)

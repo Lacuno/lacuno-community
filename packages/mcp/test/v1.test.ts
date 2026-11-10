@@ -141,7 +141,7 @@ describe('v1: document.apply', () => {
     const scripted = jsonOf<{ note?: string }>(
       await embed(plain.revision, 'n-menu', '<script>document.body.dataset.open = ""</script>'),
     )
-    expect(scripted.note).toContain('guide menu')
+    expect(scripted.note).toContain('popovertarget')
   })
 
   it('refuses asset.create and points at asset.import', async () => {
@@ -185,7 +185,6 @@ describe('v1: guide and resources', () => {
       'node.get',
       'page.outline',
       'page.preview',
-      'site.build',
       'styles.get',
       'translations.apply',
       'translations.list',

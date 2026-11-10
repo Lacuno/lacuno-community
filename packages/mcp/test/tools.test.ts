@@ -3,66 +3,47 @@ import { fixtureDocument } from '@lacuno/schema'
 import { Ajv2020 } from 'ajv/dist/2020.js'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MCP_OPERATIONS } from '../src/guide.js'
-import { connect, jsonOf, textOf } from './helpers.js'
+import { connect, jsonOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
 afterEach(async () => {
   await close?.()
 })
 
-describe('guide and resources', () => {
-  it('lists every tool, and the guide has notes only', async () => {
+describe('tools and resources', () => {
+  it('lists every tool, none of them a guide, and says how to work where every app reads it', async () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
-    const tools = (await c.client.listTools()).tools.map((t) => t.name).sort()
-    expect(tools).toEqual(
+    const { tools } = await c.client.listTools()
+    expect(tools.map((t) => t.name).sort()).toEqual(
       [
         'asset.import',
         'document.read',
         'entries.list',
-        'guide',
         'node.get',
         'page.outline',
         'page.preview',
-        'site.build',
         'styles.get',
         'translations.apply',
         'translations.list',
         ...MCP_OPERATIONS.map((o) => o.type),
       ].sort(),
     )
-    const guide = textOf(await c.client.callTool({ name: 'guide', arguments: {} }))
-    expect(guide).toContain('expectedRevision')
-    expect(guide).toContain('page.preview')
-    expect(guide).not.toContain('document.apply')
-    // The basics stay short; the how-to lives in topics.
-    expect(guide.split(/\s+/).length).toBeLessThan(450)
-    const topic = async (topic: string) =>
-      textOf(await c.client.callTool({ name: 'guide', arguments: { topic } }))
-    expect(await topic('text')).toContain('bulletList')
-    expect(await topic('text')).toContain('attrs.href')
-    expect(await topic('menu')).toContain('popovertarget')
-    expect(await topic('motion')).toContain('lc-parallax')
-    expect(await topic('motion')).toContain('data-lc-story')
-    expect(await topic('motion')).toContain('data-lc-scrub')
-    expect(await topic('motion')).toContain('-g 1')
-    expect(await topic('motion')).toContain('keyframes.create')
-    expect(await topic('translate')).toContain('translations.apply')
-    expect(await topic('translate')).toContain('glossary')
-    for (const name of ['build', 'check', 'looks', 'content', 'forms', 'settings'])
-      expect(await topic(name)).toMatch(/^## /)
-    // No topic hands out schemas, and none names a batch tool.
-    for (const name of ['build', 'check', 'looks', 'text', 'content', 'forms', 'menu', 'motion'])
-      expect(await topic(name)).not.toMatch(/document\.apply|batch/)
-    expect((await c.client.callTool({ name: 'guide', arguments: { topic: 'node' } })).isError).toBe(
-      true,
-    )
-    // Every host reads the instructions the connection opens with, skills or not.
+    // No tool answers how to work: the instructions a connection opens with say it, skills or
+    // not, and each tool's description says what nobody could guess about it.
+    expect(JSON.stringify(tools)).not.toMatch(/\bguide\b|document\.apply/)
     const instructions = c.client.getInstructions()
-    expect(instructions).toContain('translate')
-    expect(instructions).toContain('motion')
     expect(instructions).toContain('node.create')
-    expect(instructions).not.toContain('document.apply')
+    expect(instructions).toContain('prefix them by kind')
+    expect(instructions).not.toMatch(/\bguide\b|document\.apply/)
+    const described = (name: string) => tools.find((tool) => tool.name === name)?.description
+    expect(described('style.set')).toContain('--lc-entrance')
+    expect(described('style.set')).toContain('lc-parallax')
+    expect(described('node.create')).toContain('Tiptap')
+    expect(described('node.create')).toContain('A form without an action')
+    expect(described('component.create')).toContain('slot node')
+    expect(described('collection.create')).toContain('collection-list')
+    expect(described('page.create')).toContain('/404')
   })
 
   it('says in the answer that a script in an embed is not editable', async () => {
@@ -81,16 +62,17 @@ describe('guide and resources', () => {
     const scripted = jsonOf<{ note?: string }>(
       await embed(plain.revision, 'n-menu', '<script>document.body.dataset.open = ""</script>'),
     )
-    expect(scripted.note).toContain('guide menu')
+    expect(scripted.note).toContain('popovertarget')
   })
 
   it('keeps the declared tool schemas within their budget', async () => {
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
     const size = Buffer.byteLength(JSON.stringify(await c.client.listTools()), 'utf8')
-    // One tool per operation, each taking a list of changes: about 67,000 bytes (17,500 tokens)
-    // when this was set, with lean schemas (leanSchema) whose shared parts are named once
-    // (@lacuno/schema) and keyframes as CSS text.
+    // One tool per operation, each taking a list of changes: about 71,500 bytes, with lean schemas
+    // (leanSchema) whose shared parts are named once (@lacuno/schema) and keyframes as CSS text.
+    // A model reads the names, descriptions and schemas, about 61,500 of them (16,000 tokens);
+    // the titles and annotations are for the app.
     expect(size).toBeLessThan(74_000)
   })
 

@@ -39,6 +39,11 @@ describe('operation tools', () => {
       })
     expect(byName.get('node.move')?.annotations).toMatchObject({ destructiveHint: false })
     expect(byName.has('document.apply')).toBe(false)
+    // Every tool has a title, its own and as an annotation, which Claude's directory asks for.
+    for (const tool of tools) expect(tool.annotations?.title, tool.name).toBe(tool.title)
+    expect(tools.map((tool) => tool.title)).toEqual(
+      expect.arrayContaining(['Create node', 'Set design token value', 'Read document']),
+    )
     // Lean schemas: no $schema line, safe-integer bounds, id patterns or dryRun.
     const listed = JSON.stringify(tools.filter((tool) => tool.name !== 'translations.apply'))
     for (const noise of [
@@ -165,6 +170,26 @@ describe('operation tools', () => {
       expect(bad.isError).toBe(true)
       expect(textOf(bad)).toContain('changes')
     }
+    // A value no shape takes says what is wrong with the shape it came closest to.
+    const unit = await c.client.callTool({
+      name: 'style.set',
+      arguments: {
+        expectedRevision: 0,
+        changes: [
+          { class: 'c-hero', property: 'width', value: { type: 'unit', value: 3, unit: 'pt' } },
+        ],
+      },
+    })
+    expect(jsonOf<{ message: string }>(unit).message).toMatch(
+      /^changes\.0\.value\.unit: .*"px"\|"rem"/,
+    )
+    // A field the tool does not take is refused, not dropped: v1's dryRun would change the site.
+    const dry = await c.client.callTool({
+      name: 'node.delete',
+      arguments: { expectedRevision: 0, dryRun: true, changes: [{ id: 'n-hero-title' }] },
+    })
+    expect(jsonOf(dry)).toEqual({ kind: 'input', message: 'Unrecognized key: "dryRun"' })
+    expect(store.read().document.nodes['n-hero-title']).toBeDefined()
     expect(store.read().revision).toBe(0)
   })
 

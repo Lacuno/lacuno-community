@@ -1,3 +1,4 @@
+import { MOTION_PRESETS } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
 import { ClassId, KeyframeStop, NodeId, StyleDecl, Tag } from '@lacuno/schema'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
@@ -8,13 +9,19 @@ export const WITHHELD_OPERATIONS = {
   'asset.create': 'use the asset.import tool',
   // translations.apply writes one or many, against the revision translations.list gave.
   'translation.set': 'use translations.apply',
-  'translation.delete': 'use translations.apply',
 } as const
 type Offered = Exclude<Operation['type'], keyof typeof WITHHELD_OPERATIONS>
 
+/** The motion presets that play on entering too, or those that only follow the scroll. */
+export const presetNames = (scroll: boolean) =>
+  MOTION_PRESETS.filter((preset) => !!preset.scroll === scroll)
+    .map((preset) => preset.name)
+    .join(', ')
+
 /**
- * What each document operation's tool does, in a sentence or two, with what it refuses. Every
- * operation the server offers is here: one missing fails the typecheck.
+ * What each document operation's tool does, in a sentence or two, with what it refuses, and the
+ * conventions nobody could guess, since v2 has no guide to look them up in. Every operation the
+ * server offers is here: one missing fails the typecheck.
  */
 export const DESCRIPTIONS: Record<Offered, string> = {
   'site.update':
@@ -29,15 +36,15 @@ export const DESCRIPTIONS: Record<Offered, string> = {
   'redirect.remove': 'Removes the redirect from a path.',
 
   'node.create':
-    'Adds an element, text, component instance, collection list or embed under a parent node, at index (the end by default). The node takes nested children, so one call builds a whole section; give your own ids to use them in later calls. Style through classes, not inline styles.',
+    'Adds an element, text, component instance, slot, collection list, embed or language switcher under a parent node, at index (the end by default). The node takes nested children, so one call builds a whole section; give your own ids to use them in later calls. Style through classes, not inline styles. A text\'s text is a binding ({"type":"static","value":"…"} for plain text) or Tiptap-style rich text JSON. Attributes are bindings too: an img\'s src an asset, a link\'s href a page. A form without an action emails its messages to the site\'s owner once the site is published.',
   'node.update':
-    "Changes a node: its classes, tag, attributes, text (rich text JSON), rotatingWords, an embed's html, an instance's props, a collection list's collection and query, label, semantic role or meta. Only the fields given change; null removes one.",
+    "Changes a node: its classes, tag, attributes, text (rich text JSON), rotatingWords, an embed's html, an instance's props, a collection list's collection and query, a language switcher's display and label, semantic role or meta. Only the fields given change; null removes one.",
   'node.move': 'Moves a node with its children under another parent, at index.',
   'node.delete':
     'Deletes a node with its children. A page or component root cannot go; delete the page or component instead.',
 
   'page.create':
-    'Adds a page: name, path (/about, or /blog/[slug] with collection for one page per entry), optional folder, seo, lang, headCode and bodyCode, and root, its root element (a main by default), without children: fill it with node.create.',
+    'Adds a page: name, path (/about, /404 for the not-found page, or /blog/[slug] with collection for one page per entry), optional folder, seo, lang, headCode and bodyCode, and root, its root element (a main by default), without children: fill it with node.create.',
   'page.update':
     "Changes a page's name, path, folder, collection, seo (title, description, ogImage, noindex, titleTemplate, entry and fields), lang, headCode, bodyCode or order. Only the fields given change; null clears one.",
   'page.delete':
@@ -50,8 +57,7 @@ export const DESCRIPTIONS: Record<Offered, string> = {
     'Adds a class to style nodes with: a name, or local for an unnamed per-node style. preset makes a standalone named class the editor offers; combo lists classes it builds on; locked keeps people from changing it in the editor.',
   'class.update': 'Renames a class or changes its combo parents or whether it is locked.',
   'class.delete': 'Deletes a class with its styles. Refused while a node uses it.',
-  'style.set':
-    "Sets one CSS property of a class, as a typed value (color, length, keyword, designToken, gradient, raw and others), at a breakpoint (base by default) and state (none by default: hover, focus, open, target, before…). of names a parent's class whose state it follows (hover, focus-within, open, target), as in .card:hover .photo. tag styles that tag inside the class's rich text.",
+  'style.set': `Sets one CSS property of a class, as a typed value (unit for a length or number, keyword, color, designToken, gradient, raw and others), at a breakpoint (base by default: the desktop, which smaller ones override) and state (none by default: hover, focus, open, target, before…). of names a parent's class whose state it follows (hover, focus-within, open, target), as in .card:hover .photo. tag styles that tag inside the class's rich text. Motion is a custom property with a raw value: --lc-entrance plays once when the element scrolls into view, --lc-scroll follows the scrollbar, each naming a preset (${presetNames(false)}; for --lc-scroll also ${presetNames(true)}) or custom keyframes; --lc-duration, --lc-delay and --lc-easing time an entrance.`,
   'style.clear': 'Removes one CSS property of a class at a breakpoint, state, of and tag.',
   'breakpoint.create':
     'Adds a breakpoint, a width where styles change: a label and a maxWidth (smaller screens) or minWidth.',
@@ -59,7 +65,7 @@ export const DESCRIPTIONS: Record<Offered, string> = {
   'breakpoint.delete': 'Deletes a breakpoint. Refused for the base and while styles are set at it.',
 
   'designToken.create':
-    'Adds a design token, a named value styles use and the editor offers: name like color.primary, group (color, space, size, font, radius, shadow…), values by mode (one for the default mode is required), and a description.',
+    'Adds a design token, a named value styles use and the editor offers: name like color.primary, group (color, spacing, size, typography, radius, shadow…), values by mode (one for the default mode is required), and a description.',
   'designToken.update': 'Renames a design token or changes its group or description.',
   'designToken.setValue': "Sets a design token's value in one mode.",
   'designToken.clearValue':
@@ -71,7 +77,7 @@ export const DESCRIPTIONS: Record<Offered, string> = {
   'keyframes.delete': 'Deletes custom keyframes. Refused while a style names them.',
 
   'component.create':
-    'Adds a reusable component: a name, props (text, image, link and others) instances fill in, a description, and root, its root element (a div by default), without children: fill it with node.create. To make one from nodes already on a page, use component.extract. Instances are component nodes made with node.create.',
+    'Adds a reusable component: a name, props (text, image, link and others) instances fill in, a description, and root, its root element (a div by default), without children: fill it with node.create. To make one from nodes already on a page, use component.extract. Instances are component nodes made with node.create. Inside it, a prop binding ({"type":"prop","prop":"<name>"}) shows a prop, and a slot node takes an instance\'s children.',
   'component.update': "Changes a component's name, props or description.",
   'component.delete': 'Deletes a component. Refused while an instance of it is on a page.',
   'component.extract':
@@ -80,8 +86,8 @@ export const DESCRIPTIONS: Record<Offered, string> = {
     'Undoes component.extract: puts the nodes back in place of the instance and deletes the component. Only for the unchanged instance extraction made, while the component has no other instances.',
 
   'collection.create':
-    'Adds a CMS collection: name, slug, fields (id, name, label, type: text, slug, richtext, number, boolean, date, image, file, color, link, option, reference or multi-reference) and slugField, the slug field that gives each entry its address.',
-  'collection.update': "Changes a collection's name, slug or slugField.",
+    'Adds a CMS collection: name, slug, fields (id, name, label, type: text, slug, richtext, number, boolean, date, image, file, color, link, option, reference or multi-reference) and slugField, the name of the slug field that gives each entry its address. A collection-list node, or a page with a collection, shows the entries; inside those, a field binding ({"type":"field","field":"<fieldId>"}) shows an entry\'s field.',
+  'collection.update': "Changes a collection's name, slug or slugField (a field id).",
   'collection.delete':
     'Deletes a collection with its entries. Refused while a page or list uses it.',
   'field.add':
@@ -106,6 +112,8 @@ export const DESCRIPTIONS: Record<Offered, string> = {
   'locale.remove': 'Removes a translated language with its translations.',
   'locale.reorder':
     "Puts the site's languages in this order of codes; the first is the primary language.",
+  'translation.delete':
+    "Deletes a value's translation in a language, by its key from translations.list. The language shows the primary language's value again, and the value counts as missing.",
   'glossary.set':
     'Replaces the glossary: terms with their translation per language, or none to keep a term as it is.',
 }

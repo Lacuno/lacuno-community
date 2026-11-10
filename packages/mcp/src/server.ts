@@ -5,6 +5,7 @@ import {
   type ApplyResult,
   applyPatches,
   type Batch,
+  closestIssue,
   type DocumentStore,
   type Operation,
   referencesToAssets,
@@ -41,7 +42,6 @@ import {
   operationGroups,
   TOPICS,
   V1_OPERATIONS,
-  V1_TOPICS,
   type Version,
 } from './guide.js'
 import { ADAPTED, annotationsOf, DESCRIPTIONS } from './operations.js'
@@ -256,6 +256,34 @@ function loosen(field: z.ZodType): z.ZodType {
   )
 }
 
+/**
+ * Why an input was refused: what is wrong and where, as `changes.0.value.unit: Invalid option…`.
+ * For a value no shape of a union takes, the issue of the shape that came closest, as the
+ * operations name it. The first five say enough: a mistake made once is often made throughout.
+ */
+const refusal = ({ issues }: z.ZodError) =>
+  new InputError(
+    issues
+      .slice(0, 5)
+      .map((issue) => closestIssue(issue) ?? issue)
+      .map(({ path, message }) => (path.length ? `${path.join('.')}: ${message}` : message))
+      .concat(issues.length > 5 ? [`and ${issues.length - 5} more`] : [])
+      .join('\n'),
+  )
+
+/**
+ * A tool's name for people, as apps list it beside its permission: the verb first, so node.create
+ * is "Create node" and designToken.setValue "Set design token value".
+ */
+export function titleOf(name: string): string {
+  const [thing = '', verb = ''] = name
+    .split('.')
+    .map((part) => part.replace(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`))
+  const [does, ...rest] = verb.split(' ')
+  const title = [does, thing, ...rest].filter(Boolean).join(' ')
+  return title.charAt(0).toUpperCase() + title.slice(1)
+}
+
 /** Whether changes put a script in an embed's html; a head's code is edited in the settings. */
 const embedsScript = (value: unknown): boolean =>
   typeof value === 'object' &&
@@ -270,7 +298,7 @@ const withScriptNote = (input: unknown, applied: object) =>
   embedsScript(input)
     ? {
         ...applied,
-        note: 'A script in an embed cannot be edited in the editor. Build it with nodes if you can: a mobile menu needs none (guide menu).',
+        note: 'A script in an embed cannot be edited in the editor. Build it with nodes if you can: a mobile menu needs none, since a button whose popovertarget is the id of a nav with popover opens it.',
       }
     : applied
 
@@ -281,25 +309,34 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     { instructions: INSTRUCTIONS[version] },
   )
   const register = server.registerTool.bind(server)
-  // The tools as hosts list them, in the order registered, with their schemas made here (leanSchema).
+  // The tools as hosts list them, in the order registered, with their schemas made here
+  // (leanSchema) and a title, as the tool's own and as an annotation: hosts read either.
   const listed: Tool[] = []
   server.registerTool = ((name, config, callback) => {
+    const title = config.title ?? titleOf(name)
+    // A tool's fields, or an object of them: a strict one refuses a field it does not take.
+    const fields = config.inputSchema as z.ZodRawShape | z.ZodObject | undefined
+    const shape = fields instanceof z.ZodObject ? fields.shape : fields
     listed.push({
       name,
+      title,
       description: config.description,
-      inputSchema: leanSchema(config.inputSchema as z.ZodRawShape | undefined),
-      annotations: config.annotations,
+      inputSchema: leanSchema(shape),
+      annotations: { title, ...config.annotations },
       ...(config._meta && { _meta: config._meta }),
     })
+    if (!shape) return register(name, config, callback)
+    // The input is checked here, not by the SDK, which answers a value no shape of a union takes
+    // with "Invalid input at changes[0].value": this names what is wrong (refusal).
+    const input = (fields instanceof z.ZodObject ? fields : z.object(shape)).extend(lenient(shape))
+    const run = callback as (input: unknown, extra: unknown) => unknown
     return register(
       name,
-      config.inputSchema
-        ? {
-            ...config,
-            inputSchema: lenient(config.inputSchema as z.ZodRawShape) as typeof config.inputSchema,
-          }
-        : config,
-      callback,
+      { ...config, inputSchema: z.unknown() } as never,
+      ((given: unknown, extra: unknown) => {
+        const parsed = input.safeParse(given ?? {})
+        return parsed.success ? run(parsed.data, extra) : fail(refusal(parsed.error))
+      }) as never,
     )
   }) as typeof server.registerTool
   let buildQueue: Promise<unknown> = Promise.resolve()
@@ -309,15 +346,13 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       'guide',
       {
         annotations: reads,
-        description: `Reference, changes nothing. No group: the basics. A topic (${Object.keys(V1_TOPICS).join(', ')}): notes on it. An operation group (${operationGroups().join(', ')}): the exact schemas of the ${V1_OPERATIONS.length} operations document.apply takes.`,
+        description: `Reference, changes nothing. No group: the basics. A topic (${Object.keys(TOPICS).join(', ')}): notes on it. An operation group (${operationGroups().join(', ')}): the exact schemas of the ${V1_OPERATIONS.length} operations document.apply takes.`,
         inputSchema: { group: z.string().optional() },
       },
       async ({ group }) => {
         try {
           return text(
-            group === undefined
-              ? `${GUIDE_INTRO[1]}${index()}`
-              : (V1_TOPICS[group] ?? catalog(group)),
+            group === undefined ? `${GUIDE_INTRO}${index()}` : (TOPICS[group] ?? catalog(group)),
           )
         } catch (e) {
           return fail(e)
@@ -328,6 +363,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     server.registerTool(
       'document.apply',
       {
+        title: 'Apply changes',
         annotations: {
           readOnlyHint: false,
           destructiveHint: true,
@@ -367,18 +403,10 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       },
     )
   } else {
-    server.registerTool(
-      'guide',
-      {
-        annotations: reads,
-        description: `Notes to read, changes nothing. No topic: the basics. A topic (${Object.keys(TOPICS).join(', ')}): how to do it well.`,
-        inputSchema: { topic: z.enum(Object.keys(TOPICS) as [string, ...string[]]).optional() },
-      },
-      async ({ topic }) => text(topic === undefined ? GUIDE_INTRO[2] : (TOPICS[topic] as string)),
-    )
-
-    // Every document operation is a tool of its own name, taking one or more changes of its kind:
-    // made in order, all or nothing, at the revision the caller last saw.
+    // No guide: what a tool needs is in its description, so nothing an app reads on how to work
+    // comes from a tool's answer. Every document operation is a tool of its own name, taking one
+    // or more changes of its kind: made in order, all or nothing, at the revision the caller last
+    // saw.
     for (const operation of MCP_OPERATIONS) {
       const { type, ...fields } = (operation.schema as z.ZodObject).shape
       const adapted = ADAPTED[operation.type]
@@ -387,10 +415,12 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         {
           annotations: annotationsOf(operation.type),
           description: DESCRIPTIONS[operation.type as keyof typeof DESCRIPTIONS],
-          inputSchema: {
+          // Strict, so a field these tools do not take is refused: left to be dropped in
+          // silence, a dryRun, which v1 had, changed the site.
+          inputSchema: z.strictObject({
             expectedRevision: z.number().int().nonnegative(),
             changes: z.array(z.strictObject({ ...fields, ...adapted?.fields })).min(1),
-          },
+          }),
         },
         async ({ expectedRevision, changes }) => {
           try {
@@ -565,34 +595,41 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     width: z.number().int().positive().optional(),
     height: z.number().int().positive().optional(),
   }
+  const { fetchUrl, siteDir, uploadUrl } = options
+  // Where a file can come from, each offered where it works: a download where the server reaches
+  // the internet, a path where it has a site folder, inline bytes anywhere.
+  const sources = {
+    ...(fetchUrl && { url: 'a public https address the server downloads' }),
+    ...(siteDir && { path: 'relative to the site folder and inside it' }),
+    data: 'base64 (small files only: every byte costs tokens)',
+  }
+  const said = Object.entries(sources).map(([name, what]) => `${name}, ${what}`)
   server.registerTool(
     'asset.import',
     {
-      annotations: { ...adds, openWorldHint: true },
-      description:
-        'Import a file and return the asset reference with the revision it made. Pass one of: url, a public https address the server downloads; path, relative to the site folder and inside it; data, base64 (small files only: every byte costs tokens). For a local file on a connected site, use asset.upload instead.',
+      annotations: { ...adds, openWorldHint: !!fetchUrl },
+      description: `Import a file and return the asset reference with the revision it made. Pass ${said.length > 1 ? 'one of: ' : ''}${said.join('; ')}.${uploadUrl ? ' For a file on your machine, use asset.upload instead.' : ''}`,
       inputSchema: {
         ...details,
         // A server types what it imports by its bytes; only a site folder takes a mime.
         ...(options.importAsset ? {} : { mime: AssetMime.optional() }),
-        url: z.string().optional(),
-        path: z.string().optional(),
+        ...(fetchUrl ? { url: z.string().optional() } : {}),
+        ...(siteDir ? { path: z.string().optional() } : {}),
         data: z.string().optional(),
       },
     },
     async ({ mime, url, path: file, data, ...asset }) => {
       try {
         if ([url, file, data].filter((source) => source !== undefined).length !== 1)
-          throw new InputError('pass exactly one of url, path or data')
-        let bytes: Uint8Array
-        if (url !== undefined) {
-          if (!options.fetchUrl) throw new InputError('this server does not download addresses')
-          bytes = await options.fetchUrl(url)
-        } else if (file !== undefined) {
-          bytes = new Uint8Array(await readFile(await insideSite(options.siteDir, file)))
-        } else {
-          bytes = new Uint8Array(Buffer.from(data as string, 'base64'))
-        }
+          throw new InputError(`pass exactly one of ${Object.keys(sources).join(', ')}`)
+        const bytes =
+          url !== undefined && fetchUrl
+            ? await fetchUrl(url)
+            : new Uint8Array(
+                file !== undefined
+                  ? await readFile(await insideSite(siteDir, file))
+                  : Buffer.from(data as string, 'base64'),
+              )
         if (options.importAsset) return ok(await options.importAsset({ ...asset, bytes }))
         if (mime === undefined) throw new InputError("pass the file's mime type")
         if (bytes.byteLength > 20 * 1024 * 1024) throw new InputError('asset larger than 20 MB')
@@ -606,7 +643,6 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     },
   )
 
-  const { uploadUrl } = options
   if (uploadUrl)
     server.registerTool(
       'asset.upload',
@@ -647,7 +683,9 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         }
       },
     )
-  else
+  // A build needs the site's folder: a server without one, where the app may not publish, has
+  // neither tool.
+  else if (siteDir)
     server.registerTool(
       'site.build',
       {
@@ -658,10 +696,9 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
       },
       async ({ siteUrl }) => {
         const run = buildQueue.then(async () => {
-          if (!options.siteDir) throw new InputError('this server has no site folder to build')
           // Loaded on first use: Astro is most of a server's start-up otherwise.
           const { build } = await import('@lacuno/compiler/build')
-          return build(options.siteDir, {
+          return build(siteDir, {
             quiet: true,
             ...(siteUrl !== undefined ? { siteUrl } : {}),
           })
@@ -898,6 +935,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     server.registerTool(
       'editor.session',
       {
+        title: 'Editor session',
         annotations: adds,
         description:
           "A short-lived token for the Lacuno editor embedded in a view, with the runtime's origin. For the editor view only.",
@@ -936,6 +974,7 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     server.registerTool(
       'editor.selection',
       {
+        title: 'Editor selection',
         annotations: reads,
         description:
           'What the person has selected in the Lacuno editor open in this chat: the page and the element. Call it before editing whenever they say this, here, the selected element or this page, and work on what it names.',
@@ -980,17 +1019,18 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     'node.get',
     {
       annotations: reads,
-      description: 'One node and its subtree as a nested tree.',
-      inputSchema: { id: z.string() },
+      description:
+        'One node and its subtree as a nested tree. depth: how many levels of children come nested; deeper ones are listed by id.',
+      inputSchema: { id: z.string(), depth: z.number().int().nonnegative().optional() },
     },
-    async ({ id }) => {
+    async ({ id, depth = Number.POSITIVE_INFINITY }) => {
       const d = store.read().document
       if (!d.nodes[id]) return fail(new InputError(`unknown node ${id}`))
-      const tree = (nid: string): unknown => {
+      const tree = (nid: string, level: number): unknown => {
         const n = d.nodes[nid] as Node
-        return { ...n, children: n.children.map(tree) }
+        return level < depth ? { ...n, children: n.children.map((c) => tree(c, level + 1)) } : n
       }
-      return ok(tree(id))
+      return ok(tree(id, 0))
     },
   )
 
@@ -1039,14 +1079,18 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
     {
       annotations: reads,
       description:
-        'Entries of a collection in order. Each lists `usedBy`, the places that reference it (empty when unused, so entry.delete can remove it).',
-      inputSchema: { collection: z.string(), limit: z.number().int().positive().optional() },
+        'Entries of a collection in order: all, or limit of them from offset, so fewer than limit is the end. Each lists `usedBy`, the places that reference it (empty when unused, so entry.delete can remove it).',
+      inputSchema: {
+        collection: z.string(),
+        limit: z.number().int().positive().optional(),
+        offset: z.number().int().nonnegative().optional(),
+      },
     },
-    async ({ collection, limit }) => {
+    async ({ collection, limit, offset = 0 }) => {
       const d = store.read().document
       if (!d.collections[collection])
         return fail(new InputError(`unknown collection ${collection}`))
-      const entries = (d.entries[collection] ?? []).slice(0, limit)
+      const entries = (d.entries[collection] ?? []).slice(offset, limit && offset + limit)
       return ok(
         entries.map((entry) => ({
           ...entry,
@@ -1095,8 +1139,8 @@ export function createServer(store: DocumentStore, options: ServerOptions = {}):
         ],
       }),
     )
-  // Replaces the SDK's own listing, whose schemas it makes without options; it still checks each
-  // call's input against the tool's schema.
+  // Replaces the SDK's own listing, whose schemas it makes without options; each call's input is
+  // checked against the tool's schema where the tool is registered, above.
   server.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: listed }))
   return server
 }

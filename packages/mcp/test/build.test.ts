@@ -45,6 +45,11 @@ describe('asset.import and site.build', () => {
     const store = await createFolder(dir, 'Site')
     const c = await connect(store, { siteDir: dir })
     close = c.close
+    // A site folder takes a path and a mime, and downloads nothing.
+    const { tools } = await c.client.listTools()
+    const offered = tools.find((t) => t.name === 'asset.import')?.inputSchema.properties ?? {}
+    expect(Object.keys(offered)).toEqual(expect.arrayContaining(['path', 'mime', 'data']))
+    expect(offered).not.toHaveProperty('url')
     const file = path.join(dir, 'note.txt')
     await writeFile(file, 'hello')
     const a = jsonOf<{ id: string; hash: string; kind: string }>(
@@ -84,13 +89,12 @@ describe('asset.import and site.build', () => {
     expect(existsSync(path.join(built.outDir, 'index.html'))).toBe(true)
   })
 
-  it('site.build fails with kind input on an in-memory store', async () => {
+  it('offers site.build only with a site folder to build', async () => {
     const { fixtureDocument } = await import('@lacuno/schema')
     const c = await connect(DocumentStore.inMemory(fixtureDocument()))
     close = c.close
-    expect(jsonOf(await c.client.callTool({ name: 'site.build', arguments: {} }))).toMatchObject({
-      kind: 'input',
-    })
+    const tools = (await c.client.listTools()).tools.map((tool) => tool.name)
+    expect(tools).not.toContain('site.build')
   })
 
   it('serializes overlapping site.build calls so they never run concurrently', async () => {

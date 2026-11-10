@@ -1,6 +1,7 @@
 import { DocumentStore } from '@lacuno/document'
 import { fixtureDocument, fixtureTwoLanguageDocument } from '@lacuno/schema'
 import { afterEach, describe, expect, it } from 'vitest'
+import { TOPICS } from '../src/guide.js'
 import { applyChanges, connect, jsonOf, textOf } from './helpers.js'
 
 let close: (() => Promise<void>) | undefined
@@ -46,10 +47,9 @@ describe('page.preview', () => {
 
   it('publishes tag rules, a field inside text and the title template set through their tools', async () => {
     const client = await setup()
-    const guide = async (group: string) =>
-      textOf(await client.callTool({ name: 'guide', arguments: { topic: group } }))
-    expect(await guide('text')).toContain('"tag":"a"')
-    expect(await guide('settings')).toContain('titleTemplate')
+    // What v1's guide shows in its topics works through v2's tools too.
+    expect(TOPICS.text).toContain('"tag":"a"')
+    expect(TOPICS.settings).toContain('titleTemplate')
     const applied = await applyChanges(client, 0, [
       {
         type: 'style.set',
@@ -92,11 +92,9 @@ describe('page.preview', () => {
 
   it('publishes a gradient headline and rotating words set through their tools', async () => {
     const client = await setup()
-    const looks = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'looks' } }))
-    expect(looks).toContain('"type":"gradient"')
-    const text = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'text' } }))
-    expect(text).toContain('rotatingWords')
-    expect(text).toContain('pen-tool')
+    expect(TOPICS.looks).toContain('"type":"gradient"')
+    expect(TOPICS.text).toContain('rotatingWords')
+    expect(TOPICS.text).toContain('pen-tool')
     const applied = await applyChanges(client, 0, [
       {
         type: 'style.set',
@@ -156,8 +154,7 @@ describe('page.preview', () => {
 
   it("publishes the guide's table example and refuses a malformed table", async () => {
     const client = await setup()
-    const guide = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'text' } }))
-    const table = JSON.parse(guide.match(/`(\{"type":"table"[^`]+)`/)![1]!)
+    const table = JSON.parse((TOPICS.text as string).match(/`(\{"type":"table"[^`]+)`/)![1]!)
     const apply = (expectedRevision: number, content: object[]) =>
       applyChanges(client, expectedRevision, [
         { type: 'node.update', id: 'n-hero-title', tag: 'div', text: { type: 'doc', content } },
@@ -196,8 +193,7 @@ describe('page.preview', () => {
 
   it('publishes a radial glow from the top and refuses a centre on a linear gradient', async () => {
     const client = await setup()
-    const guide = textOf(await client.callTool({ name: 'guide', arguments: { topic: 'looks' } }))
-    expect(guide).toContain('"kind":"radial","at":{"x":50,"y":0}')
+    expect(TOPICS.looks).toContain('"kind":"radial","at":{"x":50,"y":0}')
     const stops = [
       { color: { type: 'color', value: '#ece4ff' }, position: 0 },
       { color: { type: 'color', value: '#ffffff' }, position: 75 },
