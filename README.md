@@ -1,6 +1,8 @@
 # Lacuno
 
 **A visual website builder that publishes static sites, works with the AI apps you already use, and
+
+[![Lacuno on StartupScores](https://startupscores.com/badge/lacuno.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/lacuno)
 runs on your own server.**
 
 [![The one-minute demo: a site edited by hand, then by Claude inside the same editor](docs/demo.jpg)](https://www.youtube.com/watch?v=OUUE8V8SKtY)
