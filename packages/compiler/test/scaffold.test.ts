@@ -41,6 +41,7 @@ describe('writeScaffold', () => {
       doc,
       css: 'body{}',
       tokens: [],
+      themes: [],
       astroDir: fake,
       compilerDir: fake,
     })
@@ -73,6 +74,7 @@ describe('writeScaffold', () => {
       doc,
       css: '',
       tokens: [],
+      themes: [],
       astroDir: fake,
       compilerDir: fake,
     })
@@ -84,6 +86,7 @@ describe('writeScaffold', () => {
       doc,
       css: '',
       tokens: [],
+      themes: [],
       astroDir: fake,
       compilerDir: fake,
     })
@@ -116,7 +119,16 @@ describe('writeScaffold', () => {
     const fake = await tmp()
     const root = path.join(siteDir, '.lacuno', 'astro')
     await expect(
-      writeScaffold({ root, siteDir, doc, css: '', tokens: [], astroDir: fake, compilerDir: fake }),
+      writeScaffold({
+        root,
+        siteDir,
+        doc,
+        css: '',
+        tokens: [],
+        themes: [],
+        astroDir: fake,
+        compilerDir: fake,
+      }),
     ).rejects.toMatchObject({ kind: 'render', message: expect.stringContaining('a-pdf') })
     delete doc.assets['a-pdf']
     await writeScaffold({
@@ -125,6 +137,7 @@ describe('writeScaffold', () => {
       doc,
       css: '',
       tokens: [],
+      themes: [],
       astroDir: fake,
       compilerDir: fake,
     })

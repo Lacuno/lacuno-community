@@ -236,6 +236,90 @@
   gap: 6px;
   margin-bottom: 18px;
 }
+/* The theme switch above the colours: a chip per theme, and the chosen theme's actions. */
+.themes-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: 34px;
+  margin: 0 0 18px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+form.themes-bar {
+  justify-content: flex-start;
+  gap: 8px;
+}
+.themes-bar input {
+  width: 240px;
+  padding: 7px 10px;
+}
+.themes-bar button {
+  width: auto;
+  min-height: 0;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+.themes-bar .quiet {
+  border-color: transparent;
+  background: none;
+  color: var(--muted);
+}
+.themes-bar .quiet:hover:not(:disabled) {
+  background: #f3f1f8;
+  color: inherit;
+}
+.themes-bar .quiet.danger:hover:not(:disabled) {
+  background: #fdf0f1;
+  color: #b42332;
+}
+.theme-chips,
+.theme-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.theme-actions {
+  gap: 2px;
+}
+.themes-bar .theme-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 8px;
+  border-radius: 999px;
+}
+.theme-chip[aria-pressed="true"] {
+  background: #f0edf9;
+  border-color: #c2b5ee;
+}
+.themes-bar .theme-chip.new {
+  padding-left: 12px;
+  border-style: dashed;
+  color: var(--accent);
+}
+.theme-chip.new::before {
+  /* Decoration: the empty alternative keeps it out of the button's name. */
+  content: "+" / "";
+  margin-right: -2px;
+}
+/* A theme's first colours, as overlapping dots. */
+.theme-dots {
+  display: inline-flex;
+  padding-left: 5px;
+}
+.theme-dots span {
+  width: 14px;
+  height: 14px;
+  margin-left: -5px;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1.5px #fff,
+    inset 0 0 0 1px #0000001f;
+}
 .token-groups [aria-pressed="true"] {
   background: #f0edf9;
   border-color: #c2b5ee;

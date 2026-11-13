@@ -158,6 +158,20 @@ describe('generateStylesheet', () => {
     expect(dark).toContain('--color-brand-hover:')
   })
 
+  it('lists the other modes as colour themes; one without media and selector adds no CSS', () => {
+    const doc = fixtureDocument()
+    const before = generateStylesheet(doc).css
+    doc.site.modes.push({ id: 'sage', label: 'Sage' }, { id: 'empty', label: 'Empty' })
+    doc.designTokens['t-bg']!.values.sage = { type: 'color', value: '#f8f7f2' }
+    // Not a colour, so not part of a theme.
+    doc.designTokens['t-font-body']!.values.sage = { type: 'raw', value: 'Georgia, serif' }
+    doc.designTokens['t-font-body']!.values.empty = { type: 'raw', value: 'Georgia, serif' }
+    const { css, themes } = generateStylesheet(doc)
+    expect(css).toBe(before)
+    expect(themes.map((theme) => theme.id)).toEqual(['dark', 'sage'])
+    expect(themes[1]).toEqual({ id: 'sage', label: 'Sage', tokens: { '--color-bg': '#f8f7f2' } })
+  })
+
   it('orders breakpoints desktop-first and puts combos after their parents', () => {
     const { css } = generateStylesheet(fixtureDocument(), { reset: false })
     const base = css.indexOf('.hero {')

@@ -1,7 +1,17 @@
 import { DocumentStore, type Operation } from '@lacuno/document'
 import { fixtureDocument, styleKey } from '@lacuno/schema'
 import { expect, it } from 'vitest'
-import { colorLabel, colorPreview, colorTokenName, defaultMode, pickerHex } from '../src/colors.js'
+import {
+  applyTheme,
+  colorLabel,
+  colorPreview,
+  colorTokenName,
+  defaultMode,
+  deleteTheme,
+  pickerHex,
+  themeColors,
+  themes,
+} from '../src/colors.js'
 import { commit } from './helpers.js'
 
 it('round-trips classes, color variants and shared typed references in one saved batch', async () => {
@@ -108,4 +118,25 @@ it('normalizes labels, rejects duplicate CSS names, and coerces picker values', 
   expect(pickerHex('#123456ff', '#6952d9')).toBe('#123456')
   expect(pickerHex('rgb(105, 82, 217)', '#000000')).toBe('#6952d9')
   expect(pickerHex('rebeccapurple', '#000000')).toBe('#000000')
+})
+
+it('a theme is a mode beside the default: its colours preview, apply to the site and delete', async () => {
+  const doc = fixtureDocument()
+  expect(themes(doc).map((mode) => mode.id)).toEqual(['dark'])
+  expect(themeColors(doc, 'light')).toEqual({})
+  // Only the colours the theme sets, with aliases resolved.
+  expect(themeColors(doc, 'dark')).toMatchObject({ '--color-fg': '#eee', '--color-bg': '#111' })
+  expect(themeColors(doc, 'dark')).not.toHaveProperty('--color-brand')
+
+  const store = DocumentStore.inMemory(doc)
+  await commit(store, applyTheme(doc, 'dark'))
+  expect(store.read().document.designTokens['t-fg']!.values).toEqual({
+    light: { type: 'color', value: '#eee' },
+    dark: { type: 'color', value: '#eee' },
+  })
+  await commit(store, deleteTheme(store.read().document, 'dark'))
+  expect(store.read().document.site.modes.map((mode) => mode.id)).toEqual(['light'])
+  expect(store.read().document.designTokens['t-fg']!.values).toEqual({
+    light: { type: 'color', value: '#eee' },
+  })
 })

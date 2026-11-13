@@ -197,6 +197,8 @@ describe('publishing', () => {
     expect(tokens.headers.get('content-type')).toBe('application/json')
     expect(tokens.headers.get('cache-control')).toBe('no-cache')
     expect(Array.isArray(await tokens.json())).toBe(true)
+    // The site's colour themes: none in the template.
+    expect(await (await live('/_lacuno/themes.json')).json()).toEqual([])
     // Ranges, so a browser can seek a video.
     const whole = new Uint8Array(await (await live(assetPath)).arrayBuffer())
     const part = await live(assetPath, { headers: { range: 'bytes=2-5' } })

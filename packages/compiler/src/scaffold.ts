@@ -1,6 +1,6 @@
 import { copyFile, link as hardLink, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { CompiledToken } from '@lacuno/css'
+import type { CompiledTheme, CompiledToken } from '@lacuno/css'
 import type { CssValue, Document } from '@lacuno/schema'
 import { assetFileName, isImage } from './assets.js'
 import { BuildError } from './errors.js'
@@ -13,6 +13,8 @@ export type ScaffoldInput = {
   css: string
   /** The default mode's design tokens, published as `/_lacuno/tokens.json`. */
   tokens: CompiledToken[]
+  /** The site's colour themes, published as `/_lacuno/themes.json`. */
+  themes: CompiledTheme[]
   /** Installed `astro` package directory, linked as `node_modules/astro`. */
   astroDir: string
   /** The compiler package directory, linked as `node_modules/@lacuno/compiler`. */
@@ -143,6 +145,7 @@ export async function writeScaffold(input: ScaffoldInput): Promise<void> {
   )
   await writeFile(path.join(root, 'public/robots.txt'), robots(doc.site.url))
   await writeFile(path.join(root, 'public/_lacuno/tokens.json'), JSON.stringify(input.tokens))
+  await writeFile(path.join(root, 'public/_lacuno/themes.json'), JSON.stringify(input.themes))
 
   const inCss = cssImageAssets(doc)
   for (const asset of Object.values(doc.assets)) {

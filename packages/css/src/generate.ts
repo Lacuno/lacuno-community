@@ -38,11 +38,16 @@ export type CompiledToken = {
   value: string
 }
 
+/** A mode other than the default as a colour theme: the colours it sets, by CSS name. */
+export type CompiledTheme = { id: string; label: string; tokens: Record<string, string> }
+
 export type Stylesheet = {
   css: string
   classNames: ClassNames
   /** The `:root` design tokens, those of the default mode. */
   tokens: CompiledToken[]
+  /** The other modes that set a colour, in the site's order. */
+  themes: CompiledTheme[]
 }
 
 const STATE_ORDER = StateSchema.options
@@ -225,7 +230,14 @@ export function generateStylesheet(doc: Document, options: GenerateOptions = {})
   const words = wordsCss(doc)
   if (words) sections.push(words)
   if (hasTable(doc)) sections.push(TABLE_CSS)
-  return { css: `${sections.join('\n\n')}\n`, classNames: names, tokens }
+  const themes = doc.site.modes.flatMap((mode) => {
+    const colors =
+      mode === def ? [] : modeTokens(doc, mode.id, ctx).filter((t) => t.group === 'color')
+    if (!colors.length) return []
+    const values = Object.fromEntries(colors.map((t) => [t.cssName, t.value]))
+    return [{ id: mode.id, label: mode.label, tokens: values }]
+  })
+  return { css: `${sections.join('\n\n')}\n`, classNames: names, tokens, themes }
 }
 
 /** A stylesheet inlined in HTML: `<` becomes the CSS escape `\3c ` so it cannot close the element. */

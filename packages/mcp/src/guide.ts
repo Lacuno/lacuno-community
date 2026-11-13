@@ -120,7 +120,7 @@ After each section or page:
 - A style can follow a parent's state: \`of\` is the parent's class, \`state\` its hover, focus-within, open or target. An accordion icon that turns: the icon's class, state open, of the details' class, rotate 45deg. A menu button's bars: of the element holding the button and the popover nav.
 - Hover styles apply where a pointer can hover, never on a touch screen.
 - Published CSS gets the vendor prefixes it needs. Set a -webkit- property only where no standard one exists, such as -webkit-font-smoothing or -webkit-line-clamp.
-- Tokens have a value per mode (light, dark) and become CSS variables, \`color.brand\` as \`--color-brand\`. Use them for colours, spacing, radii and fonts. mode.create with \`media\` (\`(prefers-color-scheme: dark)\`) or \`selector\` switches a mode's values on.
+- Tokens have a value per mode (light, dark) and become CSS variables, \`color.brand\` as \`--color-brand\`. Use them for colours, spacing, radii and fonts. mode.create with \`media\` (\`(prefers-color-scheme: dark)\`) or \`selector\` switches a mode's values on. A mode with neither is a colour theme: the person chooses it in the editor's colours and a client in a demo, it changes nothing on the published site, and it needs a value only for the colours it changes (designToken.setValue with its \`mode\`).
 - styles.get reads several classes, or every class in a node's subtree, in one call.
 - A gradient is a value for \`background-image\`, not a CSS string:
 \`{"type":"gradient","kind":"linear","angle":135,"stops":[{"color":{"type":"color","value":"#6952d9"},"position":0},{"color":{"type":"designToken","ref":"<tokenId>"},"position":100}]}\`

@@ -1,4 +1,5 @@
 export {
+  type CompiledTheme,
   type CompiledToken,
   type GenerateOptions,
   generateStylesheet,

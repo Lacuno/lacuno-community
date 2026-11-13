@@ -59,6 +59,11 @@ describe.skipIf(process.env.LACUNO_FAST_TESTS)('build (runs Astro, slow)', () =>
       value: '#3b5bdb',
     })
     expect(tokens).toContainEqual(expect.objectContaining({ name: 'color.fg', value: '#111' }))
+    // The other modes as colour themes: the colours each sets, without its other variables.
+    const themes = JSON.parse(await readFile(path.join(dir, 'dist/_lacuno/themes.json'), 'utf8'))
+    expect(themes).toEqual([
+      { id: 'dark', label: 'Dark', tokens: expect.objectContaining({ '--color-fg': '#eee' }) },
+    ])
     expect(existsSync(path.join(dir, 'dist/404/index.html'))).toBe(false)
     // The noindex post page and the not-found page stay out of the sitemap.
     const sitemap = await readFile(path.join(dir, 'dist/sitemap-0.xml'), 'utf8')

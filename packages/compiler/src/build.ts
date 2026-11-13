@@ -273,7 +273,7 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
     }
   }
 
-  const { css, tokens } = generateStylesheet(doc, { assetUrl: publicAssetPath })
+  const { css, tokens, themes } = generateStylesheet(doc, { assetUrl: publicAssetPath })
 
   await writeScaffold({
     root,
@@ -281,6 +281,7 @@ export async function build(siteDir: string, options: BuildOptions = {}): Promis
     doc,
     css,
     tokens,
+    themes,
     astroDir: packageDir('astro'),
     compilerDir: packageDir('@lacuno/compiler'),
     ...(options.maxImageWidth ? { maxImageWidth: options.maxImageWidth } : {}),

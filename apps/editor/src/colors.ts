@@ -67,3 +67,31 @@ export function pickerHex(value: string, fallback: string): string {
   const parts = parseRgb(value)
   return parts ? rgbHex(parts) : fallback
 }
+
+/** A site's colour themes: its modes other than the default. */
+export const themes = (doc: Document) => doc.site.modes.filter((mode) => !mode.default)
+
+/** The colours a theme sets, by CSS name, as the canvas previews them. */
+export const themeColors = (doc: Document, mode: string): Record<string, string> =>
+  Object.fromEntries(
+    projectColors(doc)
+      .filter((token) => mode !== defaultMode(doc) && token.values[mode])
+      .map((token) => [designTokenCssName(token.name), colorPreview(doc, token.id, mode)]),
+  )
+
+/** Removes a theme: a mode with values cannot be deleted, so its values go first. */
+export const deleteTheme = (doc: Document, mode: string): Operation[] => [
+  ...Object.values(doc.designTokens)
+    .filter((token) => token.values[mode])
+    .map((token) => ({ type: 'designToken.clearValue' as const, id: token.id, mode })),
+  { type: 'mode.delete', id: mode },
+]
+
+/** Makes a theme's colours the site's own. The theme stays. */
+export const applyTheme = (doc: Document, mode: string): Operation[] =>
+  projectColors(doc).flatMap((token) => {
+    const value = token.values[mode]
+    return value
+      ? [{ type: 'designToken.setValue' as const, id: token.id, mode: defaultMode(doc), value }]
+      : []
+  })

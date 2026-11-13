@@ -2,15 +2,19 @@ import { contextFromDocument, serializeValue } from '@lacuno/css'
 import type { Operation } from '@lacuno/document'
 import { referencesToDesignToken } from '@lacuno/document/references'
 import { type Document, designTokenCssName } from '@lacuno/schema'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { LivePreview } from './Canvas.js'
 import {
+  applyTheme,
   colorLabel,
   colorPreview,
   colorToken,
   defaultMode,
+  deleteTheme,
   pickerHex,
   projectColors,
+  themeColors,
+  themes,
 } from './colors.js'
 import { Dialog, ErrorNote } from './Dialog.js'
 import {
@@ -47,6 +51,9 @@ export function ProjectColors({
   leave: (action: () => void) => Promise<void>
 }) {
   const { doc, busy, conflict } = form
+  // The theme whose colours show and change: the person's view, like the breakpoint.
+  const [theme, setTheme] = useState('')
+  const mode = themes(doc).some((item) => item.id === theme) ? theme : defaultMode(doc)
   const [selected, setSelected] = useState('')
   const [family, setFamily] = useState('')
   const [reset, setReset] = useState(0)
@@ -87,6 +94,15 @@ export function ProjectColors({
           </button>
         ))}
       </nav>
+      {group === 'color' && (
+        <Themes
+          doc={doc}
+          mode={mode}
+          disabled={busy || conflict}
+          choose={(id) => switchTo(() => setTheme(id))}
+          save={form.save}
+        />
+      )}
       {group === 'color' ? (
         <div className="colors-layout">
           <nav aria-label="Project palette">
@@ -118,15 +134,17 @@ export function ProjectColors({
               >
                 <span
                   className="color-swatch"
-                  style={{ background: colorPreview(doc, token.id) }}
+                  style={{ background: colorPreview(doc, token.id, mode) }}
                 />
                 <span>{colorLabel(token.name)}</span>
               </button>
             ))}
           </nav>
           <ColorForm
-            key={`${selected}-${family}-${reset}`}
+            key={`${selected}-${family}-${mode}-${reset}`}
             {...form}
+            mode={mode}
+            remount={() => setReset((value) => value + 1)}
             selected={selected}
             family={family}
             created={(id) => {
@@ -226,22 +244,169 @@ function useTokenSave(
   return { flush: autosave.flush, status }
 }
 
+/**
+ * The theme switch above the colours: a chip per theme with its colours, the site's own first, and
+ * for the chosen theme its name, its use as the site's colours and its removal.
+ */
+function Themes({
+  doc,
+  mode,
+  disabled,
+  choose,
+  save,
+}: {
+  doc: Document
+  mode: string
+  disabled: boolean
+  choose: (id: string) => void
+  save: (ops: Operation[]) => Promise<boolean>
+}) {
+  const original = defaultMode(doc)
+  const chosen = mode === original ? undefined : doc.site.modes.find((item) => item.id === mode)
+  // The name being typed: of a new theme, or of the chosen one.
+  const [naming, setNaming] = useState<'' | 'new' | 'rename'>('')
+  const [name, setName] = useState('')
+  const field = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (naming) field.current?.select()
+  }, [naming])
+  const start = (kind: 'new' | 'rename') => {
+    setName(kind === 'rename' ? chosen!.label : '')
+    setNaming(kind)
+  }
+  const chip = (id: string, label: string) => (
+    <button
+      type="button"
+      className="theme-chip"
+      key={id}
+      aria-pressed={mode === id}
+      disabled={disabled}
+      onClick={() => choose(id)}
+    >
+      <span className="theme-dots" aria-hidden="true">
+        {projectColors(doc)
+          .slice(0, 4)
+          .map((token) => (
+            <span key={token.id} style={{ background: colorPreview(doc, token.id, id) }} />
+          ))}
+      </span>
+      {label}
+    </button>
+  )
+  if (naming)
+    return (
+      <form
+        className="themes-bar"
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return
+          // Escape leaves the name, not the dialog.
+          event.preventDefault()
+          setNaming('')
+        }}
+        onSubmit={async (event) => {
+          event.preventDefault()
+          const label = name.trim()
+          if (!label || disabled) return
+          const id = `mode-${crypto.randomUUID()}`
+          const saved = await save([
+            naming === 'new'
+              ? { type: 'mode.create', id, label }
+              : { type: 'mode.update', id: mode, label },
+          ])
+          if (!saved) return
+          if (naming === 'new') choose(id)
+          setNaming('')
+        }}
+      >
+        <input
+          ref={field}
+          aria-label="Theme name"
+          autoComplete="off"
+          maxLength={60}
+          value={name}
+          disabled={disabled}
+          placeholder="Theme name, e.g. Sage"
+          onChange={(event) => setName(event.target.value)}
+        />
+        <button className="primary" type="submit" disabled={disabled || !name.trim()}>
+          {naming === 'new' ? 'Create theme' : 'Rename theme'}
+        </button>
+        <button type="button" className="quiet" onClick={() => setNaming('')}>
+          Cancel
+        </button>
+      </form>
+    )
+  return (
+    <div className="themes-bar">
+      {/* biome-ignore lint/a11y/useSemanticElements: a fieldset would bring its own box and legend. */}
+      <div className="theme-chips" role="group" aria-label="Theme">
+        {chip(original, 'Original')}
+        {themes(doc).map((item) => chip(item.id, item.label))}
+        <button
+          type="button"
+          className="theme-chip new"
+          disabled={disabled}
+          onClick={() => start('new')}
+        >
+          New theme
+        </button>
+      </div>
+      {chosen && (
+        <div className="theme-actions">
+          <button
+            type="button"
+            className="quiet"
+            disabled={disabled}
+            onClick={() => start('rename')}
+          >
+            Rename
+          </button>
+          <button
+            type="button"
+            className="quiet"
+            disabled={disabled || !applyTheme(doc, mode).length}
+            onClick={() => void save(applyTheme(doc, mode))}
+          >
+            Use as the site’s colors
+          </button>
+          <button
+            type="button"
+            className="quiet danger"
+            disabled={disabled}
+            onClick={async () => {
+              if (await save(deleteTheme(doc, mode))) choose(original)
+            }}
+          >
+            Delete theme
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ColorForm({
   selected,
   family,
+  mode,
+  remount,
   created,
   variant,
   ...form
 }: FormProps & {
+  /** The mode whose values show and change: the default, or the chosen theme. */
+  mode: string
+  /** Starts the form again from the saved colour. */
+  remount: () => void
   selected: string
   family: string
   created: (id: string) => void
   variant: () => void
 }) {
-  const { doc, busy, conflict, save } = form
+  const { doc, busy, conflict, save, autoSave } = form
   const token = doc.designTokens[selected]
   const [name, setName] = useState('')
-  const [mode, setMode] = useState(defaultMode(doc))
+  const themed = mode !== defaultMode(doc)
   const original = token ? colorPreview(doc, selected, mode) : '#6952d9'
   const [value, setValue] = useState(original)
   const [validation, setValidation] = useState('')
@@ -268,7 +433,13 @@ function ColorForm({
     !!token,
     dirty,
     valid ? '' : 'Enter a valid color',
-    token && valid ? { colors: { [designTokenCssName(token.name)]: value } } : {},
+    // The canvas shows the chosen theme, with the colour being changed on top.
+    {
+      colors: {
+        ...themeColors(doc, mode),
+        ...(token && valid ? { [designTokenCssName(token.name)]: value } : {}),
+      },
+    },
   )
   const uses = token
     ? referencesToDesignToken(doc, token.id)
@@ -315,25 +486,6 @@ function ColorForm({
             placeholder={family ? 'e.g. Light or Muted' : 'e.g. Brand or Surface'}
             onChange={(event) => setName(event.target.value)}
           />
-        </label>
-      )}
-      {token && doc.site.modes.length > 1 && (
-        <label>
-          Color mode
-          <select
-            disabled={busy || dirty}
-            value={mode}
-            onChange={(event) => {
-              setMode(event.target.value)
-              setValue(colorPreview(doc, selected, event.target.value))
-            }}
-          >
-            {doc.site.modes.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
         </label>
       )}
       <div className="color-value-row">
@@ -387,6 +539,21 @@ function ColorForm({
         {token && (
           <>
             {status}
+            {themed &&
+              (token.values[mode] ? (
+                <button
+                  type="button"
+                  disabled={busy || conflict || dirty}
+                  onClick={async () => {
+                    if (await autoSave([{ type: 'designToken.clearValue', id: token.id, mode }]))
+                      remount()
+                  }}
+                >
+                  Reset to original
+                </button>
+              ) : (
+                <span className="hint">Same as the original</span>
+              ))}
             <button type="button" disabled={conflict} onClick={variant}>
               Add variant
             </button>
